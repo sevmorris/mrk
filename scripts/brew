@@ -354,15 +354,19 @@ install_brewfile() {
   declare -A cask_lines=()
 
   # Pre-fetch installed package lists for O(1) lookup (avoids per-package brew list calls)
+  # Note: use explicit pipe to avoid issues with exec > >(tee) redirect
   log "Fetching installed package lists..."
   declare -A _installed_formulae=()
   declare -A _installed_casks=()
+  local _tmp_formulae _tmp_casks
+  _tmp_formulae=$(brew list --formula 2>/dev/null) || true
+  _tmp_casks=$(brew list --cask 2>/dev/null) || true
   while IFS= read -r _pkg; do
     [[ -n "$_pkg" ]] && _installed_formulae["$_pkg"]=1
-  done < <(brew list --formula 2>/dev/null)
+  done <<< "$_tmp_formulae"
   while IFS= read -r _pkg; do
     [[ -n "$_pkg" ]] && _installed_casks["$_pkg"]=1
-  done < <(brew list --cask 2>/dev/null)
+  done <<< "$_tmp_casks"
 
   # First pass: collect all items and check installation status
   log "Scanning Brewfile for packages..."
