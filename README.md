@@ -7,32 +7,21 @@ Opinionated, idempotent macOS setup in three phases.
 ```bash
 git clone https://github.com/sevmorris/mrk.git ~/mrk
 cd ~/mrk
-
-# Phase 1: dotfiles, tools, defaults, shell
 make install
-
-# Phase 2: Homebrew packages (interactive)
 make brew
-
-# Phase 3: app config, login items
 make post-install
-```
-
-Or run everything at once:
-
-```bash
-make all
+exec zsh
 ```
 
 ## Phases
 
 | Phase | Command | What it does |
 |-------|---------|--------------|
-| **1 — Setup** | `make setup` | Xcode CLI tools, dotfile symlinks, tool linking, macOS defaults, login shell |
+| **1 — Setup** | `make install` | Xcode CLI tools, dotfile symlinks, tool linking, macOS defaults, login shell |
 | **2 — Brew** | `make brew` | Installs Homebrew, then interactively selects formulae & casks from `Brewfile` |
 | **3 — Post-install** | `make post-install` | App preferences, browser policies, login items |
 
-Phases are independent — run any subset, in any order, as many times as you want.
+Run `make all` to execute all three phases at once. Phases are independent — run any subset, in any order, as many times as you want.
 
 ## Make Targets
 
