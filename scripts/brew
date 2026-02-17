@@ -90,7 +90,7 @@ ERRORS=0
 
 # Check if Homebrew is installed
 check_homebrew() {
-  if command -v brew >/dev/null 2>&1; then
+  if [[ -x /opt/homebrew/bin/brew ]] || [[ -x /usr/local/bin/brew ]]; then
     log "Homebrew is already installed"
     return 0
   fi
@@ -135,20 +135,24 @@ install_homebrew() {
   fi
 }
 
-# Ensure Homebrew is in PATH
-ensure_brew_path() {
-  if ! command -v brew >/dev/null 2>&1; then
-    if [[ -f /opt/homebrew/bin/brew ]]; then
-      eval "$(/opt/homebrew/bin/brew shellenv)"
-    elif [[ -f /usr/local/bin/brew ]]; then
-      eval "$(/usr/local/bin/brew shellenv)"
-    fi
-  fi
-
-  if ! command -v brew >/dev/null 2>&1; then
-    err "Homebrew is not in PATH. Please install it manually or restart your shell."
+# Resolve the real Homebrew binary (not ~/bin/brew which is this script!)
+HOMEBREW=""
+resolve_homebrew() {
+  if [[ -x /opt/homebrew/bin/brew ]]; then
+    HOMEBREW=/opt/homebrew/bin/brew
+  elif [[ -x /usr/local/bin/brew ]]; then
+    HOMEBREW=/usr/local/bin/brew
+  else
+    err "Homebrew not found at /opt/homebrew/bin/brew or /usr/local/bin/brew"
     return 1
   fi
+  # Also ensure brew shellenv is loaded for dependencies
+  eval "$($HOMEBREW shellenv)"
+}
+
+# Ensure Homebrew is in PATH
+ensure_brew_path() {
+  resolve_homebrew
 }
 
 # Formula descriptions (associative array for O(1) lookup)
@@ -211,7 +215,7 @@ ensure_gum() {
     return 0
   fi
   log "Installing gum (TUI toolkit)..."
-  if brew install gum; then
+  if $HOMEBREW install gum; then
     log "gum installed successfully"
     return 0
   else
@@ -360,8 +364,8 @@ install_brewfile() {
   declare -A _installed_formulae=()
   declare -A _installed_casks=()
   local _tmp_formulae _tmp_casks
-  _tmp_formulae=$(command brew list --formula 2>/dev/null) || true
-  _tmp_casks=$(command brew list --cask 2>/dev/null) || true
+  _tmp_formulae=$($HOMEBREW list --formula 2>/dev/null) || true
+  _tmp_casks=$($HOMEBREW list --cask 2>/dev/null) || true
   while IFS= read -r _pkg; do
     [[ -n "$_pkg" ]] && _installed_formulae["$_pkg"]=1
   done <<< "$_tmp_formulae"
@@ -489,7 +493,7 @@ install_brewfile() {
   log "Installing selected packages..."
 
   # Run brew bundle with stdin from terminal (for any interactive prompts)
-  if brew bundle --file="$TEMP_BREWFILE" --verbose < /dev/tty; then
+  if $HOMEBREW bundle --file="$TEMP_BREWFILE" --verbose < /dev/tty; then
     log "Brewfile installation completed successfully"
     return 0
   else
