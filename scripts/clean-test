@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# clean-test — Remove all mrk artifacts for a fresh test install
+# This removes ~/mrk, ~/.mrk, ~/bin symlinks, and dotfile symlinks.
+# Does NOT uninstall Homebrew packages or undo macOS defaults.
+
+RED='\033[31m'
+GREEN='\033[32m'
+YELLOW='\033[33m'
+RESET='\033[0m'
+
+log()  { printf "${GREEN}[clean]${RESET} %s\n" "$*"; }
+warn() { printf "${YELLOW}[clean]${RESET} %s\n" "$*"; }
+
+MRK_DIR="$HOME/mrk"
+STATE_DIR="$HOME/.mrk"
+BIN_DIR="$HOME/bin"
+
+echo ""
+echo "This will remove:"
+echo "  • $MRK_DIR (cloned repo)"
+echo "  • $STATE_DIR (state/backups/rollback)"
+echo "  • Symlinks in $BIN_DIR pointing to mrk"
+echo "  • Dotfile symlinks in $HOME pointing to mrk"
+echo ""
+printf "Continue? [y/N]: "
+read -r answer
+if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+  echo "Aborted."
+  exit 0
+fi
+
+# Remove ~/bin symlinks that point into mrk
+if [[ -d "$BIN_DIR" ]]; then
+  log "Removing mrk symlinks from $BIN_DIR..."
+  find "$BIN_DIR" -maxdepth 1 -type l | while read -r link; do
+    target=$(readlink "$link" 2>/dev/null || true)
+    if [[ "$target" == *"/mrk/"* || "$target" == "$MRK_DIR"/* ]]; then
+      rm -f "$link"
+      log "  Removed: $(basename "$link")"
+    fi
+  done
+fi
+
+# Remove dotfile symlinks that point into mrk
+log "Removing mrk dotfile symlinks from $HOME..."
+for f in "$HOME"/.*; do
+  [[ -L "$f" ]] || continue
+  target=$(readlink "$f" 2>/dev/null || true)
+  if [[ "$target" == *"/mrk/"* || "$target" == "$MRK_DIR"/* ]]; then
+    rm -f "$f"
+    log "  Removed: $(basename "$f")"
+  fi
+done
+
+# Remove state directory
+if [[ -d "$STATE_DIR" ]]; then
+  log "Removing $STATE_DIR..."
+  rm -rf "$STATE_DIR"
+fi
+
+# Remove cloned repo
+if [[ -d "$MRK_DIR" ]]; then
+  log "Removing $MRK_DIR..."
+  rm -rf "$MRK_DIR"
+fi
+
+# Clean up log files
+for f in "$HOME/mrk-install.log" "$HOME/mrk-install.log.old"; do
+  if [[ -f "$f" ]]; then
+    rm -f "$f"
+    log "Removed $f"
+  fi
+done
+
+echo ""
+log "Clean complete. Ready for a fresh install:"
+echo "  git clone https://github.com/sevmorris/mrk.git ~/mrk"
+echo "  cd ~/mrk && make install"
+echo ""
