@@ -7,6 +7,9 @@ mrk2-install.log
 
 # macOS
 .DS_Store
+
+# Dev-only scripts (not distributed)
+scripts/clean-test
 .AppleDouble
 .LSOverride
 ._*
