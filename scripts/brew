@@ -77,7 +77,9 @@ fi
 # Track installation statistics
 BREW_INSTALLED=0
 FORMULAE_INSTALLED=0
+FORMULAE_SKIPPED=0
 CASKS_INSTALLED=0
+CASKS_SKIPPED=0
 ERRORS=0
 
 # Check if Homebrew is installed
@@ -228,12 +230,43 @@ interactive_selection() {
     type_label="Formula"
   fi
   
-  echo ""
-  echo "Select $type_label items to install (y/n, default: n):"
-  echo ""
+  # First pass: show already-installed items
+  local i item_data name
+  local skipped=0
+  for (( i=0; i<eval_total; i++ )); do
+    eval "item_data=\${${items_var}[$i]}"
+    name="${item_data%%|*}"
+    if [[ "$item_data" == *"|installed" ]]; then
+      ((skipped++)) || true
+    fi
+  done
+
+  if (( skipped > 0 )); then
+    echo "" > /dev/tty
+    printf "\033[32mAlready installed (%d %s):\033[0m\n" "$skipped" "${type_label,,}(s)" > /dev/tty
+    for (( i=0; i<eval_total; i++ )); do
+      eval "item_data=\${${items_var}[$i]}"
+      name="${item_data%%|*}"
+      if [[ "$item_data" == *"|installed" ]]; then
+        printf "  ✓ %s\n" "$name" > /dev/tty
+      fi
+    done
+  fi
+
+  # Count not-yet-installed
+  local to_install=$(( eval_total - skipped ))
+  if (( to_install == 0 )); then
+    echo "" > /dev/tty
+    printf "\033[32mAll %d %s(s) already installed. Nothing to do.\033[0m\n" "$eval_total" "${type_label,,}" > /dev/tty
+    echo "" > /dev/tty
+    return 0
+  fi
+
+  echo "" > /dev/tty
+  echo "Select $type_label items to install ($to_install remaining, y/n, default: n):" > /dev/tty
+  echo "" > /dev/tty
   
   # Initialize all as unselected and prompt
-  local i item_data name
   for (( i=0; i<eval_total; i++ )); do
     eval "item_data=\${${items_var}[$i]}"
     name="${item_data%%|*}"
@@ -403,7 +436,11 @@ install_brewfile() {
       fi
     done
     FORMULAE_INSTALLED=$selected_count
-    log "Selected $selected_count/${#formula_items[@]} formulae for installation"
+    # Count already-installed
+    for item in "${formula_items[@]}"; do
+      [[ "$item" == *"|installed" ]] && ((FORMULAE_SKIPPED++)) || true
+    done
+    log "Selected $selected_count/${#formula_items[@]} formulae for installation ($FORMULAE_SKIPPED already installed)"
   elif (( NO_FORMULAE )); then
     FORMULAE_INSTALLED=0
     log "Skipped ${#formula_items[@]} formulae (--no-formulae flag)"
@@ -429,7 +466,10 @@ install_brewfile() {
       fi
     done
     CASKS_INSTALLED=$selected_count
-    log "Selected $selected_count/${#cask_items[@]} casks for installation"
+    for item in "${cask_items[@]}"; do
+      [[ "$item" == *"|installed" ]] && ((CASKS_SKIPPED++)) || true
+    done
+    log "Selected $selected_count/${#cask_items[@]} casks for installation ($CASKS_SKIPPED already installed)"
   fi
 
   # Install from temporary Brewfile
@@ -514,9 +554,15 @@ show_summary() {
   if (( FORMULAE_INSTALLED > 0 )); then
     echo "  ✓ Formulae installed: ~$FORMULAE_INSTALLED"
   fi
+  if (( FORMULAE_SKIPPED > 0 )); then
+    echo "  · Formulae skipped: $FORMULAE_SKIPPED (already installed)"
+  fi
   
   if (( CASKS_INSTALLED > 0 )); then
     echo "  ✓ Casks installed: ~$CASKS_INSTALLED"
+  fi
+  if (( CASKS_SKIPPED > 0 )); then
+    echo "  · Casks skipped: $CASKS_SKIPPED (already installed)"
   fi
   
   if (( ERRORS > 0 )); then
