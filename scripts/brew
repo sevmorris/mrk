@@ -85,7 +85,7 @@ ERRORS=0
 # Check if Homebrew is installed
 check_homebrew() {
   if command -v brew >/dev/null 2>&1; then
-    log "Homebrew is already installed: $(brew --version | head -n1)"
+    log "Homebrew is already installed"
     return 0
   fi
   return 1
@@ -205,7 +205,7 @@ ensure_gum() {
     return 0
   fi
   log "Installing gum (TUI toolkit)..."
-  if brew install gum >/dev/null 2>&1; then
+  if brew install gum; then
     log "gum installed successfully"
     return 0
   else
