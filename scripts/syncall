@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Config (env-overridable)
+: "${SYNCALL_ROOT:="$HOME"}"
+: "${SYNCALL_MAX_DEPTH:=7}"   # search depth under $HOME (if supported by find)
+: "${SYNCALL_ONLY_GITHUB:=1}" # 1 = only repos whose remotes include github.com
+: "${SYNCALL_DRY_RUN:=0}"     # 1 = preview only (or pass --dry-run)
+: "${SYNCALL_EXCLUDES:="$HOME/Library:$HOME/.Trash:$HOME/.venvs:$HOME/.cache:$HOME/.cargo:$HOME/.npm:_build:node_modules:.git/modules"}"
+: "${SYNCALL_DEFAULT_REMOTE:=origin}" # fallback remote if no upstream is set
+: "${SYNCALL_SKIP_PATHS:="$HOME/mrk"}" # colon-separated folders to skip entirely
+
+# Colors
+if command -v tput >/dev/null 2>&1 && [[ -t 1 ]]; then
+  bold=$(tput bold); green=$(tput setaf 2); cyan=$(tput setaf 6); yellow=$(tput setaf 3); red=$(tput setaf 1); reset=$(tput sgr0)
+else
+  bold=""; green=""; cyan=""; yellow=""; red=""; reset=""
+fi
+log()  { printf "%s%s%s\n" "$cyan" "$*" "$reset"; }
+good() { printf "%s%s%s\n" "$green" "$*" "$reset"; }
+warn() { printf "%s%s%s\n" "$yellow" "$*" "$reset"; }
+err()  { printf "%s%s%s\n" "$red" "$*" "$reset" >&2; }
+
+# --- helpers ---------------------------------------------------------------
+
+rp() {
+  python3 - "$1" <<'PY' 2>/dev/null || readlink "$1" 2>/dev/null || printf '%s\n' "$1"
+import os, sys
+print(os.path.realpath(sys.argv[1]))
+PY
+}
+
+git_toplevel()        { git -C "$1" rev-parse --show-toplevel 2>/dev/null; }
+has_remote_github()   { git -C "$1" remote -v | grep -q 'github\.com'; }
+current_branch()      { git -C "$1" rev-parse --abbrev-ref HEAD 2>/dev/null; }
+
+# Repo dirtiness
+is_dirty()   { git -C "$1" status --porcelain 2>/dev/null | grep -q .; }
+has_stash()  { git -C "$1" rev-parse -q --verify refs/stash >/dev/null 2>&1; }
+
+# Always stage & commit whatever changed (respects .gitignore)
+auto_commit() {
+  local dir="$1"
+  local msg
+  msg="syncall: auto-commit $(date +%Y-%m-%dT%H:%M:%S)"
+  git -C "$dir" add -A
+  # If nothing to commit, this exits non-zero; that's fine.
+  git -C "$dir" commit -m "$msg" >/dev/null 2>&1 || true
+}
+
+# Push HEAD to the same branch name on remote (even without upstream)
+can_push() {
+  local dir="$1" remote="${2:-$SYNCALL_DEFAULT_REMOTE}" branch
+  branch="$(current_branch "$dir")" || return 1
+  GIT_TERMINAL_PROMPT=0 git -C "$dir" push --dry-run -q "$remote" "HEAD:$branch" &>/dev/null
+}
+
+push_repo() {
+  local dir="$1" remote="${2:-$SYNCALL_DEFAULT_REMOTE}" branch
+  branch="$(current_branch "$dir")" || return 1
+  if [[ "${SYNCALL_DRY_RUN}" == "1" ]]; then
+    log "DRY-RUN: would push $dir ($remote → $branch)"
+  else
+    git -C "$dir" push "$remote" "HEAD:$branch" && good "pushed: $dir"
+  fi
+}
+
+# Build a find(1) prune expression from SYNCALL_EXCLUDES and SYNCALL_SKIP_PATHS
+build_prune_expr() {
+  local IFS=':'; read -r -a excl <<<"$SYNCALL_EXCLUDES"
+  local -a skip; read -r -a skip <<<"$SYNCALL_SKIP_PATHS"
+
+  PRUNE_EXPR=()
+  for p in "${excl[@]}"; do
+    [[ -z "$p" ]] && continue
+    PRUNE_EXPR+=(-path "$p" -o)
+  done
+  for s in "${skip[@]}"; do
+    [[ -z "$s" ]] && continue
+    PRUNE_EXPR+=(-path "$(rp "$s")" -o)
+  done
+  if ((${#PRUNE_EXPR[@]} >= 1)) && [[ "${PRUNE_EXPR[-1]}" == "-o" ]]; then
+    unset 'PRUNE_EXPR[-1]'
+  fi
+}
+
+should_skip_repo() {
+  local repo_real; repo_real="$(rp "$1")"
+  local IFS=':'; read -r -a skip <<<"$SYNCALL_SKIP_PATHS"
+  for s in "${skip[@]}"; do
+    [[ -z "$s" ]] && continue
+    [[ "$repo_real" == "$(rp "$s")" ]] && return 0
+  done
+  return 1
+}
+
+discover_repos() {
+  build_prune_expr
+  local have_maxdepth=0
+  if find . -maxdepth 0 -print >/dev/null 2>&1; then have_maxdepth=1; fi
+
+  local -a cmd=(find "$SYNCALL_ROOT" -xdev)
+  if [[ $have_maxdepth -eq 1 ]]; then cmd+=(-maxdepth "$SYNCALL_MAX_DEPTH"); fi
+  if ((${#PRUNE_EXPR[@]})); then cmd+=( \( "${PRUNE_EXPR[@]}" \) -prune -o ); fi
+  cmd+=( \( -type d -name .git -o -type f -name .git \) -print )
+
+  "${cmd[@]}" 2>/dev/null \
+    | while IFS= read -r git_marker; do
+      repo_dir="$(dirname "$git_marker")"
+      toplevel="$(git_toplevel "$repo_dir" || true)"
+      [[ -n "$toplevel" ]] && printf '%s\n' "$toplevel"
+    done | sort -u
+}
+
+# --- main ------------------------------------------------------------------
+
+main() {
+  log "${bold}Syncing repos under ${SYNCALL_ROOT}${reset}"
+  repos=()
+  while IFS= read -r r; do repos+=("$r"); done < <(discover_repos)
+
+  for r in "${repos[@]}"; do
+    [[ -d "$r/.git" ]] || continue
+
+    # Skip configured paths (e.g., ~/mrk)
+    if should_skip_repo "$r"; then
+      warn "skip (configured): $r"
+      continue
+    fi
+
+    # Optionally skip non-GitHub remotes
+    if [[ "$SYNCALL_ONLY_GITHUB" == "1" ]] && ! has_remote_github "$r"; then
+      warn "skip (non-GitHub): $r"
+      continue
+    fi
+
+    # Always auto-commit local changes before pushing
+    if is_dirty "$r"; then
+      warn "auto-commit: $r has local changes"
+      auto_commit "$r"
+    fi
+
+    # Push even if there were no changes (fast-forward noop is fine)
+    if can_push "$r"; then
+      push_repo "$r"
+    else
+      warn "no push permission: $r"
+    fi
+  done
+
+  echo
+  good "––––––––––––––"
+  log "${bold}Sync complete${reset}"
+  mkdir -p "${HOME}/.cache/mrk"
+  echo "syncall ran on $(date)" >>"${HOME}/.cache/mrk/syncall.log"
+  good "––––––––––––––"
+}
+
+main "$@"

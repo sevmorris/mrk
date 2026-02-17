@@ -1,0 +1,16 @@
+# Shellcheck configuration for mrk1 project
+
+# Allow sourcing files that may not exist (common in bootstrap scripts)
+disable=SC1090,SC1091
+
+# Allow printf with format strings (we control the format)
+disable=SC2059
+
+# Allow find with -exec (we're careful with quoting)
+disable=SC2038
+
+# Functions invoked indirectly (via run_phase, variable expansion, etc.)
+disable=SC2329
+
+# Note: SC2086 (unquoted variables) and SC2046 (unquoted command substitution)
+# are NOT disabled globally. Fix quoting issues in scripts instead.

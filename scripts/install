@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk installer — unified macOS bootstrap
+#
+# Usage:
+#   scripts/install              # Phase 1 only (setup: dotfiles, tools, defaults)
+#   scripts/install --brew       # Phase 2 (Homebrew packages)
+#   scripts/install --post       # Phase 3 (app config, login items)
+#   scripts/install --all        # All phases sequentially
+#
+# All other flags are passed through to the relevant phase script.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source shared helpers
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+check_macos
+
+# Parse top-level flag
+PHASE=""
+PASSTHROUGH=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --brew)  PHASE="brew" ;;
+    --post)  PHASE="post" ;;
+    --all)   PHASE="all" ;;
+    -h|--help)
+      cat <<'USAGE'
+mrk installer — unified macOS bootstrap
+
+Usage: scripts/install [phase] [options]
+
+Phases:
+  (default)     Phase 1: setup (dotfiles, tools, defaults, shell)
+  --brew        Phase 2: Homebrew packages
+  --post        Phase 3: app config, login items
+  --all         All phases sequentially
+
+All other flags are passed through to the relevant phase script.
+Run scripts/setup --help or scripts/brew --help for phase-specific options.
+USAGE
+      exit 0
+      ;;
+    *)  PASSTHROUGH+=("$arg") ;;
+  esac
+done
+
+case "${PHASE:-setup}" in
+  setup)
+    exec "$SCRIPT_DIR/setup" "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
+    ;;
+  brew)
+    exec "$SCRIPT_DIR/brew" "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
+    ;;
+  post)
+    exec "$SCRIPT_DIR/post-install" "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
+    ;;
+  all)
+    log "Running all phases..."
+    "$SCRIPT_DIR/setup" "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
+    "$SCRIPT_DIR/brew" "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
+    "$SCRIPT_DIR/post-install" "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
+    log "All phases complete."
+    ;;
+esac

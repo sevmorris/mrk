@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+ok() { printf '\033[32m✓ %s\033[0m\n' "$*"; }
+warn() { printf '\033[33m⚠ %s\033[0m\n' "$*"; }
+err() { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; }
+
+MODE="${1:-check}" # check | --fix | fix
+STATUS=0
+
+check_bin() {
+  case ":$PATH:" in
+    *":$HOME/bin:"*) ok "${HOME}/bin is on PATH" ;;
+    *)
+      warn "${HOME}/bin is NOT on PATH"
+      STATUS=1
+      ;;
+  esac
+}
+
+fix_bin() {
+  mkdir -p "$HOME/bin"
+  # shellcheck disable=SC2016  # Intentionally looking for literal $HOME
+  if ! grep -q '\$HOME/bin' "${HOME}/.zshrc" 2>/dev/null; then
+    # shellcheck disable=SC2016
+    {
+      echo ''
+      echo '# Added by mrk doctor'
+      echo '[ -d "$HOME/bin" ] && case ":$PATH:" in *":$HOME/bin:"*) ;; *) export PATH="$HOME/bin:$PATH";; esac'
+    } >>"${HOME}/.zshrc"
+    ok "Added ~/bin to PATH in .zshrc"
+  fi
+}
+
+case "$MODE" in
+  check)
+    check_bin
+    exit "${STATUS}"
+    ;;
+  --fix | fix)
+    fix_bin
+    ok "Fixes applied"
+    exit 0
+    ;;
+  *)
+    err "Unknown mode: $MODE"
+    exit 2
+    ;;
+esac

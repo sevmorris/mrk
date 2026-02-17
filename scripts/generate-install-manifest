@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+MANIFEST="$REPO_ROOT/.install-manifest"
+
+echo "🧾 Generating install manifest → $MANIFEST"
+
+DOTFILES=(.zshrc .zshenv .zprofile .aliases)
+CANDIDATE_BIN_DIRS=("$HOME/.local/bin" "$HOME/bin")
+CONFIG_DIRS=("$HOME/.config/mrk" "$HOME/.mrk")
+
+resolve_realpath() {
+  python3 - "$1" <<'PY'
+import os, sys
+print(os.path.realpath(sys.argv[1]))
+PY
+}
+
+{
+  echo "# mrk install manifest"
+  echo "# Generated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+  echo "# Only paths safe to remove on uninstall are recorded below."
+} >"$MANIFEST"
+
+for bindir in "${CANDIDATE_BIN_DIRS[@]}"; do
+  [[ -d "$bindir" ]] || continue
+  while IFS= read -r -d '' link; do
+    target="$(resolve_realpath "$link")"
+    case "$target" in
+      "$REPO_ROOT"/scripts/*) echo "$link" >>"$MANIFEST" ;;
+    esac
+  done < <(find "$bindir" -maxdepth 1 -type l -print0 2>/dev/null || true)
+done
+
+for f in "${DOTFILES[@]}"; do
+  path="$HOME/$f"
+  if [[ -L "$path" ]]; then
+    tgt="$(resolve_realpath "$path")"
+    case "$tgt" in
+      "$REPO_ROOT"/dotfiles/*) echo "$path" >>"$MANIFEST" ;;
+    esac
+  fi
+done
+
+for d in "${CONFIG_DIRS[@]}"; do
+  [[ -e "$d" ]] && echo "$d" >>"$MANIFEST"
+done
+
+echo "✅ Manifest written."

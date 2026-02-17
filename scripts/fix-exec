@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# fix-exec — set executable bits on repo scripts and ~/bin (idempotent)
+
+set -euo pipefail
+
+# Resolve repo paths (works from mrk or mrk-dev)
+BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$BASE_DIR")"
+
+TARGETS=(
+  "$PROJECT_ROOT/scripts"
+  "$HOME/bin"
+)
+
+echo "🔧 Ensuring executable bits on mrk scripts…"
+for dir in "${TARGETS[@]}"; do
+  if [ -d "$dir" ]; then
+    # Only chmod top-level files in each target dir
+    find "$dir" -maxdepth 1 -type f -print0 2>/dev/null \
+      | xargs -0 chmod +x 2>/dev/null || true
+    echo "✓ Fixed executables in: $dir"
+  else
+    echo "⚠️ Skipping missing directory: $dir"
+  fi
+done
+
+echo "✅ Done."

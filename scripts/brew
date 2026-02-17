@@ -1,0 +1,546 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk brew — Phase 2: Homebrew packages and applications installation
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source shared helpers
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+check_macos
+
+NO_CASKS=0
+NO_FORMULAE=0
+DEBUG=0
+DRY_RUN=0
+SKIP_BREW_INSTALL=0
+
+while (("$#")); do
+  case "$1" in
+    --no-casks) NO_CASKS=1 ;;
+    --no-formulae) NO_FORMULAE=1 ;;
+    --only-formulae) NO_CASKS=1 ;;  # Only formulae = skip casks
+    --skip-brew-install) SKIP_BREW_INSTALL=1 ;;
+    --debug) DEBUG=1 ;;
+    --dry-run) DRY_RUN=1 ;;
+    -h|--help)
+      cat <<'USAGE'
+mrk brew — Phase 2
+
+Usage: scripts/brew [options]
+  --no-casks            Skip Homebrew cask installation (GUI apps)
+  --no-formulae         Skip Homebrew formulae installation (CLI tools)
+  --only-formulae       Only install Homebrew formulae (CLI tools)
+  --skip-brew-install   Skip Homebrew installation (assume it's already installed)
+  --dry-run             Preview changes without applying them
+  --debug               Enable bash tracing (set -x)
+USAGE
+      exit 0
+      ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+(( DEBUG )) && set -x
+
+if (( DRY_RUN )); then
+  echo "=== DRY RUN MODE: No changes will be made ===" >&2
+fi
+
+# Configuration
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+readonly REPO_ROOT
+readonly BREWFILE="$REPO_ROOT/Brewfile"
+
+# Temp file for dynamic Brewfile (script-level for proper cleanup)
+TEMP_BREWFILE=""
+
+# Cleanup function for proper resource management
+cleanup() {
+  [[ -n "$TEMP_BREWFILE" && -f "$TEMP_BREWFILE" ]] && rm -f "$TEMP_BREWFILE"
+}
+trap cleanup EXIT INT TERM
+
+# Setup logging
+setup_logging
+# Redirect output to log, but keep stderr available for prompts
+exec > >(tee -a "$LOGFILE")
+exec 2> >(tee -a "$LOGFILE" >&2)
+log "Starting brew installation... (log: $LOGFILE)"
+if (( DRY_RUN )); then
+  log "DRY RUN MODE: No changes will be made"
+fi
+
+# Track installation statistics
+BREW_INSTALLED=0
+FORMULAE_INSTALLED=0
+CASKS_INSTALLED=0
+ERRORS=0
+
+# Check if Homebrew is installed
+check_homebrew() {
+  if command -v brew >/dev/null 2>&1; then
+    log "Homebrew is already installed: $(brew --version | head -n1)"
+    return 0
+  fi
+  return 1
+}
+
+# Install Homebrew
+install_homebrew() {
+  if (( SKIP_BREW_INSTALL )); then
+    log "Skipping Homebrew installation (--skip-brew-install flag)"
+    if ! check_homebrew; then
+      err "Homebrew is not installed and --skip-brew-install was specified"
+      return 1
+    fi
+    return 0
+  fi
+
+  if check_homebrew; then
+    return 0
+  fi
+
+  log "Homebrew not found. Installing Homebrew..."
+  if (( DRY_RUN )); then
+    dry "Would run: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+    BREW_INSTALLED=1
+    return 0
+  fi
+
+  if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
+    # Add Homebrew to PATH for Apple Silicon Macs
+    if [[ -f /opt/homebrew/bin/brew ]]; then
+      eval "$(/opt/homebrew/bin/brew shellenv)"
+    elif [[ -f /usr/local/bin/brew ]]; then
+      eval "$(/usr/local/bin/brew shellenv)"
+    fi
+    log "Homebrew installed successfully"
+    BREW_INSTALLED=1
+    return 0
+  else
+    err "Failed to install Homebrew"
+    return 1
+  fi
+}
+
+# Ensure Homebrew is in PATH
+ensure_brew_path() {
+  if ! command -v brew >/dev/null 2>&1; then
+    if [[ -f /opt/homebrew/bin/brew ]]; then
+      eval "$(/opt/homebrew/bin/brew shellenv)"
+    elif [[ -f /usr/local/bin/brew ]]; then
+      eval "$(/usr/local/bin/brew shellenv)"
+    fi
+  fi
+
+  if ! command -v brew >/dev/null 2>&1; then
+    err "Homebrew is not in PATH. Please install it manually or restart your shell."
+    return 1
+  fi
+}
+
+# Formula descriptions (associative array for O(1) lookup)
+declare -A FORMULA_DESCRIPTIONS=(
+  [bash]="Bourne Again SHell - Modern shell with improved features"
+  [bash-completion@2]="Programmable tab completion for Bash 4.1+"
+  [bat]="Cat clone with syntax highlighting and Git integration"
+  [coreutils]="GNU core utilities - Enhanced versions of basic Unix tools"
+  [fastfetch]="Fast system information display tool"
+  [gh]="GitHub CLI - Official command-line tool for GitHub"
+  [git]="Distributed version control system"
+  [gnupg]="GNU Privacy Guard - Encryption and signing tool"
+  [htop]="Interactive process viewer and system monitor"
+  [lsd]="Modern ls replacement with colors and icons"
+  [moreutils]="Collection of useful Unix utilities (sponge, vidir, etc.)"
+  [nano]="Simple terminal-based text editor"
+  [nanorc]="Syntax highlighting configuration for nano"
+  [ncdu]="Disk usage analyzer with ncurses interface"
+  [nethogs]="Monitor network usage per process"
+  [nmap]="Network exploration and security auditing tool"
+  [openssh]="OpenSSH client and server for secure remote access"
+  [paperkey]="Extract secret keys from GnuPG keyrings for backup"
+  [pinentry-mac]="PIN entry dialog for GnuPG on macOS"
+  [pwgen]="Password generator utility"
+  [qemu]="Generic machine emulator and virtualizer"
+  [qrencode]="QR Code generator from text strings"
+  [rclone]="Cloud storage sync tool"
+  [tealdeer]="Fast tldr client - Simplified man pages"
+  [topgrade]="Upgrade everything - Updates all package managers at once"
+  [trash]="Move files to macOS Trash instead of deleting"
+  [watch]="Execute a program periodically and display output"
+  [zsh]="Z shell - Advanced shell with many features"
+  [ripgrep]="Fast text search tool (rg)"
+  [shellcheck]="Static analysis tool for shell scripts"
+  [shfmt]="Shell formatter - Format shell scripts automatically"
+  [python@3.12]="Python 3.12 programming language interpreter"
+  [pipx]="Install and run Python apps in isolated environments"
+  [pyenv]="Python version management tool"
+  [openjdk]="OpenJDK - Open-source Java Development Kit"
+  [ffmpeg]="Complete solution for audio/video conversion"
+  [chromaprint]="Audio fingerprinting library (used by AcoustID)"
+  [whisper-cpp]="Speech-to-text engine (C/C++ port of OpenAI Whisper)"
+  [yt-dlp]="Video/audio downloader from YouTube and other sites"
+  [mac-cleanup-py]="Cleanup script for macOS (caches, logs, trash)"
+  [mkdocs]="Static site generator for project documentation"
+  [nvm]="Node Version Manager - Install and manage Node.js versions"
+  [pandoc]="Universal document converter"
+  [wget]="Internet file retriever"
+)
+
+# Get description for a formula
+get_formula_description() {
+  local name="$1"
+  echo "${FORMULA_DESCRIPTIONS[$name]:-Command-line tool}"
+}
+
+# Simple interactive selection: prompt for each item individually
+# Usage: interactive_selection "cask"|"formula" items_array_name selected_array_name
+# items_array format: "name|line|id" for each item
+# Sets selected items in selected_array (associative array): selected[name]=1 if selected
+# Compatible with Bash 3.2+ (no namerefs)
+interactive_selection() {
+  local type="$1"  # "cask" or "formula"
+  local items_var="$2"  # name of array variable containing items
+  local selected_var="$3"  # name of associative array to store selections
+  
+  # Only show selection if we have a TTY
+  if [[ ! -t 0 ]]; then
+    # Non-interactive, select nothing
+    return 0
+  fi
+  
+  # Get item count via indirect expansion
+  local eval_total
+  eval "eval_total=\${#${items_var}[@]}"
+  if (( eval_total == 0 )); then
+    return 0
+  fi
+  
+  # Simple prompt for each item
+  local type_label=""
+  if [[ "$type" == "cask" ]]; then
+    type_label="Cask"
+  elif [[ "$type" == "formula" ]]; then
+    type_label="Formula"
+  fi
+  
+  echo ""
+  echo "Select $type_label items to install (y/n, default: n):"
+  echo ""
+  
+  # Initialize all as unselected and prompt
+  local i item_data name
+  for (( i=0; i<eval_total; i++ )); do
+    eval "item_data=\${${items_var}[$i]}"
+    name="${item_data%%|*}"
+    
+    # Default to unselected
+    eval "${selected_var}[\"\$name\"]=0"
+    
+    # Skip if already installed
+    if [[ "$item_data" == *"|installed" ]]; then
+      continue
+    fi
+    
+    # Get description for formulae
+    local description=""
+    if [[ "$type" == "formula" ]]; then
+      description=$(get_formula_description "$name")
+    fi
+    
+    # Prompt user
+    while true; do
+      if [[ -n "$description" ]]; then
+        printf "\nInstall %s?\n  Description: %s\n[y/N]: " "$name" "$description" > /dev/tty
+      else
+        printf "Install %s? [y/N]: " "$name" > /dev/tty
+      fi
+      local response
+      read -r response < /dev/tty
+      case "$response" in
+        [yY]|[yY][eE][sS])
+          eval "${selected_var}[\"\$name\"]=1"
+          break
+          ;;
+        [nN]|[nN][oO]|"")
+          break
+          ;;
+        *)
+          echo "Please answer y or n." > /dev/tty
+          ;;
+      esac
+    done
+  done
+  
+  echo ""
+  return 0
+}
+
+# Install packages from Brewfile
+install_brewfile() {
+  if [[ ! -f "$BREWFILE" ]]; then
+    err "Brewfile not found: $BREWFILE"
+    return 1
+  fi
+
+  if ! ensure_brew_path; then
+    return 1
+  fi
+
+  log "Installing packages from Brewfile..."
+
+  if (( DRY_RUN )); then
+    dry "Would run: brew bundle --file=\"$BREWFILE\""
+    log "Brewfile contains:"
+    echo "  - Packages/casks: $(grep -cE "^(brew|cask|tap)" "$BREWFILE")"
+    return 0
+  fi
+
+  # Parse Brewfile and collect items
+  TEMP_BREWFILE=$(mktemp /tmp/mrk-brewfile.XXXXXX)
+
+  local formulae_count=0
+  local casks_count=0
+  
+  # Arrays to store items for selection
+  local -a formula_items=()
+  local -a cask_items=()
+  # Associative arrays for selected items
+  declare -A selected_formulae=()
+  declare -A selected_casks=()
+  # Map names to their Brewfile lines
+  declare -A formula_lines=()
+  declare -A cask_lines=()
+
+  # Pre-fetch installed package lists for O(1) lookup (avoids per-package brew list calls)
+  log "Fetching installed package lists..."
+  declare -A _installed_formulae=()
+  declare -A _installed_casks=()
+  while IFS= read -r _pkg; do
+    [[ -n "$_pkg" ]] && _installed_formulae["$_pkg"]=1
+  done < <(brew list --formula 2>/dev/null)
+  while IFS= read -r _pkg; do
+    [[ -n "$_pkg" ]] && _installed_casks["$_pkg"]=1
+  done < <(brew list --cask 2>/dev/null)
+
+  # First pass: collect all items and check installation status
+  log "Scanning Brewfile for packages..."
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # Copy taps, comments, and blank lines directly
+    if [[ "$line" =~ ^tap\  ]] || [[ "$line" =~ ^# ]] || [[ -z "$line" ]]; then
+      echo "$line" >> "$TEMP_BREWFILE"
+      continue
+    fi
+
+    # Handle formulae (now interactive like casks)
+    if [[ "$line" =~ ^brew\ \"([^\"]+)\" ]]; then
+      local formula="${BASH_REMATCH[1]}"
+      ((formulae_count++))
+      
+      if (( NO_FORMULAE )); then
+        continue
+      fi
+
+      # Check if already installed using cached list (O(1) lookup)
+      if [[ -n "${_installed_formulae[$formula]+x}" ]]; then
+        formula_items+=("$formula|$line|installed")
+      else
+        formula_items+=("$formula|$line|")
+      fi
+      formula_lines["$formula"]="$line"
+      continue
+    fi
+
+    # Handle casks
+    if [[ "$line" =~ ^cask\ \"([^\"]+)\" ]]; then
+      local cask="${BASH_REMATCH[1]}"
+      ((casks_count++))
+      
+      if (( NO_CASKS )); then
+        continue
+      fi
+
+      # Check if already installed using cached list (O(1) lookup)
+      if [[ -n "${_installed_casks[$cask]+x}" ]]; then
+        cask_items+=("$cask|$line|installed")
+      else
+        cask_items+=("$cask|$line|")
+      fi
+      cask_lines["$cask"]="$line"
+      continue
+    fi
+
+    # Skip MAS apps (Mac App Store support removed due to reliability issues)
+    if [[ "$line" =~ ^mas[[:space:]] ]]; then
+      continue
+    fi
+
+    # Copy any other lines we don't recognize (for future compatibility)
+    echo "$line" >> "$TEMP_BREWFILE"
+  done < "$BREWFILE"
+
+  log "Found: ${#formula_items[@]} formulae to select, ${#cask_items[@]} casks to select"
+
+  # Show interactive selection for formulae
+  if (( ${#formula_items[@]} > 0 )) && (( ! NO_FORMULAE )); then
+    interactive_selection "formula" formula_items selected_formulae
+    
+    # Add selected formulae to temp Brewfile (skip already installed ones)
+    local selected_count=0
+    for name in "${!selected_formulae[@]}"; do
+      if (( selected_formulae["$name"] == 1 )); then
+        # Check if already installed using cached list
+        if [[ -n "${_installed_formulae[$name]+x}" ]]; then
+          log "Formula '$name' is already installed, skipping installation"
+          continue
+        fi
+        echo "${formula_lines[$name]}" >> "$TEMP_BREWFILE"
+        ((selected_count++))
+      fi
+    done
+    FORMULAE_INSTALLED=$selected_count
+    log "Selected $selected_count/${#formula_items[@]} formulae for installation"
+  elif (( NO_FORMULAE )); then
+    FORMULAE_INSTALLED=0
+    log "Skipped ${#formula_items[@]} formulae (--no-formulae flag)"
+  else
+    FORMULAE_INSTALLED=0
+  fi
+
+  # Show interactive selection for casks
+  if (( ${#cask_items[@]} > 0 )) && (( ! NO_CASKS )); then
+    interactive_selection "cask" cask_items selected_casks
+    
+    # Add selected casks to temp Brewfile (skip already installed ones)
+    local selected_count=0
+    for name in "${!selected_casks[@]}"; do
+      if (( selected_casks["$name"] == 1 )); then
+        # Check if already installed using cached list
+        if [[ -n "${_installed_casks[$name]+x}" ]]; then
+          log "Cask '$name' is already installed, skipping installation"
+          continue
+        fi
+        echo "${cask_lines[$name]}" >> "$TEMP_BREWFILE"
+        ((selected_count++))
+      fi
+    done
+    CASKS_INSTALLED=$selected_count
+    log "Selected $selected_count/${#cask_items[@]} casks for installation"
+  fi
+
+  # Install from temporary Brewfile
+  # Restore terminal to normal state before running brew bundle
+  stty echo icanon < /dev/tty 2>/dev/null || true
+
+  log "Installing selected packages..."
+
+  # Run brew bundle with stdin from terminal (for any interactive prompts)
+  if brew bundle --file="$TEMP_BREWFILE" --verbose < /dev/tty; then
+    log "Brewfile installation completed successfully"
+    return 0
+  else
+    err "Brewfile installation failed"
+    ((ERRORS++))
+    return 1
+  fi
+}
+
+# Main installation flow
+main() {
+  log "Starting brew installation process..."
+
+  # Pre-flight: check if setup (Phase 1) has been run
+  if [[ ! -d "$HOME/.mrk" ]] && [[ "$(basename "$(dscl . -read "/Users/$USER" UserShell 2>/dev/null | awk '{print $2}')" 2>/dev/null)" != "zsh" ]]; then
+    warn "mrk setup does not appear to have been run (~/.mrk not found and login shell is not zsh)."
+    warn "It's recommended to run Phase 1 first: make setup"
+  fi
+
+  # Pre-flight: check network connectivity
+  if ! curl -sf --max-time 5 https://brew.sh >/dev/null 2>&1; then
+    err "No internet connection detected."
+    exit 1
+  fi
+
+  # Phase 1: Install Homebrew
+  if ! install_homebrew; then
+    err "Failed to install Homebrew. Aborting."
+    exit 1
+  fi
+
+  # Ensure Homebrew is in PATH
+  if ! ensure_brew_path; then
+    err "Homebrew is not available. Aborting."
+    exit 1
+  fi
+
+  # Phase 2: Install from Brewfile
+  if ! install_brewfile; then
+    err "Failed to install packages from Brewfile"
+    ((ERRORS++))
+  fi
+
+  # Phase 3: Post-install (login items, config linking)
+  local post_install="$SCRIPT_DIR/post-install"
+  if [[ -x "$post_install" ]]; then
+    log "Running post-install..."
+    if ! "$post_install"; then
+      warn "Post-install completed with warnings"
+    fi
+  fi
+
+  # Installation summary
+  show_summary
+}
+
+show_summary() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  Brew Summary (Phase 2)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  
+  if (( DRY_RUN )); then
+    echo "  Mode: DRY RUN (no changes were made)"
+    echo ""
+  fi
+  
+  if (( BREW_INSTALLED > 0 )); then
+    echo "  ✓ Homebrew installed"
+  fi
+  
+  if (( FORMULAE_INSTALLED > 0 )); then
+    echo "  ✓ Formulae installed: ~$FORMULAE_INSTALLED"
+  fi
+  
+  if (( CASKS_INSTALLED > 0 )); then
+    echo "  ✓ Casks installed: ~$CASKS_INSTALLED"
+  fi
+  
+  if (( ERRORS > 0 )); then
+    echo "  ✗ Errors encountered: $ERRORS"
+  fi
+
+  echo ""
+  echo "  Log file: $LOGFILE"
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+}
+
+# Run main installation
+main
+
+# Report final status
+if (( DRY_RUN )); then
+  echo ""
+  log "Dry run complete. No changes were made."
+  echo "Run without --dry-run to apply changes."
+elif (( ERRORS > 0 )); then
+  log "Installation completed with errors. Check the log: $LOGFILE"
+  exit 1
+else
+  log "Installation complete."
+fi

@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk uninstaller - conservative
+# - Unlinks ~/bin symlinks pointing into this repo
+# - Optionally runs ~/.mrk/defaults-rollback.sh
+# - Does not remove user data or dotfiles
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+INSTALL_BIN="$HOME/bin"
+
+log(){ printf "[uninstall] %s\n" "$*"; }
+warn(){ printf "[warn] %s\n" "$*"; }
+
+log "Unlinking mrk symlinks from $INSTALL_BIN..."
+removed=0
+failed=0
+
+# Function to remove symlinks from a directory
+remove_symlinks_from() {
+  local dir="$1"
+  if [[ ! -d "$dir" ]]; then
+    return 0
+  fi
+  
+  while IFS= read -r -d '' link; do
+    local target
+    target="$(readlink "$link" 2>/dev/null || true)"
+    if [[ -z "$target" ]]; then
+      continue
+    fi
+    
+    # Check if symlink points to this repo's scripts or bin directories
+    case "$target" in
+      *"/scripts/"*|*"/bin/"*)
+        # Verify it's actually in our repo
+        if [[ "$target" == "$REPO_ROOT"/* ]]; then
+          if rm -f "$link"; then
+            log "Removed: $link -> $target"
+            ((removed++)) || true
+          else
+            warn "Failed to remove: $link"
+            ((failed++)) || true
+          fi
+        fi
+        ;;
+    esac
+  done < <(find "$dir" -maxdepth 1 -type l -print0 2>/dev/null || true)
+}
+
+# Remove from current location (~/bin)
+remove_symlinks_from "$INSTALL_BIN"
+
+# Also clean up old ~/.local/bin links from previous installations
+LEGACY_BIN="$HOME/.local/bin"
+if [[ -d "$LEGACY_BIN" ]]; then
+  log "Cleaning up old symlinks from $LEGACY_BIN..."
+  remove_symlinks_from "$LEGACY_BIN"
+fi
+
+if (( removed > 0 )); then
+  log "Removed $removed symlink(s)"
+fi
+
+if (( failed > 0 )); then
+  warn "$failed symlink(s) failed to remove"
+fi
+
+if (( removed == 0 && failed == 0 )); then
+  if [[ ! -d "$INSTALL_BIN" ]] && [[ ! -d "$LEGACY_BIN" ]]; then
+    warn "Neither $INSTALL_BIN nor $LEGACY_BIN found (nothing to unlink)"
+  fi
+fi
+
+ROLLBACK="$HOME/.mrk/defaults-rollback.sh"
+if [[ -x "$ROLLBACK" ]]; then
+  if [[ -t 0 ]]; then
+    # Interactive mode
+    read -r -p "Run macOS defaults rollback now? [y/N] " ans
+    if [[ "$ans" =~ ^[Yy]$ ]]; then
+      log "Running $ROLLBACK..."
+      if "$ROLLBACK"; then
+        log "Rollback completed successfully"
+      else
+        warn "Rollback returned non-zero exit code"
+      fi
+    else
+      log "Skipped defaults rollback (you can run it later: $ROLLBACK)."
+    fi
+  else
+    # Non-interactive mode - skip rollback
+    log "Non-interactive mode: skipping defaults rollback"
+    log "You can run it manually: $ROLLBACK"
+  fi
+else
+  log "No defaults rollback script present at $ROLLBACK (nothing to do)."
+fi
+
+log "Uninstall complete."

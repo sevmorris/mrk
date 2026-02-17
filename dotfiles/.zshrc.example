@@ -1,0 +1,17 @@
+# Example .zshrc
+# This is an example dotfile that would be linked to ~/.zshrc
+# 
+# To use this:
+# 1. Copy this file to .zshrc (without .example)
+# 2. Customize it for your needs
+# 3. Run: ./scripts/install
+
+# Add ~/.local/bin to PATH if not already present
+[ -d "$HOME/.local/bin" ] && case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) export PATH="$HOME/.local/bin:$PATH";;
+esac
+
+# Your custom zsh configuration here
+# ...
+

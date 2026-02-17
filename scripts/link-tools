@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# link-tools — link repo scripts into ~/.local/bin without creating .sh duplicates
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SRC_DIR="$REPO_ROOT/scripts"
+BIN_DIR="$HOME/bin"
+
+# Create destination directory with error checking
+if ! mkdir -p "$BIN_DIR"; then
+  echo "Error: Failed to create $BIN_DIR directory" >&2
+  exit 1
+fi
+
+echo "🔗 Linking tools from: $SRC_DIR -> $BIN_DIR"
+
+shabang() {
+  # returns 0 if file starts with a shebang (#!)
+  head -n1 "$1" 2>/dev/null | grep -q '^#!'
+}
+
+# Ensure repo scripts are executable (top-level files only)
+find "$SRC_DIR" -maxdepth 1 -type f -print0 \
+  | xargs -0 chmod +x 2>/dev/null || true
+
+linked=0
+failed=0
+while IFS= read -r -d '' src; do
+  base="$(basename "$src")"
+  # Only link files that have a shebang; skip hidden temp files
+  if shabang "$src"; then
+    dest="$BIN_DIR/$base"
+    if ln -sfn "$src" "$dest"; then
+      echo "✓ $dest -> $src"
+      ((linked++)) || true
+
+      # Cleanup legacy .sh dupes if pointing to same src
+      legacy="$BIN_DIR/${base}.sh"
+      if [ -L "$legacy" ] && [ "$(readlink "$legacy")" = "$src" ]; then
+        rm -f "$legacy"
+        echo "🧹 removed legacy link: $legacy"
+      fi
+    else
+      echo "✗ Failed to link: $dest" >&2
+      ((failed++)) || true
+    fi
+  else
+    echo "⏭️  Skipping (no shebang): $base"
+  fi
+done < <(find "$SRC_DIR" -maxdepth 1 -type f -print0 2>/dev/null || true)
+
+if [ "$linked" -eq 0 ]; then
+  echo "ℹ️  No tools linked (no shebang scripts found)."
+else
+  echo "✅ Linked $linked tool(s) into $BIN_DIR"
+fi
+
+if [ "$failed" -gt 0 ]; then
+  echo "⚠️  $failed symlink(s) failed to create" >&2
+  exit 1
+fi

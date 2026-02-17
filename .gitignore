@@ -1,0 +1,51 @@
+# Logs
+*.log
+mrk-install.log
+mrk1-install.log
+mrk2-install.log
+*.log.*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.sublime-*
+
+# Backup directories (if tracked)
+backups/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# State directories (user-specific)
+.mrk/
+.mrk1/
+.mrk2/
+
+# Claude Code runtime data
+.claude/
+dotfiles/.claude/
+
+# Test files
+test-*
+*.test
+
+# Generated files
+.install-manifest
+MANIFEST.json
+
+# Browser extension lists (user-specific)
+assets/browsers/*-extensions.txt
+
+# Homebrew
+Brewfile.lock.json

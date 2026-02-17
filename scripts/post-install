@@ -1,0 +1,252 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk post-install — configure apps installed by Homebrew
+#
+# Run after `make install` to set up login items and link configs
+# that depend on Homebrew-installed packages.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+readonly SCRIPT_DIR REPO_ROOT
+
+log(){ printf "[post-install] %s\n" "$*"; }
+
+failed=0
+
+# Run a defaults script, log the result
+apply_defaults(){
+  local script="$1" name="$2"
+  if bash "$script"; then
+    log "Applied $name defaults"
+  else
+    log "Warning: $name defaults script failed"
+    return 1
+  fi
+}
+
+# Copy a managed policy JSON to the browser's policy directory
+install_browser_policy(){
+  local src="$1" dest_dir="$2" name="$3"
+  local dest="$dest_dir/mrk-policy.json"
+  mkdir -p "$dest_dir"
+  if [[ -f "$dest" ]] && cmp -s "$src" "$dest"; then
+    log "$name policy already installed"
+    return 0
+  fi
+  cp "$src" "$dest"
+  log "Installed $name managed policy → $dest"
+}
+
+# Open extension URLs from a list file, one per line
+open_extension_urls(){
+  local list_file="$1" name="$2"
+  local count=0 url
+  while IFS= read -r url || [[ -n "$url" ]]; do
+    url="${url%%#*}"          # strip inline comments
+    url="${url#"${url%%[![:space:]]*}"}"  # trim leading whitespace
+    url="${url%"${url##*[![:space:]]}"}"  # trim trailing whitespace
+    [[ -z "$url" ]] && continue
+    open "$url"
+    ((count++))
+  done < "$list_file"
+  log "Opened $count $name extension URL(s)"
+}
+
+###############################################################################
+# Topgrade configuration                                                      #
+###############################################################################
+
+TOPGRADE_SRC="$REPO_ROOT/assets/topgrade.toml"
+TOPGRADE_DST="$HOME/.config/topgrade.toml"
+
+if command -v topgrade >/dev/null 2>&1 && [[ -f "$TOPGRADE_SRC" ]]; then
+  mkdir -p "$HOME/.config"
+  if [[ -L "$TOPGRADE_DST" ]]; then
+    log "Topgrade config already linked"
+  else
+    [[ -f "$TOPGRADE_DST" ]] && mv "$TOPGRADE_DST" "${TOPGRADE_DST}.bak"
+    ln -s "$TOPGRADE_SRC" "$TOPGRADE_DST"
+    log "Linked topgrade config → $TOPGRADE_DST"
+  fi
+else
+  log "Skipping topgrade config (topgrade not installed)"
+fi
+
+###############################################################################
+# Browser preferences                                                        #
+###############################################################################
+
+BROWSERS_DIR="$REPO_ROOT/assets/browsers"
+
+# Safari
+if [[ -d "/Applications/Safari.app" ]]; then
+  apply_defaults "$BROWSERS_DIR/safari-defaults.sh" "Safari" || ((failed++))
+  if [[ -f "$BROWSERS_DIR/safari-extensions.txt" ]]; then
+    if [[ -t 0 ]]; then
+      printf "[post-install] Open Safari extension URLs? [y/N]: "
+      read -r answer </dev/tty
+      if [[ "$answer" =~ ^[Yy]$ ]]; then
+        open_extension_urls "$BROWSERS_DIR/safari-extensions.txt" "Safari" || ((failed++))
+      else
+        log "Skipped Safari extension URLs"
+      fi
+    fi
+  fi
+else
+  log "Skipping Safari (not installed)"
+fi
+
+# Google Chrome
+if [[ -d "/Applications/Google Chrome.app" ]]; then
+  install_browser_policy "$BROWSERS_DIR/chrome-policy.json" \
+    "$HOME/Library/Application Support/Google/Chrome/policies/managed" \
+    "Chrome" || ((failed++))
+  if [[ -f "$BROWSERS_DIR/chrome-extensions.txt" ]]; then
+    if [[ -t 0 ]]; then
+      printf "[post-install] Open Chrome extension URLs? [y/N]: "
+      read -r answer </dev/tty
+      if [[ "$answer" =~ ^[Yy]$ ]]; then
+        open_extension_urls "$BROWSERS_DIR/chrome-extensions.txt" "Chrome" || ((failed++))
+      else
+        log "Skipped Chrome extension URLs"
+      fi
+    fi
+  fi
+else
+  log "Skipping Chrome (not installed)"
+fi
+
+# Brave
+if [[ -d "/Applications/Brave Browser.app" ]]; then
+  install_browser_policy "$BROWSERS_DIR/brave-policy.json" \
+    "$HOME/Library/Application Support/BraveSoftware/Brave-Browser/policies/managed" \
+    "Brave" || ((failed++))
+  if [[ -f "$BROWSERS_DIR/brave-extensions.txt" ]]; then
+    if [[ -t 0 ]]; then
+      printf "[post-install] Open Brave extension URLs? [y/N]: "
+      read -r answer </dev/tty
+      if [[ "$answer" =~ ^[Yy]$ ]]; then
+        open_extension_urls "$BROWSERS_DIR/brave-extensions.txt" "Brave" || ((failed++))
+      else
+        log "Skipped Brave extension URLs"
+      fi
+    fi
+  fi
+else
+  log "Skipping Brave (not installed)"
+fi
+
+# Helium
+if [[ -d "/Applications/Helium.app" ]]; then
+  apply_defaults "$BROWSERS_DIR/helium-defaults.sh" "Helium" || ((failed++))
+else
+  log "Skipping Helium (not installed)"
+fi
+
+###############################################################################
+# Application preferences — defaults write scripts                            #
+###############################################################################
+
+PREFS_DIR="$REPO_ROOT/assets/preferences"
+
+# Audio Hijack
+if [[ -d "/Applications/Audio Hijack.app" ]]; then
+  apply_defaults "$PREFS_DIR/audio-hijack-defaults.sh" "Audio Hijack" || ((failed++))
+else
+  log "Skipping Audio Hijack defaults (not installed)"
+fi
+
+# Fission
+if [[ -d "/Applications/Fission.app" ]]; then
+  apply_defaults "$PREFS_DIR/fission-defaults.sh" "Fission" || ((failed++))
+else
+  log "Skipping Fission defaults (not installed)"
+fi
+
+# Rogue Amoeba — disable Sparkle auto-updates (managed by topgrade)
+apply_defaults "$PREFS_DIR/rogue-amoeba-updates.sh" "Rogue Amoeba updates" || ((failed++))
+
+# AlDente
+if [[ -d "/Applications/AlDente.app" ]]; then
+  apply_defaults "$PREFS_DIR/aldente-defaults.sh" "AlDente" || ((failed++))
+else
+  log "Skipping AlDente defaults (not installed)"
+fi
+
+###############################################################################
+# Application preferences — plist imports                                     #
+###############################################################################
+
+# Import a full plist if the app is installed and not already configured
+import_plist(){
+  local app_path="$1" bundle_id="$2" plist_file="$3" name="$4"
+  if [[ ! -d "$app_path" ]]; then
+    log "Skipping $name plist (not installed)"
+    return 0
+  fi
+  if [[ ! -f "$plist_file" ]]; then
+    log "Skipping $name plist (asset missing)"
+    return 0
+  fi
+  # Only import if the app hasn't been configured yet (no existing plist)
+  local existing="$HOME/Library/Preferences/${bundle_id}.plist"
+  if [[ -f "$existing" ]]; then
+    log "$name plist already exists — skipping import (won't overwrite)"
+    return 0
+  fi
+  defaults import "$bundle_id" "$plist_file"
+  log "Imported $name preferences"
+}
+
+import_plist "/Applications/BetterSnapTool.app" "com.hegenberg.BetterSnapTool" \
+  "$PREFS_DIR/BetterSnapTool.plist" "BetterSnapTool" || ((failed++))
+
+import_plist "/Applications/Ice.app" "com.jordanbaird.Ice" \
+  "$PREFS_DIR/Ice.plist" "Ice" || ((failed++))
+
+import_plist "/Applications/iTerm.app" "com.googlecode.iterm2" \
+  "$PREFS_DIR/iTerm2.plist" "iTerm2" || ((failed++))
+
+###############################################################################
+# Login items                                                                 #
+###############################################################################
+
+# Add a login item if the app exists and isn't already registered
+add_login_item(){
+  local app_path="$1"
+  local app_name
+  app_name=$(basename "$app_path" .app)
+
+  if [[ ! -d "$app_path" ]]; then
+    log "Skipping login item (not installed): $app_name"
+    return 0
+  fi
+
+  if osascript -e "tell application \"System Events\" to get the name of every login item" 2>/dev/null | grep -q "$app_name"; then
+    log "Login item already exists: $app_name"
+    return 0
+  fi
+
+  osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"$app_path\", hidden:false}" >/dev/null 2>&1 || return 1
+  log "Added login item: $app_name"
+}
+
+add_login_item "/Applications/AlDente.app"          || ((failed++))
+add_login_item "/Applications/Dropbox.app"          || ((failed++))
+add_login_item "/Applications/Ice.app"              || ((failed++))
+add_login_item "/Applications/Hot.app"              || ((failed++))
+add_login_item "/Applications/Raycast.app"          || ((failed++))
+add_login_item "/Applications/Stats.app"            || ((failed++))
+add_login_item "/Applications/BetterSnapTool.app"   || ((failed++))
+add_login_item "/Applications/Chrono Plus.app"      || ((failed++))
+
+###############################################################################
+# Summary                                                                     #
+###############################################################################
+
+if (( failed > 0 )); then
+  log "Warning: $failed post-install step(s) failed"
+else
+  log "Post-install complete"
+fi

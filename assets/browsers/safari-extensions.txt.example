@@ -1,0 +1,12 @@
+# Safari extensions — one Mac App Store URL per line
+#
+# Copy this file to safari-extensions.txt to activate:
+#   cp safari-extensions.txt.example safari-extensions.txt
+#
+# Safari extensions are installed via the Mac App Store. During post-install
+# you'll be prompted to open these URLs so you can install each extension.
+#
+# Examples:
+# https://apps.apple.com/app/1password-for-safari/id1569813296
+# https://apps.apple.com/app/adguard-for-safari/id1440147259
+# https://apps.apple.com/app/dark-reader-for-safari/id1438243180

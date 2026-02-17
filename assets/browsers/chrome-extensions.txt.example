@@ -1,0 +1,12 @@
+# Chrome extensions — one Chrome Web Store URL per line
+#
+# Copy this file to chrome-extensions.txt to activate:
+#   cp chrome-extensions.txt.example chrome-extensions.txt
+#
+# During post-install you'll be prompted to open these URLs in your
+# default browser so you can install each extension.
+#
+# Examples:
+# https://chromewebstore.google.com/detail/1password/aeblfdkhhhdcdjpifhhbdiojplfjncoa
+# https://chromewebstore.google.com/detail/ublock-origin/cjpalhdlnbpafiamejdnhcphjbkeiagm
+# https://chromewebstore.google.com/detail/dark-reader/eimadpbcbfnmbkopoojfekhnkhdbieeh

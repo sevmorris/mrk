@@ -1,0 +1,19 @@
+{
+  "_comment": "mrk2 managed policy for Google Chrome. Chromium reads JSON files from ~/Library/Application Support/Google/Chrome/policies/managed/ on launch. This will show a 'Managed by your organization' indicator in chrome://settings. To remove it, delete this file from the managed/ directory and relaunch Chrome.",
+
+  "BookmarkBarEnabled": true,
+  "ShowHomeButton": true,
+
+  "PasswordManagerEnabled": false,
+  "AutofillCreditCardEnabled": false,
+
+  "BlockThirdPartyCookies": true,
+  "HttpsOnlyMode": "force_enabled",
+
+  "TranslateEnabled": true,
+  "SpellcheckEnabled": true,
+  "EnableMediaRouter": true,
+
+  "BrowserSignin": 1,
+  "SyncDisabled": false
+}

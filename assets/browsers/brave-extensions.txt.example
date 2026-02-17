@@ -1,0 +1,12 @@
+# Brave extensions — one Chrome Web Store URL per line
+#
+# Copy this file to brave-extensions.txt to activate:
+#   cp brave-extensions.txt.example brave-extensions.txt
+#
+# Brave uses the Chrome Web Store for extensions. During post-install
+# you'll be prompted to open these URLs so you can install each extension.
+#
+# Examples:
+# https://chromewebstore.google.com/detail/1password/aeblfdkhhhdcdjpifhhbdiojplfjncoa
+# https://chromewebstore.google.com/detail/ublock-origin/cjpalhdlnbpafiamejdnhcphjbkeiagm
+# https://chromewebstore.google.com/detail/dark-reader/eimadpbcbfnmbkopoojfekhnkhdbieeh

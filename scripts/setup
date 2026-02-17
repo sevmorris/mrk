@@ -1,0 +1,669 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk setup — Phase 1: idempotent bootstrap for macOS (with Strap-inspired improvements)
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source shared helpers
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+check_macos
+
+ONLY=""
+NO_DOTFILES=0
+NO_DEFAULTS=0
+NO_LINK_TOOLS=0
+DEBUG=0
+DRY_RUN=0
+VALIDATE=0
+CONTINUE_ON_ERROR=0
+
+while (("$#")); do
+  case "$1" in
+    --only) shift; ONLY="${1:-}" ;;
+    --no-dotfiles) NO_DOTFILES=1 ;;
+    --no-defaults) NO_DEFAULTS=1 ;;
+    --no-link-tools) NO_LINK_TOOLS=1 ;;
+    --debug) DEBUG=1 ;;
+    --dry-run) DRY_RUN=1 ;;
+    --validate) VALIDATE=1 ;;
+    --continue-on-error) CONTINUE_ON_ERROR=1 ;;
+    -h|--help)
+      cat <<'USAGE'
+mrk setup — Phase 1
+
+Usage: scripts/setup [options]
+  --only <phase>        Run a single phase: xcode|dotfiles|tools|defaults|shell
+  --no-dotfiles         Skip dotfiles linking
+  --no-defaults        Skip macOS defaults
+  --no-link-tools       Skip linking scripts/bin into ~/bin
+  --dry-run             Preview changes without applying them
+  --validate            Validate configuration before installing
+  --continue-on-error   Continue with remaining phases if one fails
+  --debug               Enable bash tracing (set -x)
+Env:
+  MRK_DOTFILES_REPO    If set, clones repo to ~/.dotfiles and runs script/setup and script/strap-after-setup if present
+  MRK_LOGIN_MSG        If set, writes login window message (requires sudo), rollback added to ~/.mrk/defaults-rollback.sh
+USAGE
+      exit 0
+      ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+(( DEBUG )) && set -x
+
+if (( DRY_RUN )); then
+  echo "=== DRY RUN MODE: No changes will be made ===" >&2
+fi
+
+# Track current phase for error reporting on unexpected exit
+CURRENT_STEP=""
+MRK_SUCCESS=""
+cleanup() {
+  if [[ -z "$MRK_SUCCESS" ]]; then
+    err "!!! ${CURRENT_STEP:-unknown step} FAILED"
+    err "See $LOGFILE for details"
+  fi
+}
+trap "cleanup" EXIT
+
+# Configuration
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+readonly REPO_ROOT
+readonly BIN_DIR="$REPO_ROOT/bin"
+readonly SCRIPTS_DIR="$REPO_ROOT/scripts"
+readonly INSTALL_BIN="$HOME/bin"
+BACKUP_DIR="$STATE_DIR/backups/$(date +%Y%m%d-%H%M%S)"
+readonly BACKUP_DIR
+readonly ROLLBACK="$STATE_DIR/defaults-rollback.sh"
+
+# Create required directories with error checking
+if ! mkdir -p "$(dirname "$LOGFILE")" "$INSTALL_BIN" "$(dirname "$BACKUP_DIR")" "$STATE_DIR"; then
+  err "Failed to create required directories"
+  exit 1
+fi
+
+# Initialize rollback script
+if ! : > "$ROLLBACK" || ! chmod +x "$ROLLBACK"; then
+  err "Failed to initialize rollback script: $ROLLBACK"
+  exit 1
+fi
+
+# Setup logging with rotation
+setup_logging
+exec > >(tee -a "$LOGFILE") 2>&1
+log "Starting setup... (log: $LOGFILE)"
+if (( DRY_RUN )); then
+  log "DRY RUN MODE: No changes will be made"
+fi
+
+# Track installation statistics
+DOTFILES_LINKED=0
+TOOLS_LINKED=0
+DEFAULTS_APPLIED=0
+BACKUPS_CREATED=0
+ERRORS=0
+WARNINGS=0
+DOTFILES_SKIPPED=0
+TOOLS_SKIPPED=0
+
+# Validate phase name
+valid_phases="xcode tools dotfiles ext defaults shell"
+validate_phase() {
+  local phase="$1"
+  case " $valid_phases " in
+    *" $phase "*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+run_phase() {
+  local name="$1"; shift
+  if [[ -n "$ONLY" ]]; then
+    if ! validate_phase "$ONLY"; then
+      err "Invalid phase: $ONLY (valid: $valid_phases)"
+      exit 2
+    fi
+    if [[ "$ONLY" != "$name" ]]; then return 0; fi
+  fi
+  
+  CURRENT_STEP="$name"
+  sudo_refresh
+  log "Running phase: $name"
+  if (( CONTINUE_ON_ERROR )); then
+    if ! "$@"; then
+      warn "Phase $name failed, continuing with remaining phases..."
+      ((ERRORS++))
+      return 0
+    fi
+  else
+    "$@"
+  fi
+}
+
+# Validation function
+validate_setup() {
+  log "Validating setup..."
+  local issues=0
+  
+  if [[ ! -d "$REPO_ROOT/dotfiles" ]] && (( ! NO_DOTFILES )); then
+    warn "dotfiles directory not found: $REPO_ROOT/dotfiles"
+    ((issues++))
+  fi
+  
+  if [[ ! -d "$SCRIPTS_DIR" ]] && (( ! NO_LINK_TOOLS )); then
+    warn "scripts directory not found: $SCRIPTS_DIR"
+    ((issues++))
+  fi
+  
+  if [[ ! -d "$BIN_DIR" ]] && (( ! NO_LINK_TOOLS )); then
+    warn "bin directory not found: $BIN_DIR"
+    ((issues++))
+  fi
+  
+  if [[ -n "${MRK_DOTFILES_REPO:-}" ]]; then
+    if ! is_valid_git_url "$MRK_DOTFILES_REPO"; then
+      err "Invalid MRK_DOTFILES_REPO URL: $MRK_DOTFILES_REPO"
+      ((issues++))
+    fi
+  fi
+  
+  if (( issues == 0 )); then
+    log "Validation passed"
+    return 0
+  else
+    warn "Validation found $issues issue(s)"
+    return 1
+  fi
+}
+
+# Phase functions - invoked indirectly via run_phase
+phase_xcode() {
+  if ! xcode-select -p >/dev/null 2>&1; then
+    log "Xcode Command Line Tools not found. Triggering install (GUI). Re-run after completion."
+    xcode-select --install || true
+  else
+    logskip "Xcode Command Line Tools" "already installed"
+  fi
+  if [[ -d "/Applications/Xcode.app" ]]; then
+    sudo xcodebuild -license accept >/dev/null 2>&1 || true
+  else
+    logskip "Xcode license" "Xcode.app not found"
+  fi
+}
+
+phase_link_tools() {
+  if (( NO_LINK_TOOLS )); then logskip "link-tools" "disabled by flag"; return; fi
+  
+  if [[ ! -d "$INSTALL_BIN" ]]; then
+    if (( DRY_RUN )); then
+      dry "Would create directory: $INSTALL_BIN"
+    elif ! mkdir -p "$INSTALL_BIN"; then
+      err "Failed to create $INSTALL_BIN directory"
+      return 1
+    fi
+  fi
+  
+  # Verify directory is writable
+  if [[ ! -w "$INSTALL_BIN" ]]; then
+    err "Directory $INSTALL_BIN is not writable"
+    return 1
+  fi
+  
+  log "Linking scripts/* and bin/* into $INSTALL_BIN..."
+  local linked=0
+  local skipped=0
+  local failed=0
+  local total=0
+  
+  if [[ ! -d "$SCRIPTS_DIR" ]]; then
+    warn "Scripts directory not found: $SCRIPTS_DIR"
+  fi
+  
+  if [[ -d "$SCRIPTS_DIR" ]]; then
+    # Count total first for progress and collect files
+    local files=()
+    while IFS= read -r -d '' f || [[ -n "$f" ]]; do
+      [[ -n "$f" ]] && [[ -f "$f" && -x "$f" ]] && {
+        files+=("$f")
+        ((total++)) || true
+      }
+    done < <(find "$SCRIPTS_DIR" -maxdepth 1 -type f -print0 2>/dev/null || true)
+    
+    local current=0
+    for f in "${files[@]}"; do
+      [[ -f "$f" && -x "$f" ]] || continue
+      ((current++)) || true
+      local base
+      base="$(basename "$f")"
+      
+      if (( total > 0 )); then
+        printf "\r[%d/%d] Linking %s..." "$current" "$total" "$base" >&2 || true
+      fi
+      
+      # Skip if symlink already points to correct target
+      if [[ -L "$INSTALL_BIN/$base" ]] && [[ "$(readlink "$INSTALL_BIN/$base")" == "$f" ]]; then
+        ((skipped++)) || true
+        continue
+      fi
+
+      if (( DRY_RUN )); then
+        dry "Would link: $INSTALL_BIN/$base -> $f"
+        ((linked++)) || true
+      elif ln -sf "$f" "$INSTALL_BIN/$base" 2>/dev/null; then
+        ((linked++)) || true
+      else
+        local ln_error
+        ln_error="$(ln -sf "$f" "$INSTALL_BIN/$base" 2>&1 || true)"
+        err "Failed to link: $INSTALL_BIN/$base -> $f"
+        [[ -n "$ln_error" ]] && err "  Error: $ln_error"
+        ((failed++)) || true
+      fi
+    done
+    printf "\r" >&2 || true  # Clear progress line
+  fi
+  
+  if [[ -d "$BIN_DIR" ]]; then
+    local bin_total=0
+    local bin_files=()
+    while IFS= read -r -d '' f || [[ -n "$f" ]]; do
+      [[ -n "$f" ]] && [[ -f "$f" && -x "$f" ]] && {
+        bin_files+=("$f")
+        ((bin_total++)) || true
+      }
+    done < <(find "$BIN_DIR" -maxdepth 1 -type f -print0 2>/dev/null || true)
+    
+    local current=0
+    for f in "${bin_files[@]}"; do
+      [[ -f "$f" && -x "$f" ]] || continue
+      ((current++)) || true
+      local base
+      base="$(basename "$f")"
+      
+      if (( bin_total > 0 )); then
+        printf "\r[%d/%d] Linking %s..." "$current" "$bin_total" "$base" >&2 || true
+      fi
+      
+      # Skip if symlink already points to correct target
+      if [[ -L "$INSTALL_BIN/$base" ]] && [[ "$(readlink "$INSTALL_BIN/$base")" == "$f" ]]; then
+        ((skipped++)) || true
+        continue
+      fi
+
+      if (( DRY_RUN )); then
+        dry "Would link: $INSTALL_BIN/$base -> $f"
+        ((linked++)) || true
+      elif ln -sf "$f" "$INSTALL_BIN/$base" 2>/dev/null; then
+        ((linked++)) || true
+      else
+        local ln_error
+        ln_error="$(ln -sf "$f" "$INSTALL_BIN/$base" 2>&1 || true)"
+        err "Failed to link: $INSTALL_BIN/$base -> $f"
+        [[ -n "$ln_error" ]] && err "  Error: $ln_error"
+        ((failed++)) || true
+      fi
+    done
+    printf "\r" >&2 || true  # Clear progress line
+  fi
+  
+  if (( linked > 0 )); then
+    log "Linked $linked tool(s) into $INSTALL_BIN"
+    TOOLS_LINKED=$linked
+  fi
+
+  if (( skipped > 0 )); then
+    logskip "$skipped tool(s)" "already linked"
+    TOOLS_SKIPPED=$skipped
+  fi
+
+  if (( total == 0 && linked == 0 && skipped == 0 && failed == 0 )); then
+    warn "No executable tools found to link"
+    if [[ ! -d "$SCRIPTS_DIR" ]] && [[ ! -d "$BIN_DIR" ]]; then
+      err "Neither $SCRIPTS_DIR nor $BIN_DIR exist"
+      return 1
+    fi
+  fi
+  
+  if (( failed > 0 )); then
+    err "$failed symlink(s) failed to create"
+    err "Check permissions for $INSTALL_BIN and ensure it exists"
+    ((ERRORS++))
+    return 1
+  fi
+}
+
+phase_dotfiles() {
+  if (( NO_DOTFILES )); then logskip "dotfiles" "disabled by flag"; return; fi
+  
+  if [[ ! -d "$REPO_ROOT/dotfiles" ]]; then
+    warn "dotfiles directory not found: $REPO_ROOT/dotfiles"
+    return 0
+  fi
+  
+  local src dst
+  if (( ! DRY_RUN )); then
+    if ! mkdir -p "$BACKUP_DIR"; then
+      err "Failed to create backup directory: $BACKUP_DIR"
+      return 1
+    fi
+  else
+    dry "Would create backup directory: $BACKUP_DIR"
+  fi
+  
+  shopt -s dotglob nullglob
+  local found=0
+  local linked=0
+  local skipped=0
+  local backed_up=0
+  
+  # Count total for progress (excluding example and documentation files)
+  local total=0
+  for src in "$REPO_ROOT/dotfiles"/*; do
+    [[ -e "$src" ]] || continue
+    # Skip .example files and README files
+    case "$(basename "$src")" in
+      *.example|README*|*.md) continue ;;
+      *) ((total++)) || true ;;
+    esac
+  done
+  
+  local current=0
+  for src in "$REPO_ROOT/dotfiles"/*; do
+    [[ -e "$src" ]] || continue
+    
+    # Skip .example files and README/documentation files
+    case "$(basename "$src")" in
+      *.example|README*|*.md) continue ;;
+    esac
+    
+    found=1
+    ((current++)) || true
+    dst="$HOME/$(basename "$src")"
+    
+    if (( total > 0 )); then
+      printf "\r[%d/%d] Processing %s..." "$current" "$total" "$(basename "$src")" >&2 || true
+    fi
+    
+    # Skip if symlink already points to correct target
+    if [[ -L "$dst" ]] && [[ "$(readlink "$dst")" == "$src" ]]; then
+      ((skipped++)) || true
+      continue
+    fi
+
+    if [[ -e "$dst" && ! -L "$dst" ]]; then
+      if (( DRY_RUN )); then
+        dry "Would backup: $dst -> $BACKUP_DIR/$(basename "$dst")"
+        ((backed_up++)) || true
+      else
+        log "Backing up: $dst -> $BACKUP_DIR/$(basename "$dst")"
+        if ! mv "$dst" "$BACKUP_DIR/"; then
+          err "Failed to backup $dst - aborting dotfile linking"
+          shopt -u dotglob nullglob
+          printf "\r" >&2 || true
+          return 1
+        fi
+        ((backed_up++)) || true
+      fi
+    fi
+    
+    if (( DRY_RUN )); then
+      dry "Would link: $dst -> $src"
+      ((linked++)) || true
+    elif ! ln -sfn "$src" "$dst"; then
+      err "Failed to create symlink: $dst -> $src"
+      shopt -u dotglob nullglob
+      printf "\r" >&2 || true
+      return 1
+    else
+      ((linked++)) || true
+    fi
+  done
+  printf "\r" >&2 || true  # Clear progress line
+  shopt -u dotglob nullglob
+  
+  if (( linked > 0 )); then
+    log "Linked $linked dotfile(s)"
+    DOTFILES_LINKED=$linked
+  fi
+  
+  if (( skipped > 0 )); then
+    logskip "$skipped dotfile(s)" "already linked"
+    DOTFILES_SKIPPED=$skipped
+  fi
+
+  if (( backed_up > 0 )); then
+    log "Created $backed_up backup(s) in $BACKUP_DIR"
+    BACKUPS_CREATED=$backed_up
+  fi
+
+  if (( !found )); then
+    warn "No dotfiles found in $REPO_ROOT/dotfiles"
+  fi
+}
+
+# Validate git URL format (basic check)
+is_valid_git_url() {
+  local url="$1"
+  # Allow http://, https://, git@, or file:// URLs
+  if [[ "$url" =~ ^(https?://|git@|file://|ssh://).+\.git$ ]] || \
+     [[ "$url" =~ ^(https?://|git@|file://|ssh://)[^[:space:]]+$ ]]; then
+    return 0
+  fi
+  return 1
+}
+
+phase_ext_dotfiles() {
+  if [[ -z "${MRK_DOTFILES_REPO:-}" ]]; then
+    return 0
+  fi
+  
+  local DOTDIR="$HOME/.dotfiles"
+  
+  # Validate URL format
+  if ! is_valid_git_url "$MRK_DOTFILES_REPO"; then
+    err "Invalid git URL format: $MRK_DOTFILES_REPO"
+    warn "URL should be in format: https://github.com/user/repo.git or git@github.com:user/repo.git"
+    return 1
+  fi
+  
+  if [[ ! -d "$DOTDIR/.git" ]]; then
+    if (( DRY_RUN )); then
+      dry "Would clone external dotfiles repo: $MRK_DOTFILES_REPO to $DOTDIR"
+      return 0
+    fi
+    
+    log "Cloning external dotfiles repo: $MRK_DOTFILES_REPO"
+    if ! git clone --depth 1 "$MRK_DOTFILES_REPO" "$DOTDIR"; then
+      err "Failed to clone dotfiles repo"
+      return 1
+    fi
+  else
+    log "External dotfiles repo present at $DOTDIR"
+  fi
+  
+  # Execute external scripts with explicit confirmation
+  if [[ -x "$DOTDIR/script/setup" ]]; then
+    if (( ! DRY_RUN )); then
+      if [[ -t 0 ]]; then
+        read -r -p "Run external setup script from $DOTDIR? [y/N] " ans
+        if [[ ! "$ans" =~ ^[Yy]$ ]]; then
+          log "Skipping external setup script"
+          return 0
+        fi
+      fi
+      log "Running external setup script: $DOTDIR/script/setup"
+      if ! "$DOTDIR/script/setup"; then
+        warn "External setup script returned non-zero"
+        ((WARNINGS++))
+      fi
+    else
+      dry "Would run external setup script: $DOTDIR/script/setup"
+    fi
+  fi
+  
+  if [[ -x "$DOTDIR/script/strap-after-setup" ]]; then
+    if (( ! DRY_RUN )); then
+      if [[ -t 0 ]]; then
+        read -r -p "Run external strap-after-setup script from $DOTDIR? [y/N] " ans
+        if [[ ! "$ans" =~ ^[Yy]$ ]]; then
+          log "Skipping external strap-after-setup script"
+          return 0
+        fi
+      fi
+      log "Running external strap-after-setup script: $DOTDIR/script/strap-after-setup"
+      if ! "$DOTDIR/script/strap-after-setup"; then
+        warn "External strap-after-setup script returned non-zero"
+        ((WARNINGS++))
+      fi
+    else
+      dry "Would run external strap-after-setup script: $DOTDIR/script/strap-after-setup"
+    fi
+  fi
+}
+
+phase_defaults() {
+  if (( NO_DEFAULTS )); then logskip "defaults" "disabled by flag"; return; fi
+  
+  if (( DRY_RUN )); then
+    dry "Would apply macOS defaults"
+    if [[ -n "${MRK_LOGIN_MSG:-}" ]]; then
+      dry "Would set login window message"
+    fi
+    return 0
+  fi
+  
+  if [[ -x "$SCRIPTS_DIR/defaults.sh" ]]; then
+    if "$SCRIPTS_DIR/defaults.sh"; then
+      DEFAULTS_APPLIED=1
+    else
+      warn "defaults.sh returned non-zero"
+      ((WARNINGS++))
+    fi
+  else
+    warn "defaults.sh not found/executable; skipping"
+  fi
+
+  if [[ -n "${MRK_LOGIN_MSG:-}" ]]; then
+    if command -v sudo >/dev/null 2>&1; then
+      log "Setting login window message"
+      # Note: defaults write handles string escaping, but we validate the message isn't empty
+      if [[ -z "$MRK_LOGIN_MSG" ]]; then
+        warn "MRK_LOGIN_MSG is empty, skipping"
+        return 0
+      fi
+      if sudo defaults write /Library/Preferences/com.apple.loginwindow LoginwindowText "$MRK_LOGIN_MSG"; then
+        echo "sudo defaults delete /Library/Preferences/com.apple.loginwindow LoginwindowText" >> "$ROLLBACK"
+      else
+        err "Failed to set login window message"
+        return 1
+      fi
+    else
+      warn "sudo not available; cannot set login window message"
+    fi
+  fi
+}
+
+phase_shell() {
+  if command -v zsh >/dev/null 2>&1; then
+    local target_shell
+    target_shell="$(command -v zsh)"
+    if [[ "$(dscl . -read "/Users/$USER" UserShell 2>/dev/null | awk '{print $2}')" != "$target_shell" ]]; then
+      log "Setting login shell to $target_shell"
+      chsh -s "$target_shell" || warn "chsh failed"
+    else
+      logskip "login shell" "already $target_shell"
+    fi
+  fi
+}
+
+# Run validation if requested
+if (( VALIDATE )); then
+  if ! validate_setup; then
+    err "Validation failed. Use --continue-on-error to proceed anyway."
+    exit 1
+  fi
+fi
+
+# Run phases
+run_phase xcode    phase_xcode
+run_phase tools    phase_link_tools
+run_phase dotfiles phase_dotfiles
+run_phase ext      phase_ext_dotfiles
+run_phase defaults phase_defaults
+run_phase shell    phase_shell
+
+# Installation summary
+show_summary() {
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  Setup Summary (Phase 1)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  
+  if (( DRY_RUN )); then
+    echo "  Mode: DRY RUN (no changes were made)"
+    echo ""
+  fi
+  
+  if (( DOTFILES_LINKED > 0 )); then
+    echo "  ✓ Dotfiles linked: $DOTFILES_LINKED"
+  fi
+  if (( DOTFILES_SKIPPED > 0 )); then
+    echo "  · Dotfiles unchanged: $DOTFILES_SKIPPED (already linked)"
+  fi
+
+  if (( TOOLS_LINKED > 0 )); then
+    echo "  ✓ Tools linked: $TOOLS_LINKED"
+  fi
+  if (( TOOLS_SKIPPED > 0 )); then
+    echo "  · Tools unchanged: $TOOLS_SKIPPED (already linked)"
+  fi
+  
+  if (( DEFAULTS_APPLIED > 0 )); then
+    echo "  ✓ macOS defaults applied"
+  fi
+  
+  if (( BACKUPS_CREATED > 0 )); then
+    echo "  ✓ Backups created: $BACKUPS_CREATED"
+    echo "    Location: $BACKUP_DIR"
+  fi
+  
+  if (( ERRORS > 0 )); then
+    echo "  ✗ Errors encountered: $ERRORS"
+  fi
+  
+  if (( WARNINGS > 0 )); then
+    echo "  ⚠ Warnings: $WARNINGS"
+  fi
+  
+  echo ""
+  echo "  Log file: $LOGFILE"
+  if [[ -f "$ROLLBACK" ]] && [[ -s "$ROLLBACK" ]]; then
+    echo "  Rollback script: $ROLLBACK"
+  fi
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+}
+
+if (( ! DRY_RUN )); then
+  show_summary
+  log "Setup complete."
+else
+  echo ""
+  log "Dry run complete. No changes were made."
+  echo "Run without --dry-run to apply changes."
+fi
+
+# Mark success so the EXIT trap knows we completed normally
+MRK_SUCCESS=1
+
+# Exit with appropriate code
+if (( ERRORS > 0 )); then
+  exit 1
+else
+  exit 0
+fi

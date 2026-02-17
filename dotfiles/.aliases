@@ -1,0 +1,307 @@
+# Load aliases only in interactive shells
+[[ $- != *i* ]] && return
+
+# ==============================================================================
+#  General & System Aliases
+# ==============================================================================
+
+# Use GNU `ls` if available (from `brew install coreutils`), otherwise use macOS `ls`.
+if command -v gls &>/dev/null; then
+  alias ls='gls --color=auto'
+  alias la='gls -lha --color=auto'
+else
+  alias ls='ls -G'
+  alias la='ls -lhaG'
+fi
+
+alias nano='nano --linenumbers'      # Always show line numbers in nano.
+
+# Optional smarter cat: use bat if available, else fallback to real cat.
+# Set NO_SMART_CAT=1 to disable this behavior.
+if [[ -z "${NO_SMART_CAT:-}" ]]; then
+  cat() {
+    if command -v bat >/dev/null 2>&1; then
+      bat -pp "$@"
+    else
+      command cat "$@"
+    fi
+  }
+fi
+
+command -v networkQuality >/dev/null 2>&1 && alias netcheck='networkQuality'
+alias s='pmset displaysleepnow'      # Put the display to sleep immediately.
+
+# Activate nearest Python virtualenv named .venv (searches upward)
+v() {
+  local d="$PWD"
+  while [[ "$d" != "/" ]]; do
+    if [[ -f "$d/.venv/bin/activate" ]]; then
+      # shellcheck disable=SC1091
+      source "$d/.venv/bin/activate"
+      return
+    fi
+    d="${d:h}"
+  done
+  echo "No .venv found in current or parent directories."
+  return 1
+}
+
+# Only define if ZFS is present
+command -v zfs >/dev/null 2>&1 && alias zmount='sudo zfs mount -a'
+
+# ==============================================================================
+#  Productivity & Fun Aliases
+# ==============================================================================
+
+alias shrug="printf '¯\\_(ツ)_/¯' | pbcopy"
+command -v pwgen >/dev/null 2>&1 && alias pw='pwgen -s -1 19 | pbcopy' # Generate a password → clipboard.
+command -v ascii-image-converter >/dev/null 2>&1 && alias art='ascii-image-converter'
+alias decrypt='gpg --decrypt ' # Trailing space enables filename completion.
+
+# ==============================================================================
+#  File & Directory Management
+# ==============================================================================
+
+# Use 'se' (showempties) or 'ce' (cleanempties) functions defined below
+
+# Clean .DS_Store files only on your local internal volume (no network/external),
+# skipping ~/Library and ~/Desktop (to preserve Desktop layout), with a quiet spinner + count.
+clean-ds() {
+  echo "🧹 Starting .DS_Store cleanup (local-only; Desktop & Library excluded)…"
+
+  TMPFILE=$(mktemp)
+
+  # Build safe local dirs on the same device as $HOME
+  local HOME_DEV SAFE_DIRS=() d base dev
+  HOME_DEV=$(df -P "$HOME" | tail -1 | awk '{print $1}')
+  for d in "$HOME"/*; do
+    [[ -d "$d" && ! -L "$d" ]] || continue
+    base=${d##*/}
+    case "$base" in Library|Desktop|.*) continue ;; esac
+    dev=$(df -P "$d" | tail -1 | awk '{print $1}')
+    [[ "$dev" == "$HOME_DEV" ]] && SAFE_DIRS+=("$d")
+  done
+  [[ ${#SAFE_DIRS[@]} -eq 0 ]] && { echo "ℹ️ No eligible local folders."; return 0; }
+
+  # Launch the cleanup in the BACKGROUND quietly, then disown it (no job-control messages).
+  # Save and restore job control state to prevent leaks on early exit
+  local old_monitor
+  old_monitor=$(set +o | grep monitor)
+  set +m  # temporarily silence job control output
+  trap '$old_monitor' RETURN  # restore on function exit
+  (
+    for d in "${SAFE_DIRS[@]}"; do
+      find "$d" -xdev -type f -name ".DS_Store" \
+        -not -path "*/Library/*" \
+        -not -path "$HOME/Desktop/*" \
+        -print -delete
+    done > "$TMPFILE"
+  ) >/dev/null 2>&1 &
+  local FINDPID=$!
+  disown -h "$FINDPID" 2>/dev/null || disown %+
+
+  # Foreground spinner that watches the background PID without generating job messages
+  {
+    local spin='|/-\' i=0
+    while kill -0 "$FINDPID" 2>/dev/null; do
+      printf "\r%s" "${spin:$(( (i++) % 4 )):1}"
+      sleep 0.2
+    done
+    printf "\r"
+  }
+
+  local COUNT
+  COUNT=$(wc -l < "$TMPFILE" | tr -d ' ')
+  rm -f "$TMPFILE"
+
+  printf "✅ .DS_Store cleanup complete — removed %s file%s.\n" "$COUNT" "$( [ "$COUNT" -eq 1 ] || echo 's' )"
+  echo "🔒 Searched only on: $HOME_DEV"
+  echo "📁 Folders scanned:"; for d in "${SAFE_DIRS[@]}"; do printf " • %s\n" "${d/$HOME/~}"; done
+}
+
+# ==============================================================================
+#  Homebrew & Development Aliases / Functions
+# ==============================================================================
+
+if command -v brew >/dev/null 2>&1; then
+  alias brewses='brew uses --installed'
+  # Dump Brewfile to home directory
+  alias dump='brew bundle dump --force --file=~/Brewfile'
+fi
+
+# Safer Homebrew permission fixer
+fixbrewperms() {
+  local prefix
+  prefix="$(brew --prefix 2>/dev/null)" || { echo "Homebrew not found."; return 1; }
+  echo "Fixing Homebrew permissions at $prefix..."
+  sudo chown -R "$(whoami)":admin "$prefix"
+  sudo chmod -R g+rwx "$prefix"
+  brew doctor
+}
+
+command -v topgrade >/dev/null 2>&1 && alias update='topgrade'
+
+# ==============================================================================
+#  Utility Functions
+# ==============================================================================
+
+# Reload the shell completely for a clean state.
+c() {
+  echo "Reloading shell..."
+  clear && exec zsh
+}
+
+# Run the Minecraft server with Aikar's flags.
+mc() {
+  echo "Starting Minecraft 1.21.6 server..."
+  if ! command -v java >/dev/null 2>&1; then
+    echo "Java not found. Please install Java before running the Minecraft server."
+    return 1
+  fi
+  if [[ ! -d "$HOME/mcservers/1.21.6" ]]; then
+    echo "Server directory $HOME/mcservers/1.21.5 not found."
+    return 1
+  fi
+  (
+    cd "$HOME/mcservers/1.21.6" && \
+    java -Xms10G -Xmx10G \
+      -XX:+UseG1GC \
+      -XX:+ParallelRefProcEnabled \
+      -XX:MaxGCPauseMillis=200 \
+      -XX:+UnlockExperimentalVMOptions \
+      -XX:+DisableExplicitGC \
+      -XX:+AlwaysPreTouch \
+      -XX:G1NewSizePercent=30 \
+      -XX:G1MaxNewSizePercent=40 \
+      -XX:G1HeapRegionSize=8M \
+      -XX:G1ReservePercent=20 \
+      -XX:G1HeapWastePercent=5 \
+      -XX:G1MixedGCCountTarget=4 \
+      -XX:InitiatingHeapOccupancyPercent=15 \
+      -XX:G1MixedGCLiveThresholdPercent=90 \
+      -XX:G1RSetUpdatingPauseTimePercent=5 \
+      -XX:SurvivorRatio=32 \
+      -XX:+PerfDisableSharedMem \
+      -XX:MaxTenuringThreshold=1 \
+      -Dusing.aikars.flags=https://mcflags.emc.gs \
+      -Daikars.new.flags=true \
+      -jar paper.jar nogui
+  )
+}
+
+# Commit, pull --rebase, and push helper. Usage: pushit "message"
+pushit() {
+  local commit_message
+  commit_message="${1:-Auto-commit on $(date '+%Y-%m-%d %H:%M')}"
+
+  echo "Syncing with remote..."
+  git pull --rebase || return 1
+
+  git add .
+  if git diff --cached --quiet; then
+    echo "No changes to commit."
+  else
+    git commit -m "$commit_message"
+    git push
+  fi
+}
+
+
+# --- Empty Directory Utilities (loops until fully pruned) ---
+
+__resolve_trash() {
+  local tbin
+  tbin="$(command -v trash || true)"
+  [[ -z "$tbin" && -x /opt/homebrew/opt/trash/bin/trash ]] && tbin=/opt/homebrew/opt/trash/bin/trash
+  [[ -z "$tbin" && -x /usr/local/opt/trash/bin/trash    ]] && tbin=/usr/local/opt/trash/bin/trash
+  if [[ -z "$tbin" ]]; then
+    echo "'trash' not found. Install with: brew install trash" >&2
+    return 1
+  fi
+  echo "$tbin"
+}
+
+# Preview (no deletion)
+showempties() {
+  local target="${1:-.}"
+  echo "Searching recursively for empty directories under: $target"
+  find "$target" -depth -type d -empty -print
+}
+
+# Clean (recursive, cycles). Use: `ce [path]` or `ce -f [path]` to skip prompt.
+cleanempties() {
+  set -o pipefail
+  local force="" target="${1:-.}"
+  if [[ "$1" == "-f" ]]; then force=1; target="${2:-.}"; fi
+
+  local TRASH_BIN; TRASH_BIN="$(__resolve_trash)" || return 1
+  local iter=0
+
+  echo "Cleaning under: $target"
+
+  # Remove ignorable files first (so dirs can become empty)
+  echo "Removing macOS cruft (.DS_Store, ._*, .localized, .gitkeep, Icon^M)"
+  find "$target" -depth \( \
+    -name ".DS_Store" -o -name "._*" -o -name ".localized" -o -name ".gitkeep" -o -name "Icon"$'\r' \
+  \) -type f -exec "$TRASH_BIN" {} + 2>/dev/null || true
+
+  # First preview & (optional) confirmation
+  local count
+  count="$(find "$target" -depth -mindepth 1 -type d -empty | awk 'END{print NR+0}')"
+  if [[ "$count" == "0" ]]; then
+    echo "No empty directories found."
+    return 0
+  fi
+
+  if [[ -z "$force" ]]; then
+    echo "Found $count empty director$( [[ $count -eq 1 ]] && echo y || echo ies ):"
+    find "$target" -depth -mindepth 1 -type d -empty -print
+    echo
+    read -r "reply?Move these and any newly-empty parents to Trash? [y/N] "
+    [[ "$reply" =~ ^[Yy]$ ]] || { echo "Cancelled."; return 0; }
+  fi
+
+  # Cycle until nothing left
+  while :; do
+    # (Re)trash ignorable files that may appear as parents become candidates
+    find "$target" -depth \( \
+      -name ".DS_Store" -o -name "._*" -o -name ".localized" -o -name ".gitkeep" -o -name "Icon"$'\r' \
+    \) -type f -exec "$TRASH_BIN" {} + 2>/dev/null || true
+
+    # Check if any empty dirs remain
+    if ! find "$target" -depth -mindepth 1 -type d -empty -print -quit | grep -q .; then
+      break
+    fi
+
+    # Trash all currently-empty dirs (children first thanks to -depth)
+    find "$target" -depth -mindepth 1 -type d -empty -exec "$TRASH_BIN" {} + 2>/dev/null || true
+    ((iter++))
+  done
+
+  echo "Done. Fully pruned after $iter pass$( [[ $iter -eq 1 ]] && echo "" || echo "es")."
+}
+
+# Push WaxOn and WaxOff repos to GitHub
+waxup() {
+  if [[ -d "$HOME/WaxOn/.git" ]]; then
+    echo "WaxOn → pushing to GitHub..."
+    (cd "$HOME/WaxOn" && git add . && git commit -m "Update WaxOn" --allow-empty && git push origin main)
+  else
+    echo "WaxOn repo not found at \$HOME/WaxOn"
+  fi
+
+  echo
+
+  if [[ -d "$HOME/WaxOff/.git" ]]; then
+    echo "WaxOff → pushing to GitHub..."
+    (cd "$HOME/WaxOff" && git add . && git commit -m "Update WaxOff" --allow-empty && git push origin main)
+  else
+    echo "WaxOff repo not found at \$HOME/WaxOff"
+  fi
+
+  echo "WaxOn + WaxOff push completed."
+}
+
+# Short aliases
+alias se='showempties'
+alias ce='cleanempties'
