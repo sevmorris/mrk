@@ -360,14 +360,15 @@ install_brewfile() {
   declare -A _installed_formulae=()
   declare -A _installed_casks=()
   local _tmp_formulae _tmp_casks
-  _tmp_formulae=$(brew list --formula 2>/dev/null) || true
-  _tmp_casks=$(brew list --cask 2>/dev/null) || true
+  _tmp_formulae=$(command brew list --formula 2>/dev/null) || true
+  _tmp_casks=$(command brew list --cask 2>/dev/null) || true
   while IFS= read -r _pkg; do
     [[ -n "$_pkg" ]] && _installed_formulae["$_pkg"]=1
   done <<< "$_tmp_formulae"
   while IFS= read -r _pkg; do
     [[ -n "$_pkg" ]] && _installed_casks["$_pkg"]=1
   done <<< "$_tmp_casks"
+  log "Detected ${#_installed_formulae[@]} installed formulae, ${#_installed_casks[@]} installed casks"
 
   # First pass: collect all items and check installation status
   log "Scanning Brewfile for packages..."
