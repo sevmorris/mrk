@@ -64,11 +64,17 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Setup logging
+# Setup logging — use explicit tee calls instead of exec redirect
+# (exec > >(tee ...) breaks brew command output capture in subshells)
 setup_logging
-# Redirect output to log, but keep stderr available for prompts
-exec > >(tee -a "$LOGFILE")
-exec 2> >(tee -a "$LOGFILE" >&2)
+
+# Override logging to write to both stderr and logfile
+# (can't use exec > >(tee) as it breaks brew output capture)
+log()  { printf "[mrk] %s\n" "$*" | tee -a "$LOGFILE" >&2; }
+warn() { printf "[warn] %s\n" "$*" | tee -a "$LOGFILE" >&2; }
+err()  { printf "[err ] %s\n" "$*" | tee -a "$LOGFILE" >&2; }
+dry()  { if (( DRY_RUN )); then printf "[dry] %s\n" "$*" | tee -a "$LOGFILE" >&2; else log "$@"; fi; }
+
 log "Starting brew installation... (log: $LOGFILE)"
 if (( DRY_RUN )); then
   log "DRY RUN MODE: No changes will be made"
@@ -293,18 +299,13 @@ interactive_selection() {
   printf "\033[2m  ↑/↓ navigate · space toggle · a toggle all · enter confirm\033[0m\n" > /dev/tty
   echo "" > /dev/tty
 
-  # Build gum choose arguments
-  local -a gum_args=(
-    "choose"
-    "--no-limit"
-    "--cursor.foreground=212"
-    "--selected.foreground=212"
-    "--header=${#not_installed_names[@]} available, ${skipped} already installed"
-  )
-
-  # Run gum choose and capture selections
+  # Run gum choose — pass items as positional args (not stdin, which conflicts with tty)
   local gum_output
-  gum_output=$(printf '%s\n' "${not_installed_labels[@]}" | gum "${gum_args[@]}" < /dev/tty 2>/dev/tty) || true
+  gum_output=$(gum choose --no-limit \
+    --cursor.foreground=212 \
+    --selected.foreground=212 \
+    --header="${#not_installed_names[@]} available, ${skipped} already installed" \
+    "${not_installed_labels[@]}" < /dev/tty 2>/dev/tty) || true
 
   # Parse selections — extract package name (before " — ")
   if [[ -n "$gum_output" ]]; then
