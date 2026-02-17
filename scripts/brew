@@ -372,7 +372,6 @@ install_brewfile() {
   while IFS= read -r _pkg; do
     [[ -n "$_pkg" ]] && _installed_casks["$_pkg"]=1
   done <<< "$_tmp_casks"
-  log "Detected ${#_installed_formulae[@]} installed formulae, ${#_installed_casks[@]} installed casks"
 
   # First pass: collect all items and check installation status
   log "Scanning Brewfile for packages..."
