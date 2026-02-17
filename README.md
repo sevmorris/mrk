@@ -7,9 +7,15 @@ Opinionated, idempotent macOS setup in three phases.
 ```bash
 git clone https://github.com/sevmorris/mrk.git ~/mrk
 cd ~/mrk
-make install    # Phase 1: dotfiles, tools, defaults, shell
-make brew       # Phase 2: Homebrew packages (interactive)
-make post-install  # Phase 3: app config, login items
+
+# Phase 1: dotfiles, tools, defaults, shell
+make install
+
+# Phase 2: Homebrew packages (interactive)
+make brew
+
+# Phase 3: app config, login items
+make post-install
 ```
 
 Or run everything at once:
