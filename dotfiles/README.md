@@ -18,6 +18,6 @@ Copy the `.example` files and customize them for your needs.
 ## Notes
 
 - Files starting with `.` will be linked as-is (e.g., `.zshrc` → `~/.zshrc`)
-- Backups are stored in `~/.mrk1/backups/TIMESTAMP/`
+- Backups are stored in `~/.mrk/backups/TIMESTAMP/`
 - The installer is idempotent - safe to run multiple times
 

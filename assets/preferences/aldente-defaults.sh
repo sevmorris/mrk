@@ -3,7 +3,7 @@ set -euo pipefail
 
 # AlDente Pro battery management preferences
 #
-# Applied by mrk2 post-install.
+# Applied by mrk post-install.
 
 log(){ printf "[aldente-defaults] %s\n" "$*"; }
 

@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk snapshot — capture current system state into assets
+#
+# Snapshots app preferences (plists), Brewfile, and topgrade config
+# so that mrk always reflects the live system. Run before committing
+# or periodically to keep assets fresh.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+readonly SCRIPT_DIR REPO_ROOT
+
+PREFS_DIR="$REPO_ROOT/assets/preferences"
+ASSETS_DIR="$REPO_ROOT/assets"
+
+changed=0
+skipped=0
+errors=0
+
+# Safe increment that won't trip set -e when var goes from 0 to 1
+inc() { eval "$1=\$(( $1 + 1 ))"; }
+
+log()  { printf "[snapshot] %s\n" "$*"; }
+warn() { printf "[snapshot] ⚠ %s\n" "$*"; }
+
+# snapshot_plist <bundle_id> <asset_filename>
+# Copies a live plist to assets, converting to XML for readable diffs.
+snapshot_plist() {
+  local bundle_id="$1" filename="$2"
+  local src="$HOME/Library/Preferences/${bundle_id}.plist"
+  local dest="$PREFS_DIR/$filename"
+
+  if [[ ! -f "$src" ]]; then
+    warn "Not found: $src (app not installed?)"
+    inc skipped
+    return
+  fi
+
+  # Copy to a temp file first, convert to XML
+  local tmp
+  tmp=$(mktemp)
+  if ! cp "$src" "$tmp" 2>/dev/null; then
+    warn "Failed to copy $src"
+    rm -f "$tmp"
+    inc errors
+    return
+  fi
+
+  if ! plutil -convert xml1 "$tmp" 2>/dev/null; then
+    warn "Failed to convert $bundle_id plist to XML"
+    rm -f "$tmp"
+    inc errors
+    return
+  fi
+
+  # Check if anything changed
+  if [[ -f "$dest" ]] && cmp -s "$tmp" "$dest"; then
+    log "Unchanged: $filename"
+    rm -f "$tmp"
+    return
+  fi
+
+  mv "$tmp" "$dest"
+  log "Updated: $filename"
+  inc changed
+}
+
+# snapshot_brewfile
+# Dumps current Homebrew state to Brewfile.
+snapshot_brewfile() {
+  if ! command -v brew >/dev/null 2>&1; then
+    warn "Homebrew not found, skipping Brewfile"
+    inc skipped
+    return
+  fi
+
+  local dest="$REPO_ROOT/Brewfile"
+  local tmp
+  tmp=$(mktemp)
+
+  if ! brew bundle dump --force --file="$tmp" 2>/dev/null; then
+    warn "brew bundle dump failed"
+    rm -f "$tmp"
+    inc errors
+    return
+  fi
+
+  if [[ -f "$dest" ]] && cmp -s "$tmp" "$dest"; then
+    log "Unchanged: Brewfile"
+    rm -f "$tmp"
+    return
+  fi
+
+  mv "$tmp" "$dest"
+  log "Updated: Brewfile"
+  inc changed
+}
+
+# snapshot_topgrade
+# Copies topgrade config into assets.
+snapshot_topgrade() {
+  local src="${XDG_CONFIG_HOME:-$HOME/.config}/topgrade.toml"
+  local dest="$ASSETS_DIR/topgrade.toml"
+
+  # Follow symlinks to get the actual file
+  if [[ -L "$src" ]]; then
+    src="$(readlink -f "$src" 2>/dev/null || readlink "$src")"
+  fi
+
+  # If the config dir version doesn't exist, the asset IS the source of truth
+  if [[ ! -f "$src" ]]; then
+    log "topgrade.toml: asset is source of truth (no live config found)"
+    return
+  fi
+
+  if [[ -f "$dest" ]] && cmp -s "$src" "$dest"; then
+    log "Unchanged: topgrade.toml"
+    return
+  fi
+
+  cp "$src" "$dest"
+  log "Updated: topgrade.toml"
+  inc changed
+}
+
+###############################################################################
+# Plist snapshots                                                             #
+#                                                                             #
+# Add new apps here: snapshot_plist <bundle_id> <filename_in_assets>          #
+###############################################################################
+
+log "Snapshotting app preferences..."
+
+snapshot_plist "com.jordanbaird.Ice"            "Ice.plist"
+snapshot_plist "com.hegenberg.BetterSnapTool"   "BetterSnapTool.plist"
+snapshot_plist "com.googlecode.iterm2"          "iTerm2.plist"
+
+###############################################################################
+# Brewfile                                                                    #
+###############################################################################
+
+log "Snapshotting Brewfile..."
+snapshot_brewfile
+
+###############################################################################
+# Topgrade                                                                    #
+###############################################################################
+
+log "Snapshotting topgrade config..."
+snapshot_topgrade
+
+###############################################################################
+# Summary                                                                     #
+###############################################################################
+
+echo
+log "Done: $changed updated, $skipped skipped, $errors error(s)"
+
+if (( changed > 0 )); then
+  echo
+  log "Review changes with: cd $REPO_ROOT && git diff"
+fi

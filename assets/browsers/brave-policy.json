@@ -1,5 +1,5 @@
 {
-  "_comment": "mrk2 managed policy for Brave Browser. Chromium reads JSON files from ~/Library/Application Support/BraveSoftware/Brave-Browser/policies/managed/ on launch. This will show a 'Managed by your organization' indicator in brave://settings. To remove it, delete this file from the managed/ directory and relaunch Brave.",
+  "_comment": "mrk managed policy for Brave Browser. Chromium reads JSON files from ~/Library/Application Support/BraveSoftware/Brave-Browser/policies/managed/ on launch. This will show a 'Managed by your organization' indicator in brave://settings. To remove it, delete this file from the managed/ directory and relaunch Brave.",
 
   "BookmarkBarEnabled": true,
   "ShowHomeButton": true,

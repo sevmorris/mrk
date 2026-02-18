@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Rogue Amoeba — disable Sparkle auto-updates across the suite
 #
-# Applied by mrk2 post-install.
+# Applied by mrk post-install.
 # Updates are managed via topgrade / brew upgrade instead.
 
 log(){ printf "[rogue-amoeba-updates] %s\n" "$*"; }

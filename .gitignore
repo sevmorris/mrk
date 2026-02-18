@@ -33,6 +33,7 @@ backups/
 # State directories (user-specific)
 .mrk/
 .mrk1/
+# Legacy dirs (pre-merge)
 .mrk2/
 
 # Claude Code runtime data

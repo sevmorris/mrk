@@ -38,6 +38,7 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 | `make harden` | Security hardening (Touch ID sudo, firewall) |
 | `make status` | Show installation status |
 | `make doctor` | Run `brew doctor` |
+| `make snapshot` | Snapshot live prefs + Brewfile into assets |
 | `make update` | Update via topgrade (or brew) |
 | `make updates` | Install macOS software updates |
 | `make uninstall` | Remove symlinks, optionally rollback defaults |

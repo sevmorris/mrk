@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Audio Hijack preferences
 #
-# Applied by mrk2 post-install.
+# Applied by mrk post-install.
 # Sets theme, preferred audio editor, and buffer size.
 
 log(){ printf "[audio-hijack-defaults] %s\n" "$*"; }

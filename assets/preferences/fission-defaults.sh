@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Fission audio editor preferences
 #
-# Applied by mrk2 post-install.
+# Applied by mrk post-install.
 # Sets custom format defaults for audio export/conversion.
 # Does NOT include license info — enter that manually.
 
