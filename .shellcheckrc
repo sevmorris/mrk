@@ -1,4 +1,4 @@
-# Shellcheck configuration for mrk1 project
+# Shellcheck configuration for mrk project
 
 # Allow sourcing files that may not exist (common in bootstrap scripts)
 disable=SC1090,SC1091
