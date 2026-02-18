@@ -5,7 +5,11 @@ BIN_DIR   := $(REPO_ROOT)/bin
 
 .PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor snapshot
 
-all: setup brew post-install
+all: fix-exec
+	@MRK_PHASE=all "$(SCRIPTS)/setup"
+	@MRK_PHASE=all "$(SCRIPTS)/brew"
+	@MRK_PHASE=all "$(SCRIPTS)/post-install"
+	@printf "\n  \033[2mRun\033[0m \033[36mexec zsh\033[0m \033[2mto reload your shell, or open a new terminal.\033[0m\n\n"
 
 fix-exec:
 	@echo "Making scripts and bin executables..."
