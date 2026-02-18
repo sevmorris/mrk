@@ -6,10 +6,7 @@ Opinionated, idempotent macOS setup in three phases.
 
 ```bash
 git clone https://github.com/sevmorris/mrk.git ~/mrk
-cd ~/mrk
-make install
-make brew
-make post-install
+make -C ~/mrk all
 exec zsh
 ```
 

@@ -682,7 +682,7 @@ MRK_SUCCESS=1
 
 # Hint to reload shell (only when running standalone, not via make all)
 if (( ! DRY_RUN )) && (( ERRORS == 0 )) && [[ -z "${MRK_PHASE:-}" ]]; then
-  printf "  ${_C_DIM}Run${_C_RESET} ${_C_CYAN}exec zsh${_C_RESET} ${_C_DIM}to reload your shell, or open a new terminal.${_C_RESET}\n"
+  printf "  ${_C_YELLOW}→${_C_RESET} Run ${_C_BOLD}${_C_CYAN}exec zsh${_C_RESET} to reload your shell, or open a new terminal.\n"
   echo ""
 fi
 

@@ -9,7 +9,7 @@ all: fix-exec
 	@MRK_PHASE=all "$(SCRIPTS)/setup"
 	@MRK_PHASE=all "$(SCRIPTS)/brew"
 	@MRK_PHASE=all "$(SCRIPTS)/post-install"
-	@printf "\n  \033[2mRun\033[0m \033[36mexec zsh\033[0m \033[2mto reload your shell, or open a new terminal.\033[0m\n\n"
+	@printf "\n  \033[33m→\033[0m Run \033[1;36mexec zsh\033[0m to reload your shell, or open a new terminal.\n\n"
 
 fix-exec:
 	@echo "Making scripts and bin executables..."
