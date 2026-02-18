@@ -29,6 +29,8 @@ linked=0
 failed=0
 while IFS= read -r -d '' src; do
   base="$(basename "$src")"
+  # Skip names that would shadow system/Homebrew commands
+  case "$base" in brew|install) echo "⏭️  Skipping (shadows system command): $base"; continue ;; esac
   # Only link files that have a shebang; skip hidden temp files
   if shabang "$src"; then
     dest="$BIN_DIR/$base"

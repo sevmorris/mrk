@@ -233,6 +233,14 @@ phase_link_tools() {
     return 1
   fi
   
+  # Scripts that would shadow important system/Homebrew commands
+  local -a LINK_SKIP=(brew install)
+  _should_skip_link() {
+    local name="$1"
+    for s in "${LINK_SKIP[@]}"; do [[ "$name" == "$s" ]] && return 0; done
+    return 1
+  }
+
   log "Linking scripts/* and bin/* into $INSTALL_BIN..."
   local linked=0
   local skipped=0
@@ -262,6 +270,12 @@ phase_link_tools() {
       
       if (( total > 0 )); then
         printf "\r[%d/%d] Linking %s..." "$current" "$total" "$base" >&2 || true
+      fi
+
+      # Skip names that would shadow system commands
+      if _should_skip_link "$base"; then
+        ((skipped++)) || true
+        continue
       fi
       
       # Skip if symlink already points to correct target
