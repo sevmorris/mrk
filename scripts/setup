@@ -96,6 +96,26 @@ fi
 # Setup logging with rotation
 setup_logging
 exec > >(tee -a "$LOGFILE") 2>&1
+show_banner() {
+  printf "${_C_BOLD}${_C_BLUE}"
+  cat <<'BANNER'
+
+                        $$\
+                        $$ |
+         $$$$$$\$$$$\   $$$$$$$\  $$\   $$\
+         $$  _$$  _$$\  $$  __$$\ $$ | $$  |
+         $$ / $$ / $$ | $$ |  $$ |$$$$$$  /
+         $$ | $$ | $$ | $$ |  $$ |$$  _$$<
+         $$ | $$ | $$ | $$ |  $$ |$$ | \$$\
+         \__| \__| \__| \__|  \__|\__|  \__|
+
+BANNER
+  printf "${_C_RESET}"
+  printf "         ${_C_DIM}macOS bootstrap${_C_RESET}  ${_C_CYAN}github.com/sevmorris/mrk${_C_RESET}\n"
+  echo ""
+}
+
+show_banner
 log "Starting setup... (log: $LOGFILE)"
 if (( DRY_RUN )); then
   log "DRY RUN MODE: No changes will be made"
