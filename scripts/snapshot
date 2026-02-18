@@ -21,8 +21,10 @@ errors=0
 # Safe increment that won't trip set -e when var goes from 0 to 1
 inc() { eval "$1=\$(( $1 + 1 ))"; }
 
-log()  { printf "[snapshot] %s\n" "$*"; }
-warn() { printf "[snapshot] ⚠ %s\n" "$*"; }
+_C="\033[36m" _Y="\033[33m" _G="\033[32m" _D="\033[2m" _B="\033[1m" _R="\033[0m"
+[[ ! -t 1 ]] && _C="" _Y="" _G="" _D="" _B="" _R=""
+log()  { printf "${_C}[snapshot]${_R} %s\n" "$*"; }
+warn() { printf "${_Y}[snapshot] ⚠${_R} %s\n" "$*"; }
 
 # snapshot_plist <bundle_id> <asset_filename>
 # Copies a live plist to assets, converting to XML for readable diffs.
@@ -155,7 +157,8 @@ snapshot_topgrade
 ###############################################################################
 
 echo
-log "Done: $changed updated, $skipped skipped, $errors error(s)"
+printf "${_C}[snapshot]${_R} Done: ${_G}${_B}$changed${_R} updated, ${_D}$skipped skipped${_R}, "
+if (( errors > 0 )); then printf "\033[31m${_B}$errors error(s)${_R}\n"; else printf "${_D}$errors error(s)${_R}\n"; fi
 
 if (( changed > 0 )); then
   echo

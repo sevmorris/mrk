@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
+_G="\033[32m" _D="\033[2m" _R="\033[0m"
 # Safari power-user defaults
 #
 # Applied by mrk post-install. No rollback — reset Safari preferences manually to revert
 # or reset Safari preferences manually to revert.
 
-log(){ printf "[safari-defaults] %s\n" "$*"; }
+log(){ printf "${_D}[safari-defaults]${_R} %s\n" "$*"; }
 
 failed=0
 

@@ -133,7 +133,7 @@ run_phase() {
   
   CURRENT_STEP="$name"
   sudo_refresh
-  log "Running phase: $name"
+  header "Phase: $name"
   if (( CONTINUE_ON_ERROR )); then
     if ! "$@"; then
       warn "Phase $name failed, continuing with remaining phases..."
@@ -599,53 +599,53 @@ run_phase shell    phase_shell
 # Installation summary
 show_summary() {
   echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  Setup Summary (Phase 1)"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  printf "${_C_BOLD}${_C_BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${_C_RESET}\n"
+  printf "${_C_BOLD}  Setup Summary (Phase 1)${_C_RESET}\n"
+  printf "${_C_BOLD}${_C_BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${_C_RESET}\n"
   
   if (( DRY_RUN )); then
-    echo "  Mode: DRY RUN (no changes were made)"
+    printf "${_C_DIM}  Mode: DRY RUN (no changes were made)${_C_RESET}\n"
     echo ""
   fi
   
   if (( DOTFILES_LINKED > 0 )); then
-    echo "  ✓ Dotfiles linked: $DOTFILES_LINKED"
+    printf "${_C_GREEN}  ✓${_C_RESET} Dotfiles linked: ${_C_BOLD}$DOTFILES_LINKED${_C_RESET}\n"
   fi
   if (( DOTFILES_SKIPPED > 0 )); then
-    echo "  · Dotfiles unchanged: $DOTFILES_SKIPPED (already linked)"
+    printf "${_C_DIM}  · Dotfiles unchanged: $DOTFILES_SKIPPED (already linked)${_C_RESET}\n"
   fi
 
   if (( TOOLS_LINKED > 0 )); then
-    echo "  ✓ Tools linked: $TOOLS_LINKED"
+    printf "${_C_GREEN}  ✓${_C_RESET} Tools linked: ${_C_BOLD}$TOOLS_LINKED${_C_RESET}\n"
   fi
   if (( TOOLS_SKIPPED > 0 )); then
-    echo "  · Tools unchanged: $TOOLS_SKIPPED (already linked)"
+    printf "${_C_DIM}  · Tools unchanged: $TOOLS_SKIPPED (already linked)${_C_RESET}\n"
   fi
   
   if (( DEFAULTS_APPLIED > 0 )); then
-    echo "  ✓ macOS defaults applied"
+    printf "${_C_GREEN}  ✓${_C_RESET} macOS defaults applied\n"
   fi
   
   if (( BACKUPS_CREATED > 0 )); then
-    echo "  ✓ Backups created: $BACKUPS_CREATED"
-    echo "    Location: $BACKUP_DIR"
+    printf "${_C_GREEN}  ✓${_C_RESET} Backups created: ${_C_BOLD}$BACKUPS_CREATED${_C_RESET}\n"
+    printf "    Location: $BACKUP_DIR\n"
   fi
   
   if (( ERRORS > 0 )); then
-    echo "  ✗ Errors encountered: $ERRORS"
+    printf "${_C_RED}  ✗${_C_RESET} Errors encountered: ${_C_BOLD}$ERRORS${_C_RESET}\n"
   fi
   
   if (( WARNINGS > 0 )); then
-    echo "  ⚠ Warnings: $WARNINGS"
+    printf "${_C_YELLOW}  ⚠${_C_RESET} Warnings: ${_C_BOLD}$WARNINGS${_C_RESET}\n"
   fi
   
   echo ""
-  echo "  Log file: $LOGFILE"
+  printf "  ${_C_DIM}Log file:${_C_RESET} $LOGFILE\n"
   if [[ -f "$ROLLBACK" ]] && [[ -s "$ROLLBACK" ]]; then
-    echo "  Rollback script: $ROLLBACK"
+    printf "  ${_C_DIM}Rollback:${_C_RESET} $ROLLBACK\n"
   fi
   echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  printf "${_C_BOLD}${_C_BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${_C_RESET}\n"
   echo ""
 }
 

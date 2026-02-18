@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
+_G="\033[32m" _D="\033[2m" _R="\033[0m"
 # AlDente Pro battery management preferences
 #
 # Applied by mrk post-install.
 
-log(){ printf "[aldente-defaults] %s\n" "$*"; }
+log(){ printf "${_D}[aldente-defaults]${_R} %s\n" "$*"; }
 
 failed=0
 

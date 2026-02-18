@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
+_G="\033[32m" _D="\033[2m" _R="\033[0m"
 # Audio Hijack preferences
 #
 # Applied by mrk post-install.
 # Sets theme, preferred audio editor, and buffer size.
 
-log(){ printf "[audio-hijack-defaults] %s\n" "$*"; }
+log(){ printf "${_D}[audio-hijack-defaults]${_R} %s\n" "$*"; }
 
 failed=0
 

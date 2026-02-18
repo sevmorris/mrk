@@ -29,7 +29,9 @@ if ! printf '#!/usr/bin/env bash\n' > "$ROLLBACK" || ! chmod +x "$ROLLBACK"; the
   exit 1
 fi
 
-log(){ printf "[defaults] %s\n" "$*"; }
+_C="\033[36m" _D="\033[2m" _R="\033[0m"
+[[ ! -t 1 ]] && _C="" _D="" _R=""
+log(){ printf "${_C}[defaults]${_R} %s\n" "$*"; }
 backup_line(){ echo "$1" >> "$ROLLBACK"; }
 
 # Helper: capture current value (if any) and append the inverse to rollback

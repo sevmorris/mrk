@@ -10,7 +10,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 readonly SCRIPT_DIR REPO_ROOT
 
-log(){ printf "[post-install] %s\n" "$*"; }
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+log(){ printf "${_C_CYAN}[post-install]${_C_RESET} %s\n" "$*"; }
 
 failed=0
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
+_G="\033[32m" _D="\033[2m" _R="\033[0m"
 # Helium defaults — automatic updates via Sparkle framework
 #
 # Applied by mrk post-install. Helium is a minimal floating browser
 # with no extension support.
 
-log(){ printf "[helium-defaults] %s\n" "$*"; }
+log(){ printf "${_D}[helium-defaults]${_R} %s\n" "$*"; }
 
 failed=0
 
