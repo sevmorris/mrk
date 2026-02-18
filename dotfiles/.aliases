@@ -281,27 +281,6 @@ cleanempties() {
   echo "Done. Fully pruned after $iter pass$( [[ $iter -eq 1 ]] && echo "" || echo "es")."
 }
 
-# Push WaxOn and WaxOff repos to GitHub
-waxup() {
-  if [[ -d "$HOME/Projects/WaxOn/.git" ]]; then
-    echo "WaxOn → pushing to GitHub..."
-    (cd "$HOME/Projects/WaxOn" && git add . && git commit -m "Update WaxOn" --allow-empty && git push origin main)
-  else
-    echo "WaxOn repo not found at \$HOME/Projects/WaxOn"
-  fi
-
-  echo
-
-  if [[ -d "$HOME/Projects/WaxOff/.git" ]]; then
-    echo "WaxOff → pushing to GitHub..."
-    (cd "$HOME/Projects/WaxOff" && git add . && git commit -m "Update WaxOff" --allow-empty && git push origin main)
-  else
-    echo "WaxOff repo not found at \$HOME/Projects/WaxOff"
-  fi
-
-  echo "WaxOn + WaxOff push completed."
-}
-
 # Short aliases
 alias se='showempties'
 alias ce='cleanempties'
