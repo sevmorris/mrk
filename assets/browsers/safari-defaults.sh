@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
-_G="\033[32m" _D="\033[2m" _R="\033[0m"
+_Y="\033[33m" _D="\033[2m" _R="\033[0m"
 # Safari power-user defaults
 #
 # Applied by mrk post-install. No rollback — reset Safari preferences manually to revert
 # or reset Safari preferences manually to revert.
 
 log(){ printf "${_D}[safari-defaults]${_R} %s\n" "$*"; }
-
+warn(){ printf "${_Y}[safari-defaults] ⚠${_R} %s\n" "$*"; }
 failed=0
 
 ###############################################################################
@@ -65,7 +65,7 @@ defaults write com.apple.Safari InstallExtensionUpdatesAutomatically -bool true 
 ###############################################################################
 
 if (( failed > 0 )); then
-  log "Warning: $failed default(s) failed to apply"
+  warn "Warning: $failed default(s) failed to apply"
 else
   log "All defaults applied"
 fi

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-_G="\033[32m" _D="\033[2m" _R="\033[0m"
+_Y="\033[33m" _D="\033[2m" _R="\033[0m"
 # Fission audio editor preferences
 #
 # Applied by mrk post-install.
@@ -8,7 +8,7 @@ _G="\033[32m" _D="\033[2m" _R="\033[0m"
 # Does NOT include license info — enter that manually.
 
 log(){ printf "${_D}[fission-defaults]${_R} %s\n" "$*"; }
-
+warn(){ printf "${_Y}[fission-defaults] ⚠${_R} %s\n" "$*"; }
 failed=0
 
 # Dark theme
@@ -57,7 +57,7 @@ defaults write com.rogueamoeba.Fission exportFormatType -int 5 || ((failed++))
 defaults write com.rogueamoeba.Fission showStartWindow -bool false || ((failed++))
 
 if (( failed > 0 )); then
-  log "Warning: $failed default(s) failed to apply"
+  warn "Warning: $failed default(s) failed to apply"
 else
   log "All defaults applied"
 fi

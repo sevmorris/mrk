@@ -109,7 +109,8 @@ show_banner() {
 
 BANNER
   printf "${_C_RESET}"
-  printf "         ${_C_DIM}macOS bootstrap${_C_RESET}  ${_C_CYAN}github.com/sevmorris/mrk${_C_RESET}\n"
+  printf "              ${_C_BOLD}Mac Rebuild Kit${_C_RESET}\n"
+  printf "         ${_C_DIM}github.com/sevmorris/mrk${_C_RESET}\n"
   echo ""
 }
 

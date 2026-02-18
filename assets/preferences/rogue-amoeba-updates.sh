@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
-_G="\033[32m" _D="\033[2m" _R="\033[0m"
+_Y="\033[33m" _D="\033[2m" _R="\033[0m"
 # Rogue Amoeba — disable Sparkle auto-updates across the suite
 #
 # Applied by mrk post-install.
 # Updates are managed via topgrade / brew upgrade instead.
 
 log(){ printf "${_D}[rogue-amoeba-updates]${_R} %s\n" "$*"; }
-
+warn(){ printf "${_Y}[rogue-amoeba-updates] ⚠${_R} %s\n" "$*"; }
 failed=0
 
 apps=(
@@ -27,7 +27,7 @@ for bundle_id in "${apps[@]}"; do
 done
 
 if (( failed > 0 )); then
-  log "Warning: $failed default(s) failed to apply"
+  warn "Warning: $failed default(s) failed to apply"
 else
   log "All Rogue Amoeba auto-updates disabled"
 fi

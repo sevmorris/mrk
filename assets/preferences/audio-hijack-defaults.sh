@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
-_G="\033[32m" _D="\033[2m" _R="\033[0m"
+_Y="\033[33m" _D="\033[2m" _R="\033[0m"
 # Audio Hijack preferences
 #
 # Applied by mrk post-install.
 # Sets theme, preferred audio editor, and buffer size.
 
 log(){ printf "${_D}[audio-hijack-defaults]${_R} %s\n" "$*"; }
-
+warn(){ printf "${_Y}[audio-hijack-defaults] ⚠${_R} %s\n" "$*"; }
 failed=0
 
 # Dark theme (0=light, 1=auto, 2=dark)
@@ -23,7 +23,7 @@ defaults write com.rogueamoeba.AudioHijack bufferFrames -int 512 || ((failed++))
 defaults write com.rogueamoeba.AudioHijack allowExternalCommands -int 0 || ((failed++))
 
 if (( failed > 0 )); then
-  log "Warning: $failed default(s) failed to apply"
+  warn "Warning: $failed default(s) failed to apply"
 else
   log "All defaults applied"
 fi

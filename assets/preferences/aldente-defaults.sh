@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-_G="\033[32m" _D="\033[2m" _R="\033[0m"
+_Y="\033[33m" _D="\033[2m" _R="\033[0m"
 # AlDente Pro battery management preferences
 #
 # Applied by mrk post-install.
 
 log(){ printf "${_D}[aldente-defaults]${_R} %s\n" "$*"; }
-
+warn(){ printf "${_Y}[aldente-defaults] ⚠${_R} %s\n" "$*"; }
 failed=0
 
 # Maximum charge level (%)
@@ -35,7 +35,7 @@ defaults write com.apphousekitchen.aldente-pro SUAutomaticallyUpdate -bool true 
 defaults write com.apphousekitchen.aldente-pro SUEnableAutomaticChecks -bool true || ((failed++))
 
 if (( failed > 0 )); then
-  log "Warning: $failed default(s) failed to apply"
+  warn "Warning: $failed default(s) failed to apply"
 else
   log "All defaults applied"
 fi
