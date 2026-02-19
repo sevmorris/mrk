@@ -80,6 +80,57 @@ mrk/
 
 MIT — Seven Morris
 
+## Aliases & Functions
+
+Defined in `dotfiles/.aliases` and available after install.
+
+### General
+
+| Command | Description |
+|---------|-------------|
+| `ls` / `la` | Colorized listing (GNU `ls` if available) |
+| `nano` | Opens with line numbers |
+| `cat` | Uses `bat` with plain output if installed (set `NO_SMART_CAT=1` to disable) |
+| `s` | Put display to sleep |
+| `netcheck` | Run `networkQuality` speed test |
+| `c` | Clear screen and reload shell |
+| `v` | Activate nearest `.venv` (searches parent dirs) |
+| `shrug` | Copy `¯\_(ツ)_/¯` to clipboard |
+| `decrypt` | GPG decrypt shortcut |
+
+### Homebrew
+
+| Command | Description |
+|---------|-------------|
+| `update` | Run `topgrade` |
+| `brewses` | Show which installed formulae depend on a package |
+| `dump` | Dump current Brewfile to `~/Brewfile` |
+| `fixbrewperms` | Fix Homebrew directory permissions |
+
+### File Management
+
+| Command | Description |
+|---------|-------------|
+| `se [path]` | Show empty directories recursively |
+| `ce [path]` | Clean empty directories (moves to Trash, prunes recursively) |
+| `ce -f [path]` | Same as above, skip confirmation |
+| `clean-ds` | Remove `.DS_Store` files from local volumes (skips Desktop & Library) |
+
+### Git
+
+| Command | Description |
+|---------|-------------|
+| `pushit ["msg"]` | Stage all, pull --rebase, commit, push |
+
+### Other
+
+| Command | Description |
+|---------|-------------|
+| `pw` | Generate a random password → clipboard (requires `pwgen`) |
+| `art` | ASCII art from images (requires `ascii-image-converter`) |
+| `zmount` | Mount all ZFS datasets (if ZFS is installed) |
+| `mc` | Start Minecraft server with Aikar's flags |
+
 ---
 
 *Merged from [mrk1](https://github.com/sevmorris/mrk1) + [mrk2](https://github.com/sevmorris/mrk2).*
