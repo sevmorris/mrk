@@ -6,7 +6,7 @@ sudo_command = "sudo"
 # Modules you don't want Topgrade to touch
 # "system" = macOS softwareupdate (handled separately via `make updates`)
 # "pnpm"   = managed via npm, not standalone
-disable = ["system", "pnpm"]
+disable = ["system", "pnpm", "pip"]
 
 no_retry = true
 cleanup = true
