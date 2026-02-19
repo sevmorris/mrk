@@ -76,10 +76,6 @@ mrk/
     └── ...           # doctor, syncall, check-updates, etc.
 ```
 
-## License
-
-MIT — Seven Morris
-
 ## Aliases & Functions
 
 Defined in `dotfiles/.aliases` and available after install.
@@ -128,5 +124,9 @@ Defined in `dotfiles/.aliases` and available after install.
 | `mc` | Start Minecraft server with Aikar's flags |
 
 ---
+
+## License
+
+MIT — Seven Morris
 
 *Merged from [mrk1](https://github.com/sevmorris/mrk1) + [mrk2](https://github.com/sevmorris/mrk2).*
