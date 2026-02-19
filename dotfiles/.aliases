@@ -47,7 +47,6 @@ v() {
 }
 
 # Only define if ZFS is present
-command -v zfs >/dev/null 2>&1 && alias zmount='sudo zfs mount -a'
 
 # ==============================================================================
 #  Productivity & Fun Aliases
@@ -55,7 +54,6 @@ command -v zfs >/dev/null 2>&1 && alias zmount='sudo zfs mount -a'
 
 alias shrug="printf '¯\\_(ツ)_/¯' | pbcopy"
 command -v pwgen >/dev/null 2>&1 && alias pw='pwgen -s -1 19 | pbcopy' # Generate a password → clipboard.
-command -v ascii-image-converter >/dev/null 2>&1 && alias art='ascii-image-converter'
 alias decrypt='gpg --decrypt ' # Trailing space enables filename completion.
 
 # ==============================================================================
@@ -124,9 +122,7 @@ clean-ds() {
 # ==============================================================================
 
 if command -v brew >/dev/null 2>&1; then
-  alias brewses='brew uses --installed'
   # Dump Brewfile to home directory
-  alias dump='brew bundle dump --force --file=~/Brewfile'
 fi
 
 # Safer Homebrew permission fixer

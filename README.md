@@ -103,8 +103,6 @@ Defined in `dotfiles/.aliases` and available after install.
 | Command | Description |
 |---------|-------------|
 | `update` | Run `topgrade` |
-| `brewses` | Show which installed formulae depend on a package |
-| `dump` | Dump current Brewfile to `~/Brewfile` |
 | `fixbrewperms` | Fix Homebrew directory permissions |
 
 ### File Management
@@ -127,8 +125,6 @@ Defined in `dotfiles/.aliases` and available after install.
 | Command | Description |
 |---------|-------------|
 | `pw` | Generate a random password → clipboard (requires `pwgen`) |
-| `art` | ASCII art from images (requires `ascii-image-converter`) |
-| `zmount` | Mount all ZFS datasets (if ZFS is installed) |
 | `mc` | Start Minecraft server with Aikar's flags |
 
 ---
