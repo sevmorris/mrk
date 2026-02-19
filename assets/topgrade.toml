@@ -14,9 +14,8 @@ cleanup = true
 # Don't self-update — Homebrew manages the topgrade binary
 no_self_update = true
 
-# One notification at the end instead of per-step noise
+# Only notify at the end, not per-step
 notify_each_step = false
-notify_end = "on_failure"
 
 [pre_commands]
 # corepack/yarn/pnpm install shims into Homebrew's bin/ that shadow
