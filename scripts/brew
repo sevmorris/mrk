@@ -68,8 +68,8 @@ trap cleanup EXIT INT TERM
 # (exec > >(tee ...) breaks brew command output capture in subshells)
 setup_logging
 
-# Override logging to write to both stderr and logfile
-# (can't use exec > >(tee) as it breaks brew output capture)
+# Override lib.sh logging to write to both stderr and logfile explicitly.
+# exec > >(tee) breaks brew output capture in subshells, so we tee per-call instead.
 log()  { printf "[mrk] %s\n" "$*" | tee -a "$LOGFILE" >&2; }
 warn() { printf "[warn] %s\n" "$*" | tee -a "$LOGFILE" >&2; }
 err()  { printf "[err ] %s\n" "$*" | tee -a "$LOGFILE" >&2; }

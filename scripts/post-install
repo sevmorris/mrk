@@ -62,7 +62,7 @@ TOPGRADE_DST="$HOME/.config/topgrade.toml"
 
 if command -v topgrade >/dev/null 2>&1 && [[ -f "$TOPGRADE_SRC" ]]; then
   mkdir -p "$HOME/.config"
-  if [[ -L "$TOPGRADE_DST" ]]; then
+  if [[ -L "$TOPGRADE_DST" ]] && [[ "$(readlink "$TOPGRADE_DST")" == "$TOPGRADE_SRC" ]]; then
     log "Topgrade config already linked"
   else
     [[ -f "$TOPGRADE_DST" ]] && mv "$TOPGRADE_DST" "${TOPGRADE_DST}.bak"

@@ -37,6 +37,10 @@ if [[ -d "$REPO_ROOT/dotfiles" ]]; then
   shopt -s dotglob nullglob
   for src in "$REPO_ROOT/dotfiles"/*; do
     [[ -e "$src" ]] || continue
+    # Skip .example files and README/documentation files (matching setup behavior)
+    case "$(basename "$src")" in
+      *.example|README*|*.md) continue ;;
+    esac
     dst="$HOME/$(basename "$src")"
     if [[ -L "$dst" ]] && [[ "$(readlink "$dst")" == "$src" ]]; then
       ((linked++)) || true

@@ -14,7 +14,6 @@ MANIFEST="$REPO_ROOT/.install-manifest"
 
 echo "🧾 Generating install manifest → $MANIFEST"
 
-DOTFILES=(.zshrc .zshenv .zprofile .aliases)
 CANDIDATE_BIN_DIRS=("$HOME/bin")
 CONFIG_DIRS=("$HOME/.mrk")
 
@@ -36,20 +35,27 @@ for bindir in "${CANDIDATE_BIN_DIRS[@]}"; do
   while IFS= read -r -d '' link; do
     target="$(resolve_realpath "$link")"
     case "$target" in
-      "$REPO_ROOT"/scripts/*) echo "$link" >>"$MANIFEST" ;;
+      "$REPO_ROOT"/scripts/*|"$REPO_ROOT"/bin/*) echo "$link" >>"$MANIFEST" ;;
     esac
   done < <(find "$bindir" -maxdepth 1 -type l -print0 2>/dev/null || true)
 done
 
-for f in "${DOTFILES[@]}"; do
-  path="$HOME/$f"
-  if [[ -L "$path" ]]; then
-    tgt="$(resolve_realpath "$path")"
-    case "$tgt" in
-      "$REPO_ROOT"/dotfiles/*) echo "$path" >>"$MANIFEST" ;;
+# Scan dotfiles directory dynamically (skip .example and README files, matching setup behavior)
+if [[ -d "$REPO_ROOT/dotfiles" ]]; then
+  for src in "$REPO_ROOT/dotfiles"/*; do
+    [[ -e "$src" ]] || continue
+    case "$(basename "$src")" in
+      *.example|README*|*.md) continue ;;
     esac
-  fi
-done
+    path="$HOME/$(basename "$src")"
+    if [[ -L "$path" ]]; then
+      tgt="$(resolve_realpath "$path")"
+      case "$tgt" in
+        "$REPO_ROOT"/dotfiles/*) echo "$path" >>"$MANIFEST" ;;
+      esac
+    fi
+  done
+fi
 
 for d in "${CONFIG_DIRS[@]}"; do
   [[ -e "$d" ]] && echo "$d" >>"$MANIFEST"

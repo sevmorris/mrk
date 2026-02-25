@@ -13,21 +13,28 @@ done
 BASE_DIR="$(cd "$(dirname "$_self")" && pwd)"
 PROJECT_ROOT="$(dirname "$BASE_DIR")"
 
-TARGETS=(
-  "$PROJECT_ROOT/scripts"
-  "$HOME/bin"
-)
-
 echo "🔧 Ensuring executable bits on mrk scripts…"
-for dir in "${TARGETS[@]}"; do
+
+# Fix repo scripts and bin directories directly
+for dir in "$PROJECT_ROOT/scripts" "$PROJECT_ROOT/bin"; do
   if [ -d "$dir" ]; then
-    # Only chmod top-level files in each target dir
     find "$dir" -maxdepth 1 -type f -print0 2>/dev/null \
       | xargs -0 chmod +x 2>/dev/null || true
     echo "✓ Fixed executables in: $dir"
-  else
-    echo "⚠️ Skipping missing directory: $dir"
   fi
 done
+
+# In ~/bin, only fix symlinks that point back into this repo
+if [ -d "$HOME/bin" ]; then
+  fixed=0
+  while IFS= read -r -d '' link; do
+    target="$(readlink "$link" 2>/dev/null || true)"
+    if [[ "$target" == "$PROJECT_ROOT"/* ]]; then
+      chmod +x "$link" 2>/dev/null || true
+      ((fixed++)) || true
+    fi
+  done < <(find "$HOME/bin" -maxdepth 1 -type l -print0 2>/dev/null || true)
+  echo "✓ Fixed $fixed mrk symlink(s) in: $HOME/bin"
+fi
 
 echo "✅ Done."
