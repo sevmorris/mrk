@@ -159,7 +159,7 @@ mc() {
     return 1
   fi
   if [[ ! -d "$HOME/mcservers/1.21.6" ]]; then
-    echo "Server directory $HOME/mcservers/1.21.5 not found."
+    echo "Server directory $HOME/mcservers/1.21.6 not found."
     return 1
   fi
   (
@@ -279,27 +279,6 @@ cleanempties() {
   done
 
   echo "Done. Fully pruned after $iter pass$( [[ $iter -eq 1 ]] && echo "" || echo "es")."
-}
-
-# Push WaxOn and WaxOff repos to GitHub
-waxup() {
-  if [[ -d "$HOME/WaxOn/.git" ]]; then
-    echo "WaxOn → pushing to GitHub..."
-    (cd "$HOME/WaxOn" && git add . && git commit -m "Update WaxOn" --allow-empty && git push origin main)
-  else
-    echo "WaxOn repo not found at \$HOME/WaxOn"
-  fi
-
-  echo
-
-  if [[ -d "$HOME/WaxOff/.git" ]]; then
-    echo "WaxOff → pushing to GitHub..."
-    (cd "$HOME/WaxOff" && git add . && git commit -m "Update WaxOff" --allow-empty && git push origin main)
-  else
-    echo "WaxOff repo not found at \$HOME/WaxOff"
-  fi
-
-  echo "WaxOn + WaxOff push completed."
 }
 
 # Short aliases

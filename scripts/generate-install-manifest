@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve symlinks so this works when called via ~/bin
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MANIFEST="$REPO_ROOT/.install-manifest"
 
 echo "🧾 Generating install manifest → $MANIFEST"
 
 DOTFILES=(.zshrc .zshenv .zprofile .aliases)
-CANDIDATE_BIN_DIRS=("$HOME/.local/bin" "$HOME/bin")
-CONFIG_DIRS=("$HOME/.config/mrk" "$HOME/.mrk")
+CANDIDATE_BIN_DIRS=("$HOME/bin")
+CONFIG_DIRS=("$HOME/.mrk")
 
 resolve_realpath() {
   python3 - "$1" <<'PY'

@@ -197,9 +197,11 @@ declare -A FORMULA_DESCRIPTIONS=(
   [whisper-cpp]="Speech-to-text engine (C/C++ port of OpenAI Whisper)"
   [yt-dlp]="Video/audio downloader from YouTube and other sites"
   [mac-cleanup-py]="Cleanup script for macOS (caches, logs, trash)"
+  [mas]="Mac App Store CLI - Install and update App Store apps"
   [mkdocs]="Static site generator for project documentation"
   [nvm]="Node Version Manager - Install and manage Node.js versions"
   [pandoc]="Universal document converter"
+  [tree]="Display directory trees in the terminal"
   [wget]="Internet file retriever"
 )
 
@@ -540,15 +542,6 @@ main() {
   if ! install_brewfile; then
     err "Failed to install packages from Brewfile"
     ((ERRORS++))
-  fi
-
-  # Phase 3: Post-install (login items, config linking)
-  local post_install="$SCRIPT_DIR/post-install"
-  if [[ -x "$post_install" ]]; then
-    log "Running post-install..."
-    if ! "$post_install"; then
-      warn "Post-install completed with warnings"
-    fi
   fi
 
   # Installation summary

@@ -1,8 +1,5 @@
 # Logs
 *.log
-mrk-install.log
-mrk1-install.log
-mrk2-install.log
 *.log.*
 
 # macOS
@@ -10,6 +7,7 @@ mrk2-install.log
 
 # Dev-only scripts (not distributed)
 scripts/clean-test
+scripts/dev-test.sh
 .AppleDouble
 .LSOverride
 ._*
@@ -32,8 +30,6 @@ backups/
 
 # State directories (user-specific)
 .mrk/
-.mrk1/
-.mrk2/
 
 # Claude Code runtime data
 .claude/

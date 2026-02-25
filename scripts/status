@@ -3,7 +3,14 @@ set -euo pipefail
 
 # mrk status — unified installation status
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve symlinks so this works when called via ~/bin
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 INSTALL_BIN="$HOME/bin"
 STATE_DIR="$HOME/.mrk"
@@ -111,6 +118,21 @@ echo ""
 ###############################################################################
 # Backups                                                                     #
 ###############################################################################
+
+echo "Security Hardening:"
+if [[ -f "$STATE_DIR/hardening-rollback.sh" ]] && [[ -s "$STATE_DIR/hardening-rollback.sh" ]]; then
+  rollback_lines=$(grep -c "sudo\|defaults write\|defaults delete" "$STATE_DIR/hardening-rollback.sh" 2>/dev/null || echo "0")
+  if (( rollback_lines > 0 )); then
+    ok "  Hardening has been applied"
+    info "  Rollback script: $STATE_DIR/hardening-rollback.sh"
+    info "  ($rollback_lines change(s) can be rolled back)"
+  else
+    info "  No hardening applied"
+  fi
+else
+  info "  No hardening applied"
+fi
+echo ""
 
 echo "Backups:"
 if [[ -d "$STATE_DIR/backups" ]]; then

@@ -3,8 +3,14 @@
 
 set -euo pipefail
 
-# Resolve repo paths (works from mrk or mrk-dev)
-BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve repo paths, following symlinks (works when called via ~/bin)
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+BASE_DIR="$(cd "$(dirname "$_self")" && pwd)"
 PROJECT_ROOT="$(dirname "$BASE_DIR")"
 
 TARGETS=(

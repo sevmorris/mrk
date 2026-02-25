@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Safari power-user defaults
 #
-# Applied by mrk2 post-install. No rollback — re-run mrk1 defaults
+# Applied by mrk post-install. No rollback — re-run mrk defaults
 # or reset Safari preferences manually to revert.
 
 log(){ printf "[safari-defaults] %s\n" "$*"; }

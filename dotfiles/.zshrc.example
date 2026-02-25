@@ -6,7 +6,11 @@
 # 2. Customize it for your needs
 # 3. Run: ./scripts/install
 
-# Add ~/.local/bin to PATH if not already present
+# Add ~/bin and ~/.local/bin to PATH if not already present
+[ -d "$HOME/bin" ] && case ":$PATH:" in
+  *":$HOME/bin:"*) ;;
+  *) export PATH="$HOME/bin:$PATH";;
+esac
 [ -d "$HOME/.local/bin" ] && case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
   *) export PATH="$HOME/.local/bin:$PATH";;

@@ -3,7 +3,7 @@ set -euo pipefail
 
 # mrk uninstaller - conservative
 # - Unlinks ~/bin symlinks pointing into this repo
-# - Optionally runs ~/.mrk/defaults-rollback.sh
+# - Optionally runs ~/.mrk/defaults-rollback.sh and hardening-rollback.sh
 # - Does not remove user data or dotfiles
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -73,28 +73,30 @@ if (( removed == 0 && failed == 0 )); then
   fi
 fi
 
-ROLLBACK="$HOME/.mrk/defaults-rollback.sh"
-if [[ -x "$ROLLBACK" ]]; then
+offer_rollback() {
+  local script="$1" label="$2"
+  if [[ ! -x "$script" ]] || [[ ! -s "$script" ]]; then
+    return 0
+  fi
   if [[ -t 0 ]]; then
-    # Interactive mode
-    read -r -p "Run macOS defaults rollback now? [y/N] " ans
+    read -r -p "Run $label rollback now? [y/N] " ans
     if [[ "$ans" =~ ^[Yy]$ ]]; then
-      log "Running $ROLLBACK..."
-      if "$ROLLBACK"; then
-        log "Rollback completed successfully"
+      log "Running $script..."
+      if "$script"; then
+        log "$label rollback completed successfully"
       else
-        warn "Rollback returned non-zero exit code"
+        warn "$label rollback returned non-zero exit code"
       fi
     else
-      log "Skipped defaults rollback (you can run it later: $ROLLBACK)."
+      log "Skipped $label rollback (you can run it later: $script)."
     fi
   else
-    # Non-interactive mode - skip rollback
-    log "Non-interactive mode: skipping defaults rollback"
-    log "You can run it manually: $ROLLBACK"
+    log "Non-interactive mode: skipping $label rollback"
+    log "You can run it manually: $script"
   fi
-else
-  log "No defaults rollback script present at $ROLLBACK (nothing to do)."
-fi
+}
+
+offer_rollback "$HOME/.mrk/defaults-rollback.sh" "macOS defaults"
+offer_rollback "$HOME/.mrk/hardening-rollback.sh" "security hardening"
 
 log "Uninstall complete."

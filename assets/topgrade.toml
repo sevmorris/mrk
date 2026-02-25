@@ -3,19 +3,23 @@ assume_yes = true
 pre_sudo = true
 sudo_command = "sudo"
 
-# Modules you don’t want Topgrade to touch
-disable = ["system", "pnpm"]
+# Modules you don't want Topgrade to touch
+# "system" = macOS softwareupdate (handled separately)
+# "pnpm"   = managed via npm, not standalone
+disable = ["system", "mas", "pnpm", "pip3"]
 
-# Don't retry failed upgrades automatically
 no_retry = true
-
-# Clean up after upgrades
 cleanup = true
 
-# Show progress notifications
-notify_each_step = true  # Consider setting to false later
+# Don't self-update — Homebrew manages the topgrade binary
+no_self_update = true
+
+# Only notify at the end, not per-step
+notify_each_step = false
 
 [pre_commands]
+# corepack/yarn/pnpm install shims into Homebrew's bin/ that shadow
+# the real Node binaries. Clean them before updating.
 "Clean Node global shims" = "bash -lc 'bp=$(brew --prefix 2>/dev/null) && rm -f \"$bp\"/bin/{yarn,pnpm,corepack} && rm -rf \"$bp\"/lib/node_modules/{yarn,pnpm,corepack}'"
 
 [commands]
@@ -24,4 +28,3 @@ notify_each_step = true  # Consider setting to false later
 [brew]
 greedy_cask = true
 autoremove = true
-# fetch_head = true # Only enable if you use HEAD builds of formulae!

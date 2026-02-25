@@ -87,8 +87,8 @@ if ! mkdir -p "$(dirname "$LOGFILE")" "$INSTALL_BIN" "$(dirname "$BACKUP_DIR")" 
   exit 1
 fi
 
-# Initialize rollback script
-if ! : > "$ROLLBACK" || ! chmod +x "$ROLLBACK"; then
+# Ensure rollback script exists (don't truncate — defaults.sh manages its own content)
+if ! touch "$ROLLBACK" || ! chmod +x "$ROLLBACK"; then
   err "Failed to initialize rollback script: $ROLLBACK"
   exit 1
 fi
@@ -220,6 +220,20 @@ phase_link_tools() {
   local failed=0
   local total=0
   
+  # Scripts that should NOT be linked to ~/bin:
+  # - Internal phase scripts (use Makefile targets instead)
+  # - lib.sh (sourced helper, not a standalone command)
+  # - Scripts that would shadow important system commands
+  local -A SKIP_LINK=(
+    [brew]=1        # shadows /opt/homebrew/bin/brew
+    [install]=1     # shadows /usr/bin/install
+    [setup]=1       # internal phase — use 'make setup'
+    [post-install]=1 # internal phase — use 'make post-install'
+    [defaults.sh]=1 # called by setup, not a user command
+    [lib.sh]=1      # sourced helper, not executable
+    [uninstall]=1   # use 'make uninstall'
+  )
+  
   if [[ ! -d "$SCRIPTS_DIR" ]]; then
     warn "Scripts directory not found: $SCRIPTS_DIR"
   fi
@@ -228,10 +242,15 @@ phase_link_tools() {
     # Count total first for progress and collect files
     local files=()
     while IFS= read -r -d '' f || [[ -n "$f" ]]; do
-      [[ -n "$f" ]] && [[ -f "$f" && -x "$f" ]] && {
-        files+=("$f")
-        ((total++)) || true
-      }
+      [[ -n "$f" ]] && [[ -f "$f" && -x "$f" ]] || continue
+      local base_name
+      base_name="$(basename "$f")"
+      # Skip excluded scripts
+      if [[ -n "${SKIP_LINK[$base_name]+x}" ]]; then
+        continue
+      fi
+      files+=("$f")
+      ((total++)) || true
     done < <(find "$SCRIPTS_DIR" -maxdepth 1 -type f -print0 2>/dev/null || true)
     
     local current=0

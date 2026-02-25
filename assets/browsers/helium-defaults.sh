@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Helium defaults — automatic updates via Sparkle framework
 #
-# Applied by mrk2 post-install. Helium is a minimal floating browser
+# Applied by mrk post-install. Helium is a minimal floating browser
 # with no extension support.
 
 log(){ printf "[helium-defaults] %s\n" "$*"; }

@@ -50,4 +50,4 @@ status:
 	@"$(SCRIPTS)/status"
 
 doctor:
-	@brew doctor
+	@"$(SCRIPTS)/doctor"
