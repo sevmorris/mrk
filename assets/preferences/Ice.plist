@@ -1262,9 +1262,9 @@
 		<string>191.000000, 0.000000, 709.000000, 625.000000, NO, NO</string>
 	</array>
 	<key>NSStatusItem Preferred Position HItem</key>
-	<real>457</real>
+	<real>453</real>
 	<key>NSStatusItem Preferred Position SItem</key>
-	<real>270</real>
+	<real>266</real>
 	<key>NSStatusItem Visible AHItem</key>
 	<false/>
 	<key>NSStatusItem Visible SItem</key>
@@ -1291,7 +1291,7 @@
 	<key>SUHasLaunchedBefore</key>
 	<true/>
 	<key>SULastCheckTime</key>
-	<date>2026-02-25T17:55:53Z</date>
+	<date>2026-02-26T18:02:22Z</date>
 	<key>SUUpdateGroupIdentifier</key>
 	<integer>938120993</integer>
 	<key>ShowAllSectionsOnUserDrag</key>
