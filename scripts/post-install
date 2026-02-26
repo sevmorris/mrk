@@ -34,7 +34,7 @@ install_browser_policy(){
     log "$name policy already installed"
     return 0
   fi
-  cp "$src" "$dest"
+  cp "$src" "$dest" || return 1
   log "Installed $name managed policy → $dest"
 }
 
@@ -66,8 +66,12 @@ if command -v topgrade >/dev/null 2>&1 && [[ -f "$TOPGRADE_SRC" ]]; then
     log "Topgrade config already linked"
   else
     [[ -f "$TOPGRADE_DST" ]] && mv "$TOPGRADE_DST" "${TOPGRADE_DST}.bak"
-    ln -s "$TOPGRADE_SRC" "$TOPGRADE_DST"
-    log "Linked topgrade config → $TOPGRADE_DST"
+    if ln -s "$TOPGRADE_SRC" "$TOPGRADE_DST"; then
+      log "Linked topgrade config → $TOPGRADE_DST"
+    else
+      log "Warning: failed to link topgrade config"
+      ((++failed))
+    fi
   fi
 else
   log "Skipping topgrade config (topgrade not installed)"
@@ -195,7 +199,7 @@ import_plist(){
     log "$name plist already exists — skipping import (won't overwrite)"
     return 0
   fi
-  defaults import "$bundle_id" "$plist_file"
+  defaults import "$bundle_id" "$plist_file" || return 1
   log "Imported $name preferences"
 }
 
