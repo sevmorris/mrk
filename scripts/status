@@ -213,9 +213,9 @@ if [[ -f "$BREWFILE" ]]; then
   formulae=0; casks=0; taps=0
   while IFS= read -r line; do
     case "$line" in
-      brew\ *) ((formulae++)) ;;
-      cask\ *) ((casks++)) ;;
-      tap\ *)  ((taps++)) ;;
+      brew\ *) ((++formulae)) ;;
+      cask\ *) ((++casks)) ;;
+      tap\ *)  ((++taps)) ;;
     esac
   done < "$BREWFILE"
   ok "  Found ($formulae formulae, $casks casks, $taps taps)"
@@ -241,23 +241,23 @@ if [[ -f "$BREWFILE" ]]; then
 
       if [[ "$line" =~ ^brew\ \"([^\"]+)\" ]]; then
         pkg="${BASH_REMATCH[1]}"
-        ((total++))
+        ((++total))
         if [[ -n "${_installed_formulae[$pkg]+x}" ]]; then
           echo "  ✓ $pkg"
-          ((installed++))
+          ((++installed))
         else
           echo "  ✗ $pkg (not installed)"
-          ((missing++))
+          ((++missing))
         fi
       elif [[ "$line" =~ ^cask\ \"([^\"]+)\" ]]; then
         cask="${BASH_REMATCH[1]}"
-        ((total++))
+        ((++total))
         if [[ -n "${_installed_casks[$cask]+x}" ]]; then
           echo "  ✓ $cask (cask)"
-          ((installed++))
+          ((++installed))
         else
           echo "  ✗ $cask (cask, not installed)"
-          ((missing++))
+          ((++missing))
         fi
       fi
     done < "$BREWFILE"
