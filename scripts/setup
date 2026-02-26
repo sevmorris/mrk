@@ -35,7 +35,7 @@ while (("$#")); do
 mrk setup — Phase 1
 
 Usage: scripts/setup [options]
-  --only <phase>        Run a single phase: xcode|dotfiles|tools|defaults|shell
+  --only <phase>        Run a single phase: xcode|dotfiles|tools|ext|defaults|shell
   --no-dotfiles         Skip dotfiles linking
   --no-defaults        Skip macOS defaults
   --no-link-tools       Skip linking scripts/bin into ~/bin
@@ -569,11 +569,6 @@ phase_defaults() {
   if [[ -n "${MRK_LOGIN_MSG:-}" ]]; then
     if command -v sudo >/dev/null 2>&1; then
       log "Setting login window message"
-      # Note: defaults write handles string escaping, but we validate the message isn't empty
-      if [[ -z "$MRK_LOGIN_MSG" ]]; then
-        warn "MRK_LOGIN_MSG is empty, skipping"
-        return 0
-      fi
       if sudo defaults write /Library/Preferences/com.apple.loginwindow LoginwindowText "$MRK_LOGIN_MSG"; then
         echo "sudo defaults delete /Library/Preferences/com.apple.loginwindow LoginwindowText" >> "$ROLLBACK"
       else

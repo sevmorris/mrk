@@ -216,6 +216,10 @@ ensure_gum() {
   if command -v gum >/dev/null 2>&1; then
     return 0
   fi
+  if (( DRY_RUN )); then
+    dry "Would install: gum (TUI toolkit)"
+    return 0
+  fi
   log "Installing gum (TUI toolkit)..."
   if $HOMEBREW install gum; then
     log "gum installed successfully"

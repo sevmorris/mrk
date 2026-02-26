@@ -223,7 +223,7 @@ add_login_item(){
     return 0
   fi
 
-  if osascript -e "tell application \"System Events\" to get the name of every login item" 2>/dev/null | grep -q "$app_name"; then
+  if osascript -e "tell application \"System Events\" to get the name of every login item" 2>/dev/null | grep -qF "$app_name"; then
     log "Login item already exists: $app_name"
     return 0
   fi

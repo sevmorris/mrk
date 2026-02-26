@@ -69,6 +69,7 @@ alias decrypt='gpg --decrypt ' # Trailing space enables filename completion.
 clean-ds() {
   echo "🧹 Starting .DS_Store cleanup (local-only; Desktop & Library excluded)…"
 
+  local TMPFILE COUNT
   TMPFILE=$(mktemp)
 
   # Build safe local dirs on the same device as $HOME
@@ -110,7 +111,6 @@ clean-ds() {
     printf "\r"
   }
 
-  local COUNT
   COUNT=$(wc -l < "$TMPFILE" | tr -d ' ')
   rm -f "$TMPFILE"
 
@@ -230,7 +230,7 @@ showempties() {
 
 # Clean (recursive, cycles). Use: `ce [path]` or `ce -f [path]` to skip prompt.
 cleanempties() {
-  set -o pipefail
+  setopt LOCAL_OPTIONS 2>/dev/null; set -o pipefail
   local force="" target="${1:-.}"
   if [[ "$1" == "-f" ]]; then force=1; target="${2:-.}"; fi
 

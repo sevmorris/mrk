@@ -39,9 +39,10 @@ write_default(){
   local current
   if current=$(defaults read "$domain" "$key" 2>/dev/null); then
     case "$current" in
-      true|false) backup_line "defaults write $domain $key -bool $current" ;;
-      ''|*[!0-9]*) backup_line "defaults write $domain $key -string \"$current\"" ;;
-      *) backup_line "defaults write $domain $key -int $current" ;;
+      true|false)    backup_line "defaults write $domain $key -bool $current" ;;
+      ''|*[!0-9.]*|*.*.*) backup_line "defaults write $domain $key -string \"$current\"" ;;
+      *.*)           backup_line "defaults write $domain $key -float $current" ;;
+      *)             backup_line "defaults write $domain $key -int $current" ;;
     esac
   else
     backup_line "defaults delete $domain $key >/dev/null 2>&1 || true"
