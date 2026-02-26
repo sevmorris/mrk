@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor snapshot
+.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor
 
 all: setup brew post-install
 
@@ -52,5 +52,3 @@ status:
 doctor:
 	@"$(SCRIPTS)/doctor"
 
-snapshot:
-	@"$(SCRIPTS)/snapshot" $(ARGS)
