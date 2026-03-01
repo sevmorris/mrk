@@ -1,14 +1,3 @@
-<div align="center">
-
-```
- _ __ ___   _ __  | | __
-| '_ ` _ \ | '__| | |/ /
-| | | | | || |    |   <
-|_| |_| |_||_|    |_|\_\
-```
-
-</div>
-
 # mrk — macOS bootstrap
 
 Personal, opinionated macOS bootstrap tailored to my workflow and toolset. Idempotent setup in three phases.
