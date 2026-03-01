@@ -120,9 +120,9 @@ exec zsh        # Reload shell after setup
 Whenever you install a new Homebrew package, run `make sync` to record it in the Brewfile.
 
 ```bash
-make sync           # Interactive — opens mrk-picker TUI to select packages
-make sync -n        # Dry run — show what would be added, make no changes
-make sync -c        # Auto-commit the Brewfile after updating
+make sync             # Interactive — opens mrk-picker TUI to select packages
+make sync ARGS=-n     # Dry run — show what would be added, make no changes
+make sync ARGS=-c     # Auto-commit the Brewfile after updating
 ```
 
 **How sync works:**
@@ -196,9 +196,7 @@ Run these steps on the **old machine** before you transfer.
 **1. Sync the Brewfile**
 
 ```bash
-make sync --commit
-# or from ~/
-make sync -c
+make sync ARGS=-c
 ```
 
 Captures any packages installed since the last sync and commits the updated Brewfile.

@@ -635,9 +635,9 @@ Raycast, Stats, BetterSnapTool, Chrono Plus as login items</li>
 Current (<code>make sync</code>)</h2>
 <p>Whenever you install a new Homebrew package, run
 <code>make sync</code> to record it in the Brewfile.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync           <span class="co"># Interactive — opens mrk-picker TUI to select packages</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync <span class="at">-n</span>        <span class="co"># Dry run — show what would be added, make no changes</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync <span class="at">-c</span>        <span class="co"># Auto-commit the Brewfile after updating</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync             <span class="co"># Interactive — opens mrk-picker TUI to select packages</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync ARGS=-n     <span class="co"># Dry run — show what would be added, make no changes</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync ARGS=-c     <span class="co"># Auto-commit the Brewfile after updating</span></span></code></pre></div>
 <p><strong>How sync works:</strong></p>
 <ol type="1">
 <li>Reads the Brewfile to build a list of already-tracked packages</li>
@@ -713,9 +713,7 @@ Machine</h1>
 <p>Run these steps on the <strong>old machine</strong> before you
 transfer.</p>
 <p><strong>1. Sync the Brewfile</strong></p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync <span class="at">--commit</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co"># or from ~/</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync <span class="at">-c</span></span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync ARGS=-c</span></code></pre></div>
 <p>Captures any packages installed since the last sync and commits the
 updated Brewfile.</p>
 <p><strong>2. Snapshot app preferences</strong></p>

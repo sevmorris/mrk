@@ -67,8 +67,8 @@ picker: ## Build the mrk-picker TUI binary
 	@echo "Built: $(BIN_DIR)/mrk-picker"
 	@chmod +x "$(BIN_DIR)/mrk-picker"
 
-sync: ## Sync installed Homebrew packages into the Brewfile
-	@"$(SCRIPTS)/sync"
+sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to commit, ARGS=-n for dry run)
+	@"$(SCRIPTS)/sync" $(ARGS)
 
 snapshot-prefs: ## Export app preferences to ~/.mrk/preferences/ and push to mrk-prefs
 	@"$(SCRIPTS)/snapshot-prefs"
