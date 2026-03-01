@@ -182,10 +182,19 @@ fi
 # Application preferences — plist imports                                     #
 ###############################################################################
 
-# Plists live in ~/.mrk/preferences/ (local, never in the repo).
-# Run `make snapshot-prefs` to capture your current settings there,
-# then copy that directory to new machines before running post-install.
+# Plists live in ~/.mrk/preferences/ — pulled from the private mrk-prefs repo.
+# Auto-clone if missing; skip silently if SSH key isn't available yet.
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
+PREFS_SCRIPT="$(dirname "$0")/pull-prefs"
+
+if [[ ! -d "$LOCAL_PREFS_DIR" ]]; then
+  if command -v git >/dev/null 2>&1 && ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+    log "Fetching personal preferences from mrk-prefs..."
+    bash "$PREFS_SCRIPT" || log "Warning: could not pull preferences — skipping plist imports"
+  else
+    log "SSH key not ready — skipping auto-pull of preferences (run: make pull-prefs)"
+  fi
+fi
 
 # Import a full plist if the app is installed and not already configured
 import_plist(){

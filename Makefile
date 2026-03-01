@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker sync snapshot-prefs
+.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker sync snapshot-prefs pull-prefs
 
 all: setup brew post-install
 
@@ -67,4 +67,7 @@ sync:
 
 snapshot-prefs:
 	@"$(SCRIPTS)/snapshot-prefs"
+
+pull-prefs:
+	@"$(SCRIPTS)/pull-prefs"
 

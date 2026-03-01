@@ -2,14 +2,24 @@
 set -euo pipefail
 
 # mrk snapshot-prefs — export current app preferences to ~/.mrk/preferences/
-#
-# Run this on your configured machine to capture app settings.
-# Copy ~/.mrk/preferences/ to a new machine before running post-install.
+# and push to the private mrk-prefs repo.
 
+PREFS_REPO="git@github.com:sevmorris/mrk-prefs.git"
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
-mkdir -p "$LOCAL_PREFS_DIR"
 
 log(){ printf "[snapshot-prefs] %s\n" "$*"; }
+
+# Ensure the local prefs dir is a git repo pointing at mrk-prefs
+if [[ ! -d "$LOCAL_PREFS_DIR/.git" ]]; then
+  if [[ -d "$LOCAL_PREFS_DIR" ]]; then
+    log "Initialising git repo in existing directory: $LOCAL_PREFS_DIR"
+    git -C "$LOCAL_PREFS_DIR" init
+    git -C "$LOCAL_PREFS_DIR" remote add origin "$PREFS_REPO"
+  else
+    log "Cloning $PREFS_REPO → $LOCAL_PREFS_DIR"
+    git clone "$PREFS_REPO" "$LOCAL_PREFS_DIR"
+  fi
+fi
 
 snapshot_plist(){
   local bundle_id="$1" filename="$2" app_path="$3" name="$4"
@@ -33,6 +43,13 @@ snapshot_plist "com.jordanbaird.Ice"          "Ice.plist" \
 snapshot_plist "com.googlecode.iterm2"        "iTerm2.plist" \
   "/Applications/iTerm.app" "iTerm2"
 
-echo ""
-log "Done. Preferences saved to: $LOCAL_PREFS_DIR"
-log "Copy this directory to new machines before running: make post-install"
+# Commit and push if anything changed
+cd "$LOCAL_PREFS_DIR"
+git add .
+if git diff --cached --quiet; then
+  log "No changes to push."
+else
+  git commit -m "snapshot: $(date '+%Y-%m-%d %H:%M')"
+  git push
+  log "Pushed to $PREFS_REPO"
+fi

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk pull-prefs — clone or pull personal app preferences from mrk-prefs.
+# Called automatically by post-install when ~/.mrk/preferences/ is absent.
+
+PREFS_REPO="git@github.com:sevmorris/mrk-prefs.git"
+LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
+
+log(){ printf "[pull-prefs] %s\n" "$*"; }
+
+if [[ -d "$LOCAL_PREFS_DIR/.git" ]]; then
+  log "Updating preferences from $PREFS_REPO..."
+  git -C "$LOCAL_PREFS_DIR" pull --ff-only
+  log "Done."
+else
+  log "Cloning preferences from $PREFS_REPO..."
+  mkdir -p "$(dirname "$LOCAL_PREFS_DIR")"
+  git clone "$PREFS_REPO" "$LOCAL_PREFS_DIR"
+  log "Done. Preferences available at: $LOCAL_PREFS_DIR"
+fi
