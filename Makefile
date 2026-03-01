@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor
+.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker
 
 all: setup brew post-install
 
@@ -51,4 +51,14 @@ status:
 
 doctor:
 	@"$(SCRIPTS)/doctor"
+
+picker:
+	@if ! command -v go >/dev/null 2>&1; then \
+		echo "error: Go is not installed. Install it with: brew install go"; \
+		exit 1; \
+	fi
+	@echo "Building mrk-picker…"
+	@cd "$(REPO_ROOT)/tools/picker" && go mod tidy -e && go build -o "$(BIN_DIR)/mrk-picker" .
+	@echo "Built: $(BIN_DIR)/mrk-picker"
+	@chmod +x "$(BIN_DIR)/mrk-picker"
 

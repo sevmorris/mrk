@@ -328,6 +328,49 @@ interactive_selection() {
   return 0
 }
 
+# Find mrk-picker binary: check repo bin/ first, then PATH
+find_picker() {
+  local repo_picker="$REPO_ROOT/bin/mrk-picker"
+  if [[ -x "$repo_picker" ]]; then
+    echo "$repo_picker"
+    return
+  fi
+  if command -v mrk-picker >/dev/null 2>&1; then
+    echo "mrk-picker"
+    return
+  fi
+  echo ""
+}
+
+# Call mrk-picker TUI and populate selected_formulae / selected_casks maps.
+# Expects those maps to already be declared by the caller.
+_run_mrk_picker() {
+  local picker_bin="$1"
+  local picker_args=("--brewfile" "$BREWFILE")
+  (( NO_FORMULAE )) && picker_args+=("--skip-formulae")
+  (( NO_CASKS ))    && picker_args+=("--skip-casks")
+
+  local installed_f="" installed_c=""
+  [[ ${#_installed_formulae[@]} -gt 0 ]] && installed_f=$(IFS=','; printf '%s' "${!_installed_formulae[*]}")
+  [[ ${#_installed_casks[@]} -gt 0 ]]    && installed_c=$(IFS=','; printf '%s' "${!_installed_casks[*]}")
+
+  picker_args+=("--installed-formulae" "$installed_f" "--installed-casks" "$installed_c")
+
+  local picker_out
+  if ! picker_out=$("$picker_bin" "${picker_args[@]}" < /dev/tty 2>/dev/null); then
+    log "Selection cancelled — no packages will be installed."
+    return 0
+  fi
+
+  while IFS=: read -r pkg_type pkg_name; do
+    [[ -z "$pkg_name" ]] && continue
+    case "$pkg_type" in
+      formula) selected_formulae["$pkg_name"]=1 ;;
+      cask)    selected_casks["$pkg_name"]=1 ;;
+    esac
+  done <<< "$picker_out"
+}
+
 # Install packages from Brewfile
 install_brewfile() {
   if [[ ! -f "$BREWFILE" ]]; then
@@ -437,9 +480,20 @@ install_brewfile() {
 
   log "Found: ${#formula_items[@]} formulae to select, ${#cask_items[@]} casks to select"
 
+  # Run mrk-picker if available (handles formulae and casks in one unified TUI)
+  local _used_mrk_picker=0
+  local _picker_bin
+  _picker_bin=$(find_picker)
+  if [[ -n "$_picker_bin" ]]; then
+    _run_mrk_picker "$_picker_bin"
+    _used_mrk_picker=1
+  fi
+
   # Show interactive selection for formulae
   if (( ${#formula_items[@]} > 0 )) && (( ! NO_FORMULAE )); then
-    interactive_selection "formula" formula_items selected_formulae
+    if (( ! _used_mrk_picker )); then
+      interactive_selection "formula" formula_items selected_formulae
+    fi
     
     # Add selected formulae to temp Brewfile (skip already installed ones)
     local selected_count=0
@@ -469,7 +523,9 @@ install_brewfile() {
 
   # Show interactive selection for casks
   if (( ${#cask_items[@]} > 0 )) && (( ! NO_CASKS )); then
-    interactive_selection "cask" cask_items selected_casks
+    if (( ! _used_mrk_picker )); then
+      interactive_selection "cask" cask_items selected_casks
+    fi
     
     # Add selected casks to temp Brewfile (skip already installed ones)
     local selected_count=0
@@ -536,10 +592,12 @@ main() {
     exit 1
   fi
 
-  # Ensure gum is available for interactive selection
-  if ! ensure_gum; then
-    err "gum is required for interactive package selection. Aborting."
-    exit 1
+  # Ensure gum is available for interactive selection (skipped when mrk-picker is present)
+  if [[ -z "$(find_picker)" ]]; then
+    if ! ensure_gum; then
+      err "Neither mrk-picker nor gum is available for package selection. Aborting."
+      exit 1
+    fi
   fi
 
   # Phase 2: Install from Brewfile
