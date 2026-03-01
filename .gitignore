@@ -52,3 +52,6 @@ Brewfile.lock.json
 # Built binaries and local-only wrappers (not distributed)
 bin/mrk-picker
 bin/mrk-sync
+
+# Personal app preferences (captured via `make snapshot-prefs`, stored in ~/.mrk/preferences/)
+assets/preferences/*.plist

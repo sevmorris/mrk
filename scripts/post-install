@@ -182,6 +182,11 @@ fi
 # Application preferences — plist imports                                     #
 ###############################################################################
 
+# Plists live in ~/.mrk/preferences/ (local, never in the repo).
+# Run `make snapshot-prefs` to capture your current settings there,
+# then copy that directory to new machines before running post-install.
+LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
+
 # Import a full plist if the app is installed and not already configured
 import_plist(){
   local app_path="$1" bundle_id="$2" plist_file="$3" name="$4"
@@ -190,7 +195,7 @@ import_plist(){
     return 0
   fi
   if [[ ! -f "$plist_file" ]]; then
-    log "Skipping $name plist (asset missing)"
+    log "Skipping $name plist (not found in $LOCAL_PREFS_DIR — run: make snapshot-prefs)"
     return 0
   fi
   # Only import if the app hasn't been configured yet (no existing plist)
@@ -204,13 +209,13 @@ import_plist(){
 }
 
 import_plist "/Applications/BetterSnapTool.app" "com.hegenberg.BetterSnapTool" \
-  "$PREFS_DIR/BetterSnapTool.plist" "BetterSnapTool" || ((failed++))
+  "$LOCAL_PREFS_DIR/BetterSnapTool.plist" "BetterSnapTool" || ((failed++))
 
 import_plist "/Applications/Ice.app" "com.jordanbaird.Ice" \
-  "$PREFS_DIR/Ice.plist" "Ice" || ((failed++))
+  "$LOCAL_PREFS_DIR/Ice.plist" "Ice" || ((failed++))
 
 import_plist "/Applications/iTerm.app" "com.googlecode.iterm2" \
-  "$PREFS_DIR/iTerm2.plist" "iTerm2" || ((failed++))
+  "$LOCAL_PREFS_DIR/iTerm2.plist" "iTerm2" || ((failed++))
 
 ###############################################################################
 # Login items                                                                 #

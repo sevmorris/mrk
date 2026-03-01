@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk snapshot-prefs — export current app preferences to ~/.mrk/preferences/
+#
+# Run this on your configured machine to capture app settings.
+# Copy ~/.mrk/preferences/ to a new machine before running post-install.
+
+LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
+mkdir -p "$LOCAL_PREFS_DIR"
+
+log(){ printf "[snapshot-prefs] %s\n" "$*"; }
+
+snapshot_plist(){
+  local bundle_id="$1" filename="$2" app_path="$3" name="$4"
+  if [[ ! -d "$app_path" ]]; then
+    log "Skipping $name (not installed)"
+    return 0
+  fi
+  defaults export "$bundle_id" "$LOCAL_PREFS_DIR/$filename" || {
+    log "Warning: failed to export $name"
+    return 1
+  }
+  log "Saved $name → $LOCAL_PREFS_DIR/$filename"
+}
+
+snapshot_plist "com.hegenberg.BetterSnapTool" "BetterSnapTool.plist" \
+  "/Applications/BetterSnapTool.app" "BetterSnapTool"
+
+snapshot_plist "com.jordanbaird.Ice"          "Ice.plist" \
+  "/Applications/Ice.app" "Ice"
+
+snapshot_plist "com.googlecode.iterm2"        "iTerm2.plist" \
+  "/Applications/iTerm.app" "iTerm2"
+
+echo ""
+log "Done. Preferences saved to: $LOCAL_PREFS_DIR"
+log "Copy this directory to new machines before running: make post-install"
