@@ -1,3 +1,16 @@
+<div align="center">
+
+```
+███╗   ███╗██████╗ ██╗  ██╗
+████╗ ████║██╔══██╗██║ ██╔╝
+██╔████╔██║██████╔╝█████╔╝
+██║╚██╔╝██║██╔══██╗██╔═██╗
+██║ ╚═╝ ██║██║  ██║██║  ██╗
+╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
+```
+
+</div>
+
 # mrk — macOS bootstrap
 
 Personal, opinionated macOS bootstrap tailored to my workflow and toolset. Idempotent setup in three phases.
