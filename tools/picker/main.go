@@ -678,7 +678,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	p := tea.NewProgram(newModel(cats), tea.WithAltScreen())
+	// Open /dev/tty explicitly so the TUI renders correctly even when
+	// stdout is captured by a shell subshell ($(...)).
+	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "mrk-picker: cannot open terminal: %v\n", err)
+		os.Exit(1)
+	}
+	defer tty.Close()
+
+	p := tea.NewProgram(newModel(cats), tea.WithAltScreen(), tea.WithInput(tty), tea.WithOutput(tty))
 	final, err := p.Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "mrk-picker: %v\n", err)

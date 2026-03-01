@@ -152,8 +152,7 @@ if [[ -n "$picker_bin" ]]; then
   picker_out=$("$picker_bin" \
     --brewfile "$TEMP_BREWFILE" \
     --installed-formulae "" \
-    --installed-casks "" \
-    < /dev/tty 2>/dev/tty) || true
+    --installed-casks "") || true
 
   while IFS=: read -r pkg_type pkg_name; do
     [[ -z "$pkg_name" ]] && continue
