@@ -49,5 +49,6 @@ assets/browsers/*-extensions.txt
 # Homebrew
 Brewfile.lock.json
 
-# Built binaries (platform-specific, built via `make picker`)
+# Built binaries and local-only wrappers (not distributed)
 bin/mrk-picker
+bin/mrk-sync
