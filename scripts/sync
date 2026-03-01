@@ -1,0 +1,467 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk sync — Snapshot installed Homebrew packages into the Brewfile
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+check_macos
+
+DRY_RUN=0
+COMMIT=0
+
+while (("$#")); do
+  case "$1" in
+    --dry-run|-n) DRY_RUN=1 ;;
+    --commit|-c)  COMMIT=1 ;;
+    -h|--help)
+      cat <<'USAGE'
+mrk sync — Snapshot installed Homebrew packages into the Brewfile
+
+Usage: scripts/sync [options]
+  --dry-run, -n   Show what would be added without modifying the Brewfile
+  --commit, -c    Auto-commit the Brewfile after updating
+USAGE
+      exit 0
+      ;;
+    *) err "Unknown option: $1"; exit 2 ;;
+  esac
+  shift
+done
+
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+readonly BREWFILE="$REPO_ROOT/Brewfile"
+
+if [[ ! -f "$BREWFILE" ]]; then
+  err "Brewfile not found: $BREWFILE"
+  exit 1
+fi
+
+# Resolve Homebrew
+HOMEBREW=""
+if [[ -x /opt/homebrew/bin/brew ]]; then
+  HOMEBREW=/opt/homebrew/bin/brew
+elif [[ -x /usr/local/bin/brew ]]; then
+  HOMEBREW=/usr/local/bin/brew
+else
+  err "Homebrew not found at /opt/homebrew/bin/brew or /usr/local/bin/brew"
+  exit 1
+fi
+eval "$($HOMEBREW shellenv)"
+
+# Temp files
+TEMP_BREWFILE=""
+TEMP_INSERTIONS=""
+cleanup() {
+  [[ -n "$TEMP_BREWFILE"   && -f "$TEMP_BREWFILE"   ]] && rm -f "$TEMP_BREWFILE"
+  [[ -n "$TEMP_INSERTIONS" && -f "$TEMP_INSERTIONS" ]] && rm -f "$TEMP_INSERTIONS"
+}
+trap cleanup EXIT INT TERM
+
+# ─── 1. Parse Brewfile entries ───────────────────────────────────────────────
+
+declare -A brewfile_formulae=()
+declare -A brewfile_casks=()
+
+while IFS= read -r line || [[ -n "$line" ]]; do
+  if [[ "$line" =~ ^brew[[:space:]]\"([^\"]+)\" ]]; then
+    brewfile_formulae["${BASH_REMATCH[1]}"]=1
+  elif [[ "$line" =~ ^cask[[:space:]]\"([^\"]+)\" ]]; then
+    brewfile_casks["${BASH_REMATCH[1]}"]=1
+  fi
+done < "$BREWFILE"
+
+# ─── 2. Get installed packages ───────────────────────────────────────────────
+
+log "Scanning installed Homebrew packages..."
+
+declare -A installed_formulae=()
+declare -A installed_casks=()
+
+while IFS= read -r pkg; do
+  [[ -n "$pkg" ]] && installed_formulae["$pkg"]=1
+done < <($HOMEBREW leaves 2>/dev/null)
+
+while IFS= read -r pkg; do
+  [[ -n "$pkg" ]] && installed_casks["$pkg"]=1
+done < <($HOMEBREW list --cask 2>/dev/null)
+
+# ─── 3. Compute diff ─────────────────────────────────────────────────────────
+
+new_formulae_arr=()
+new_casks_arr=()
+
+for pkg in "${!installed_formulae[@]}"; do
+  [[ -z "${brewfile_formulae[$pkg]+x}" ]] && new_formulae_arr+=("$pkg")
+done
+
+for pkg in "${!installed_casks[@]}"; do
+  [[ -z "${brewfile_casks[$pkg]+x}" ]] && new_casks_arr+=("$pkg")
+done
+
+# Sort
+if (( ${#new_formulae_arr[@]} > 0 )); then
+  mapfile -t new_formulae_arr < <(printf '%s\n' "${new_formulae_arr[@]}" | sort)
+fi
+if (( ${#new_casks_arr[@]} > 0 )); then
+  mapfile -t new_casks_arr < <(printf '%s\n' "${new_casks_arr[@]}" | sort)
+fi
+
+if (( ${#new_formulae_arr[@]} == 0 && ${#new_casks_arr[@]} == 0 )); then
+  log "Brewfile is up to date. No new packages found."
+  exit 0
+fi
+
+log "Found ${#new_formulae_arr[@]} new formula(e) and ${#new_casks_arr[@]} new cask(s) not in Brewfile."
+
+# ─── 4. Selection UI ─────────────────────────────────────────────────────────
+
+find_picker() {
+  local repo_picker="$REPO_ROOT/bin/mrk-picker"
+  if [[ -x "$repo_picker" ]]; then echo "$repo_picker"; return; fi
+  if command -v mrk-picker >/dev/null 2>&1; then echo "mrk-picker"; return; fi
+  echo ""
+}
+
+declare -A selected_formulae=()
+declare -A selected_casks=()
+
+picker_bin=$(find_picker)
+
+if [[ -n "$picker_bin" ]]; then
+  # Build a minimal temp Brewfile for mrk-picker
+  TEMP_BREWFILE=$(mktemp /tmp/mrk-sync.XXXXXX)
+
+  if (( ${#new_formulae_arr[@]} > 0 )); then
+    printf '# New Formulae\n' >> "$TEMP_BREWFILE"
+    for f in "${new_formulae_arr[@]}"; do
+      printf 'brew "%s"\n' "$f" >> "$TEMP_BREWFILE"
+    done
+    printf '\n' >> "$TEMP_BREWFILE"
+  fi
+  if (( ${#new_casks_arr[@]} > 0 )); then
+    printf '# New Casks\n' >> "$TEMP_BREWFILE"
+    for c in "${new_casks_arr[@]}"; do
+      printf 'cask "%s"\n' "$c" >> "$TEMP_BREWFILE"
+    done
+  fi
+
+  picker_out=$("$picker_bin" \
+    --brewfile "$TEMP_BREWFILE" \
+    --installed-formulae "" \
+    --installed-casks "" \
+    < /dev/tty 2>/dev/null) || true
+
+  while IFS=: read -r pkg_type pkg_name; do
+    [[ -z "$pkg_name" ]] && continue
+    case "$pkg_type" in
+      formula) selected_formulae["$pkg_name"]=1 ;;
+      cask)    selected_casks["$pkg_name"]=1 ;;
+    esac
+  done <<< "$picker_out"
+
+elif command -v gum >/dev/null 2>&1; then
+  # Fallback: gum choose
+  if (( ${#new_formulae_arr[@]} > 0 )); then
+    echo "" > /dev/tty
+    gum_out=$(gum choose --no-limit \
+      --cursor.foreground=212 \
+      --selected.foreground=212 \
+      --header="Select formulae to add to Brewfile (space to toggle, enter to confirm):" \
+      "${new_formulae_arr[@]}" < /dev/tty 2>/dev/tty) || true
+    while IFS= read -r name; do
+      [[ -n "$name" ]] && selected_formulae["$name"]=1
+    done <<< "$gum_out"
+  fi
+  if (( ${#new_casks_arr[@]} > 0 )); then
+    echo "" > /dev/tty
+    gum_out=$(gum choose --no-limit \
+      --cursor.foreground=212 \
+      --selected.foreground=212 \
+      --header="Select casks to add to Brewfile (space to toggle, enter to confirm):" \
+      "${new_casks_arr[@]}" < /dev/tty 2>/dev/tty) || true
+    while IFS= read -r name; do
+      [[ -n "$name" ]] && selected_casks["$name"]=1
+    done <<< "$gum_out"
+  fi
+
+else
+  err "Neither mrk-picker nor gum is available. Build the picker: make picker"
+  exit 1
+fi
+
+# Count selections
+n_selected_formulae=0
+n_selected_casks=0
+if (( ${#selected_formulae[@]} > 0 )); then
+  for pkg in "${!selected_formulae[@]}"; do
+    (( selected_formulae["$pkg"] == 1 )) && ((n_selected_formulae++)) || true
+  done
+fi
+if (( ${#selected_casks[@]} > 0 )); then
+  for pkg in "${!selected_casks[@]}"; do
+    (( selected_casks["$pkg"] == 1 )) && ((n_selected_casks++)) || true
+  done
+fi
+
+if (( n_selected_formulae == 0 && n_selected_casks == 0 )); then
+  log "No packages selected. Nothing to add."
+  exit 0
+fi
+
+# ─── 5. Section assignment for formulae ──────────────────────────────────────
+
+# Extract formula section headers (skip Taps, Casks, Mac App Store)
+declare -a formula_sections=()
+while IFS= read -r line || [[ -n "$line" ]]; do
+  if [[ "$line" =~ ^#[[:space:]]([A-Z].+) ]]; then
+    header="${BASH_REMATCH[1]}"
+    case "$header" in
+      Taps|"Mac App Store Apps") continue ;;
+      Casks*) continue ;;
+    esac
+    formula_sections+=("$header")
+  fi
+done < "$BREWFILE"
+
+# Find the cask section header
+cask_section_header="Casks - General Applications & Utilities"
+while IFS= read -r line || [[ -n "$line" ]]; do
+  if [[ "$line" =~ ^#[[:space:]](Casks.*) ]]; then
+    cask_section_header="${BASH_REMATCH[1]}"
+    break
+  fi
+done < "$BREWFILE"
+
+# Per-formula section assignment via gum
+declare -A formula_section_map=()
+
+if (( n_selected_formulae > 0 )); then
+  if ! command -v gum >/dev/null 2>&1; then
+    warn "gum not available — assigning formulae to '${formula_sections[0]:-CLI Tools}'"
+    for pkg in "${!selected_formulae[@]}"; do
+      (( selected_formulae["$pkg"] == 1 )) || continue
+      formula_section_map["$pkg"]="${formula_sections[0]:-CLI Tools}"
+    done
+  else
+    # Sort formulae for consistent prompt order
+    mapfile -t sorted_selected_formulae < <(
+      for pkg in "${!selected_formulae[@]}"; do
+        (( selected_formulae["$pkg"] == 1 )) && printf '%s\n' "$pkg"
+      done | sort
+    )
+    for pkg in "${sorted_selected_formulae[@]}"; do
+      echo "" > /dev/tty
+      section_choice=$(gum choose \
+        --cursor.foreground=212 \
+        --selected.foreground=212 \
+        --header="Add formula '$pkg' to which section?" \
+        "${formula_sections[@]}" "New section…" \
+        < /dev/tty 2>/dev/tty) || section_choice=""
+
+      if [[ "$section_choice" == "New section…" ]]; then
+        new_sec=$(gum input \
+          --placeholder "Section name (e.g. Security Tools)" \
+          < /dev/tty 2>/dev/tty) || new_sec=""
+        if [[ -n "$new_sec" ]]; then
+          formula_section_map["$pkg"]="$new_sec"
+        fi
+        # Empty new_sec → skip this package
+      elif [[ -n "$section_choice" ]]; then
+        formula_section_map["$pkg"]="$section_choice"
+      fi
+      # If section_choice is empty (cancelled), package is skipped
+    done
+  fi
+fi
+
+# Recount after possible skips from section picker
+n_formula_insertions=0
+if (( ${#formula_section_map[@]} > 0 )); then
+  n_formula_insertions=${#formula_section_map[@]}
+fi
+
+if (( n_formula_insertions == 0 && n_selected_casks == 0 )); then
+  log "No packages assigned to sections. Nothing to add."
+  exit 0
+fi
+
+# ─── 6. Build insertions list ────────────────────────────────────────────────
+
+insertions_data=""
+
+for pkg in "${!formula_section_map[@]}"; do
+  section="${formula_section_map[$pkg]}"
+  insertions_data+="${section}"$'\t'"brew \"${pkg}\""$'\n'
+done
+
+if (( ${#selected_casks[@]} > 0 )); then
+  for pkg in "${!selected_casks[@]}"; do
+    (( selected_casks["$pkg"] == 1 )) || continue
+    insertions_data+="${cask_section_header}"$'\t'"cask \"${pkg}\""$'\n'
+  done
+fi
+
+# ─── 7. Show summary ─────────────────────────────────────────────────────────
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Sync — Additions to Brewfile"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if (( ${#formula_section_map[@]} > 0 )); then
+  echo ""
+  echo "  Formulae:"
+  while IFS= read -r pkg; do
+    printf "    + brew \"%s\"  →  %s\n" "$pkg" "${formula_section_map[$pkg]}"
+  done < <(printf '%s\n' "${!formula_section_map[@]}" | sort)
+fi
+
+if (( n_selected_casks > 0 )); then
+  echo ""
+  echo "  Casks:"
+  while IFS= read -r pkg; do
+    (( selected_casks["$pkg"] == 1 )) || continue
+    printf "    + cask \"%s\"  →  %s\n" "$pkg" "$cask_section_header"
+  done < <(printf '%s\n' "${!selected_casks[@]}" | sort)
+fi
+
+echo ""
+
+if (( DRY_RUN )); then
+  echo "  [dry run] Brewfile not modified."
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  exit 0
+fi
+
+# ─── 8. Apply insertions with Python3 ────────────────────────────────────────
+
+if ! command -v python3 >/dev/null 2>&1; then
+  err "python3 not found — cannot modify Brewfile"
+  exit 1
+fi
+
+TEMP_INSERTIONS=$(mktemp /tmp/mrk-sync-ins.XXXXXX)
+printf '%s' "$insertions_data" > "$TEMP_INSERTIONS"
+
+python3 - "$BREWFILE" "$TEMP_INSERTIONS" <<'PYEOF'
+import sys, re
+from collections import defaultdict
+
+brewfile_path   = sys.argv[1]
+insertions_path = sys.argv[2]
+
+with open(insertions_path) as f:
+    raw = f.read().strip()
+
+if not raw:
+    sys.exit(0)
+
+insertions = []
+for line in raw.splitlines():
+    if '\t' in line:
+        section, entry = line.split('\t', 1)
+        insertions.append((section, entry))
+
+with open(brewfile_path) as f:
+    lines = f.readlines()
+
+def is_section_header(line):
+    s = line.strip()
+    return bool(re.match(r'^# [A-Z]', s)) and not re.match(r'^#(brew|cask|mas)', s)
+
+def find_section_range(lines, section_header):
+    """Return (start, end) line indices for the body of a section (exclusive of header)."""
+    start = None
+    for i, line in enumerate(lines):
+        if line.strip() == f'# {section_header}':
+            start = i + 1
+            continue
+        if start is not None and is_section_header(line):
+            return (start, i)
+    if start is not None:
+        return (start, len(lines))
+    return None
+
+def pkg_name(line):
+    m = re.match(r'(?:brew|cask)\s+"([^"]+)"', line.strip())
+    return m.group(1) if m else None
+
+def find_insert_idx(lines, start, end, entry):
+    """Find alphabetical insertion index within lines[start:end]."""
+    entry_name = pkg_name(entry) or entry
+    for i in range(start, end):
+        n = pkg_name(lines[i])
+        if n and n > entry_name:
+            return i
+    # Insert after the last non-blank line in the section
+    for i in range(end - 1, start - 1, -1):
+        if lines[i].strip():
+            return i + 1
+    return end
+
+# Split into existing-section and new-section insertions
+to_insert   = []  # (line_idx, entry)
+new_sections = defaultdict(list)  # section_header -> [entries]
+
+for section, entry in insertions:
+    rng = find_section_range(lines, section)
+    if rng is None:
+        new_sections[section].append(entry)
+    else:
+        start, end = rng
+        idx = find_insert_idx(lines, start, end, entry)
+        to_insert.append((idx, entry))
+
+# Apply existing-section insertions from bottom to top (avoid index shifting)
+to_insert.sort(key=lambda x: x[0], reverse=True)
+for idx, entry in to_insert:
+    lines.insert(idx, entry + '\n')
+
+# Append new sections at end of file
+for section in sorted(new_sections):
+    entries = sorted(new_sections[section])
+    lines.append(f'\n# {section}\n')
+    for entry in entries:
+        lines.append(entry + '\n')
+
+with open(brewfile_path, 'w') as f:
+    f.writelines(lines)
+
+total = len(to_insert) + sum(len(v) for v in new_sections.values())
+print(f'Added {total} entr{"ies" if total != 1 else "y"} to Brewfile.')
+PYEOF
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+log "Brewfile updated."
+
+# ─── 9. Optional commit ──────────────────────────────────────────────────────
+
+if (( COMMIT )); then
+  cd "$REPO_ROOT"
+  if git diff --quiet Brewfile 2>/dev/null; then
+    log "No changes to commit."
+  else
+    added_pkgs=()
+    if (( ${#formula_section_map[@]} > 0 )); then
+      for pkg in "${!formula_section_map[@]}"; do
+        added_pkgs+=("$pkg")
+      done
+    fi
+    if (( ${#selected_casks[@]} > 0 )); then
+      for pkg in "${!selected_casks[@]}"; do
+        (( selected_casks["$pkg"] == 1 )) && added_pkgs+=("$pkg")
+      done
+    fi
+    mapfile -t added_pkgs < <(printf '%s\n' "${added_pkgs[@]}" | sort)
+    commit_msg="sync: add $(IFS=', '; echo "${added_pkgs[*]}")"
+    git add Brewfile
+    git commit -m "$commit_msg"
+    log "Committed: $commit_msg"
+  fi
+fi

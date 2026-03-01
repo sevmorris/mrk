@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker
+.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker sync
 
 all: setup brew post-install
 
@@ -61,4 +61,7 @@ picker:
 	@cd "$(REPO_ROOT)/tools/picker" && go mod tidy -e && go build -o "$(BIN_DIR)/mrk-picker" .
 	@echo "Built: $(BIN_DIR)/mrk-picker"
 	@chmod +x "$(BIN_DIR)/mrk-picker"
+
+sync:
+	@"$(SCRIPTS)/sync"
 
