@@ -199,6 +199,28 @@ Clones `mrk-prefs` into `~/.mrk/preferences/` if it doesn't exist, or fast-forwa
 
 > **Note:** `make post-install` does this automatically if `~/.mrk/preferences/` is absent and your SSH key is authenticated with GitHub.
 
+## Updating This Manual (`make manual`)
+
+The manual source lives in the repo at `docs/manual.md`. After editing it, regenerate the HTML and commit:
+
+```bash
+# Edit the source
+$EDITOR ~/Projects/mrk-dev/docs/manual.md
+
+# Regenerate the site HTML (requires pandoc)
+make manual
+
+# Commit and push both files
+cd ~/Projects/mrk-dev
+git add docs/manual.md docs/index.html
+git commit -m "docs: update manual"
+git push
+```
+
+GitHub Pages picks up the change automatically — the site at `sevmorris.github.io/mrk` updates within a minute of the push.
+
+> **Note:** Only edit `docs/manual.md` — never edit `docs/index.html` directly, as it is overwritten by `make manual`.
+
 ---
 
 # Before Migrating to a New Machine
