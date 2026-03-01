@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# mrk-sync — system-wide wrapper for scripts/sync
+# Resolves symlinks to locate the repo root, then delegates to scripts/sync.
+
+_src="${BASH_SOURCE[0]}"
+while [[ -L "$_src" ]]; do
+  _dir="$(cd "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  [[ "$_src" != /* ]] && _src="$_dir/$_src"
+done
+_REPO_ROOT="$(cd "$(dirname "$_src")/.." && pwd)"
+
+exec "$_REPO_ROOT/scripts/sync" "$@"
