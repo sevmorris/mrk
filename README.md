@@ -53,31 +53,6 @@ Setup is split into phases so you can:
 
 State lives in `~/.mrk`. Rollback scripts are generated automatically for defaults changes.
 
-## Structure
-
-```
-mrk/
-├── Makefile          # All targets
-├── Brewfile          # Homebrew packages
-├── dotfiles/         # Symlinked to ~/
-├── bin/              # Extra scripts linked to ~/bin
-├── assets/           # App configs, browser policies
-│   ├── browsers/
-│   ├── preferences/
-│   └── topgrade.toml
-└── scripts/
-    ├── lib.sh        # Shared helpers
-    ├── install       # Unified entrypoint (dispatches to phases)
-    ├── setup         # Phase 1
-    ├── brew          # Phase 2
-    ├── post-install  # Phase 3
-    ├── status        # Installation status
-    ├── defaults.sh   # macOS defaults
-    ├── hardening.sh  # Security hardening
-    ├── uninstall     # Conservative uninstaller
-    └── ...           # doctor, syncall, check-updates, etc.
-```
-
 ## License
 
 MIT — Seven Morris
