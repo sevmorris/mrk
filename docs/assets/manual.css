@@ -12,7 +12,7 @@
   --row-alt: #f9fafb;
   --warn-bg: #fefce8;
   --warn-border: #ca8a04;
-  font-size: 13.5px;
+  font-size: 15px;
 }
 
 * { box-sizing: border-box; }
@@ -20,10 +20,10 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
   color: var(--ink);
-  line-height: 1.65;
-  max-width: 860px;
+  line-height: 1.72;
+  max-width: 920px;
   margin: 0 auto;
-  padding: 48px 48px 64px;
+  padding: 48px 56px 72px;
   background: #fff;
 }
 
@@ -32,8 +32,8 @@ body {
 header {
   background: var(--header-bg);
   color: var(--header-text);
-  padding: 40px 48px 36px;
-  margin: -48px -48px 48px;
+  padding: 44px 56px 40px;
+  margin: -48px -56px 52px;
   border-bottom: 4px solid var(--accent);
 }
 
@@ -61,37 +61,36 @@ header .date {
 /* ── Headings ─────────────────────────────────────────────────────── */
 
 h1 {
-  font-size: 1.55rem;
+  font-size: 1.65rem;
   font-weight: 700;
   color: var(--ink);
   border-bottom: 2px solid var(--accent);
-  padding-bottom: 6px;
-  margin: 2.5rem 0 1rem;
+  padding-bottom: 8px;
+  margin: 2.8rem 0 1.1rem;
   letter-spacing: -0.01em;
 }
 
 h2 {
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--ink);
-  margin: 2rem 0 0.6rem;
-  padding-left: 10px;
+  margin: 2.2rem 0 0.7rem;
+  padding-left: 12px;
   border-left: 3px solid var(--accent);
 }
 
 h3 {
-  font-size: 1rem;
   font-weight: 600;
   color: var(--muted);
-  margin: 1.5rem 0 0.4rem;
+  margin: 1.8rem 0 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
 }
 
 /* ── Body text ────────────────────────────────────────────────────── */
 
-p { margin: 0 0 0.9rem; }
+p { margin: 0 0 1rem; }
 
 strong { font-weight: 600; }
 
@@ -103,7 +102,7 @@ ul, ol {
   padding-left: 1.5rem;
 }
 
-li { margin-bottom: 0.25rem; }
+li { margin-bottom: 0.35rem; }
 
 li > ul, li > ol { margin-top: 0.2rem; margin-bottom: 0.2rem; }
 
@@ -117,25 +116,25 @@ hr {
 
 code {
   font-family: "SF Mono", "Menlo", "Monaco", "Cascadia Code", monospace;
-  font-size: 0.84em;
+  font-size: 0.875em;
   background: var(--code-bg);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 1px 5px;
+  padding: 2px 6px;
   color: #b91c1c;
 }
 
 pre {
   background: #1e293b;
-  border-radius: 6px;
-  padding: 16px 18px;
+  border-radius: 8px;
+  padding: 18px 20px;
   overflow-x: auto;
-  margin: 0.6rem 0 1.1rem;
-  line-height: 1.5;
+  margin: 0.7rem 0 1.2rem;
+  line-height: 1.6;
 }
 
 pre code {
-  font-size: 0.83em;
+  font-size: 0.865em;
   background: none;
   border: none;
   padding: 0;
@@ -170,8 +169,8 @@ blockquote > p > strong:first-child {
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 0.6rem 0 1.2rem;
-  font-size: 0.9em;
+  margin: 0.7rem 0 1.4rem;
+  font-size: 0.935em;
 }
 
 thead tr {
@@ -180,7 +179,7 @@ thead tr {
 }
 
 thead th {
-  padding: 9px 14px;
+  padding: 10px 16px;
   text-align: left;
   font-weight: 600;
   font-size: 0.82em;
@@ -192,15 +191,16 @@ tbody tr:nth-child(even) { background: var(--row-alt); }
 tbody tr:hover { background: var(--accent-light); }
 
 td {
-  padding: 8px 14px;
+  padding: 9px 16px;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
+  line-height: 1.55;
 }
 
 /* First column in command tables — monospace */
 td:first-child {
   font-family: "SF Mono", "Menlo", "Monaco", "Cascadia Code", monospace;
-  font-size: 0.82em;
+  font-size: 0.845em;
   white-space: nowrap;
   color: #b91c1c;
 }

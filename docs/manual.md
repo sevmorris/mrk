@@ -107,46 +107,6 @@ exec zsh        # Reload shell after setup
 
 ---
 
-# Directory Layout
-
-```
-~/
-├── bin/                          ← Linked tools (created by make setup)
-├── .mrk/                         ← mrk runtime state (gitignored, not in repo)
-│   ├── preferences/              ← Cloned from sevmorris/mrk-prefs
-│   ├── backups/                  ← Automatic dotfile backups
-│   ├── defaults-rollback.sh      ← Undo macOS defaults
-│   └── hardening-rollback.sh     ← Undo security hardening
-│
-└── Projects/
-    └── mrk-dev/                  ← Public bootstrap repo (sevmorris/mrk)
-        ├── Makefile
-        ├── Brewfile              ← Managed Homebrew package list
-        ├── dotfiles/             ← Shell config files linked into ~/
-        ├── scripts/              ← Phase scripts + tools
-        │   ├── setup             ← Phase 1
-        │   ├── brew              ← Phase 2
-        │   ├── post-install      ← Phase 3
-        │   ├── sync              ← Brewfile sync
-        │   ├── snapshot-prefs    ← Export app prefs to mrk-prefs
-        │   ├── pull-prefs        ← Clone/pull mrk-prefs
-        │   ├── status            ← Installation status
-        │   ├── doctor            ← Diagnostics
-        │   ├── hardening.sh      ← macOS security hardening
-        │   └── uninstall         ← Remove symlinks
-        ├── assets/
-        │   ├── browsers/         ← Browser policies + extension lists
-        │   ├── preferences/      ← App defaults write scripts
-        │   └── topgrade.toml
-        ├── bin/                  ← Extra CLI tools
-        └── tools/picker/         ← mrk-picker TUI source (Go)
-
-~/Makefile                        ← Local convenience Makefile (not in any repo)
-                                     delegates make sync/snapshot-prefs/etc to mrk-dev
-```
-
----
-
 # Day-to-Day Workflow
 
 ## Keeping the Brewfile Current (`make sync`)
