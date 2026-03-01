@@ -1,6 +1,6 @@
 # mrk — macOS bootstrap
 
-Opinionated, idempotent macOS setup in three phases.
+Personal, opinionated macOS bootstrap tailored to my workflow and toolset. Idempotent setup in three phases.
 
 **[Full workflow manual →](https://sevmorris.github.io/mrk/)**
 
