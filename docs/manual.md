@@ -4,6 +4,10 @@ subtitle: "Workflow guide for managing, maintaining, and migrating your Mac setu
 date: "[github.com/sevmorris/mrk](https://github.com/sevmorris/mrk)"
 ---
 
+::: {.logo-banner}
+![mrk](assets/mrk_logo.png)
+:::
+
 # Overview
 
 **mrk** is a personal, opinionated macOS bootstrap system tailored to my workflow and toolset. It automates the configuration of a Mac from a clean install, managing the shell environment, dotfiles, macOS system preferences, Homebrew packages, app settings, login items, and personal app preferences.

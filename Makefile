@@ -85,6 +85,7 @@ manual: ## Regenerate docs/index.html from docs/manual.md (requires pandoc)
 	@pandoc "$(REPO_ROOT)/docs/manual.md" \
 		--standalone \
 		--embed-resources \
+		--resource-path "$(REPO_ROOT)/docs" \
 		--toc \
 		--toc-depth=2 \
 		--css "$(REPO_ROOT)/docs/assets/manual.css" \

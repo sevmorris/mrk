@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/mrk.png" alt="mrk" width="320">
+  <img src="docs/assets/mrk_logo.png" alt="mrk" width="480">
 </div>
 
 # mrk — macOS bootstrap
