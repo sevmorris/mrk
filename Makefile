@@ -3,56 +3,61 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker sync snapshot-prefs pull-prefs
+.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker sync snapshot-prefs pull-prefs help
 
-all: setup brew post-install
+help: ## Show available make commands
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
+		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' \
+		| sort
 
-fix-exec:
+all: setup brew post-install ## Full install: setup + brew + post-install
+
+fix-exec: ## Make scripts and bin files executable
 	@echo "Making scripts and bin executables..."
 	@find $(SCRIPTS) -type f -maxdepth 1 -not -name "*.md" -exec chmod +x {} + 2>/dev/null || true
 	@find $(BIN_DIR) -type f -maxdepth 1 -not -name "*.md" -exec chmod +x {} + 2>/dev/null || true
 
-install: setup
-setup: fix-exec
+install: setup ## Run Phase 1 setup
+setup: fix-exec ## Phase 1: shell, dotfiles, macOS defaults
 	@"$(SCRIPTS)/setup"
 
-brew: fix-exec
+brew: fix-exec ## Phase 2: install Homebrew packages and casks
 	@"$(SCRIPTS)/brew"
 
-post-install: fix-exec
+post-install: fix-exec ## Phase 3: configure apps and login items
 	@"$(SCRIPTS)/post-install"
 
-tools:
+tools: ## Install CLI tools only (skip dotfiles)
 	@"$(SCRIPTS)/setup" --only tools
 
-dotfiles:
+dotfiles: ## Link dotfiles only (skip tools)
 	@"$(SCRIPTS)/setup" --only dotfiles
 
-defaults:
+defaults: ## Apply macOS defaults
 	@"$(SCRIPTS)/defaults.sh"
 
-trackpad:
+trackpad: ## Apply macOS defaults including trackpad settings
 	@"$(SCRIPTS)/defaults.sh" --with-trackpad
 
-uninstall:
+uninstall: ## Remove symlinks and undo setup
 	@"$(SCRIPTS)/uninstall"
 
-update:
+update: ## Upgrade all packages (topgrade or brew)
 	@if command -v topgrade >/dev/null 2>&1; then topgrade; else brew update && brew upgrade; fi
 
-updates:
+updates: ## Run macOS software updates
 	@softwareupdate -ia || true
 
-harden:
+harden: ## Apply macOS security hardening
 	@"$(SCRIPTS)/hardening.sh"
 
-status:
+status: ## Show installation status
 	@"$(SCRIPTS)/status"
 
-doctor:
+doctor: ## Run diagnostics
 	@"$(SCRIPTS)/doctor"
 
-picker:
+picker: ## Build the mrk-picker TUI binary
 	@if ! command -v go >/dev/null 2>&1; then \
 		echo "error: Go is not installed. Install it with: brew install go"; \
 		exit 1; \
@@ -62,12 +67,11 @@ picker:
 	@echo "Built: $(BIN_DIR)/mrk-picker"
 	@chmod +x "$(BIN_DIR)/mrk-picker"
 
-sync:
+sync: ## Sync installed Homebrew packages into the Brewfile
 	@"$(SCRIPTS)/sync"
 
-snapshot-prefs:
+snapshot-prefs: ## Export app preferences to ~/.mrk/preferences/ and push to mrk-prefs
 	@"$(SCRIPTS)/snapshot-prefs"
 
-pull-prefs:
+pull-prefs: ## Clone or pull app preferences from mrk-prefs into ~/.mrk/preferences/
 	@"$(SCRIPTS)/pull-prefs"
-
