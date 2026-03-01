@@ -143,6 +143,61 @@ color: #64748b;
 margin: 0;
 }
 
+nav#TOC {
+background: var(--row-alt);
+border: 1px solid var(--border);
+border-radius: 8px;
+padding: 20px 28px 20px;
+margin: 0 0 2.5rem;
+font-size: 0.9em;
+}
+nav#TOC::before {
+content: "Contents";
+display: block;
+font-weight: 700;
+font-size: 0.75em;
+text-transform: uppercase;
+letter-spacing: 0.07em;
+color: var(--muted);
+margin-bottom: 10px;
+}
+nav#TOC ul {
+margin: 0;
+padding: 0;
+list-style: none;
+}
+nav#TOC li {
+margin: 0;
+}
+
+nav#TOC > ul > li {
+margin-bottom: 6px;
+}
+nav#TOC > ul > li > a {
+font-weight: 600;
+color: var(--ink);
+}
+nav#TOC > ul > li > a:hover {
+color: var(--accent);
+text-decoration: none;
+}
+
+nav#TOC ul ul {
+padding-left: 1rem;
+margin-top: 3px;
+}
+nav#TOC ul ul li {
+margin-bottom: 2px;
+}
+nav#TOC ul ul a {
+color: var(--muted);
+font-weight: 400;
+}
+nav#TOC ul ul a:hover {
+color: var(--accent);
+text-decoration: none;
+}
+
 h1 {
 font-size: 1.65rem;
 font-weight: 700;
@@ -287,6 +342,63 @@ margin-top: 0;
 migrating your Mac setup</p>
 <p class="date">2026</p>
 </header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#overview" id="toc-overview">Overview</a></li>
+<li><a href="#how-it-works-the-three-phases" id="toc-how-it-works-the-three-phases">How It Works — The Three
+Phases</a>
+<ul>
+<li><a href="#phase-1-setup-make-setup" id="toc-phase-1-setup-make-setup">Phase 1 — Setup
+(<code>make setup</code>)</a></li>
+<li><a href="#phase-2-homebrew-make-brew" id="toc-phase-2-homebrew-make-brew">Phase 2 — Homebrew
+(<code>make brew</code>)</a></li>
+<li><a href="#phase-3-post-install-make-post-install" id="toc-phase-3-post-install-make-post-install">Phase 3 — Post-Install
+(<code>make post-install</code>)</a></li>
+<li><a href="#full-install" id="toc-full-install">Full Install</a></li>
+</ul></li>
+<li><a href="#day-to-day-workflow" id="toc-day-to-day-workflow">Day-to-Day Workflow</a>
+<ul>
+<li><a href="#keeping-the-brewfile-current-make-sync" id="toc-keeping-the-brewfile-current-make-sync">Keeping the Brewfile
+Current (<code>make sync</code>)</a></li>
+<li><a href="#keeping-app-preferences-current-make-snapshot-prefs" id="toc-keeping-app-preferences-current-make-snapshot-prefs">Keeping App
+Preferences Current (<code>make snapshot-prefs</code>)</a></li>
+<li><a href="#pulling-app-preferences-make-pull-prefs" id="toc-pulling-app-preferences-make-pull-prefs">Pulling App Preferences
+(<code>make pull-prefs</code>)</a></li>
+<li><a href="#updating-this-manual-make-manual" id="toc-updating-this-manual-make-manual">Updating This Manual
+(<code>make manual</code>)</a></li>
+</ul></li>
+<li><a href="#before-migrating-to-a-new-machine" id="toc-before-migrating-to-a-new-machine">Before Migrating to a New
+Machine</a></li>
+<li><a href="#setting-up-a-new-machine" id="toc-setting-up-a-new-machine">Setting Up a New Machine</a>
+<ul>
+<li><a href="#prerequisites" id="toc-prerequisites">Prerequisites</a></li>
+<li><a href="#step-1-clone-mrk" id="toc-step-1-clone-mrk">Step 1 — Clone
+mrk</a></li>
+<li><a href="#step-2-phase-1-shell-dotfiles" id="toc-step-2-phase-1-shell-dotfiles">Step 2 — Phase 1: Shell &amp;
+Dotfiles</a></li>
+<li><a href="#step-3-if-needed-add-ssh-key-to-github" id="toc-step-3-if-needed-add-ssh-key-to-github">Step 3 — (If needed) Add
+SSH Key to GitHub</a></li>
+<li><a href="#step-4-phase-2-homebrew" id="toc-step-4-phase-2-homebrew">Step 4 — Phase 2: Homebrew</a></li>
+<li><a href="#step-5-phase-3-app-configuration" id="toc-step-5-phase-3-app-configuration">Step 5 — Phase 3: App
+Configuration</a></li>
+<li><a href="#step-6-verify-the-installation" id="toc-step-6-verify-the-installation">Step 6 — Verify the
+Installation</a></li>
+<li><a href="#full-one-command-install" id="toc-full-one-command-install">Full One-Command Install</a></li>
+</ul></li>
+<li><a href="#command-reference" id="toc-command-reference">Command
+Reference</a>
+<ul>
+<li><a href="#commands-available-from-anywhere-makefile" id="toc-commands-available-from-anywhere-makefile">Commands Available
+from Anywhere (<code>~/Makefile</code>)</a></li>
+<li><a href="#commands-from-projectsmrk-dev" id="toc-commands-from-projectsmrk-dev">Commands from
+<code>~/Projects/mrk-dev/</code></a></li>
+</ul></li>
+<li><a href="#what-make-status-checks" id="toc-what-make-status-checks">What <code>make status</code>
+Checks</a></li>
+<li><a href="#state-files" id="toc-state-files">State Files</a></li>
+<li><a href="#troubleshooting" id="toc-troubleshooting">Troubleshooting</a></li>
+</ul>
+</nav>
 <h1 id="overview">Overview</h1>
 <p><strong>mrk</strong> is a three-phase macOS bootstrap system that
 automates the configuration of a Mac from a clean install. It manages

@@ -63,6 +63,73 @@ header .date {
   margin: 0;
 }
 
+/* ── Table of Contents ────────────────────────────────────────────── */
+
+nav#TOC {
+  background: var(--row-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 28px 20px;
+  margin: 0 0 2.5rem;
+  font-size: 0.9em;
+}
+
+nav#TOC::before {
+  content: "Contents";
+  display: block;
+  font-weight: 700;
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+nav#TOC ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+nav#TOC li {
+  margin: 0;
+}
+
+/* Top-level entries */
+nav#TOC > ul > li {
+  margin-bottom: 6px;
+}
+
+nav#TOC > ul > li > a {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+nav#TOC > ul > li > a:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* Second-level entries */
+nav#TOC ul ul {
+  padding-left: 1rem;
+  margin-top: 3px;
+}
+
+nav#TOC ul ul li {
+  margin-bottom: 2px;
+}
+
+nav#TOC ul ul a {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+nav#TOC ul ul a:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+
 /* ── Headings ─────────────────────────────────────────────────────── */
 
 h1 {
