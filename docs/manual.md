@@ -6,7 +6,7 @@ date: "[github.com/sevmorris/mrk](https://github.com/sevmorris/mrk)"
 
 # Overview
 
-**mrk** is a three-phase macOS bootstrap system that automates the configuration of a Mac from a clean install. It manages the shell environment, dotfiles, macOS system preferences, Homebrew packages, app settings, login items, and personal app preferences.
+**mrk** is a personal, opinionated macOS bootstrap system tailored to my workflow and toolset. It automates the configuration of a Mac from a clean install, managing the shell environment, dotfiles, macOS system preferences, Homebrew packages, app settings, login items, and personal app preferences.
 
 **Key repositories:**
 
