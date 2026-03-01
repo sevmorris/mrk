@@ -42,8 +42,6 @@ header {
   border-bottom: 4px solid var(--accent);
 }
 
-header h1.title,
-header p.title,
 header .subtitle {
   display: none;
 }
