@@ -358,7 +358,7 @@ exec zsh
 | `make updates` | Run macOS software updates (`softwareupdate -ia`) |
 | `make uninstall` | Remove symlinks and undo setup |
 | `make status` | Show installation status |
-| `make doctor` | Run diagnostics |
+| `make doctor` | Check `~/bin` is on PATH; `--fix` adds it to `.zshrc` |
 | `make fix-exec` | Make all scripts and bin files executable |
 | `make help` | Show all available commands |
 
@@ -407,7 +407,7 @@ bash ~/.mrk/defaults-rollback.sh
 | Dotfile conflict ("file exists" warning) | Backup auto-created in `~/.mrk/backups/`; resolve manually then re-run |
 | post-install skips plist imports | SSH key not authenticated; run `make pull-prefs` after adding key to GitHub |
 | mrk-picker not rendering | Rebuild the binary: `make picker` |
-| `~/bin` not on PATH | Add `export PATH="$HOME/bin:$PATH"` to `~/.zshrc`, or run `make doctor` |
+| `~/bin` not on PATH | Run `make doctor --fix` — automatically adds `~/bin` to PATH in `.zshrc` |
 | Brewfile entry shows ✗ (missing) | Package name may differ from formula name; check with `brew info <pkg>` |
 | `make sync` exits with "nothing to add" | All installed packages are already in the Brewfile — nothing to do |
 | `make snapshot-prefs` fails for an app | App is not installed or `defaults export` failed; check the app is running |

@@ -7,8 +7,8 @@ Opinionated, idempotent macOS setup in three phases.
 ## Quick Start
 
 ```bash
-git clone https://github.com/sevmorris/mrk.git ~/mrk
-cd ~/mrk
+git clone https://github.com/sevmorris/mrk.git ~/Projects/mrk-dev
+cd ~/Projects/mrk-dev
 make install
 make brew
 make post-install
@@ -42,7 +42,7 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 | `make trackpad` | Apply defaults including trackpad gestures |
 | `make harden` | Security hardening (Touch ID sudo, firewall) |
 | `make status` | Show installation status |
-| `make doctor` | Run diagnostics |
+| `make doctor` | Check `~/bin` is on PATH; `make doctor --fix` adds it to `.zshrc` |
 | `make update` | Update via topgrade (or brew) |
 | `make updates` | Install macOS software updates |
 | `make picker` | Build the mrk-picker TUI binary |

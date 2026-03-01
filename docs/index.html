@@ -856,7 +856,8 @@ from Anywhere (<code>~/Makefile</code>)</h2>
 </tr>
 <tr>
 <td><code>make doctor</code></td>
-<td>Run diagnostics</td>
+<td>Check <code>~/bin</code> is on PATH; <code>--fix</code> adds it to
+<code>.zshrc</code></td>
 </tr>
 <tr>
 <td><code>make fix-exec</code></td>
@@ -962,8 +963,8 @@ adding key to GitHub</td>
 </tr>
 <tr>
 <td><code>~/bin</code> not on PATH</td>
-<td>Add <code>export PATH=&quot;$HOME/bin:$PATH&quot;</code> to
-<code>~/.zshrc</code>, or run <code>make doctor</code></td>
+<td>Run <code>make doctor --fix</code> — automatically adds
+<code>~/bin</code> to PATH in <code>.zshrc</code></td>
 </tr>
 <tr>
 <td>Brewfile entry shows ✗ (missing)</td>
