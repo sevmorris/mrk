@@ -6,6 +6,7 @@ set -euo pipefail
 
 PREFS_REPO="git@github.com:sevmorris/mrk-prefs.git"
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
+APP_SUPPORT="$HOME/Library/Application Support"
 
 log(){ printf "[snapshot-prefs] %s\n" "$*"; }
 
@@ -21,6 +22,8 @@ if [[ ! -d "$LOCAL_PREFS_DIR/.git" ]]; then
   fi
 fi
 
+# ── Plist exports (defaults export) ──────────────────────────────────────────
+
 snapshot_plist(){
   local bundle_id="$1" filename="$2" app_path="$3" name="$4"
   if [[ ! -d "$app_path" ]]; then
@@ -34,16 +37,60 @@ snapshot_plist(){
   log "Saved $name → $LOCAL_PREFS_DIR/$filename"
 }
 
-snapshot_plist "com.hegenberg.BetterSnapTool" "BetterSnapTool.plist" \
-  "/Applications/BetterSnapTool.app" "BetterSnapTool"
+# Previously captured
+snapshot_plist "com.hegenberg.BetterSnapTool"           "BetterSnapTool.plist"    "/Applications/BetterSnapTool.app"   "BetterSnapTool"
+snapshot_plist "com.jordanbaird.Ice"                    "Ice.plist"               "/Applications/Ice.app"              "Ice"
+snapshot_plist "com.googlecode.iterm2"                  "iTerm2.plist"            "/Applications/iTerm.app"            "iTerm2"
 
-snapshot_plist "com.jordanbaird.Ice"          "Ice.plist" \
-  "/Applications/Ice.app" "Ice"
+# Newly added
+snapshot_plist "com.raycast.macos"                      "Raycast.plist"           "/Applications/Raycast.app"          "Raycast"
+snapshot_plist "eu.exelban.Stats"                       "Stats.plist"             "/Applications/Stats.app"            "Stats"
+snapshot_plist "com.rogueamoeba.Loopback"               "Loopback.plist"          "/Applications/Loopback.app"         "Loopback"
+snapshot_plist "com.rogueamoeba.soundsource"            "SoundSource.plist"       "/Applications/SoundSource.app"      "SoundSource"
+snapshot_plist "com.rogueamoeba.audiohijack"            "AudioHijack.plist"       "/Applications/Audio Hijack.app"     "Audio Hijack"
+snapshot_plist "com.rogueamoeba.farrago"                "Farrago.plist"           "/Applications/Farrago.app"          "Farrago"
+snapshot_plist "com.rogueamoeba.Piezo"                  "Piezo.plist"             "/Applications/Piezo.app"            "Piezo"
+snapshot_plist "abnerworks.Typora"                      "Typora.plist"            "/Applications/Typora.app"           "Typora"
+snapshot_plist "com.xs-labs.Hot"                        "Hot.plist"               "/Applications/Hot.app"              "Hot"
+snapshot_plist "com.aone.keka"                          "Keka.plist"              "/Applications/Keka.app"             "Keka"
+snapshot_plist "com.tclementdev.timemachineeditor.application" "TimeMachineEditor.plist" "/Applications/TimeMachineEditor.app" "TimeMachineEditor"
+snapshot_plist "com.goodsnooze.MacWhisper"              "MacWhisper.plist"        "/Applications/MacWhisper.app"       "MacWhisper"
 
-snapshot_plist "com.googlecode.iterm2"        "iTerm2.plist" \
-  "/Applications/iTerm.app" "iTerm2"
+# ── Application Support files ─────────────────────────────────────────────────
 
-# Commit and push if anything changed
+snapshot_app_support(){
+  local app_name="$1" dest_subdir="$2"
+  shift 2
+  local files=("$@")
+  local src_dir="$APP_SUPPORT/$app_name"
+  local dest_dir="$LOCAL_PREFS_DIR/app-support/$dest_subdir"
+
+  if [[ ! -d "$src_dir" ]]; then
+    log "Skipping $app_name app support (directory not found)"
+    return 0
+  fi
+
+  mkdir -p "$dest_dir"
+  local saved=0
+  for file in "${files[@]}"; do
+    if [[ -f "$src_dir/$file" ]]; then
+      cp "$src_dir/$file" "$dest_dir/$file"
+      saved=$(( saved + 1 ))
+    fi
+  done
+  log "Saved $app_name app support ($saved file(s)) → $dest_dir"
+}
+
+# Loopback routing configurations
+snapshot_app_support "Loopback" "Loopback" \
+  "Devices.plist" "RecentApps.plist"
+
+# SoundSource device presets and routing
+snapshot_app_support "SoundSource" "SoundSource" \
+  "Presets.plist" "CustomPresets.plist" "Sources.plist" "Models.plist"
+
+# ── Commit and push ───────────────────────────────────────────────────────────
+
 cd "$LOCAL_PREFS_DIR"
 git add .
 if git diff --cached --quiet; then

@@ -217,14 +217,56 @@ import_plist(){
   log "Imported $name preferences"
 }
 
-import_plist "/Applications/BetterSnapTool.app" "com.hegenberg.BetterSnapTool" \
-  "$LOCAL_PREFS_DIR/BetterSnapTool.plist" "BetterSnapTool" || ((failed++))
+import_plist "/Applications/BetterSnapTool.app"  "com.hegenberg.BetterSnapTool"              "$LOCAL_PREFS_DIR/BetterSnapTool.plist"    "BetterSnapTool"    || ((failed++))
+import_plist "/Applications/Ice.app"            "com.jordanbaird.Ice"                       "$LOCAL_PREFS_DIR/Ice.plist"               "Ice"               || ((failed++))
+import_plist "/Applications/iTerm.app"          "com.googlecode.iterm2"                     "$LOCAL_PREFS_DIR/iTerm2.plist"            "iTerm2"            || ((failed++))
+import_plist "/Applications/Raycast.app"        "com.raycast.macos"                         "$LOCAL_PREFS_DIR/Raycast.plist"           "Raycast"           || ((failed++))
+import_plist "/Applications/Stats.app"          "eu.exelban.Stats"                          "$LOCAL_PREFS_DIR/Stats.plist"             "Stats"             || ((failed++))
+import_plist "/Applications/Loopback.app"       "com.rogueamoeba.Loopback"                  "$LOCAL_PREFS_DIR/Loopback.plist"          "Loopback"          || ((failed++))
+import_plist "/Applications/SoundSource.app"    "com.rogueamoeba.soundsource"               "$LOCAL_PREFS_DIR/SoundSource.plist"       "SoundSource"       || ((failed++))
+import_plist "/Applications/Audio Hijack.app"   "com.rogueamoeba.audiohijack"               "$LOCAL_PREFS_DIR/AudioHijack.plist"       "Audio Hijack"      || ((failed++))
+import_plist "/Applications/Farrago.app"        "com.rogueamoeba.farrago"                   "$LOCAL_PREFS_DIR/Farrago.plist"           "Farrago"           || ((failed++))
+import_plist "/Applications/Piezo.app"          "com.rogueamoeba.Piezo"                     "$LOCAL_PREFS_DIR/Piezo.plist"             "Piezo"             || ((failed++))
+import_plist "/Applications/Typora.app"         "abnerworks.Typora"                         "$LOCAL_PREFS_DIR/Typora.plist"            "Typora"            || ((failed++))
+import_plist "/Applications/Hot.app"            "com.xs-labs.Hot"                           "$LOCAL_PREFS_DIR/Hot.plist"               "Hot"               || ((failed++))
+import_plist "/Applications/Keka.app"           "com.aone.keka"                             "$LOCAL_PREFS_DIR/Keka.plist"              "Keka"              || ((failed++))
+import_plist "/Applications/TimeMachineEditor.app" "com.tclementdev.timemachineeditor.application" "$LOCAL_PREFS_DIR/TimeMachineEditor.plist" "TimeMachineEditor" || ((failed++))
+import_plist "/Applications/MacWhisper.app"     "com.goodsnooze.MacWhisper"                 "$LOCAL_PREFS_DIR/MacWhisper.plist"        "MacWhisper"        || ((failed++))
 
-import_plist "/Applications/Ice.app" "com.jordanbaird.Ice" \
-  "$LOCAL_PREFS_DIR/Ice.plist" "Ice" || ((failed++))
+###############################################################################
+# Application Support files                                                   #
+###############################################################################
 
-import_plist "/Applications/iTerm.app" "com.googlecode.iterm2" \
-  "$LOCAL_PREFS_DIR/iTerm2.plist" "iTerm2" || ((failed++))
+restore_app_support(){
+  local app_name="$1" src_subdir="$2"
+  shift 2
+  local files=("$@")
+  local src_dir="$LOCAL_PREFS_DIR/app-support/$src_subdir"
+  local dest_dir="$HOME/Library/Application Support/$app_name"
+
+  if [[ ! -d "$src_dir" ]]; then
+    log "Skipping $app_name app support (not in preferences — run: make snapshot-prefs)"
+    return 0
+  fi
+
+  mkdir -p "$dest_dir"
+  local restored=0
+  for file in "${files[@]}"; do
+    local dest="$dest_dir/$file"
+    if [[ -f "$dest" ]]; then
+      log "$app_name/$file already exists — skipping (won't overwrite)"
+      continue
+    fi
+    if [[ -f "$src_dir/$file" ]]; then
+      cp "$src_dir/$file" "$dest"
+      restored=$(( restored + 1 ))
+    fi
+  done
+  [[ $restored -gt 0 ]] && log "Restored $app_name app support ($restored file(s))" || true
+}
+
+restore_app_support "Loopback"    "Loopback"    "Devices.plist" "RecentApps.plist"
+restore_app_support "SoundSource" "SoundSource" "Presets.plist" "CustomPresets.plist" "Sources.plist" "Models.plist"
 
 ###############################################################################
 # Login items                                                                 #
