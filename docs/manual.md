@@ -5,7 +5,7 @@ date: "[github.com/sevmorris/mrk](https://github.com/sevmorris/mrk)"
 ---
 
 ::: {.logo-banner}
-![mrk](assets/mrk_logo.png)
+![](assets/mrk_logo.png)
 :::
 
 # Overview
