@@ -58,8 +58,6 @@ brew "whisper-cpp"
 brew "yt-dlp"
 
 # Casks - General Applications & Utilities
-cask "1password", greedy: true
-cask "1password-cli"
 cask "4k-video-downloader+"
 cask "a-better-finder-rename", greedy: true
 cask "adapter"
