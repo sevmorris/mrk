@@ -37,11 +37,14 @@ brew "wget"
 brew "zsh"
 
 # Repo essentials
+brew "gum"
 brew "ripgrep"
 brew "shellcheck"
 brew "shfmt"
 
 # Languages / runtimes
+brew "deno"
+brew "go"
 brew "nvm"
 brew "python@3.12"
 brew "pipx"
@@ -66,6 +69,7 @@ cask "arctic", greedy: true
 cask "audio-hijack", greedy: true
 cask "auto-claude"
 cask "balenaetcher"
+cask "bitwarden", greedy: true
 cask "brave-browser", greedy: true
 cask "calibre"
 cask "chatgpt", greedy: true
