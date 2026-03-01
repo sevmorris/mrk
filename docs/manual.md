@@ -21,6 +21,8 @@ date: "[github.com/sevmorris/mrk](https://github.com/sevmorris/mrk)"
 
 The two-repo split keeps personal preference data (iTerm2 profiles, Raycast settings, etc.) out of the public repo while still making them fully portable across machines.
 
+As long as both repos are kept current, the entire setup can be fully restored on a new machine from scratch — nothing needs to be manually transferred. The repos are the source of truth.
+
 > **Adapting for your own use:** This project is built around a specific setup. If you fork it, you'll need to replace `sevmorris/mrk-prefs` with your own private preferences repo, swap in your own dotfiles, and review the app lists in `scripts/post-install` and `scripts/snapshot-prefs` to match your environment.
 
 ---
@@ -36,7 +38,7 @@ Sets up the foundational shell environment on a new or existing machine.
 **What it does:**
 
 - Installs Xcode Command Line Tools if not present
-- Links everything in `dotfiles/` into `$HOME` as symlinks (with automatic backups of any existing files)
+- Links everything in `dotfiles/` into `$HOME` as symlinks (with automatic backups of any existing files), including `~/Makefile` for running mrk commands from anywhere
 - Links `scripts/` and `bin/` into `~/bin` so tools are on your PATH
 - Applies macOS system preferences via `scripts/defaults.sh`
 - Sets Zsh as the login shell
@@ -205,8 +207,6 @@ Captures any packages installed since the last sync and commits the updated Brew
 
 ```bash
 make snapshot-prefs
-# or from ~/
-make snapshot-prefs
 ```
 
 Exports and pushes all 15 app preference plists plus Application Support files. Verify the push succeeded — you should see "Pushed to git@github.com:sevmorris/mrk-prefs.git" in the output.
@@ -314,7 +314,15 @@ make pull-prefs
 make post-install   # Re-run to import plists
 ```
 
-## Step 6 — Verify the Installation
+## Step 6 — Build mrk-picker
+
+```bash
+make picker
+```
+
+The mrk-picker binary is platform-specific and not stored in git. Build it once after installation. It is required by `make sync`.
+
+## Step 7 — Verify the Installation
 
 ```bash
 make status     # Check dotfiles, tools, shell, Homebrew, Brewfile packages
@@ -329,6 +337,7 @@ Review the output and address any items marked ✗ or ⚠.
 cd ~/Projects/mrk-dev
 make all
 exec zsh
+make picker
 ```
 
 ---
@@ -337,13 +346,17 @@ exec zsh
 
 ## Commands Available from Anywhere (`~/Makefile`)
 
+`~/Makefile` is deployed automatically by `make setup` via `dotfiles/`. Running `make help` from `~/` shows all commands from both this file and `mrk-dev/`.
+
 | Command | Description |
 |---|---|
 | `make sync` | Sync installed Homebrew packages into the Brewfile |
+| `make sync ARGS=-c` | Sync and auto-commit the Brewfile |
+| `make sync ARGS=-n` | Dry run — preview additions without modifying the Brewfile |
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
 | `make picker` | Build the mrk-picker TUI binary |
-| `make help` | Show all available commands |
+| `make help` | Show all available commands from `~/` and `mrk-dev/` |
 
 ## Commands from `~/Projects/mrk-dev/`
 
