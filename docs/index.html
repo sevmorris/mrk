@@ -109,15 +109,19 @@ color: var(--ink);
 line-height: 1.72;
 max-width: 920px;
 margin: 0 auto;
-padding: 48px 56px 72px;
+padding: 0 0 72px;
 background: #fff;
+}
+@media (max-width: 800px) {
+body { padding-left: 20px; padding-right: 20px; }
+header { margin-left: -20px; margin-right: -20px; }
 }
 
 header {
 background: var(--header-bg);
 color: var(--header-text);
 padding: 44px 56px 40px;
-margin: -48px -56px 52px;
+margin: 0 0 52px;
 border-bottom: 4px solid var(--accent);
 }
 header h1.title {
@@ -261,7 +265,7 @@ color: #b91c1c;
 
 @media print {
 body { padding: 0; max-width: 100%; }
-header { margin: 0 0 32px; padding: 28px 32px 24px; }
+header { margin: 0 0 32px; padding: 28px 40px 24px; }
 h1 { page-break-before: always; }
 h1:first-of-type { page-break-before: avoid; }
 pre, blockquote, table { page-break-inside: avoid; }
