@@ -42,12 +42,10 @@ header {
   border-bottom: 4px solid var(--accent);
 }
 
-header h1.title {
-  font-size: 2rem;
-  font-weight: 700;
-  margin: 0 0 6px;
-  letter-spacing: -0.02em;
-  color: #fff;
+header h1.title,
+header p.title,
+header .subtitle {
+  display: none;
 }
 
 header .subtitle {
@@ -73,6 +71,18 @@ header .date a {
 header .date a:hover {
   color: #94a3b8;
   border-bottom-color: #64748b;
+}
+
+/* ── Logo banner ──────────────────────────────────────────────────── */
+
+.logo-banner {
+  text-align: center;
+  margin: 0 0 2rem;
+}
+
+.logo-banner img {
+  width: 220px;
+  height: auto;
 }
 
 /* ── Table of Contents ────────────────────────────────────────────── */
