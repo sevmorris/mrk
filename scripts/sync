@@ -153,7 +153,7 @@ if [[ -n "$picker_bin" ]]; then
     --brewfile "$TEMP_BREWFILE" \
     --installed-formulae "" \
     --installed-casks "" \
-    < /dev/tty 2>/dev/null) || true
+    < /dev/tty 2>/dev/tty) || true
 
   while IFS=: read -r pkg_type pkg_name; do
     [[ -z "$pkg_name" ]] && continue

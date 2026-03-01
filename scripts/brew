@@ -357,7 +357,7 @@ _run_mrk_picker() {
   picker_args+=("--installed-formulae" "$installed_f" "--installed-casks" "$installed_c")
 
   local picker_out
-  if ! picker_out=$("$picker_bin" "${picker_args[@]}" < /dev/tty 2>/dev/null); then
+  if ! picker_out=$("$picker_bin" "${picker_args[@]}" < /dev/tty 2>/dev/tty); then
     log "Selection cancelled — no packages will be installed."
     return 0
   fi
