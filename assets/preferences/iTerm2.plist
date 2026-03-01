@@ -855,11 +855,11 @@
 	<key>NSWindow Frame SUStatusFrame</key>
 	<string>664 721 400 135 0 0 1728 1079 </string>
 	<key>NSWindow Frame SUUpdateAlert</key>
-	<string>580 515 620 392 0 0 1728 1079 </string>
+	<string>581 515 620 392 0 0 1728 1079 </string>
 	<key>NSWindow Frame UKCrashReporter</key>
 	<string>101 228 592 590 0 0 1728 1079 </string>
 	<key>NSWindow Frame iTerm Window 0</key>
-	<string>60 7 762 1064 0 0 1728 1079 {"tilingState":{"tilingPosition":5,"normalizedSize":0.92473118279569888,"untiledFrame":"{{52, 38}, {1675, 1079}}"}}</string>
+	<string>54 0 1290 1079 0 0 1728 1079 </string>
 	<key>NSWindow Frame iTerm Window 1</key>
 	<string>575 293 650 457 0 0 1728 1079 </string>
 	<key>NSWindow Frame iTerm Window 2</key>
@@ -2507,7 +2507,7 @@
 		<string>3.4.23</string>
 		<string>3.5.0beta5</string>
 		<string>3.6.3beta1</string>
-		<string>3.5.11beta2</string>
+		<string>3.5.14</string>
 		<string>3.5.13</string>
 		<string>3.6.0beta3</string>
 		<string>3.6.7beta1</string>
@@ -2544,6 +2544,7 @@
 		<string>3.5.0beta9</string>
 		<string>3.5.13beta1</string>
 		<string>3.6.1</string>
+		<string>3.6.9beta1</string>
 		<string>3.5.0beta18</string>
 		<string>3.5.12beta2</string>
 		<string>3.4.12</string>
@@ -2554,7 +2555,7 @@
 		<string>3.5.0beta17</string>
 		<string>3.5.12beta1</string>
 		<string>3.6.7beta3</string>
-		<string>3.5.14</string>
+		<string>3.5.11beta2</string>
 	</array>
 	<key>NoSyncBFPRecents</key>
 	<array>
@@ -2581,7 +2582,7 @@
 	<key>NoSyncLastSystemPythonVersionRequirement</key>
 	<string>1.17</string>
 	<key>NoSyncLaunchExperienceControllerRunCount</key>
-	<integer>520</integer>
+	<integer>523</integer>
 	<key>NoSyncLoggingStyle</key>
 	<integer>0</integer>
 	<key>NoSyncMontereySecureKeyboardEntryWarning</key>
@@ -2756,6 +2757,14 @@
 				<true/>
 				<key>name</key>
 				<string>mouseInfo</string>
+				<key>nonterminalContext</key>
+				<integer>0</integer>
+			</dict>
+			<dict>
+				<key>isTerminal</key>
+				<true/>
+				<key>name</key>
+				<string>isBroadcastSource</string>
 				<key>nonterminalContext</key>
 				<integer>0</integer>
 			</dict>
@@ -3289,7 +3298,7 @@
 				<key>isTerminal</key>
 				<true/>
 				<key>name</key>
-				<string>currentSession.pid</string>
+				<string>tmuxWindow</string>
 				<key>nonterminalContext</key>
 				<integer>0</integer>
 			</dict>
@@ -3297,17 +3306,17 @@
 				<key>isTerminal</key>
 				<true/>
 				<key>name</key>
-				<string>currentSession.parentSession.bellCount</string>
+				<string>currentSession</string>
 				<key>nonterminalContext</key>
 				<integer>0</integer>
 			</dict>
 			<dict>
 				<key>isTerminal</key>
-				<true/>
+				<false/>
 				<key>name</key>
-				<string>currentSession.path</string>
+				<string>currentSession</string>
 				<key>nonterminalContext</key>
-				<integer>0</integer>
+				<integer>1</integer>
 			</dict>
 			<dict>
 				<key>isTerminal</key>
@@ -3471,11 +3480,35 @@
 			</dict>
 			<dict>
 				<key>isTerminal</key>
+				<true/>
+				<key>name</key>
+				<string>currentSession.path</string>
+				<key>nonterminalContext</key>
+				<integer>0</integer>
+			</dict>
+			<dict>
+				<key>isTerminal</key>
 				<false/>
 				<key>name</key>
 				<string>iterm2</string>
 				<key>nonterminalContext</key>
 				<integer>4</integer>
+			</dict>
+			<dict>
+				<key>isTerminal</key>
+				<true/>
+				<key>name</key>
+				<string>currentSession.pid</string>
+				<key>nonterminalContext</key>
+				<integer>0</integer>
+			</dict>
+			<dict>
+				<key>isTerminal</key>
+				<true/>
+				<key>name</key>
+				<string>currentSession.parentSession.bellCount</string>
+				<key>nonterminalContext</key>
+				<integer>0</integer>
 			</dict>
 			<dict>
 				<key>isTerminal</key>
@@ -3516,30 +3549,6 @@
 				<string>currentSession.hostname</string>
 				<key>nonterminalContext</key>
 				<integer>0</integer>
-			</dict>
-			<dict>
-				<key>isTerminal</key>
-				<true/>
-				<key>name</key>
-				<string>tmuxWindow</string>
-				<key>nonterminalContext</key>
-				<integer>0</integer>
-			</dict>
-			<dict>
-				<key>isTerminal</key>
-				<true/>
-				<key>name</key>
-				<string>currentSession</string>
-				<key>nonterminalContext</key>
-				<integer>0</integer>
-			</dict>
-			<dict>
-				<key>isTerminal</key>
-				<false/>
-				<key>name</key>
-				<string>currentSession</string>
-				<key>nonterminalContext</key>
-				<integer>1</integer>
 			</dict>
 		</array>
 		<key>4</key>
@@ -3584,7 +3593,7 @@
 	<key>NoSyncSavedWindowPositions</key>
 	<dict>
 		<key>0</key>
-		<string>{60, 1071}</string>
+		<string>{54, 1079}</string>
 		<key>1</key>
 		<string>{575, 750}</string>
 	</dict>
@@ -3654,11 +3663,11 @@
 	<key>SUHasLaunchedBefore</key>
 	<true/>
 	<key>SULastCheckTime</key>
-	<date>2026-02-26T20:50:34Z</date>
+	<date>2026-02-28T23:25:13Z</date>
 	<key>SUSendProfileInfo</key>
 	<false/>
 	<key>SUUpdateGroupIdentifier</key>
-	<integer>3558420746</integer>
+	<integer>3712990929</integer>
 	<key>SUUpdateRelaunchingMarker</key>
 	<false/>
 	<key>Secure Input</key>
@@ -3696,7 +3705,7 @@
 	<key>findMode_iTerm</key>
 	<integer>0</integer>
 	<key>iTerm Version</key>
-	<string>3.6.7beta3</string>
+	<string>3.6.9beta1</string>
 	<key>kCPKSelectionViewPreferredModeKey</key>
 	<integer>4</integer>
 	<key>kCPKSelectionViewShowHSBTextFieldsKey</key>
