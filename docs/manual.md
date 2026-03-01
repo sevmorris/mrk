@@ -17,6 +17,8 @@ date: "[github.com/sevmorris/mrk](https://github.com/sevmorris/mrk)"
 
 The two-repo split keeps personal preference data (iTerm2 profiles, Raycast settings, etc.) out of the public repo while still making them fully portable across machines.
 
+> **Adapting for your own use:** This project is built around a specific setup. If you fork it, you'll need to replace `sevmorris/mrk-prefs` with your own private preferences repo, swap in your own dotfiles, and review the app lists in `scripts/post-install` and `scripts/snapshot-prefs` to match your environment.
+
 ---
 
 # How It Works — The Three Phases

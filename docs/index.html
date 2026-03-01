@@ -468,6 +468,14 @@ settings, login items, and personal app preferences.</p>
 <p>The two-repo split keeps personal preference data (iTerm2 profiles,
 Raycast settings, etc.) out of the public repo while still making them
 fully portable across machines.</p>
+<blockquote>
+<p><strong>Adapting for your own use:</strong> This project is built
+around a specific setup. If you fork it, you’ll need to replace
+<code>sevmorris/mrk-prefs</code> with your own private preferences repo,
+swap in your own dotfiles, and review the app lists in
+<code>scripts/post-install</code> and
+<code>scripts/snapshot-prefs</code> to match your environment.</p>
+</blockquote>
 <hr />
 <h1 id="how-it-works-the-three-phases">How It Works — The Three
 Phases</h1>
