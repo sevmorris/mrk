@@ -63,6 +63,18 @@ header .date {
   margin: 0;
 }
 
+header .date a {
+  color: #64748b;
+  text-decoration: none;
+  border-bottom: 1px solid #334155;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+header .date a:hover {
+  color: #94a3b8;
+  border-bottom-color: #64748b;
+}
+
 /* ── Table of Contents ────────────────────────────────────────────── */
 
 nav#TOC {
