@@ -77,24 +77,53 @@ header .date a:hover {
 
 /* ── Table of Contents ────────────────────────────────────────────── */
 
-nav#TOC {
+details#toc-details {
   background: var(--row-alt);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 20px 28px 20px;
   margin: 0 0 2.5rem;
   font-size: 0.9em;
 }
 
-nav#TOC::before {
-  content: "Contents";
-  display: block;
+summary.toc-summary {
+  display: flex;
+  align-items: center;
+  padding: 14px 28px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
   font-weight: 700;
   font-size: 0.75em;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--muted);
-  margin-bottom: 10px;
+  border-radius: 8px;
+}
+
+summary.toc-summary::-webkit-details-marker { display: none; }
+
+summary.toc-summary::after {
+  content: "›";
+  margin-left: auto;
+  font-size: 1.4em;
+  font-weight: 300;
+  color: var(--border);
+  transition: transform 0.2s ease;
+  line-height: 1;
+}
+
+details#toc-details[open] summary.toc-summary::after {
+  transform: rotate(90deg);
+}
+
+details#toc-details[open] summary.toc-summary {
+  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+
+nav#TOC {
+  padding: 0 28px 18px;
 }
 
 nav#TOC ul {

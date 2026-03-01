@@ -90,4 +90,11 @@ manual: ## Regenerate docs/index.html from docs/manual.md (requires pandoc)
 		--css "$(REPO_ROOT)/docs/assets/manual.css" \
 		--highlight-style=zenburn \
 		--output "$(REPO_ROOT)/docs/index.html" 2>/dev/null
+	@# Wrap nav#TOC in <details> for collapsible behaviour
+	@python3 -c "\
+f = open('$(REPO_ROOT)/docs/index.html', 'r+'); \
+s = f.read(); \
+s = s.replace('<nav id=\"TOC\" role=\"doc-toc\">', '<details id=\"toc-details\"><summary class=\"toc-summary\">Table of Contents</summary><nav id=\"TOC\" role=\"doc-toc\">', 1); \
+s = s.replace('</nav>', '</nav></details>', 1); \
+f.seek(0); f.write(s); f.truncate(); f.close()"
 	@echo "Generated: docs/index.html"

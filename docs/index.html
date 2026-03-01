@@ -152,23 +152,47 @@ color: #94a3b8;
 border-bottom-color: #64748b;
 }
 
-nav#TOC {
+details#toc-details {
 background: var(--row-alt);
 border: 1px solid var(--border);
 border-radius: 8px;
-padding: 20px 28px 20px;
 margin: 0 0 2.5rem;
 font-size: 0.9em;
 }
-nav#TOC::before {
-content: "Contents";
-display: block;
+summary.toc-summary {
+display: flex;
+align-items: center;
+padding: 14px 28px;
+cursor: pointer;
+list-style: none;
+user-select: none;
 font-weight: 700;
 font-size: 0.75em;
 text-transform: uppercase;
 letter-spacing: 0.07em;
 color: var(--muted);
-margin-bottom: 10px;
+border-radius: 8px;
+}
+summary.toc-summary::-webkit-details-marker { display: none; }
+summary.toc-summary::after {
+content: "›";
+margin-left: auto;
+font-size: 1.4em;
+font-weight: 300;
+color: var(--border);
+transition: transform 0.2s ease;
+line-height: 1;
+}
+details#toc-details[open] summary.toc-summary::after {
+transform: rotate(90deg);
+}
+details#toc-details[open] summary.toc-summary {
+border-radius: 8px 8px 0 0;
+border-bottom: 1px solid var(--border);
+margin-bottom: 14px;
+}
+nav#TOC {
+padding: 0 28px 18px;
 }
 nav#TOC ul {
 margin: 0;
@@ -351,7 +375,7 @@ margin-top: 0;
 migrating your Mac setup</p>
 <p class="date"><a href="https://github.com/sevmorris/mrk">github.com/sevmorris/mrk</a></p>
 </header>
-<nav id="TOC" role="doc-toc">
+<details id="toc-details"><summary class="toc-summary">Table of Contents</summary><nav id="TOC" role="doc-toc">
 <ul>
 <li><a href="#overview" id="toc-overview">Overview</a></li>
 <li><a href="#how-it-works-the-three-phases" id="toc-how-it-works-the-three-phases">How It Works — The Three
@@ -407,7 +431,7 @@ Checks</a></li>
 <li><a href="#state-files" id="toc-state-files">State Files</a></li>
 <li><a href="#troubleshooting" id="toc-troubleshooting">Troubleshooting</a></li>
 </ul>
-</nav>
+</nav></details>
 <h1 id="overview">Overview</h1>
 <p><strong>mrk</strong> is a three-phase macOS bootstrap system that
 automates the configuration of a Mac from a clean install. It manages
