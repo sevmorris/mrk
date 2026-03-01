@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker sync snapshot-prefs pull-prefs help
+.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker sync snapshot-prefs pull-prefs manual help
 
 help: ## Show available make commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -75,3 +75,17 @@ snapshot-prefs: ## Export app preferences to ~/.mrk/preferences/ and push to mrk
 
 pull-prefs: ## Clone or pull app preferences from mrk-prefs into ~/.mrk/preferences/
 	@"$(SCRIPTS)/pull-prefs"
+
+manual: ## Regenerate docs/index.html from docs/manual.md (requires pandoc)
+	@if ! command -v pandoc >/dev/null 2>&1; then \
+		echo "error: pandoc is not installed. Install it with: brew install pandoc"; \
+		exit 1; \
+	fi
+	@echo "Generating docs/index.html..."
+	@pandoc "$(REPO_ROOT)/docs/manual.md" \
+		--standalone \
+		--embed-resources \
+		--css "$(REPO_ROOT)/docs/assets/manual.css" \
+		--highlight-style=zenburn \
+		--output "$(REPO_ROOT)/docs/index.html" 2>/dev/null
+	@echo "Generated: docs/index.html"

@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="dcterms.date" content="2026-01-01" />
+  <title>mrk — macOS Bootstrap Manual</title>
+  <style>
+
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+}
+pre.numberSource { margin-left: 3em; padding-left: 4px; }
+div.sourceCode
+{ color: #cccccc; background-color: #303030; }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ffcfaf; } 
+code span.an { color: #7f9f7f; font-weight: bold; } 
+code span.at { } 
+code span.bn { color: #dca3a3; } 
+code span.bu { } 
+code span.cf { color: #f0dfaf; } 
+code span.ch { color: #dca3a3; } 
+code span.cn { color: #dca3a3; font-weight: bold; } 
+code span.co { color: #7f9f7f; } 
+code span.cv { color: #7f9f7f; font-weight: bold; } 
+code span.do { color: #7f9f7f; } 
+code span.dt { color: #dfdfbf; } 
+code span.dv { color: #dcdccc; } 
+code span.er { color: #c3bf9f; } 
+code span.ex { } 
+code span.fl { color: #c0bed1; } 
+code span.fu { color: #efef8f; } 
+code span.im { } 
+code span.in { color: #7f9f7f; font-weight: bold; } 
+code span.kw { color: #f0dfaf; } 
+code span.op { color: #f0efd0; } 
+code span.ot { color: #efef8f; } 
+code span.pp { color: #ffcfaf; font-weight: bold; } 
+code span.sc { color: #dca3a3; } 
+code span.ss { color: #cc9393; } 
+code span.st { color: #cc9393; } 
+code span.va { } 
+code span.vs { color: #cc9393; } 
+code span.wa { color: #7f9f7f; font-weight: bold; } 
+</style>
+  <style type="text/css">
+:root {
+--ink: #1a1a1a;
+--muted: #555;
+--accent: #2563eb;
+--accent-light: #eff6ff;
+--border: #d1d5db;
+--code-bg: #f3f4f6;
+--header-bg: #1e293b;
+--header-text: #f8fafc;
+--row-alt: #f9fafb;
+--warn-bg: #fefce8;
+--warn-border: #ca8a04;
+font-size: 13.5px;
+}
+* { box-sizing: border-box; }
+body {
+font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+color: var(--ink);
+line-height: 1.65;
+max-width: 860px;
+margin: 0 auto;
+padding: 48px 48px 64px;
+background: #fff;
+}
+
+header {
+background: var(--header-bg);
+color: var(--header-text);
+padding: 40px 48px 36px;
+margin: -48px -48px 48px;
+border-bottom: 4px solid var(--accent);
+}
+header h1.title {
+font-size: 2rem;
+font-weight: 700;
+margin: 0 0 6px;
+letter-spacing: -0.02em;
+color: #fff;
+}
+header .subtitle {
+font-size: 1rem;
+color: #94a3b8;
+margin: 0 0 12px;
+font-weight: 400;
+}
+header .date {
+font-size: 0.8rem;
+color: #64748b;
+margin: 0;
+}
+
+h1 {
+font-size: 1.55rem;
+font-weight: 700;
+color: var(--ink);
+border-bottom: 2px solid var(--accent);
+padding-bottom: 6px;
+margin: 2.5rem 0 1rem;
+letter-spacing: -0.01em;
+}
+h2 {
+font-size: 1.15rem;
+font-weight: 600;
+color: var(--ink);
+margin: 2rem 0 0.6rem;
+padding-left: 10px;
+border-left: 3px solid var(--accent);
+}
+h3 {
+font-size: 1rem;
+font-weight: 600;
+color: var(--muted);
+margin: 1.5rem 0 0.4rem;
+text-transform: uppercase;
+letter-spacing: 0.05em;
+font-size: 0.78rem;
+}
+
+p { margin: 0 0 0.9rem; }
+strong { font-weight: 600; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+ul, ol {
+margin: 0 0 0.9rem;
+padding-left: 1.5rem;
+}
+li { margin-bottom: 0.25rem; }
+li > ul, li > ol { margin-top: 0.2rem; margin-bottom: 0.2rem; }
+hr {
+border: none;
+border-top: 1px solid var(--border);
+margin: 2.5rem 0;
+}
+
+code {
+font-family: "SF Mono", "Menlo", "Monaco", "Cascadia Code", monospace;
+font-size: 0.84em;
+background: var(--code-bg);
+border: 1px solid var(--border);
+border-radius: 4px;
+padding: 1px 5px;
+color: #b91c1c;
+}
+pre {
+background: #1e293b;
+border-radius: 6px;
+padding: 16px 18px;
+overflow-x: auto;
+margin: 0.6rem 0 1.1rem;
+line-height: 1.5;
+}
+pre code {
+font-size: 0.83em;
+background: none;
+border: none;
+padding: 0;
+color: #e2e8f0;
+}
+
+blockquote {
+background: var(--warn-bg);
+border-left: 4px solid var(--warn-border);
+margin: 0.8rem 0 1rem;
+padding: 10px 14px;
+border-radius: 0 6px 6px 0;
+color: #713f12;
+font-size: 0.92em;
+}
+blockquote p { margin: 0; }
+blockquote > p > strong:first-child {
+display: block;
+margin-bottom: 2px;
+font-size: 0.78em;
+text-transform: uppercase;
+letter-spacing: 0.06em;
+color: var(--warn-border);
+}
+
+table {
+width: 100%;
+border-collapse: collapse;
+margin: 0.6rem 0 1.2rem;
+font-size: 0.9em;
+}
+thead tr {
+background: var(--header-bg);
+color: var(--header-text);
+}
+thead th {
+padding: 9px 14px;
+text-align: left;
+font-weight: 600;
+font-size: 0.82em;
+letter-spacing: 0.04em;
+text-transform: uppercase;
+}
+tbody tr:nth-child(even) { background: var(--row-alt); }
+tbody tr:hover { background: var(--accent-light); }
+td {
+padding: 8px 14px;
+border-bottom: 1px solid var(--border);
+vertical-align: top;
+}
+
+td:first-child {
+font-family: "SF Mono", "Menlo", "Monaco", "Cascadia Code", monospace;
+font-size: 0.82em;
+white-space: nowrap;
+color: #b91c1c;
+}
+
+@media print {
+body { padding: 0; max-width: 100%; }
+header { margin: 0 0 32px; padding: 28px 32px 24px; }
+h1 { page-break-before: always; }
+h1:first-of-type { page-break-before: avoid; }
+pre, blockquote, table { page-break-inside: avoid; }
+a { color: var(--ink); }
+@page {
+margin: 18mm 20mm 18mm;
+size: A4;
+}
+@page :first {
+margin-top: 0;
+}
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">mrk — macOS Bootstrap Manual</h1>
+<p class="subtitle">Workflow guide for managing, maintaining, and
+migrating your Mac setup</p>
+<p class="date">2026</p>
+</header>
+<h1 id="overview">Overview</h1>
+<p><strong>mrk</strong> is a three-phase macOS bootstrap system that
+automates the configuration of a Mac from a clean install. It manages
+the shell environment, dotfiles, macOS system preferences, Homebrew
+packages, app settings, login items, and personal app preferences.</p>
+<p><strong>Key repositories:</strong></p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Repo</th>
+<th>Location</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sevmorris/mrk</code></td>
+<td><code>~/Projects/mrk-dev/</code></td>
+<td>Public bootstrap repo</td>
+</tr>
+<tr>
+<td><code>sevmorris/mrk-prefs</code></td>
+<td><code>~/.mrk/preferences/</code></td>
+<td>Private app preferences</td>
+</tr>
+</tbody>
+</table>
+<p>The two-repo split keeps personal preference data (iTerm2 profiles,
+Raycast settings, etc.) out of the public repo while still making them
+fully portable across machines.</p>
+<hr />
+<h1 id="how-it-works-the-three-phases">How It Works — The Three
+Phases</h1>
+<h2 id="phase-1-setup-make-setup">Phase 1 — Setup
+(<code>make setup</code>)</h2>
+<p>Script: <code>scripts/setup</code></p>
+<p>Sets up the foundational shell environment on a new or existing
+machine.</p>
+<p><strong>What it does:</strong></p>
+<ul>
+<li>Installs Xcode Command Line Tools if not present</li>
+<li>Links everything in <code>dotfiles/</code> into <code>$HOME</code>
+as symlinks (with automatic backups of any existing files)</li>
+<li>Links <code>scripts/</code> and <code>bin/</code> into
+<code>~/bin</code> so tools are on your PATH</li>
+<li>Applies macOS system preferences via
+<code>scripts/defaults.sh</code></li>
+<li>Sets Zsh as the login shell</li>
+<li>Generates a rollback script at
+<code>~/.mrk/defaults-rollback.sh</code></li>
+</ul>
+<p><strong>Options:</strong></p>
+<pre><code>make setup --only dotfiles    # Link dotfiles only
+make setup --only tools       # Link scripts/bin only
+make setup --only defaults    # Apply macOS defaults only
+make setup --dry-run          # Preview changes without applying
+make dotfiles                 # Shorthand for --only dotfiles
+make tools                    # Shorthand for --only tools
+make defaults                 # Shorthand for --only defaults
+make trackpad                 # Apply defaults including trackpad settings</code></pre>
+<h2 id="phase-2-homebrew-make-brew">Phase 2 — Homebrew
+(<code>make brew</code>)</h2>
+<p>Script: <code>scripts/brew</code></p>
+<p>Installs Homebrew and all packages listed in the
+<code>Brewfile</code>.</p>
+<p><strong>What it does:</strong></p>
+<ul>
+<li>Installs Homebrew if not present</li>
+<li>Runs <code>brew bundle install</code> from the Brewfile</li>
+<li>Presents interactive prompts for packages that are new (not
+previously installed)</li>
+<li>Uses the mrk-picker TUI or <code>gum</code> to let you select which
+packages to accept</li>
+</ul>
+<h2 id="phase-3-post-install-make-post-install">Phase 3 — Post-Install
+(<code>make post-install</code>)</h2>
+<p>Script: <code>scripts/post-install</code></p>
+<p>Configures installed apps. Must be run after Phase 2.</p>
+<p><strong>What it does:</strong></p>
+<ul>
+<li><strong>Topgrade:</strong> Links <code>assets/topgrade.toml</code>
+to <code>~/.config/topgrade.toml</code></li>
+<li><strong>Browsers:</strong> Applies Safari defaults, Chrome/Brave
+managed policies, Helium defaults; opens extension install URLs on
+request</li>
+<li><strong>App defaults:</strong> Applies <code>defaults write</code>
+settings for Audio Hijack, Fission, AlDente, Rogue Amoeba update
+settings</li>
+<li><strong>Preferences auto-pull:</strong> If
+<code>~/.mrk/preferences/</code> is absent and SSH is authenticated to
+GitHub, automatically clones <code>mrk-prefs</code></li>
+<li><strong>Plist imports</strong> (15 apps): Imports personal
+preference plists; skips any app that already has a preferences file
+(non-destructive)</li>
+<li><strong>App Support restore:</strong> Restores Loopback and
+SoundSource configuration files (non-destructive)</li>
+<li><strong>Login items:</strong> Registers AlDente, Dropbox, Ice, Hot,
+Raycast, Stats, BetterSnapTool, Chrono Plus as login items</li>
+</ul>
+<p><strong>Managed app preferences:</strong></p>
+<table>
+<thead>
+<tr>
+<th>App</th>
+<th>Plist imported</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BetterSnapTool</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Ice</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>iTerm2</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Raycast</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Stats</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Loopback</td>
+<td>✓ + App Support files</td>
+</tr>
+<tr>
+<td>SoundSource</td>
+<td>✓ + App Support files</td>
+</tr>
+<tr>
+<td>Audio Hijack</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Farrago</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Piezo</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Typora</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Hot</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Keka</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>TimeMachineEditor</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>MacWhisper</td>
+<td>✓</td>
+</tr>
+</tbody>
+</table>
+<h2 id="full-install">Full Install</h2>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> all        <span class="co"># Runs setup + brew + post-install in sequence</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">exec</span> zsh        <span class="co"># Reload shell after setup</span></span></code></pre></div>
+<hr />
+<h1 id="directory-layout">Directory Layout</h1>
+<pre><code>~/
+├── bin/                          ← Linked tools (created by make setup)
+├── .mrk/                         ← mrk runtime state (gitignored, not in repo)
+│   ├── preferences/              ← Cloned from sevmorris/mrk-prefs
+│   ├── backups/                  ← Automatic dotfile backups
+│   ├── defaults-rollback.sh      ← Undo macOS defaults
+│   └── hardening-rollback.sh     ← Undo security hardening
+│
+└── Projects/
+    └── mrk-dev/                  ← Public bootstrap repo (sevmorris/mrk)
+        ├── Makefile
+        ├── Brewfile              ← Managed Homebrew package list
+        ├── dotfiles/             ← Shell config files linked into ~/
+        ├── scripts/              ← Phase scripts + tools
+        │   ├── setup             ← Phase 1
+        │   ├── brew              ← Phase 2
+        │   ├── post-install      ← Phase 3
+        │   ├── sync              ← Brewfile sync
+        │   ├── snapshot-prefs    ← Export app prefs to mrk-prefs
+        │   ├── pull-prefs        ← Clone/pull mrk-prefs
+        │   ├── status            ← Installation status
+        │   ├── doctor            ← Diagnostics
+        │   ├── hardening.sh      ← macOS security hardening
+        │   └── uninstall         ← Remove symlinks
+        ├── assets/
+        │   ├── browsers/         ← Browser policies + extension lists
+        │   ├── preferences/      ← App defaults write scripts
+        │   └── topgrade.toml
+        ├── bin/                  ← Extra CLI tools
+        └── tools/picker/         ← mrk-picker TUI source (Go)
+
+~/Makefile                        ← Local convenience Makefile (not in any repo)
+                                     delegates make sync/snapshot-prefs/etc to mrk-dev</code></pre>
+<hr />
+<h1 id="day-to-day-workflow">Day-to-Day Workflow</h1>
+<h2 id="keeping-the-brewfile-current-make-sync">Keeping the Brewfile
+Current (<code>make sync</code>)</h2>
+<p>Whenever you install a new Homebrew package, run
+<code>make sync</code> to record it in the Brewfile.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync           <span class="co"># Interactive — opens mrk-picker TUI to select packages</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync <span class="at">-n</span>        <span class="co"># Dry run — show what would be added, make no changes</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync <span class="at">-c</span>        <span class="co"># Auto-commit the Brewfile after updating</span></span></code></pre></div>
+<p><strong>How sync works:</strong></p>
+<ol type="1">
+<li>Reads the Brewfile to build a list of already-tracked packages</li>
+<li>Runs <code>brew leaves</code> (top-level formulae) and
+<code>brew list --cask</code> to see what’s installed</li>
+<li>Computes the diff — packages installed but not yet in the
+Brewfile</li>
+<li>Opens <strong>mrk-picker</strong> TUI: use <code>Space</code> to
+select packages, <code>Enter</code> to confirm, <code>q</code> to
+quit</li>
+<li>For each selected formula, prompts via <code>gum</code> to choose
+which Brewfile section to add it to</li>
+<li>Casks are auto-assigned to the existing cask section</li>
+<li>Inserts each entry alphabetically within its section</li>
+</ol>
+<blockquote>
+<p><strong>Note:</strong> The mrk-picker binary lives at
+<code>bin/mrk-picker</code> (gitignored, platform-specific). If it’s
+missing, rebuild it first with <code>make picker</code>.</p>
+</blockquote>
+<h2 id="keeping-app-preferences-current-make-snapshot-prefs">Keeping App
+Preferences Current (<code>make snapshot-prefs</code>)</h2>
+<p>After configuring an app, run <code>make snapshot-prefs</code> to
+capture and push the preferences.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> snapshot-prefs</span></code></pre></div>
+<p><strong>How snapshot-prefs works:</strong></p>
+<ol type="1">
+<li>Exports the preference plist for each of the 15 managed apps using
+<code>defaults export</code></li>
+<li>Copies Loopback and SoundSource Application Support files</li>
+<li>Commits all changes to <code>~/.mrk/preferences/</code> with a
+timestamped message</li>
+<li>Pushes to <code>sevmorris/mrk-prefs</code> on GitHub</li>
+</ol>
+<p>Snapshots are idempotent — if nothing changed, it reports “No changes
+to push.”</p>
+<h2 id="pulling-app-preferences-make-pull-prefs">Pulling App Preferences
+(<code>make pull-prefs</code>)</h2>
+<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> pull-prefs</span></code></pre></div>
+<p>Clones <code>mrk-prefs</code> into <code>~/.mrk/preferences/</code>
+if it doesn’t exist, or fast-forward pulls if it does.</p>
+<blockquote>
+<p><strong>Note:</strong> <code>make post-install</code> does this
+automatically if <code>~/.mrk/preferences/</code> is absent and your SSH
+key is authenticated with GitHub.</p>
+</blockquote>
+<hr />
+<h1 id="before-migrating-to-a-new-machine">Before Migrating to a New
+Machine</h1>
+<p>Run these steps on the <strong>old machine</strong> before you
+transfer.</p>
+<p><strong>1. Sync the Brewfile</strong></p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync <span class="at">--commit</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co"># or from ~/</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync <span class="at">-c</span></span></code></pre></div>
+<p>Captures any packages installed since the last sync and commits the
+updated Brewfile.</p>
+<p><strong>2. Snapshot app preferences</strong></p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> snapshot-prefs</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="co"># or from ~/</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> snapshot-prefs</span></code></pre></div>
+<p>Exports and pushes all 15 app preference plists plus Application
+Support files. Verify the push succeeded — you should see “Pushed to
+git@github.com:sevmorris/mrk-prefs.git” in the output.</p>
+<p><strong>3. Push any pending mrk-dev changes</strong></p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/Projects/mrk-dev</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> status</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push</span></code></pre></div>
+<p><strong>4. Verify SSH authentication</strong></p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> <span class="at">-T</span> git@github.com</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Expected: Hi sevmorris! You&#39;ve successfully authenticated...</span></span></code></pre></div>
+<p>The new machine needs your SSH key to auto-pull mrk-prefs during
+<code>make post-install</code>.</p>
+<p><strong>5. Note anything not covered by mrk</strong></p>
+<p>Write down any apps, license keys, or configurations not yet
+automated:</p>
+<ul>
+<li>App Store apps (manually reinstall from Purchases)</li>
+<li>Software licenses (export from your license manager)</li>
+<li>Any manual system settings not captured by
+<code>defaults write</code></li>
+<li>VPN configurations, certificates, etc.</li>
+</ul>
+<hr />
+<h1 id="setting-up-a-new-machine">Setting Up a New Machine</h1>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li>macOS 15 or later</li>
+<li>Active internet connection</li>
+<li>Your GitHub SSH key (or ability to create and add one)</li>
+</ul>
+<h2 id="step-1-clone-mrk">Step 1 — Clone mrk</h2>
+<p><strong>If SSH is already set up:</strong></p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> ~/Projects</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone git@github.com:sevmorris/mrk.git ~/Projects/mrk-dev</span></code></pre></div>
+<p><strong>If SSH is not yet configured</strong> (fresh machine), clone
+over HTTPS first:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> ~/Projects</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/sevmorris/mrk.git ~/Projects/mrk-dev</span></code></pre></div>
+<p>Then generate and add your SSH key to GitHub before continuing, so
+mrk-prefs can be pulled automatically in Phase 3.</p>
+<h2 id="step-2-phase-1-shell-dotfiles">Step 2 — Phase 1: Shell &amp;
+Dotfiles</h2>
+<div class="sourceCode" id="cb13"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/Projects/mrk-dev</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> setup</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="bu">exec</span> zsh        <span class="co"># Reload shell to pick up dotfiles and ~/bin</span></span></code></pre></div>
+<p>After this step, the shell is configured, dotfiles are linked, and
+macOS system preferences are applied.</p>
+<h2 id="step-3-if-needed-add-ssh-key-to-github">Step 3 — (If needed) Add
+SSH Key to GitHub</h2>
+<p>If you cloned over HTTPS, add your SSH key now before running Phase
+3:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate a new key</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh-keygen</span> <span class="at">-t</span> ed25519 <span class="at">-C</span> <span class="st">&quot;your-email@example.com&quot;</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Copy the public key</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> ~/.ssh/id_ed25519.pub <span class="kw">|</span> <span class="ex">pbcopy</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Add to GitHub: github.com → Settings → SSH and GPG keys → New SSH key</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Then verify:</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> <span class="at">-T</span> git@github.com</span></code></pre></div>
+<h2 id="step-4-phase-2-homebrew">Step 4 — Phase 2: Homebrew</h2>
+<div class="sourceCode" id="cb15"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> brew</span></code></pre></div>
+<p>Installs Homebrew (if needed) and all packages from the Brewfile.
+This step takes the most time depending on how many packages are in the
+Brewfile.</p>
+<h2 id="step-5-phase-3-app-configuration">Step 5 — Phase 3: App
+Configuration</h2>
+<div class="sourceCode" id="cb16"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> post-install</span></code></pre></div>
+<p>This configures apps, imports your personal preferences, and sets up
+login items. If SSH is authenticated, it automatically pulls your
+preferences from <code>mrk-prefs</code>.</p>
+<p>If <code>~/.mrk/preferences/</code> is not populated (SSH wasn’t
+ready), run manually:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> pull-prefs</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> post-install   <span class="co"># Re-run to import plists</span></span></code></pre></div>
+<h2 id="step-6-verify-the-installation">Step 6 — Verify the
+Installation</h2>
+<div class="sourceCode" id="cb18"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> status     <span class="co"># Check dotfiles, tools, shell, Homebrew, Brewfile packages</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> doctor     <span class="co"># Run full diagnostics</span></span></code></pre></div>
+<p>Review the output and address any items marked ✗ or ⚠.</p>
+<h2 id="full-one-command-install">Full One-Command Install</h2>
+<div class="sourceCode" id="cb19"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/Projects/mrk-dev</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> all</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="bu">exec</span> zsh</span></code></pre></div>
+<hr />
+<h1 id="command-reference">Command Reference</h1>
+<h2 id="commands-available-from-anywhere-makefile">Commands Available
+from Anywhere (<code>~/Makefile</code>)</h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>make sync</code></td>
+<td>Sync installed Homebrew packages into the Brewfile</td>
+</tr>
+<tr>
+<td><code>make snapshot-prefs</code></td>
+<td>Export app preferences and push to mrk-prefs</td>
+</tr>
+<tr>
+<td><code>make pull-prefs</code></td>
+<td>Clone or pull app preferences from mrk-prefs</td>
+</tr>
+<tr>
+<td><code>make picker</code></td>
+<td>Build the mrk-picker TUI binary</td>
+</tr>
+<tr>
+<td><code>make help</code></td>
+<td>Show all available commands</td>
+</tr>
+</tbody>
+</table>
+<h2 id="commands-from-projectsmrk-dev">Commands from
+<code>~/Projects/mrk-dev/</code></h2>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>make all</code></td>
+<td>Full install: setup + brew + post-install</td>
+</tr>
+<tr>
+<td><code>make setup</code> / <code>make install</code></td>
+<td>Phase 1: shell, dotfiles, macOS defaults</td>
+</tr>
+<tr>
+<td><code>make brew</code></td>
+<td>Phase 2: Homebrew packages and casks</td>
+</tr>
+<tr>
+<td><code>make post-install</code></td>
+<td>Phase 3: app configs and login items</td>
+</tr>
+<tr>
+<td><code>make dotfiles</code></td>
+<td>Link dotfiles only</td>
+</tr>
+<tr>
+<td><code>make tools</code></td>
+<td>Install CLI tools only</td>
+</tr>
+<tr>
+<td><code>make defaults</code></td>
+<td>Apply macOS defaults only</td>
+</tr>
+<tr>
+<td><code>make trackpad</code></td>
+<td>Apply macOS defaults including trackpad settings</td>
+</tr>
+<tr>
+<td><code>make harden</code></td>
+<td>Apply macOS security hardening</td>
+</tr>
+<tr>
+<td><code>make update</code></td>
+<td>Upgrade all packages (topgrade or brew upgrade)</td>
+</tr>
+<tr>
+<td><code>make updates</code></td>
+<td>Run macOS software updates (<code>softwareupdate -ia</code>)</td>
+</tr>
+<tr>
+<td><code>make uninstall</code></td>
+<td>Remove symlinks and undo setup</td>
+</tr>
+<tr>
+<td><code>make status</code></td>
+<td>Show installation status</td>
+</tr>
+<tr>
+<td><code>make doctor</code></td>
+<td>Run diagnostics</td>
+</tr>
+<tr>
+<td><code>make fix-exec</code></td>
+<td>Make all scripts and bin files executable</td>
+</tr>
+<tr>
+<td><code>make help</code></td>
+<td>Show all available commands</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1 id="what-make-status-checks">What <code>make status</code>
+Checks</h1>
+<p>Running <code>make status</code> gives a quick health check of the
+entire installation:</p>
+<ul>
+<li><strong>Dotfiles</strong> — Which files are symlinked into
+<code>~/</code> and which are missing</li>
+<li><strong>Tools</strong> — Which scripts/bin symlinks are live in
+<code>~/bin</code> and which are broken</li>
+<li><strong>macOS Defaults</strong> — Whether defaults have been applied
+(rollback script present)</li>
+<li><strong>Security Hardening</strong> — Whether hardening has been
+applied</li>
+<li><strong>Backups</strong> — Number of dotfile backups in
+<code>~/.mrk/backups/</code></li>
+<li><strong>Shell</strong> — Current login shell (should be Zsh)</li>
+<li><strong>PATH</strong> — Whether <code>~/bin</code> is on the
+PATH</li>
+<li><strong>Homebrew</strong> — Version installed</li>
+<li><strong>Brewfile packages</strong> — Each formula and cask: ✓
+installed or ✗ missing</li>
+</ul>
+<hr />
+<h1 id="state-files">State Files</h1>
+<p>mrk writes runtime state to <code>~/.mrk/</code> (gitignored):</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>File / Directory</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>~/.mrk/preferences/</code></td>
+<td>Cloned from <code>sevmorris/mrk-prefs</code>; app plists + App
+Support files</td>
+</tr>
+<tr>
+<td><code>~/.mrk/backups/</code></td>
+<td>Timestamped backups of dotfiles that were replaced during setup</td>
+</tr>
+<tr>
+<td><code>~/.mrk/defaults-rollback.sh</code></td>
+<td>Shell script to undo all <code>defaults write</code> changes</td>
+</tr>
+<tr>
+<td><code>~/.mrk/hardening-rollback.sh</code></td>
+<td>Shell script to undo security hardening</td>
+</tr>
+</tbody>
+</table>
+<p>To undo macOS defaults applied by mrk:</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/.mrk/defaults-rollback.sh</span></code></pre></div>
+<hr />
+<h1 id="troubleshooting">Troubleshooting</h1>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>make setup</code> fails at Xcode CLT</td>
+<td>Run <code>xcode-select --install</code>, wait for the GUI install
+dialog to complete, then re-run</td>
+</tr>
+<tr>
+<td>Dotfile conflict (“file exists” warning)</td>
+<td>Backup auto-created in <code>~/.mrk/backups/</code>; resolve
+manually then re-run</td>
+</tr>
+<tr>
+<td>post-install skips plist imports</td>
+<td>SSH key not authenticated; run <code>make pull-prefs</code> after
+adding key to GitHub</td>
+</tr>
+<tr>
+<td>mrk-picker not rendering</td>
+<td>Rebuild the binary: <code>make picker</code></td>
+</tr>
+<tr>
+<td><code>~/bin</code> not on PATH</td>
+<td>Add <code>export PATH=&quot;$HOME/bin:$PATH&quot;</code> to
+<code>~/.zshrc</code>, or run <code>make doctor</code></td>
+</tr>
+<tr>
+<td>Brewfile entry shows ✗ (missing)</td>
+<td>Package name may differ from formula name; check with
+<code>brew info &lt;pkg&gt;</code></td>
+</tr>
+<tr>
+<td><code>make sync</code> exits with “nothing to add”</td>
+<td>All installed packages are already in the Brewfile — nothing to
+do</td>
+</tr>
+<tr>
+<td><code>make snapshot-prefs</code> fails for an app</td>
+<td>App is not installed or <code>defaults export</code> failed; check
+the app is running</td>
+</tr>
+<tr>
+<td>post-install login item already exists</td>
+<td>Safe to ignore — <code>add_login_item</code> checks before
+adding</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>

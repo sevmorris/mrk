@@ -1,0 +1,229 @@
+/* mrk manual — print-friendly stylesheet */
+
+:root {
+  --ink: #1a1a1a;
+  --muted: #555;
+  --accent: #2563eb;
+  --accent-light: #eff6ff;
+  --border: #d1d5db;
+  --code-bg: #f3f4f6;
+  --header-bg: #1e293b;
+  --header-text: #f8fafc;
+  --row-alt: #f9fafb;
+  --warn-bg: #fefce8;
+  --warn-border: #ca8a04;
+  font-size: 13.5px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  color: var(--ink);
+  line-height: 1.65;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 48px 48px 64px;
+  background: #fff;
+}
+
+/* ── Cover header ─────────────────────────────────────────────────── */
+
+header {
+  background: var(--header-bg);
+  color: var(--header-text);
+  padding: 40px 48px 36px;
+  margin: -48px -48px 48px;
+  border-bottom: 4px solid var(--accent);
+}
+
+header h1.title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+header .subtitle {
+  font-size: 1rem;
+  color: #94a3b8;
+  margin: 0 0 12px;
+  font-weight: 400;
+}
+
+header .date {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ── Headings ─────────────────────────────────────────────────────── */
+
+h1 {
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--ink);
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 6px;
+  margin: 2.5rem 0 1rem;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 2rem 0 0.6rem;
+  padding-left: 10px;
+  border-left: 3px solid var(--accent);
+}
+
+h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 1.5rem 0 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.78rem;
+}
+
+/* ── Body text ────────────────────────────────────────────────────── */
+
+p { margin: 0 0 0.9rem; }
+
+strong { font-weight: 600; }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+ul, ol {
+  margin: 0 0 0.9rem;
+  padding-left: 1.5rem;
+}
+
+li { margin-bottom: 0.25rem; }
+
+li > ul, li > ol { margin-top: 0.2rem; margin-bottom: 0.2rem; }
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2.5rem 0;
+}
+
+/* ── Code ─────────────────────────────────────────────────────────── */
+
+code {
+  font-family: "SF Mono", "Menlo", "Monaco", "Cascadia Code", monospace;
+  font-size: 0.84em;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: #b91c1c;
+}
+
+pre {
+  background: #1e293b;
+  border-radius: 6px;
+  padding: 16px 18px;
+  overflow-x: auto;
+  margin: 0.6rem 0 1.1rem;
+  line-height: 1.5;
+}
+
+pre code {
+  font-size: 0.83em;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #e2e8f0;
+}
+
+/* ── Blockquote (used for notes) ──────────────────────────────────── */
+
+blockquote {
+  background: var(--warn-bg);
+  border-left: 4px solid var(--warn-border);
+  margin: 0.8rem 0 1rem;
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+  color: #713f12;
+  font-size: 0.92em;
+}
+
+blockquote p { margin: 0; }
+
+blockquote > p > strong:first-child {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--warn-border);
+}
+
+/* ── Tables ───────────────────────────────────────────────────────── */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.6rem 0 1.2rem;
+  font-size: 0.9em;
+}
+
+thead tr {
+  background: var(--header-bg);
+  color: var(--header-text);
+}
+
+thead th {
+  padding: 9px 14px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.82em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+tbody tr:nth-child(even) { background: var(--row-alt); }
+tbody tr:hover { background: var(--accent-light); }
+
+td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+/* First column in command tables — monospace */
+td:first-child {
+  font-family: "SF Mono", "Menlo", "Monaco", "Cascadia Code", monospace;
+  font-size: 0.82em;
+  white-space: nowrap;
+  color: #b91c1c;
+}
+
+/* ── Print ────────────────────────────────────────────────────────── */
+
+@media print {
+  body { padding: 0; max-width: 100%; }
+  header { margin: 0 0 32px; padding: 28px 32px 24px; }
+
+  h1 { page-break-before: always; }
+  h1:first-of-type { page-break-before: avoid; }
+
+  pre, blockquote, table { page-break-inside: avoid; }
+
+  a { color: var(--ink); }
+
+  @page {
+    margin: 18mm 20mm 18mm;
+    size: A4;
+  }
+
+  @page :first {
+    margin-top: 0;
+  }
+}
