@@ -2,6 +2,8 @@
 
 Opinionated, idempotent macOS setup in three phases.
 
+**[Full workflow manual →](https://sevmorris.github.io/mrk/)**
+
 ## Quick Start
 
 ```bash
@@ -31,15 +33,20 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 | `make brew` | Phase 2 (Homebrew) |
 | `make post-install` | Phase 3 (app config) |
 | `make all` | All three phases |
+| `make sync` | Snapshot installed Homebrew packages into the Brewfile |
+| `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
+| `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
 | `make tools` | Link scripts into `~/bin` only |
 | `make dotfiles` | Symlink dotfiles only |
 | `make defaults` | Apply macOS defaults only |
 | `make trackpad` | Apply defaults including trackpad gestures |
 | `make harden` | Security hardening (Touch ID sudo, firewall) |
 | `make status` | Show installation status |
-| `make doctor` | Run `brew doctor` |
+| `make doctor` | Run diagnostics |
 | `make update` | Update via topgrade (or brew) |
 | `make updates` | Install macOS software updates |
+| `make picker` | Build the mrk-picker TUI binary |
+| `make manual` | Regenerate `docs/index.html` from `docs/manual.md` |
 | `make uninstall` | Remove symlinks, optionally rollback defaults |
 | `make fix-exec` | Fix executable permissions on scripts |
 
