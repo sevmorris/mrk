@@ -38,7 +38,19 @@ Sets up the foundational shell environment on a new or existing machine.
 **What it does:**
 
 - Installs Xcode Command Line Tools if not present
-- Links everything in `dotfiles/` into `$HOME` as symlinks (with automatic backups of any existing files), including `~/Makefile` for running mrk commands from anywhere
+- Links everything in `dotfiles/` into `$HOME` as symlinks (with automatic backups of any existing files)
+
+**Managed dotfiles:**
+
+| File | Purpose |
+|---|---|
+| `.aliases` | Shell aliases |
+| `.gitconfig` | Git configuration |
+| `.hushlogin` | Suppresses "Last login" terminal message |
+| `.zprofile` | Zsh login shell profile |
+| `.zshenv` | Zsh environment variables |
+| `.zshrc` | Zsh interactive shell config |
+| `Makefile` | mrk commands available from `~/` |
 - Links `scripts/` and `bin/` into `~/bin` so tools are on your PATH
 - Applies macOS system preferences via `scripts/defaults.sh`
 - Sets Zsh as the login shell

@@ -504,8 +504,48 @@ machine.</p>
 <ul>
 <li>Installs Xcode Command Line Tools if not present</li>
 <li>Links everything in <code>dotfiles/</code> into <code>$HOME</code>
-as symlinks (with automatic backups of any existing files), including
-<code>~/Makefile</code> for running mrk commands from anywhere</li>
+as symlinks (with automatic backups of any existing files)</li>
+</ul>
+<p><strong>Managed dotfiles:</strong></p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.aliases</code></td>
+<td>Shell aliases</td>
+</tr>
+<tr>
+<td><code>.gitconfig</code></td>
+<td>Git configuration</td>
+</tr>
+<tr>
+<td><code>.hushlogin</code></td>
+<td>Suppresses “Last login” terminal message</td>
+</tr>
+<tr>
+<td><code>.zprofile</code></td>
+<td>Zsh login shell profile</td>
+</tr>
+<tr>
+<td><code>.zshenv</code></td>
+<td>Zsh environment variables</td>
+</tr>
+<tr>
+<td><code>.zshrc</code></td>
+<td>Zsh interactive shell config</td>
+</tr>
+<tr>
+<td><code>Makefile</code></td>
+<td>mrk commands available from <code>~/</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
 <li>Links <code>scripts/</code> and <code>bin/</code> into
 <code>~/bin</code> so tools are on your PATH</li>
 <li>Applies macOS system preferences via
