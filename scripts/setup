@@ -3,7 +3,14 @@ set -euo pipefail
 
 # mrk setup — Phase 1: idempotent bootstrap for macOS (with Strap-inspired improvements)
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve symlinks so this works when called via ~/bin
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 
 # Source shared helpers
 # shellcheck source=lib.sh
@@ -220,18 +227,20 @@ phase_link_tools() {
   local failed=0
   local total=0
   
-  # Scripts that should NOT be linked to ~/bin:
-  # - Internal phase scripts (use Makefile targets instead)
-  # - lib.sh (sourced helper, not a standalone command)
-  # - Scripts that would shadow important system commands
+  # Scripts that should NOT be linked at all:
   local -A SKIP_LINK=(
+    [lib.sh]=1      # sourced helper, not executable
+  )
+
+  # Scripts that should be linked with an "mrk-" prefix to avoid
+  # shadowing system commands or to clarify they are mrk phases:
+  local -A PREFIX_LINK=(
     [brew]=1        # shadows /opt/homebrew/bin/brew
     [install]=1     # shadows /usr/bin/install
-    [setup]=1       # internal phase — use 'make setup'
-    [post-install]=1 # internal phase — use 'make post-install'
-    [defaults.sh]=1 # called by setup, not a user command
-    [lib.sh]=1      # sourced helper, not executable
-    [uninstall]=1   # use 'make uninstall'
+    [setup]=1       # generic name — prefix for clarity
+    [post-install]=1 # generic name — prefix for clarity
+    [defaults.sh]=1 # linked as mrk-defaults (drop .sh)
+    [uninstall]=1   # generic name — prefix for clarity
   )
   
   if [[ ! -d "$SCRIPTS_DIR" ]]; then
@@ -257,28 +266,36 @@ phase_link_tools() {
     for f in "${files[@]}"; do
       [[ -f "$f" && -x "$f" ]] || continue
       ((current++)) || true
-      local base
+      local base link_name
       base="$(basename "$f")"
+
+      # Determine link name: prefixed scripts get "mrk-" prefix
+      if [[ -n "${PREFIX_LINK[$base]+x}" ]]; then
+        # Strip .sh extension for cleaner names (defaults.sh → mrk-defaults)
+        link_name="mrk-${base%.sh}"
+      else
+        link_name="$base"
+      fi
       
       if (( total > 0 )); then
-        printf "\r[%d/%d] Linking %s..." "$current" "$total" "$base" >&2 || true
+        printf "\r[%d/%d] Linking %s..." "$current" "$total" "$link_name" >&2 || true
       fi
       
       # Skip if symlink already points to correct target
-      if [[ -L "$INSTALL_BIN/$base" ]] && [[ "$(readlink "$INSTALL_BIN/$base")" == "$f" ]]; then
+      if [[ -L "$INSTALL_BIN/$link_name" ]] && [[ "$(readlink "$INSTALL_BIN/$link_name")" == "$f" ]]; then
         ((skipped++)) || true
         continue
       fi
 
       if (( DRY_RUN )); then
-        dry "Would link: $INSTALL_BIN/$base -> $f"
+        dry "Would link: $INSTALL_BIN/$link_name -> $f"
         ((linked++)) || true
-      elif ln -sf "$f" "$INSTALL_BIN/$base" 2>/dev/null; then
+      elif ln -sf "$f" "$INSTALL_BIN/$link_name" 2>/dev/null; then
         ((linked++)) || true
       else
         local ln_error
-        ln_error="$(ln -sf "$f" "$INSTALL_BIN/$base" 2>&1 || true)"
-        err "Failed to link: $INSTALL_BIN/$base -> $f"
+        ln_error="$(ln -sf "$f" "$INSTALL_BIN/$link_name" 2>&1 || true)"
+        err "Failed to link: $INSTALL_BIN/$link_name -> $f"
         [[ -n "$ln_error" ]] && err "  Error: $ln_error"
         ((failed++)) || true
       fi

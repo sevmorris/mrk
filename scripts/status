@@ -47,9 +47,9 @@ if [[ -d "$REPO_ROOT/dotfiles" ]]; then
     else
       ((missing++)) || true
       if [[ -e "$dst" ]]; then
-        warn "  Not linked: $dst (file exists)"
+        warn "  Not linked: $dst (file exists — backup and remove, then rerun make install)"
       else
-        info "  Not linked: $dst"
+        warn "  Not linked: $dst (run: make install)"
       fi
     fi
   done
@@ -90,13 +90,13 @@ if [[ -d "$INSTALL_BIN" ]]; then
     ok "  $linked tool(s) linked"
   fi
   if (( broken > 0 )); then
-    err "  $broken broken symlink(s)"
+    err "  $broken broken symlink(s) — run: fix-exec  or  make install"
   fi
   if (( linked == 0 && broken == 0 )); then
-    info "  No mrk tools linked"
+    info "  No mrk tools linked — run: make install"
   fi
 else
-  warn "  $INSTALL_BIN not found"
+  warn "  $INSTALL_BIN not found — run: mkdir -p ~/bin && make install"
 fi
 echo ""
 
@@ -112,10 +112,10 @@ if [[ -f "$STATE_DIR/defaults-rollback.sh" ]] && [[ -s "$STATE_DIR/defaults-roll
     info "  Rollback script: $STATE_DIR/defaults-rollback.sh"
     info "  ($rollback_lines change(s) can be rolled back)"
   else
-    info "  No defaults applied"
+    info "  No defaults applied — run: make defaults"
   fi
 else
-  info "  No defaults applied"
+  info "  No defaults applied — run: make defaults"
 fi
 echo ""
 
@@ -131,10 +131,10 @@ if [[ -f "$STATE_DIR/hardening-rollback.sh" ]] && [[ -s "$STATE_DIR/hardening-ro
     info "  Rollback script: $STATE_DIR/hardening-rollback.sh"
     info "  ($rollback_lines change(s) can be rolled back)"
   else
-    info "  No hardening applied"
+    info "  No hardening applied — run: hardening.sh"
   fi
 else
-  info "  No hardening applied"
+  info "  No hardening applied — run: hardening.sh"
 fi
 echo ""
 
@@ -150,10 +150,10 @@ if [[ -d "$STATE_DIR/backups" ]]; then
       info "  Latest: $(basename "$latest")"
     fi
   else
-    info "  No backups found"
+    info "  No backups found — run: make install (creates a backup automatically)"
   fi
 else
-  info "  No backups directory"
+  info "  No backups directory — run: make install (creates a backup automatically)"
 fi
 echo ""
 
@@ -168,7 +168,7 @@ if command -v zsh >/dev/null 2>&1; then
   if [[ "$current_shell" == "$zsh_path" ]]; then
     ok "  Login shell: $current_shell"
   else
-    warn "  Login shell: $current_shell (expected: $zsh_path)"
+    warn "  Login shell: $current_shell (expected: $zsh_path) — run: chsh -s $zsh_path"
   fi
 else
   warn "  zsh not found"
@@ -185,8 +185,7 @@ case ":$PATH:" in
     ok "  $INSTALL_BIN is on PATH"
     ;;
   *)
-    warn "  $INSTALL_BIN is NOT on PATH"
-    info "  Run: ./scripts/doctor --fix"
+    warn "  $INSTALL_BIN is NOT on PATH — run: doctor --fix"
     ;;
 esac
 echo ""
@@ -199,7 +198,7 @@ echo "Homebrew:"
 if command -v brew >/dev/null 2>&1; then
   ok "  $(brew --version | head -n1)"
 else
-  err "  Not installed"
+  err "  Not installed — see https://brew.sh"
 fi
 echo ""
 

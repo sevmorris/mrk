@@ -6,7 +6,7 @@ sudo_command = "sudo"
 # Modules you don't want Topgrade to touch
 # "system" = macOS softwareupdate (handled separately)
 # "pnpm"   = managed via npm, not standalone
-disable = ["system", "mas", "pnpm", "pip3"]
+disable = ["system", "mas", "pnpm", "pip3", "node"]
 
 no_retry = true
 cleanup = true
@@ -23,7 +23,7 @@ notify_each_step = false
 "Clean Node global shims" = "bash -lc 'bp=$(brew --prefix 2>/dev/null) && rm -f \"$bp\"/bin/{yarn,pnpm,corepack} && rm -rf \"$bp\"/lib/node_modules/{yarn,pnpm,corepack}'"
 
 [commands]
-"npm global update" = "bash -lc 'npm update -g'"
+"npm global update" = "bash -lc 'export NVM_DIR=\"$HOME/.nvm\"; [ -s \"/opt/homebrew/opt/nvm/nvm.sh\" ] && . \"/opt/homebrew/opt/nvm/nvm.sh\"; npm update -g'"
 
 [brew]
 greedy_cask = true
