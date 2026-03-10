@@ -684,10 +684,15 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
           <h3>status <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Comprehensive mrk installation health report.</p>
-          <pre><code>status</code></pre>
+          <p class="desc">Interactive two-pane TUI health dashboard for the mrk installation. Also available as <code>mrk-status</code>.</p>
+          <pre><code>status
+mrk-status --help</code></pre>
           <ul>
-            <li>Checks: dotfiles, tool symlinks, macOS defaults, security hardening, backups, shell, PATH, Homebrew, Brewfile packages</li>
+            <li>Left pane: nine checks with ✓/⚠/✗ status — dotfiles, tool symlinks, macOS defaults, security hardening, backups, shell, PATH, Homebrew, Brewfile packages</li>
+            <li>Right pane: detail lines for the selected check, including the suggested fix command</li>
+            <li><strong>f</strong> — run the fix command for the selected check</li>
+            <li><strong>r</strong> — refresh all checks</li>
+            <li><strong>tab / ←→</strong> — switch panes</li>
           </ul>
         </div>
       </div>
@@ -840,7 +845,7 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
           <tr><td><code>snapshot</code></td><td>Export app prefs to mrk</td></tr>
           <tr><td><code>snapshot-prefs</code></td><td>Export + push prefs to private repo</td></tr>
           <tr><td><code>sync</code></td><td>Add new Homebrew packages to Brewfile</td></tr>
-          <tr><td><code>status</code></td><td>Full mrk installation health check</td></tr>
+          <tr><td><code>status</code></td><td>Interactive TUI health dashboard (dotfiles, tools, Homebrew, etc.)</td></tr>
           <tr><td><code>nuke-mrk</code></td><td>Clean uninstall mrk for reinstall</td></tr>
           <tr><td><code>hardening.sh</code></td><td>Apply macOS security tweaks</td></tr>
           <tr><td><code>doctor --fix</code></td><td>Fix ~/bin PATH issues</td></tr>

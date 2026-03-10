@@ -618,9 +618,11 @@ make setup --dry-run          # Preview changes without applying</code></pre>
         <div class="proc-body">
           <p class="desc">Two tools cover day-to-day Brewfile management.</p>
 
-          <p><strong><code>bf</code></strong> — interactive TUI for browsing, adding, deleting, and moving Brewfile entries:</p>
+          <p><strong><code>bf</code></strong> — interactive TUI for browsing, adding, deleting, moving, and pruning Brewfile entries:</p>
           <pre><code>bf                    # Open the Brewfile manager TUI
 bf --help             # Show keys and options</code></pre>
+          <p>Key operations: <strong>a</strong> add · <strong>d</strong> delete · <strong>m</strong> move · <strong>g</strong> toggle greedy · <strong>p</strong> prune uninstalled · <strong>/</strong> search · <strong>w</strong> write · <strong>c</strong> commit</p>
+          <p><strong>Prune mode</strong> (<code>p</code>) — fetches <code>brew list</code>, shows all Brewfile entries not currently installed. Space to mark, <code>a</code> to toggle all, <code>enter</code> to delete marked entries.</p>
 
           <p><strong><code>sync</code></strong> — scan installed packages, diff against the Brewfile, and add anything missing:</p>
           <pre><code>sync                  # Interactive — opens mrk-picker TUI to select packages
@@ -811,6 +813,8 @@ make doctor     # Run full diagnostics</code></pre>
           <tr><td>make pull-prefs</td><td>Clone or pull app preferences from mrk-prefs</td></tr>
           <tr><td>make picker</td><td>Build the mrk-picker TUI binary</td></tr>
           <tr><td>make bf</td><td>Build the bf Brewfile manager TUI binary</td></tr>
+          <tr><td>make mrk-status</td><td>Build the mrk-status TUI health dashboard binary</td></tr>
+          <tr><td>make build-tools</td><td>Build all Go TUI binaries (picker + bf + mrk-status)</td></tr>
           <tr><td>make help</td><td>Show all available commands</td></tr>
         </tbody>
       </table>
@@ -831,7 +835,8 @@ make doctor     # Run full diagnostics</code></pre>
           <tr><td>make update</td><td>Upgrade all packages (topgrade or brew upgrade)</td></tr>
           <tr><td>make updates</td><td>Run macOS software updates (softwareupdate -ia)</td></tr>
           <tr><td>make uninstall</td><td>Remove symlinks and undo setup</td></tr>
-          <tr><td>make status</td><td>Show installation status</td></tr>
+          <tr><td>make status</td><td>Run installation status check (bash fallback)</td></tr>
+          <tr><td>make mrk-status</td><td>Build the mrk-status TUI health dashboard</td></tr>
           <tr><td>make doctor</td><td>Check ~/bin is on PATH; --fix adds it to .zshrc</td></tr>
           <tr><td>make fix-exec</td><td>Make all scripts and bin files executable</td></tr>
           <tr><td>make help</td><td>Show all available commands</td></tr>
@@ -844,9 +849,9 @@ make doctor     # Run full diagnostics</code></pre>
       <div class="section-heading">
         <span class="section-num">5.2</span>
         <h2>Status Checks</h2>
-        <span class="section-sub">make status</span>
+        <span class="section-sub">status / mrk-status</span>
       </div>
-      <p>Running <code>make status</code> gives a quick health check of the entire installation:</p>
+      <p>Running <code>status</code> opens the interactive TUI health dashboard. Nine checks are shown with ✓/⚠/✗ indicators. Press <strong>f</strong> to run the suggested fix for any failing check, <strong>r</strong> to refresh.</p>
       <ul>
         <li><strong>Dotfiles</strong> — Which files are symlinked into <code>~/</code> and which are missing</li>
         <li><strong>Tools</strong> — Which scripts/bin symlinks are live in <code>~/bin</code> and which are broken</li>

@@ -45,11 +45,12 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 | `make defaults` | Apply macOS defaults only |
 | `make trackpad` | Apply defaults including trackpad gestures |
 | `make harden` | Security hardening (Touch ID sudo, firewall) |
-| `make status` | Show installation status |
+| `make status` | Run installation status check (bash fallback) |
+| `make mrk-status` | Build mrk-status TUI health dashboard |
 | `make doctor` | Check `~/bin` is on PATH; `make doctor --fix` adds it to `.zshrc` |
 | `make update` | Update via topgrade (or brew) |
 | `make updates` | Install macOS software updates |
-| `make build-tools` | Build all Go TUI binaries (picker + bf) |
+| `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status) |
 | `make picker` | Build mrk-picker only |
 | `make bf` | Build bf Brewfile manager only |
 | `make manual` | Regenerate `docs/index.html` from `docs/manual.md` |
