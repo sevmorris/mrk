@@ -64,8 +64,9 @@ bf: ## Build the bf Brewfile manager TUI binary
 	fi
 	@echo "Building bf…"
 	@cd "$(REPO_ROOT)/tools/bf" && go mod tidy -e && go build -o "$(BIN_DIR)/bf" .
-	@echo "Built: $(BIN_DIR)/bf"
 	@chmod +x "$(BIN_DIR)/bf"
+	@ln -sf "$(BIN_DIR)/bf" "$(HOME)/bin/bf"
+	@echo "Built and linked: ~/bin/bf"
 
 picker: ## Build the mrk-picker TUI binary
 	@if ! command -v go >/dev/null 2>&1; then \
@@ -74,8 +75,9 @@ picker: ## Build the mrk-picker TUI binary
 	fi
 	@echo "Building mrk-picker…"
 	@cd "$(REPO_ROOT)/tools/picker" && go mod tidy -e && go build -o "$(BIN_DIR)/mrk-picker" .
-	@echo "Built: $(BIN_DIR)/mrk-picker"
 	@chmod +x "$(BIN_DIR)/mrk-picker"
+	@ln -sf "$(BIN_DIR)/mrk-picker" "$(HOME)/bin/mrk-picker"
+	@echo "Built and linked: ~/bin/mrk-picker"
 
 sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to commit, ARGS=-n for dry run)
 	@"$(SCRIPTS)/sync" $(ARGS)
