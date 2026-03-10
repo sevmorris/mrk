@@ -1226,10 +1226,38 @@ func defaultBrewfilePath() string {
 	return filepath.Join(home, "mrk", "Brewfile")
 }
 
+func usage() {
+	fmt.Print(`bf — interactive Brewfile manager
+
+Usage:
+  bf [path]           Open the TUI (defaults to ~/mrk/Brewfile)
+  bf --help           Show this help
+
+TUI keys:
+  ↑/↓  k/j           Navigate sections (left) or packages (right)
+  ←/→  h/l           Switch panes
+  tab / shift+tab     Switch panes
+  a                   Add a package
+  d                   Delete selected package
+  m                   Move package to another section
+  g                   Toggle greedy: true (casks only)
+  /                   Search packages
+  w                   Write (save) changes to disk
+  c                   Commit saved changes via git
+  q / esc             Quit
+`)
+}
+
 func main() {
 	path := defaultBrewfilePath()
 	if len(os.Args) > 1 {
-		path = os.Args[1]
+		switch os.Args[1] {
+		case "--help", "-h":
+			usage()
+			os.Exit(0)
+		default:
+			path = os.Args[1]
+		}
 	}
 
 	bf, err := loadBrewfile(path)
