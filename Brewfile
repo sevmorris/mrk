@@ -96,7 +96,6 @@ cask "iterm2", greedy: true
 cask "izotope-product-portal"
 cask "jordanbaird-ice", greedy: true
 cask "keka", greedy: true
-cask "keybase", greedy: true
 cask "keyboardcleantool"
 cask "kid3"
 cask "kobo"
