@@ -326,15 +326,7 @@ make pull-prefs
 make post-install   # Re-run to import plists
 ```
 
-## Step 6 — Build mrk-picker
-
-```bash
-make picker
-```
-
-The mrk-picker binary is platform-specific and not stored in git. Build it once after installation. It is required by `make sync`.
-
-## Step 7 — Verify the Installation
+## Step 6 — Verify the Installation
 
 ```bash
 make status     # Check dotfiles, tools, shell, Homebrew, Brewfile packages
@@ -349,7 +341,6 @@ Review the output and address any items marked ✗ or ⚠.
 cd ~/mrk
 make all
 exec zsh
-make picker
 ```
 
 ---

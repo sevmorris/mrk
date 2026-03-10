@@ -3,14 +3,16 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf sync snapshot-prefs pull-prefs manual help
+.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf build-tools sync snapshot-prefs pull-prefs manual help
 
 help: ## Show available make commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' \
 		| sort
 
-all: setup brew post-install ## Full install: setup + brew + post-install
+all: setup brew post-install build-tools ## Full install: setup + brew + post-install + TUI binaries
+
+build-tools: picker bf ## Build all Go TUI binaries (requires Go)
 
 fix-exec: ## Make scripts and bin files executable
 	@echo "Making scripts and bin executables..."

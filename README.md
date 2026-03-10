@@ -36,7 +36,7 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 | `make install` / `make setup` | Phase 1 (setup) |
 | `make brew` | Phase 2 (Homebrew) |
 | `make post-install` | Phase 3 (app config) |
-| `make all` | All three phases |
+| `make all` | All three phases + build TUI binaries |
 | `make sync` | Snapshot installed Homebrew packages into the Brewfile |
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
@@ -49,7 +49,9 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 | `make doctor` | Check `~/bin` is on PATH; `make doctor --fix` adds it to `.zshrc` |
 | `make update` | Update via topgrade (or brew) |
 | `make updates` | Install macOS software updates |
-| `make picker` | Build the mrk-picker TUI binary |
+| `make build-tools` | Build all Go TUI binaries (picker + bf) |
+| `make picker` | Build mrk-picker only |
+| `make bf` | Build bf Brewfile manager only |
 | `make manual` | Regenerate `docs/index.html` from `docs/manual.md` |
 | `make uninstall` | Remove symlinks, optionally rollback defaults |
 | `make fix-exec` | Fix executable permissions on scripts |
