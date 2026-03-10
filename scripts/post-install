@@ -194,8 +194,24 @@ fi
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
 PREFS_SCRIPT="$(dirname "$0")/pull-prefs"
 
+_ssh_ok=0
+if command -v git >/dev/null 2>&1 && ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+  _ssh_ok=1
+fi
+
+# Switch mrk remote from HTTPS to SSH now that auth is confirmed
+if (( _ssh_ok )); then
+  MRK_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+  _current_url=$(git -C "$MRK_DIR" remote get-url origin 2>/dev/null || true)
+  if [[ "$_current_url" == https://* ]]; then
+    _ssh_url=$(echo "$_current_url" | sed 's|https://github.com/|git@github.com:|')
+    git -C "$MRK_DIR" remote set-url origin "$_ssh_url"
+    log "Switched mrk remote to SSH"
+  fi
+fi
+
 if [[ ! -d "$LOCAL_PREFS_DIR" ]]; then
-  if command -v git >/dev/null 2>&1 && ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+  if (( _ssh_ok )); then
     log "Fetching personal preferences from mrk-prefs..."
     bash "$PREFS_SCRIPT" || log "Warning: could not pull preferences — skipping plist imports"
   else
