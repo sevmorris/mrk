@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker sync snapshot-prefs pull-prefs manual help
+.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf sync snapshot-prefs pull-prefs manual help
 
 help: ## Show available make commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -56,6 +56,16 @@ status: ## Show installation status
 
 doctor: ## Run diagnostics
 	@"$(SCRIPTS)/doctor"
+
+bf: ## Build the bf Brewfile manager TUI binary
+	@if ! command -v go >/dev/null 2>&1; then \
+		echo "error: Go is not installed. Install it with: brew install go"; \
+		exit 1; \
+	fi
+	@echo "Building bf…"
+	@cd "$(REPO_ROOT)/tools/bf" && go mod tidy -e && go build -o "$(BIN_DIR)/bf" .
+	@echo "Built: $(BIN_DIR)/bf"
+	@chmod +x "$(BIN_DIR)/bf"
 
 picker: ## Build the mrk-picker TUI binary
 	@if ! command -v go >/dev/null 2>&1; then \
