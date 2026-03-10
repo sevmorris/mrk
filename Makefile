@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf build-tools sync snapshot-prefs pull-prefs manual help
+.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status build-tools sync snapshot-prefs pull-prefs manual help
 
 help: ## Show available make commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -12,7 +12,7 @@ help: ## Show available make commands
 
 all: setup brew post-install build-tools ## Full install: setup + brew + post-install + TUI binaries
 
-build-tools: picker bf ## Build all Go TUI binaries (requires Go)
+build-tools: picker bf mrk-status ## Build all Go TUI binaries (requires Go)
 
 fix-exec: ## Make scripts and bin files executable
 	@echo "Making scripts and bin executables..."
@@ -80,6 +80,17 @@ picker: ## Build the mrk-picker TUI binary
 	@chmod +x "$(BIN_DIR)/mrk-picker"
 	@ln -sf "$(BIN_DIR)/mrk-picker" "$(HOME)/bin/mrk-picker"
 	@echo "Built and linked: ~/bin/mrk-picker"
+
+mrk-status: ## Build the mrk-status TUI health dashboard binary
+	@if ! command -v go >/dev/null 2>&1; then \
+		echo "error: Go is not installed. Install it with: brew install go"; \
+		exit 1; \
+	fi
+	@echo "Building mrk-status…"
+	@cd "$(REPO_ROOT)/tools/mrk-status" && go mod tidy -e && go build -o "$(BIN_DIR)/mrk-status" .
+	@chmod +x "$(BIN_DIR)/mrk-status"
+	@ln -sf "$(BIN_DIR)/mrk-status" "$(HOME)/bin/mrk-status"
+	@echo "Built and linked: ~/bin/mrk-status"
 
 sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to commit, ARGS=-n for dry run)
 	@"$(SCRIPTS)/sync" $(ARGS)

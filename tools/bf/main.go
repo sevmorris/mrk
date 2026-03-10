@@ -353,6 +353,57 @@ func (m model) missingDescs(entries []*entry) []*entry {
 	return missing
 }
 
+// ── Prune ─────────────────────────────────────────────────────────────────
+
+type pruneEntry struct {
+	name    string
+	kind    pkgKind
+	sec     string
+	marked  bool
+	entryRef *entry // pointer into brewfile for deletion
+}
+
+type pruneMsg []pruneEntry
+
+func fetchPruneList(bf *brewfile) tea.Cmd {
+	return func() tea.Msg {
+		// Get installed packages
+		instF := map[string]bool{}
+		instC := map[string]bool{}
+		if out, err := exec.Command("brew", "list", "--formula").Output(); err == nil {
+			for _, p := range strings.Fields(string(out)) {
+				instF[p] = true
+			}
+		}
+		if out, err := exec.Command("brew", "list", "--cask").Output(); err == nil {
+			for _, p := range strings.Fields(string(out)) {
+				instC[p] = true
+			}
+		}
+		// Find Brewfile entries not installed
+		var uninstalled []pruneEntry
+		for _, sec := range bf.sections {
+			for _, e := range sec.entries {
+				var installed bool
+				if e.kind == kindBrew {
+					installed = instF[e.name]
+				} else {
+					installed = instC[e.name]
+				}
+				if !installed {
+					uninstalled = append(uninstalled, pruneEntry{
+						name:     e.name,
+						kind:     e.kind,
+						sec:      sec.name,
+						entryRef: e,
+					})
+				}
+			}
+		}
+		return pruneMsg(uninstalled)
+	}
+}
+
 // ── TUI State ─────────────────────────────────────────────────────────────
 
 type viewState int
@@ -366,6 +417,7 @@ const (
 	stateMove
 	stateDeleteConfirm
 	stateCommit
+	statePrune
 )
 
 type model struct {
@@ -392,6 +444,11 @@ type model struct {
 
 	// Move
 	moveSecIdx int
+
+	// Prune
+	pruneList    []pruneEntry
+	pruneIdx     int
+	pruneLoading bool
 
 	// Text input
 	inputBuf string
@@ -432,6 +489,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for k, v := range msg {
 			m.descCache[k] = v
 		}
+	case pruneMsg:
+		m.pruneList = []pruneEntry(msg)
+		m.pruneLoading = false
 	}
 	return m, nil
 }
@@ -465,6 +525,8 @@ func (m model) handleKey(msg tea.KeyMsg) (model, tea.Cmd) {
 		return m.handleMove(key)
 	case stateDeleteConfirm:
 		return m.handleDeleteConfirm(key)
+	case statePrune:
+		return m.handlePrune(key)
 	case stateCommit:
 		return m.handleInputState(key, msg, func(m model) model {
 			msg := strings.TrimSpace(m.inputBuf)
@@ -553,6 +615,12 @@ func (m model) handleNormal(key string) (model, tea.Cmd) {
 				m.clampCursor()
 			}
 		}
+	case "p":
+		m.pruneList = nil
+		m.pruneIdx = 0
+		m.pruneLoading = true
+		m.state = statePrune
+		return m, fetchPruneList(m.bf)
 	case "/":
 		m.searchQuery = ""
 		m.inputBuf = ""
@@ -757,6 +825,64 @@ func (m model) handleDeleteConfirm(key string) (model, tea.Cmd) {
 	return m, nil
 }
 
+func (m model) handlePrune(key string) (model, tea.Cmd) {
+	switch key {
+	case "esc", "q":
+		m.state = stateNormal
+	case "up", "k":
+		if m.pruneIdx > 0 {
+			m.pruneIdx--
+		}
+	case "down", "j":
+		if m.pruneIdx < len(m.pruneList)-1 {
+			m.pruneIdx++
+		}
+	case " ":
+		if m.pruneIdx < len(m.pruneList) {
+			m.pruneList[m.pruneIdx].marked = !m.pruneList[m.pruneIdx].marked
+			if m.pruneIdx < len(m.pruneList)-1 {
+				m.pruneIdx++
+			}
+		}
+	case "a":
+		// Toggle all
+		allMarked := true
+		for _, p := range m.pruneList {
+			if !p.marked {
+				allMarked = false
+				break
+			}
+		}
+		for i := range m.pruneList {
+			m.pruneList[i].marked = !allMarked
+		}
+	case "enter", "d":
+		marked := 0
+		for _, p := range m.pruneList {
+			if p.marked {
+				marked++
+			}
+		}
+		if marked == 0 {
+			m.flash = "nothing selected"
+			m.state = stateNormal
+			return m, nil
+		}
+		// Delete all marked entries (iterate in reverse to preserve indices)
+		for i := len(m.pruneList) - 1; i >= 0; i-- {
+			if m.pruneList[i].marked {
+				m.bf.deleteEntry(m.pruneList[i].entryRef)
+			}
+		}
+		m.dirty = true
+		m.flash = fmt.Sprintf("removed %d uninstalled entry/entries", marked)
+		m.pruneList = nil
+		m.clampCursor()
+		m.state = stateNormal
+	}
+	return m, nil
+}
+
 // handleInputState processes a text input field and calls done when Enter is pressed.
 func (m model) handleInputState(key string, msg tea.KeyMsg, done func(model) model) (model, tea.Cmd) {
 	switch key {
@@ -945,6 +1071,21 @@ func (m model) viewFooter() string {
 		}
 		return indicator + styleInput.Render(m.inputBuf+"█") + n +
 			styleFooter.Render("  ↑↓ navigate · enter jump · esc cancel")
+	case statePrune:
+		if m.pruneLoading {
+			return styleFooter.Render("checking installed packages…")
+		}
+		marked := 0
+		for _, p := range m.pruneList {
+			if p.marked {
+				marked++
+			}
+		}
+		sel := ""
+		if marked > 0 {
+			sel = styleDelete.Render(fmt.Sprintf("  %d selected", marked))
+		}
+		return styleFooter.Render("[space] mark  [a] all  [enter/d] delete marked  [esc] cancel") + sel
 	default:
 		var flashStr string
 		if m.flash != "" {
@@ -954,7 +1095,7 @@ func (m model) viewFooter() string {
 				flashStr = "  " + styleFlash.Render(m.flash)
 			}
 		}
-		hints := styleFooter.Render("[a]dd [d]el [m]ove [g]reedy [/]search [w]rite [c]ommit [q]uit")
+		hints := styleFooter.Render("[a]dd [d]el [m]ove [g]reedy [p]rune [/]search [w]rite [c]ommit [q]uit")
 		return hints + flashStr
 	}
 }
@@ -973,6 +1114,8 @@ func (m model) viewBody() string {
 		return m.viewSectionPicker("add › section:", m.addSecIdx, bodyH)
 	case stateMove:
 		return m.viewSectionPicker("move › section:", m.moveSecIdx, bodyH)
+	case statePrune:
+		return m.viewPrune(bodyH)
 	default:
 		return m.viewTwoPanes(bodyH)
 	}
@@ -1172,6 +1315,66 @@ func (m model) viewSearch(bodyH int) string {
 			sb.WriteString(line + "\n")
 			written++
 		}
+	}
+
+	content := strings.TrimRight(sb.String(), "\n")
+	return stylePaneOn.Width(inner).Height(paneH).Render(content)
+}
+
+func (m model) viewPrune(bodyH int) string {
+	inner := m.width - 4
+	paneH := bodyH - 2
+	if paneH < 1 {
+		paneH = 1
+	}
+
+	if m.pruneLoading {
+		return stylePaneOn.Width(inner).Height(paneH).
+			Render(styleDim.Render("checking installed packages…"))
+	}
+
+	if len(m.pruneList) == 0 {
+		return stylePaneOn.Width(inner).Height(paneH).
+			Render(styleFlash.Render("✓ all Brewfile entries are installed — nothing to prune"))
+	}
+
+	header := styleInputPfx.Render(" prune › uninstalled entries:")
+	nameW := inner - 20
+	if nameW < 10 {
+		nameW = 10
+	}
+
+	start := 0
+	if m.pruneIdx >= paneH-1 {
+		start = m.pruneIdx - paneH + 2
+	}
+
+	var sb strings.Builder
+	sb.WriteString(header + "\n")
+	written := 1
+	for i, p := range m.pruneList {
+		if i < start || written >= paneH {
+			continue
+		}
+		isCursor := i == m.pruneIdx
+		checkbox := "[ ]"
+		if p.marked {
+			checkbox = styleDelete.Render("[✕]")
+		}
+		name := padRight(truncate(p.name, nameW), nameW)
+		kind := styleDim.Render(padRight(p.kind.String(), 4))
+		sec := styleSearchSec.Render(truncate(p.sec, 16))
+
+		var line string
+		if isCursor {
+			line = styleEntCursor.Render("▸ ") + checkbox + " " +
+				styleEntCursor.Render(name) + "  " + kind + "  " + sec
+		} else {
+			line = "  " + checkbox + " " +
+				styleEntNorm.Render(name) + "  " + kind + "  " + sec
+		}
+		sb.WriteString(line + "\n")
+		written++
 	}
 
 	content := strings.TrimRight(sb.String(), "\n")

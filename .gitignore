@@ -49,9 +49,10 @@ assets/browsers/*-extensions.txt
 # Homebrew
 Brewfile.lock.json
 
-# Built binaries (platform-specific, built via `make picker` / `make bf`)
+# Built binaries (platform-specific, built via `make picker` / `make bf` / `make mrk-status`)
 bin/mrk-picker
 bin/bf
+bin/mrk-status
 
 # Personal app preferences (captured via `make snapshot-prefs`, stored in ~/.mrk/preferences/)
 assets/preferences/*.plist
