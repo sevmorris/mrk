@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Launch RX without stealing window focus
+open -g -a "iZotope RX 11"

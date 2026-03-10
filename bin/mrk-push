@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk-push — commit, push, and prune all but the current GitHub Deployment
+# Usage: mrk-push "commit message"
+#        mrk-push            (prompts for message)
+
+if [[ -t 1 ]]; then
+  _B='\033[1m' _D='\033[2m' _R='\033[0m'
+  _RED='\033[31m' _GRN='\033[32m' _YLW='\033[33m' _CYN='\033[36m'
+else
+  _B='' _D='' _R='' _RED='' _GRN='' _YLW='' _CYN=''
+fi
+
+log()  { printf "${_CYN}[push]${_R} %s\n" "$*"; }
+ok()   { printf "${_GRN}  ✓${_R} %s\n" "$*"; }
+warn() { printf "${_YLW}  ⚠${_R} %s\n" "$*"; }
+err()  { printf "${_RED}  ✗${_R} %s\n" "$*" >&2; }
+
+if ! command -v gh >/dev/null 2>&1; then
+  err "gh CLI not found. Install with: brew install gh"
+  exit 1
+fi
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  err "Not inside a git repository."
+  exit 1
+fi
+
+# Commit message
+msg="${1:-}"
+if [[ -z "$msg" ]]; then
+  printf "Commit message: "
+  read -r msg < /dev/tty
+fi
+if [[ -z "$msg" ]]; then
+  err "Commit message required."
+  exit 1
+fi
+
+# Detect GitHub repo (owner/name) from remote
+remote_url=$(git remote get-url origin 2>/dev/null || true)
+if [[ -z "$remote_url" ]]; then
+  err "No 'origin' remote found."
+  exit 1
+fi
+repo=$(echo "$remote_url" \
+  | sed 's|git@github.com:||; s|https://github.com/||; s|\.git$||')
+if [[ -z "$repo" || "$repo" == "$remote_url" ]]; then
+  err "Could not parse GitHub repo from remote: $remote_url"
+  exit 1
+fi
+
+echo ""
+log "Repo: $repo"
+echo ""
+
+# ── Commit ────────────────────────────────────────────────────────────────────
+log "Staging changes..."
+git add -A
+
+if git diff --cached --quiet; then
+  warn "Nothing to commit."
+else
+  git commit -m "$msg"
+  ok "Committed: $msg"
+fi
+
+# ── Push ──────────────────────────────────────────────────────────────────────
+log "Pushing..."
+git push
+ok "Pushed to origin."
+
+# ── Prune deployments ─────────────────────────────────────────────────────────
+echo ""
+log "Fetching deployments for $repo..."
+
+mapfile -t ids < <(gh api --paginate "/repos/$repo/deployments" --jq '.[].id' 2>/dev/null || true)
+
+if [[ ${#ids[@]} -eq 0 ]]; then
+  warn "No deployments found."
+  echo ""
+  exit 0
+fi
+
+latest="${ids[0]}"
+ok "Current deployment: #$latest"
+
+to_delete=("${ids[@]:1}")
+
+if [[ ${#to_delete[@]} -eq 0 ]]; then
+  ok "Only one deployment — nothing to prune."
+  echo ""
+  exit 0
+fi
+
+log "Pruning ${#to_delete[@]} older deployment(s)..."
+for id in "${to_delete[@]}"; do
+  [[ -z "$id" ]] && continue
+  # Must be marked inactive before deletion
+  gh api -X POST "/repos/$repo/deployments/$id/statuses" \
+    -f state=inactive > /dev/null 2>&1 || true
+  if gh api -X DELETE "/repos/$repo/deployments/$id" > /dev/null 2>&1; then
+    ok "Deleted deployment #$id"
+  else
+    warn "Could not delete #$id (may already be gone)"
+  fi
+done
+
+echo ""
+printf "${_GRN}${_B}  ✔  Done.${_R}\n"
+echo ""

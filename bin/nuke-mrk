@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# nuke-mrk — Remove all mrk artifacts for a fresh test install
+# Removes ~/mrk, ~/.mrk, ~/bin symlinks, and dotfile symlinks.
+# Does NOT uninstall Homebrew packages or undo macOS defaults.
+
+if [[ -t 1 ]]; then
+  _B='\033[1m' _D='\033[2m' _R='\033[0m'
+  _RED='\033[31m' _GRN='\033[32m' _YLW='\033[33m' _BLU='\033[34m' _CYN='\033[36m'
+else
+  _B='' _D='' _R='' _RED='' _GRN='' _YLW='' _BLU='' _CYN=''
+fi
+
+log()  { printf "${_CYN}[nuke]${_R} %s\n" "$*"; }
+ok()   { printf "${_GRN}  ✓${_R} %s\n" "$*"; }
+warn() { printf "${_YLW}  ⚠${_R} %s\n" "$*"; }
+dim()  { printf "${_D}  · %s${_R}\n" "$*"; }
+
+MRK_DIR="$HOME/mrk"
+STATE_DIR="$HOME/.mrk"
+BIN_DIR="$HOME/bin"
+
+printf "\n${_B}${_RED}  ☢  nuke-mrk${_R}\n\n"
+printf "  This will remove:\n"
+printf "  ${_RED}•${_R} ${_B}$MRK_DIR${_R} ${_D}(cloned repo)${_R}\n"
+printf "  ${_RED}•${_R} ${_B}$STATE_DIR${_R} ${_D}(state/backups/rollback)${_R}\n"
+printf "  ${_RED}•${_R} Symlinks in ${_B}$BIN_DIR${_R} ${_D}pointing to mrk${_R}\n"
+printf "  ${_RED}•${_R} Dotfile symlinks in ${_B}$HOME${_R} ${_D}pointing to mrk${_R}\n"
+echo ""
+printf "  ${_YLW}Does NOT${_R} uninstall Homebrew packages or undo macOS defaults.\n"
+echo ""
+printf "${_B}Continue? [y/N]:${_R} "
+read -r answer
+if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+  echo "Aborted."
+  exit 0
+fi
+
+echo ""
+removed=0
+
+# Remove ~/bin symlinks that point into mrk
+if [[ -d "$BIN_DIR" ]]; then
+  log "Removing mrk symlinks from $BIN_DIR..."
+  find "$BIN_DIR" -maxdepth 1 -type l | while read -r link; do
+    target=$(readlink "$link" 2>/dev/null || true)
+    if [[ "$target" == *"/mrk/"* || "$target" == "$MRK_DIR"/* ]]; then
+      rm -f "$link"
+      ok "$(basename "$link")"
+    fi
+  done
+fi
+
+# Remove dotfile symlinks that point into mrk (both hidden and non-hidden)
+log "Removing mrk dotfile symlinks from $HOME..."
+for f in "$HOME"/.* "$HOME"/*; do
+  [[ -L "$f" ]] || continue
+  target=$(readlink "$f" 2>/dev/null || true)
+  if [[ "$target" == *"/mrk/"* || "$target" == "$MRK_DIR"/* ]]; then
+    rm -f "$f"
+    ok "$(basename "$f")"
+  fi
+done
+
+# Remove topgrade symlink if it points to mrk
+topgrade_link="${XDG_CONFIG_HOME:-$HOME/.config}/topgrade.toml"
+if [[ -L "$topgrade_link" ]]; then
+  target=$(readlink "$topgrade_link" 2>/dev/null || true)
+  if [[ "$target" == *"/mrk/"* ]]; then
+    rm -f "$topgrade_link"
+    ok "topgrade.toml symlink"
+  fi
+fi
+
+# Remove state directory
+if [[ -d "$STATE_DIR" ]]; then
+  log "Removing $STATE_DIR..."
+  rm -rf "$STATE_DIR"
+  ok "$STATE_DIR"
+else
+  dim "$STATE_DIR (not found)"
+fi
+
+# Remove cloned repo
+if [[ -d "$MRK_DIR" ]]; then
+  log "Removing $MRK_DIR..."
+  rm -rf "$MRK_DIR"
+  ok "$MRK_DIR"
+else
+  dim "$MRK_DIR (not found)"
+fi
+
+# Clean up log files
+for f in "$HOME/mrk-install.log" "$HOME/mrk-install.log.old"; do
+  if [[ -f "$f" ]]; then
+    rm -f "$f"
+    ok "$(basename "$f")"
+  fi
+done
+
+echo ""
+printf "${_GRN}${_B}  ✔  Nuked.${_R}\n"
+echo ""
+printf "  ${_D}Fresh install:${_R}\n"
+echo ""
+printf "  ${_CYN}git clone https://github.com/sevmorris/mrk.git ~/mrk${_R}\n"
+printf "  ${_CYN}make -C ~/mrk all${_R}\n"
+echo ""
+printf "  ${_D}Then reload your shell:${_R}\n"
+echo ""
+printf "  ${_CYN}source ~/.zshrc${_R}\n"
+echo ""

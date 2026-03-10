@@ -1,0 +1,309 @@
+#!/usr/bin/env bash
+# audio-mode — Studio toggle for sync clients + distractions
+# v2.0 (2025-01-24)
+#
+# Changes in v2.0:
+# - Converted from zsh to bash for consistency
+# - Replaced embedded Python JSON with jq
+# - Uses shared library (lib/common.sh) for colors/logging
+# - Snake_case function naming convention
+#
+# Usage:
+#   audio-mode on [--icloud] [--gdrive] [--all]
+#   audio-mode off
+#   audio-mode status
+#
+# Notes:
+# - Dropbox: pause via AppleScript/menu; resume or relaunch as needed.
+# - iCloud: launchctl bootout/bootstrap for bird/cloudd (no sudo).
+# - Google Drive: quit/relaunch (no public pause API).
+# - We snapshot pre-on state so "off" only restores what was actually running.
+
+set -euo pipefail
+
+# shellcheck source=lib/common.sh
+_src="${BASH_SOURCE[0]}"
+while [[ -L "$_src" ]]; do _src="$(readlink "$_src")"; done
+SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
+
+FLAG="$HOME/.audio_mode_active"
+STATE="$HOME/.audio_mode_state.json"
+LOG="$HOME/Library/Logs/audio-mode.log"
+
+# --- JSON state management (using jq) ---
+
+# state_write KEY=VALUE [KEY=VALUE...] — write key-value pairs to state file
+state_write() {
+  require_cmd jq || return 1
+
+  local json_obj="{}"
+  if [[ -f "$STATE" ]]; then
+    json_obj=$(cat "$STATE" 2>/dev/null) || json_obj="{}"
+    # Validate JSON
+    if ! echo "$json_obj" | jq empty 2>/dev/null; then
+      json_obj="{}"
+    fi
+  fi
+
+  for kv in "$@"; do
+    local key="${kv%%=*}"
+    local val="${kv#*=}"
+    json_obj=$(echo "$json_obj" | jq --arg k "$key" --arg v "$val" '.[$k] = $v')
+  done
+
+  echo "$json_obj" > "$STATE"
+}
+
+# state_read KEY [DEFAULT] — read a value from state file
+state_read() {
+  local key="$1"
+  local default="${2:-0}"
+
+  if [[ ! -f "$STATE" ]]; then
+    echo "$default"
+    return
+  fi
+
+  require_cmd jq || { echo "$default"; return; }
+
+  local val
+  val=$(jq -r --arg k "$key" '.[$k] // empty' "$STATE" 2>/dev/null) || val=""
+  echo "${val:-$default}"
+}
+
+# --- App helpers ---
+
+quit_app_by_name() {
+  osascript -e "tell application \"$1\" to quit" 2>/dev/null || true
+}
+
+launch_app() {
+  open -gj -a "$1" 2>/dev/null || true
+}
+
+# Menu click helper (used for Dropbox pause in some builds/locales)
+click_menu_item() {
+  local app="$1" item="$2"
+  /usr/bin/osascript - "$app" "$item" <<'APPLESCRIPT'
+on run argv
+  set appName to item 1 of argv
+  set menuItemTitle to item 2 of argv
+  tell application "System Events"
+    if not (exists application process appName) then return
+    tell application process appName
+      try
+        click menu bar item 1 of menu bar 2
+      on error
+        click menu bar item 1 of menu bar 1
+      end try
+      delay 0.2
+      try
+        click menu item menuItemTitle of menu 1 of menu bar item 1 of menu bar 2
+      on error
+        click menu item menuItemTitle of menu 1 of menu bar item 1 of menu bar 1
+      end try
+    end tell
+  end tell
+end run
+APPLESCRIPT
+}
+
+# --- Dropbox ---
+
+dropbox_running() {
+  is_running "/Applications/Dropbox.app/Contents/MacOS/Dropbox"
+}
+
+dropbox_pause() {
+  # Native AppleScript (varies by build)
+  if osascript -e 'try tell application "Dropbox" to pause syncing end try' >/dev/null 2>&1; then
+    return 0
+  fi
+  # Menu item fallback (text can vary by locale); final fallback is quit
+  click_menu_item "Dropbox" "Pause syncing" || quit_app_by_name "Dropbox"
+}
+
+dropbox_resume() {
+  if osascript -e 'try tell application "Dropbox" to resume syncing end try' >/dev/null 2>&1; then
+    return 0
+  fi
+  launch_app "Dropbox"
+}
+
+# --- Google Drive ---
+
+gdrive_running() {
+  is_running "/Applications/Google Drive.app/Contents/MacOS/Google Drive"
+}
+
+gdrive_pause() {
+  quit_app_by_name "Google Drive"
+}
+
+gdrive_resume() {
+  launch_app "Google Drive"
+}
+
+# --- iCloud Drive ---
+
+icloud_loaded() {
+  launchctl print "gui/$UID"/com.apple.bird >/dev/null 2>&1
+}
+
+icloud_bootout() {
+  launchctl bootout "gui/$UID" com.apple.bird   >/dev/null 2>&1 || true
+  launchctl bootout "gui/$UID" com.apple.cloudd >/dev/null 2>&1 || true
+}
+
+icloud_bootstrap() {
+  local LA="/System/Library/LaunchAgents"
+  [[ -f "$LA/com.apple.bird.plist"   ]] && launchctl bootstrap "gui/$UID" "$LA/com.apple.bird.plist"   >/dev/null 2>&1 || true
+  [[ -f "$LA/com.apple.cloudd.plist" ]] && launchctl bootstrap "gui/$UID" "$LA/com.apple.cloudd.plist" >/dev/null 2>&1 || true
+}
+
+# --- Commands ---
+
+cmd_on() {
+  local want_icloud=0
+  local want_gd=0
+
+  for a in "$@"; do
+    case "$a" in
+      --icloud) want_icloud=1 ;;
+      --gdrive) want_gd=1 ;;
+      --all)    want_icloud=1; want_gd=1 ;;
+      *) err "Unknown option: $a"; exit 2 ;;
+    esac
+  done
+
+  echo "$(date +"%Y-%m-%d %H:%M:%S")  audio-mode ON icloud=$want_icloud gdrive=$want_gd" >> "$LOG"
+  : >| "$FLAG"
+
+  # Snapshot BEFORE pausing/quitting anything
+  local dbx0=0 gd0=0 ic0=0
+  dropbox_running && dbx0=1
+  gdrive_running  && gd0=1
+  icloud_loaded   && ic0=1
+
+  state_write \
+    "icloud=$want_icloud" "gdrive=$want_gd" \
+    "dbx_was=$dbx0" "gdrive_was=$gd0" "icloud_was=$ic0"
+
+  # Dropbox
+  if [[ $dbx0 -eq 1 ]]; then
+    info "Dropbox: pausing..."
+    dropbox_pause
+  else
+    info "Dropbox was not running."
+  fi
+
+  # Google Drive
+  if [[ $want_gd -eq 1 ]]; then
+    if [[ $gd0 -eq 1 ]]; then
+      info "Google Drive: quitting..."
+      gdrive_pause
+    else
+      info "Google Drive was not running."
+    fi
+  fi
+
+  # iCloud Drive
+  if [[ $want_icloud -eq 1 ]]; then
+    info "iCloud Drive: stopping bird/cloudd..."
+    icloud_bootout
+  fi
+
+  ok "Audio mode is ON."
+}
+
+cmd_off() {
+  echo "$(date +"%Y-%m-%d %H:%M:%S")  audio-mode OFF" >> "$LOG"
+  rm -f "$FLAG" || true
+
+  local icloud gdrive dbx_was gdrive_was icloud_was
+  icloud=$(state_read "icloud" "0")
+  gdrive=$(state_read "gdrive" "0")
+  dbx_was=$(state_read "dbx_was" "0")
+  gdrive_was=$(state_read "gdrive_was" "0")
+  icloud_was=$(state_read "icloud_was" "0")
+
+  if [[ "$dbx_was" == "1" ]]; then
+    info "Dropbox: resuming..."
+    dropbox_resume
+  else
+    info "Dropbox was not running before; not restarting."
+  fi
+
+  if [[ "$gdrive" == "1" ]]; then
+    if [[ "$gdrive_was" == "1" ]]; then
+      info "Google Drive: relaunching..."
+      gdrive_resume
+    else
+      info "Google Drive was not running before; not restarting."
+    fi
+  fi
+
+  if [[ "$icloud" == "1" ]]; then
+    if [[ "$icloud_was" == "1" ]]; then
+      info "iCloud Drive: restoring..."
+      icloud_bootstrap
+    else
+      info "iCloud Drive was not active before; leaving off."
+    fi
+  fi
+
+  ok "Audio mode is OFF."
+}
+
+cmd_status() {
+  if [[ -f "$FLAG" ]]; then
+    ok "Audio mode: ON"
+  else
+    info "Audio mode: OFF"
+  fi
+
+  if dropbox_running; then
+    info "Dropbox: running"
+  else
+    warn "Dropbox: not running"
+  fi
+
+  if gdrive_running; then
+    info "Google Drive: running"
+  else
+    warn "Google Drive: not running"
+  fi
+
+  if icloud_loaded; then
+    info "iCloud Drive (bird): loaded"
+  else
+    warn "iCloud Drive (bird): not loaded"
+  fi
+}
+
+cmd_usage() {
+  cat <<EOF
+Usage: audio-mode on [--icloud] [--gdrive] [--all]
+       audio-mode off
+       audio-mode status
+EOF
+}
+
+# --- Main ---
+
+case "${1:-}" in
+  on)
+    shift
+    cmd_on "$@"
+    ;;
+  off)
+    cmd_off
+    ;;
+  status)
+    cmd_status
+    ;;
+  *)
+    cmd_usage
+    ;;
+esac

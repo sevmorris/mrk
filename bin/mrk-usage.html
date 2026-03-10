@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>~/bin — Command Reference</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --bg-subtle: #f5f5f7;
+      --bg-code: #f0f0f2;
+      --border: #d2d2d7;
+      --text: #1d1d1f;
+      --text-muted: #6e6e73;
+      --accent: #0066cc;
+      --accent-hover: #0055b3;
+      --nav-bg: #fafafa;
+      --tag-bg: #e8f0fe;
+      --tag-text: #1a56b0;
+      --tag-mrk-bg: #f3e8fe;
+      --tag-mrk-text: #7c3aed;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111113;
+        --bg-subtle: #1c1c1e;
+        --bg-code: #2a2a2d;
+        --border: #3a3a3c;
+        --text: #f2f2f7;
+        --text-muted: #8e8e93;
+        --accent: #4da3ff;
+        --accent-hover: #79bcff;
+        --nav-bg: #1c1c1e;
+        --tag-bg: #1a2d4a;
+        --tag-text: #6eb0ff;
+        --tag-mrk-bg: #2d1a4a;
+        --tag-mrk-text: #b794f6;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    nav {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      width: 220px;
+      min-width: 220px;
+      background: var(--nav-bg);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 28px 0 40px;
+      display: flex;
+      flex-direction: column;
+    }
+    .nav-brand {
+      padding: 0 20px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .nav-brand span { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; display: block; }
+    .nav-brand small { font-size: 0.75rem; color: var(--text-muted); }
+
+    nav a {
+      display: block;
+      padding: 4px 20px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      line-height: 1.5;
+    }
+    nav a:hover { color: var(--accent); }
+    nav a.section-head {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      padding-top: 14px;
+      padding-bottom: 4px;
+      pointer-events: none;
+    }
+
+    /* ── Main ── */
+    main {
+      flex: 1;
+      max-width: 780px;
+      padding: 56px 48px 100px;
+    }
+
+    section { margin-bottom: 56px; }
+
+    h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1.1; margin-bottom: 10px; }
+    h2 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 1.05rem; font-weight: 600; margin: 24px 0 8px; }
+
+    p { margin-bottom: 12px; }
+    p:last-child { margin-bottom: 0; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; color: var(--accent-hover); }
+
+    ul, ol { padding-left: 20px; margin-bottom: 12px; }
+    li { margin-bottom: 5px; line-height: 1.5; }
+
+    code {
+      font-family: "SF Mono", "Fira Mono", Menlo, monospace;
+      font-size: 0.84em;
+      background: var(--bg-code);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    pre {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      overflow-x: auto;
+      margin-bottom: 12px;
+    }
+    pre code { background: none; padding: 0; font-size: 0.85rem; }
+
+    .tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 100px;
+      letter-spacing: 0.03em;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+    .tag-standalone { background: var(--tag-bg); color: var(--tag-text); }
+    .tag-mrk { background: var(--tag-mrk-bg); color: var(--tag-mrk-text); }
+
+    .cmd-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 22px;
+      margin-bottom: 18px;
+    }
+    .cmd-card h3 {
+      margin: 0 0 6px;
+      font-size: 1rem;
+    }
+    .cmd-card .desc {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+    .cmd-card pre { margin-bottom: 8px; }
+    .cmd-card ul { margin-bottom: 0; font-size: 0.9rem; }
+    .cmd-card li { margin-bottom: 3px; }
+
+    .callout {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 0.88rem;
+    }
+
+    /* ── Quick ref table ── */
+    .ref-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .ref-table th {
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-subtle);
+    }
+    .ref-table td {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .ref-table tr:last-child td { border-bottom: none; }
+    .ref-table td:first-child { font-weight: 600; white-space: nowrap; }
+
+    /* ── Responsive ── */
+    @media (max-width: 800px) {
+      body { flex-direction: column; }
+      nav {
+        position: static;
+        height: auto;
+        width: 100%;
+        min-width: 0;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 16px 0;
+        flex-direction: row;
+        flex-wrap: wrap;
+        overflow-x: auto;
+      }
+      .nav-brand { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+      nav a.section-head { display: none; }
+      nav a { padding: 4px 12px; white-space: nowrap; }
+      main { padding: 32px 24px 60px; }
+      h1 { font-size: 1.7rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <span>~/bin</span>
+    <small>Command Reference</small>
+  </div>
+  <a class="section-head">Standalone</a>
+  <a href="#audio-mode">audio-mode</a>
+  <a href="#mc">mc</a>
+  <a href="#nuke-mrk">nuke-mrk</a>
+  <a href="#pushall">pushall</a>
+  <a href="#rx">rx</a>
+  <a href="#snapshot">snapshot</a>
+  <a class="section-head">mrk</a>
+  <a href="#check-updates">check-updates</a>
+  <a href="#doctor">doctor</a>
+  <a href="#fix-exec">fix-exec</a>
+  <a href="#generate-install-manifest">generate-install-manifest</a>
+  <a href="#hardening">hardening.sh</a>
+  <a href="#hide-tm">hide_tm.sh</a>
+  <a href="#pull-prefs">pull-prefs</a>
+  <a href="#snapshot-prefs">snapshot-prefs</a>
+  <a href="#status">status</a>
+  <a href="#sync">sync</a>
+  <a href="#mrk-install">mrk-install</a>
+  <a href="#mrk-setup">mrk-setup</a>
+  <a href="#mrk-brew">mrk-brew</a>
+  <a href="#mrk-post-install">mrk-post-install</a>
+  <a href="#mrk-defaults">mrk-defaults</a>
+  <a href="#mrk-uninstall">mrk-uninstall</a>
+  <a class="section-head">Reference</a>
+  <a href="#lib">Shared Library</a>
+  <a href="#quick-ref">Quick Reference</a>
+</nav>
+
+<main>
+
+  <div style="margin-bottom: 48px;">
+    <h1>~/bin</h1>
+    <p style="font-size: 1.05rem; color: var(--text-muted); max-width: 560px;">Personal command-line tools. A mix of standalone scripts and symlinks into <a href="https://github.com/sevmorris/mrk">mrk</a> (machine config manager).</p>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <section>
+    <h2>Standalone Scripts</h2>
+
+    <div class="cmd-card" id="audio-mode">
+      <h3>audio-mode <span class="tag tag-standalone">standalone</span></h3>
+      <p class="desc">Pauses cloud sync services during recording sessions to prevent disk I/O noise and latency.</p>
+      <pre><code>audio-mode on [--icloud] [--gdrive] [--all]
+audio-mode off
+audio-mode status</code></pre>
+      <ul>
+        <li><strong>on</strong> — Pauses Dropbox (always), plus iCloud and/or Google Drive with flags. Snapshots pre-state so <code>off</code> only restores what was actually running.</li>
+        <li><strong>off</strong> — Restores services to their pre-<code>on</code> state.</li>
+        <li><strong>status</strong> — Shows current state of audio mode and each service.</li>
+      </ul>
+    </div>
+
+    <div class="cmd-card" id="mc">
+      <h3>mc <span class="tag tag-standalone">standalone</span></h3>
+      <p class="desc">Starts the Paper 1.21.6 Minecraft server with Aikar's G1GC tuning flags (10 GB heap).</p>
+      <pre><code>mc</code></pre>
+      <ul>
+        <li>Requires Java. Runs in the foreground.</li>
+        <li>Server directory: <code>~/mcservers/1.21.6/</code></li>
+      </ul>
+    </div>
+
+    <div class="cmd-card" id="nuke-mrk">
+      <h3>nuke-mrk <span class="tag tag-standalone">standalone</span></h3>
+      <p class="desc">Removes all mrk artifacts for a fresh reinstall: <code>~/mrk</code>, <code>~/.mrk</code>, symlinks in <code>~/bin</code>, and dotfile symlinks in <code>$HOME</code>.</p>
+      <pre><code>nuke-mrk</code></pre>
+      <ul>
+        <li>Interactive — confirms before deleting.</li>
+        <li>Does <strong>not</strong> uninstall Homebrew packages or undo macOS defaults.</li>
+        <li>Prints reinstall instructions after completion.</li>
+      </ul>
+    </div>
+
+    <div class="cmd-card" id="pushall">
+      <h3>pushall <span class="tag tag-standalone">standalone</span></h3>
+      <p class="desc">Pushes every git repo in <code>~/Projects/</code> that has a remote and upstream tracking branch, then pulls <code>~/mrk</code>.</p>
+      <pre><code>pushall</code></pre>
+      <ul>
+        <li>Reports per-repo success/failure.</li>
+        <li>Skips repos with no remote or no upstream.</li>
+        <li>Exit code 1 if any push failed.</li>
+      </ul>
+    </div>
+
+    <div class="cmd-card" id="rx">
+      <h3>rx <span class="tag tag-standalone">standalone</span></h3>
+      <p class="desc">Opens iZotope RX 11 without stealing window focus.</p>
+      <pre><code>rx</code></pre>
+    </div>
+
+    <div class="cmd-card" id="snapshot">
+      <h3>snapshot <span class="tag tag-standalone">standalone</span></h3>
+      <p class="desc">Exports current app preferences (BetterSnapTool, Ice, iTerm2) as plists into <code>~/mrk/assets/preferences/</code>.</p>
+      <pre><code>snapshot [--brewfile] [--help]</code></pre>
+      <ul>
+        <li>Without <code>--brewfile</code>: exports plists only, prompts to commit if changes detected.</li>
+        <li>With <code>--brewfile</code>: also runs <code>brew bundle dump</code> (destructive — overwrites comments). Asks for confirmation.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <section>
+    <h2>mrk Scripts</h2>
+    <p style="margin-bottom: 20px; color: var(--text-muted); font-size: 0.9rem;">Symlinked from <code>~/mrk/scripts/</code> during <code>make install</code>. Part of the <a href="https://github.com/sevmorris/mrk">mrk</a> machine configuration system.</p>
+
+    <div class="cmd-card" id="check-updates">
+      <h3>check-updates <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Silently checks for mrk repo updates (at most once every 7 days). Prompts to update if behind.</p>
+      <pre><code>check-updates</code></pre>
+      <ul>
+        <li>Only runs in interactive shells.</li>
+        <li>Exits silently on network failure or if up to date.</li>
+        <li>Timestamp cached in <code>~/.cache/mrk/</code>.</li>
+      </ul>
+    </div>
+
+    <div class="cmd-card" id="doctor">
+      <h3>doctor <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Verifies <code>~/bin</code> is on PATH. With <code>--fix</code>, appends the export to <code>~/.zshrc</code>.</p>
+      <pre><code>doctor [check | --fix | fix]</code></pre>
+    </div>
+
+    <div class="cmd-card" id="fix-exec">
+      <h3>fix-exec <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Sets executable bits on all mrk scripts and <code>~/bin</code> symlinks pointing into the repo. Idempotent.</p>
+      <pre><code>fix-exec</code></pre>
+    </div>
+
+    <div class="cmd-card" id="generate-install-manifest">
+      <h3>generate-install-manifest <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Scans symlinks in <code>~/bin</code> and <code>$HOME</code> that point into mrk, writes the list to <code>~/mrk/.install-manifest</code> for the uninstaller.</p>
+      <pre><code>generate-install-manifest</code></pre>
+    </div>
+
+    <div class="cmd-card" id="hardening">
+      <h3>hardening.sh <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Applies opt-in macOS security hardening with automatic rollback script generation.</p>
+      <pre><code>hardening.sh</code></pre>
+      <ul>
+        <li><strong>Touch ID for sudo</strong> — adds <code>pam_tid.so</code> to <code>/etc/pam.d/sudo</code></li>
+        <li><strong>Immediate password on wake</strong> — screensaver password delay → 0</li>
+        <li><strong>Firewall + stealth mode</strong> — enables macOS application firewall</li>
+        <li>Rollback: <code>~/.mrk/hardening-rollback.sh</code></li>
+      </ul>
+    </div>
+
+    <div class="cmd-card" id="hide-tm">
+      <h3>hide_tm.sh <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Hides Time Machine backup volumes from the Finder sidebar.</p>
+      <pre><code>hide_tm.sh [volume_name]
+TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
+      <ul>
+        <li>Default volume: <code>TimeMachine</code>.</li>
+        <li>Accepts comma-separated list via env var or argument.</li>
+      </ul>
+    </div>
+
+    <div class="cmd-card" id="pull-prefs">
+      <h3>pull-prefs <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Clones or pulls the private <code>mrk-prefs</code> repo into <code>~/.mrk/preferences/</code>. Auto-called by mrk post-install.</p>
+      <pre><code>pull-prefs</code></pre>
+    </div>
+
+    <div class="cmd-card" id="snapshot-prefs">
+      <h3>snapshot-prefs <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Comprehensive preference export: plists for 14 apps plus Application Support files. Commits and pushes to the private mrk-prefs repo.</p>
+      <pre><code>snapshot-prefs</code></pre>
+      <ul>
+        <li>Apps: BetterSnapTool, Ice, iTerm2, Raycast, Stats, Loopback, SoundSource, Audio Hijack, Farrago, Piezo, Typora, Hot, Keka, TimeMachineEditor, MacWhisper</li>
+        <li>App Support: Loopback (devices/routing), SoundSource (presets/sources)</li>
+      </ul>
+    </div>
+
+    <div class="cmd-card" id="status">
+      <h3>status <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Comprehensive mrk installation health report.</p>
+      <pre><code>status</code></pre>
+      <ul>
+        <li>Checks: dotfiles, tool symlinks, macOS defaults, security hardening, backups, shell, PATH, Homebrew, Brewfile packages</li>
+      </ul>
+    </div>
+
+    <div class="cmd-card" id="sync">
+      <h3>sync <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Compares installed Homebrew packages against the Brewfile, presents an interactive picker for new packages, and inserts them alphabetically into the correct section.</p>
+      <pre><code>sync [--dry-run | -n] [--commit | -c] [--prune | -p]</code></pre>
+      <ul>
+        <li><code>--dry-run</code> — shows what would be added/removed without modifying</li>
+        <li><code>--commit</code> — auto-commits the Brewfile after updating</li>
+        <li><code>--prune</code> — removes Brewfile entries for packages no longer installed (interactive selection)</li>
+        <li>Uses mrk-picker or gum for interactive selection</li>
+      </ul>
+    </div>
+
+    <div class="cmd-card" id="mrk-install">
+      <h3>mrk-install <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Unified mrk installer. Runs setup, brew, and post-install phases. Entry point for a full bootstrap or targeted re-run.</p>
+      <pre><code>mrk-install [phase] [options]</code></pre>
+      <ul>
+        <li>Phases: <code>setup</code>, <code>brew</code>, <code>post-install</code>, or omit for all</li>
+        <li>Options pass through to the selected phase</li>
+      </ul>
+    </div>
+
+    <div class="cmd-card" id="mrk-setup">
+      <h3>mrk-setup <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Phase 1: idempotent macOS bootstrap. Dotfile linking, ~/bin symlinks, shell config, backups.</p>
+      <pre><code>mrk-setup [options]</code></pre>
+    </div>
+
+    <div class="cmd-card" id="mrk-brew">
+      <h3>mrk-brew <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Phase 2: Homebrew package and cask installation from the Brewfile.</p>
+      <pre><code>mrk-brew [options]</code></pre>
+    </div>
+
+    <div class="cmd-card" id="mrk-post-install">
+      <h3>mrk-post-install <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Phase 3: configure apps installed by Homebrew (post-install hooks, app-specific setup).</p>
+      <pre><code>mrk-post-install</code></pre>
+    </div>
+
+    <div class="cmd-card" id="mrk-defaults">
+      <h3>mrk-defaults <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Applies macOS defaults (Dock, Finder, keyboard, etc.) and generates a rollback script at <code>~/.mrk/defaults-rollback.sh</code>.</p>
+      <pre><code>mrk-defaults [--with-trackpad]</code></pre>
+      <ul>
+        <li>Without flags: applies all defaults except trackpad gestures</li>
+        <li><code>--with-trackpad</code> — also applies trackpad gesture settings</li>
+      </ul>
+    </div>
+
+    <div class="cmd-card" id="mrk-uninstall">
+      <h3>mrk-uninstall <span class="tag tag-mrk">mrk</span></h3>
+      <p class="desc">Conservative mrk uninstaller. Removes symlinks and mrk state. Does not uninstall Homebrew packages or undo defaults.</p>
+      <pre><code>mrk-uninstall</code></pre>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <section id="lib">
+    <h2>Shared Library</h2>
+    <h3>scripts/lib.sh</h3>
+    <p>Sourced by scripts that need consistent logging, colors, and utilities.</p>
+
+    <table class="ref-table">
+      <thead><tr><th>Function</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>ok()</code></td><td>Green checkmark success message</td></tr>
+        <tr><td><code>warn()</code></td><td>Yellow warning (stderr)</td></tr>
+        <tr><td><code>err()</code></td><td>Red error (stderr)</td></tr>
+        <tr><td><code>info()</code></td><td>Blue info message</td></tr>
+        <tr><td><code>debug()</code></td><td>Cyan debug (only when <code>DEBUG=1</code>)</td></tr>
+        <tr><td><code>confirm()</code></td><td>Interactive y/N prompt (auto-confirms when <code>YES=1</code>)</td></tr>
+        <tr><td><code>is_running</code></td><td>Check if a process matching a pattern is running</td></tr>
+        <tr><td><code>require_cmd</code></td><td>Exit with error if any listed command is missing</td></tr>
+        <tr><td><code>human_bytes</code></td><td>Convert bytes to human-readable (e.g. <code>1.5 G</code>)</td></tr>
+        <tr><td><code>safe_rm</code></td><td>Remove paths safely (refuses anything outside <code>$HOME</code>)</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout" style="margin-top: 16px;">
+      <strong>Environment variables:</strong> <code>YES=1</code> (auto-confirm) · <code>DRY_RUN=1</code> (safe_rm prints instead of deleting) · <code>DEBUG=1</code> (enables debug output)
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <section id="quick-ref">
+    <h2>Quick Reference</h2>
+    <table class="ref-table">
+      <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>audio-mode on --all</code></td><td>Pause all sync services for recording</td></tr>
+        <tr><td><code>audio-mode off</code></td><td>Resume sync services</td></tr>
+        <tr><td><code>mc</code></td><td>Start Minecraft server</td></tr>
+        <tr><td><code>pushall</code></td><td>Push all git repos in ~/Projects</td></tr>
+        <tr><td><code>rx</code></td><td>Launch iZotope RX 11</td></tr>
+        <tr><td><code>snapshot</code></td><td>Export app prefs to mrk</td></tr>
+        <tr><td><code>snapshot-prefs</code></td><td>Export + push prefs to private repo</td></tr>
+        <tr><td><code>sync</code></td><td>Add new Homebrew packages to Brewfile</td></tr>
+        <tr><td><code>status</code></td><td>Full mrk installation health check</td></tr>
+        <tr><td><code>nuke-mrk</code></td><td>Clean uninstall mrk for reinstall</td></tr>
+        <tr><td><code>hardening.sh</code></td><td>Apply macOS security tweaks</td></tr>
+        <tr><td><code>doctor --fix</code></td><td>Fix ~/bin PATH issues</td></tr>
+        <tr><td><code>mrk-install</code></td><td>Full mrk bootstrap (all phases)</td></tr>
+        <tr><td><code>mrk-setup</code></td><td>Phase 1: dotfiles, symlinks, shell</td></tr>
+        <tr><td><code>mrk-brew</code></td><td>Phase 2: Homebrew packages</td></tr>
+        <tr><td><code>mrk-defaults</code></td><td>Apply macOS defaults</td></tr>
+        <tr><td><code>mrk-uninstall</code></td><td>Remove mrk symlinks and state</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <hr style="border: none; border-top: 1px solid var(--border); margin: 48px 0 24px;">
+  <p style="font-size: 0.82rem; color: var(--text-muted);">~/bin · Sev's command-line tools</p>
+
+</main>
+</body>
+</html>

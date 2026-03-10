@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Personal snapshot tool — export current machine prefs into mrk
+# Updates: ~/mrk/assets/preferences/
+
+_src="${BASH_SOURCE[0]}"
+while [[ -L "$_src" ]]; do _src="$(readlink "$_src")"; done
+REPO_ROOT="$(cd "$(dirname "$_src")/.." && pwd)"
+PREFS_DIR="$REPO_ROOT/assets/preferences"
+
+log()  { printf "[snapshot] %s\n" "$*"; }
+warn() { printf "[snapshot] Warning: %s\n" "$*" >&2; }
+
+OPT_BREWFILE=0
+
+usage() {
+  cat <<EOF
+Usage: snapshot [--brewfile] [--help]
+
+Export current machine preferences into mrk (${REPO_ROOT}).
+
+Options:
+  --brewfile    Also dump Homebrew Brewfile (off by default; destructive)
+  --help        Show this help
+EOF
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --brewfile) OPT_BREWFILE=1 ;;
+    --help|-h)  usage; exit 0 ;;
+    *) warn "Unknown argument: $arg"; usage >&2; exit 1 ;;
+  esac
+done
+
+###############################################################################
+# Plist exports                                                               #
+###############################################################################
+
+export_plist() {
+  local app_path="$1" bundle_id="$2" dest_file="$3" name="$4"
+  local existing="$HOME/Library/Preferences/${bundle_id}.plist"
+
+  if [[ ! -d "$app_path" ]]; then
+    log "Skipping $name (not installed)"
+    return 0
+  fi
+  if [[ ! -f "$existing" ]]; then
+    log "Skipping $name (no preferences found)"
+    return 0
+  fi
+  defaults export "$bundle_id" "$dest_file"
+  plutil -convert xml1 "$dest_file"
+  log "Exported $name → assets/preferences/$(basename "$dest_file")"
+}
+
+export_plist "/Applications/BetterSnapTool.app" "com.hegenberg.BetterSnapTool" \
+  "$PREFS_DIR/BetterSnapTool.plist" "BetterSnapTool"
+
+export_plist "/Applications/Ice.app" "com.jordanbaird.Ice" \
+  "$PREFS_DIR/Ice.plist" "Ice"
+
+export_plist "/Applications/iTerm.app" "com.googlecode.iterm2" \
+  "$PREFS_DIR/iTerm2.plist" "iTerm2"
+
+###############################################################################
+# Brewfile (opt-in)                                                           #
+###############################################################################
+
+if (( OPT_BREWFILE )); then
+  warn "Brewfile dump will OVERWRITE the existing Brewfile."
+  warn "All manual sections, comments, and greedy: true annotations will be lost."
+  printf "[snapshot] Proceed with Brewfile dump? [y/N]: "
+  read -r answer </dev/tty
+  if [[ "$answer" =~ ^[Yy]$ ]]; then
+    brew bundle dump --force --file="$REPO_ROOT/Brewfile"
+    log "Brewfile updated"
+  else
+    log "Skipped Brewfile dump"
+  fi
+fi
+
+###############################################################################
+# Git status and optional commit                                              #
+###############################################################################
+
+cd "$REPO_ROOT"
+
+check_paths=("assets/preferences/")
+(( OPT_BREWFILE )) && check_paths+=("Brewfile")
+
+if [[ -z "$(git status --porcelain -- "${check_paths[@]}" 2>/dev/null)" ]]; then
+  log "No changes detected"
+  exit 0
+fi
+
+log "Changes detected:"
+git status --short -- "${check_paths[@]}" 2>/dev/null || true
+
+printf "[snapshot] Commit changes? [y/N]: "
+read -r answer </dev/tty
+if [[ "$answer" =~ ^[Yy]$ ]]; then
+  git add -- "${check_paths[@]}"
+  git commit -m "snapshot: update managed preferences $(date +%Y-%m-%d)"
+  log "Committed"
+else
+  log "Skipped commit — run 'git add assets/preferences/ && git commit' when ready"
+fi
