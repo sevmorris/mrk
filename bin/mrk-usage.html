@@ -421,11 +421,8 @@
   </div>
   <a class="section-head">Sect. 1 — Standalone</a>
   <a href="#audio-mode">1.1 audio-mode</a>
-  <a href="#mc">1.2 mc</a>
-  <a href="#nuke-mrk">1.3 nuke-mrk</a>
-  <a href="#pushall">1.4 pushall</a>
-  <a href="#rx">1.5 rx</a>
-  <a href="#snapshot">1.6 snapshot</a>
+  <a href="#nuke-mrk">1.2 nuke-mrk</a>
+  <a href="#snapshot">1.3 snapshot</a>
   <a class="section-head">Sect. 2 — mrk</a>
   <a href="#check-updates">2.1 check-updates</a>
   <a href="#doctor">2.2 doctor</a>
@@ -523,24 +520,9 @@ audio-mode status</code></pre>
         </div>
       </div>
 
-      <div class="proc" id="mc">
-        <div class="proc-header">
-          <span class="proc-num">1.2</span>
-          <h3>mc <span class="tag tag-standalone">standalone</span></h3>
-        </div>
-        <div class="proc-body">
-          <p class="desc">Starts the Paper 1.21.6 Minecraft server with Aikar's G1GC tuning flags (10 GB heap).</p>
-          <pre><code>mc</code></pre>
-          <ul>
-            <li>Requires Java. Runs in the foreground.</li>
-            <li>Server directory: <code>~/mcservers/1.21.6/</code></li>
-          </ul>
-        </div>
-      </div>
-
       <div class="proc" id="nuke-mrk">
         <div class="proc-header">
-          <span class="proc-num">1.3</span>
+          <span class="proc-num">1.2</span>
           <h3>nuke-mrk <span class="tag tag-standalone">standalone</span></h3>
         </div>
         <div class="proc-body">
@@ -556,36 +538,9 @@ audio-mode status</code></pre>
         </div>
       </div>
 
-      <div class="proc" id="pushall">
-        <div class="proc-header">
-          <span class="proc-num">1.4</span>
-          <h3>pushall <span class="tag tag-standalone">standalone</span></h3>
-        </div>
-        <div class="proc-body">
-          <p class="desc">Pushes every git repo in <code>~/Projects/</code> that has a remote and upstream tracking branch, then pulls <code>~/mrk</code>.</p>
-          <pre><code>pushall</code></pre>
-          <ul>
-            <li>Reports per-repo success/failure.</li>
-            <li>Skips repos with no remote or no upstream.</li>
-            <li>Exit code 1 if any push failed.</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="proc" id="rx">
-        <div class="proc-header">
-          <span class="proc-num">1.5</span>
-          <h3>rx <span class="tag tag-standalone">standalone</span></h3>
-        </div>
-        <div class="proc-body">
-          <p class="desc">Opens iZotope RX 11 without stealing window focus.</p>
-          <pre><code>rx</code></pre>
-        </div>
-      </div>
-
       <div class="proc" id="snapshot">
         <div class="proc-header">
-          <span class="proc-num">1.6</span>
+          <span class="proc-num">1.3</span>
           <h3>snapshot <span class="tag tag-standalone">standalone</span></h3>
         </div>
         <div class="proc-body">
@@ -881,9 +836,6 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
         <tbody>
           <tr><td><code>audio-mode on --all</code></td><td>Pause all sync services for recording</td></tr>
           <tr><td><code>audio-mode off</code></td><td>Resume sync services</td></tr>
-          <tr><td><code>mc</code></td><td>Start Minecraft server</td></tr>
-          <tr><td><code>pushall</code></td><td>Push all git repos in ~/Projects</td></tr>
-          <tr><td><code>rx</code></td><td>Launch iZotope RX 11</td></tr>
           <tr><td><code>snapshot</code></td><td>Export app prefs to mrk</td></tr>
           <tr><td><code>snapshot-prefs</code></td><td>Export + push prefs to private repo</td></tr>
           <tr><td><code>sync</code></td><td>Add new Homebrew packages to Brewfile</td></tr>
