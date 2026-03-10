@@ -82,4 +82,4 @@ fi
 command -v fastfetch >/dev/null 2>&1 && fastfetch
 
 # OpenClaw Completion
-source "/Users/sev/.openclaw/completions/openclaw.zsh"
+source "$HOME/.openclaw/completions/openclaw.zsh"
