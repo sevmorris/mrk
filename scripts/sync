@@ -19,11 +19,13 @@ check_macos
 
 DRY_RUN=0
 COMMIT=0
+PRUNE=0
 
 while (("$#")); do
   case "$1" in
     --dry-run|-n) DRY_RUN=1 ;;
     --commit|-c)  COMMIT=1 ;;
+    --prune|-p)   PRUNE=1 ;;
     -h|--help)
       cat <<'USAGE'
 mrk sync — Snapshot installed Homebrew packages into the Brewfile
@@ -31,6 +33,7 @@ mrk sync — Snapshot installed Homebrew packages into the Brewfile
 Usage: scripts/sync [options]
   --dry-run, -n   Show what would be added without modifying the Brewfile
   --commit, -c    Auto-commit the Brewfile after updating
+  --prune, -p     Remove Brewfile entries for packages that are no longer installed
 USAGE
       exit 0
       ;;
@@ -115,6 +118,113 @@ if (( ${#new_formulae_arr[@]} > 0 )); then
 fi
 if (( ${#new_casks_arr[@]} > 0 )); then
   mapfile -t new_casks_arr < <(printf '%s\n' "${new_casks_arr[@]}" | sort)
+fi
+
+# ─── 3b. Compute stale entries (for --prune) ─────────────────────────────────
+
+stale_formulae_arr=()
+stale_casks_arr=()
+
+for pkg in "${!brewfile_formulae[@]}"; do
+  [[ -z "${installed_formulae[$pkg]+x}" ]] && stale_formulae_arr+=("$pkg")
+done
+
+for pkg in "${!brewfile_casks[@]}"; do
+  [[ -z "${installed_casks[$pkg]+x}" ]] && stale_casks_arr+=("$pkg")
+done
+
+if (( ${#stale_formulae_arr[@]} > 0 )); then
+  mapfile -t stale_formulae_arr < <(printf '%s\n' "${stale_formulae_arr[@]}" | sort)
+fi
+if (( ${#stale_casks_arr[@]} > 0 )); then
+  mapfile -t stale_casks_arr < <(printf '%s\n' "${stale_casks_arr[@]}" | sort)
+fi
+
+n_stale=$(( ${#stale_formulae_arr[@]} + ${#stale_casks_arr[@]} ))
+
+if (( PRUNE && n_stale > 0 )); then
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  Sync — Stale Brewfile Entries (not installed)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  if (( ${#stale_formulae_arr[@]} > 0 )); then
+    echo ""
+    echo "  Formulae:"
+    for pkg in "${stale_formulae_arr[@]}"; do
+      printf "    - brew \"%s\"\n" "$pkg"
+    done
+  fi
+  if (( ${#stale_casks_arr[@]} > 0 )); then
+    echo ""
+    echo "  Casks:"
+    for pkg in "${stale_casks_arr[@]}"; do
+      printf "    - cask \"%s\"\n" "$pkg"
+    done
+  fi
+  echo ""
+
+  # Selection UI for pruning
+  declare -A prune_formulae=()
+  declare -A prune_casks=()
+
+  if command -v gum >/dev/null 2>&1; then
+    if (( ${#stale_formulae_arr[@]} > 0 )); then
+      gum_out=$(gum choose --no-limit \
+        --cursor.foreground=196 \
+        --selected.foreground=196 \
+        --header="Select formulae to REMOVE from Brewfile (space to toggle, enter to confirm):" \
+        "${stale_formulae_arr[@]}" < /dev/tty 2>/dev/tty) || true
+      while IFS= read -r name; do
+        [[ -n "$name" ]] && prune_formulae["$name"]=1
+      done <<< "$gum_out"
+    fi
+    if (( ${#stale_casks_arr[@]} > 0 )); then
+      gum_out=$(gum choose --no-limit \
+        --cursor.foreground=196 \
+        --selected.foreground=196 \
+        --header="Select casks to REMOVE from Brewfile (space to toggle, enter to confirm):" \
+        "${stale_casks_arr[@]}" < /dev/tty 2>/dev/tty) || true
+      while IFS= read -r name; do
+        [[ -n "$name" ]] && prune_casks["$name"]=1
+      done <<< "$gum_out"
+    fi
+  else
+    # No gum — list them and confirm all-or-nothing
+    printf "Remove all %d stale entries? [y/N] " "$n_stale"
+    read -r answer </dev/tty
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+      for pkg in "${stale_formulae_arr[@]}"; do prune_formulae["$pkg"]=1; done
+      for pkg in "${stale_casks_arr[@]}"; do prune_casks["$pkg"]=1; done
+    fi
+  fi
+
+  n_prune=$(( ${#prune_formulae[@]} + ${#prune_casks[@]} ))
+
+  if (( n_prune > 0 )); then
+    if (( DRY_RUN )); then
+      echo "  [dry run] Would remove $n_prune entr(ies) from Brewfile."
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    else
+      # Build sed patterns to remove matching lines
+      local_sed_args=()
+      for pkg in "${!prune_formulae[@]}"; do
+        local_sed_args+=(-e "/^brew \"${pkg}\"/d")
+      done
+      for pkg in "${!prune_casks[@]}"; do
+        local_sed_args+=(-e "/^cask \"${pkg}\"/d")
+      done
+
+      sed -i '' "${local_sed_args[@]}" "$BREWFILE"
+
+      log "Removed $n_prune stale entr(ies) from Brewfile."
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    fi
+  else
+    log "No stale entries selected for removal."
+  fi
+elif (( PRUNE && n_stale == 0 )); then
+  log "No stale entries found — Brewfile is clean."
 fi
 
 if (( ${#new_formulae_arr[@]} == 0 && ${#new_casks_arr[@]} == 0 )); then
@@ -453,7 +563,9 @@ if (( COMMIT )); then
   if git diff --quiet Brewfile 2>/dev/null; then
     log "No changes to commit."
   else
+    # Build commit message from adds and removes
     added_pkgs=()
+    removed_pkgs=()
     if (( ${#formula_section_map[@]} > 0 )); then
       for pkg in "${!formula_section_map[@]}"; do
         added_pkgs+=("$pkg")
@@ -464,8 +576,24 @@ if (( COMMIT )); then
         (( selected_casks["$pkg"] == 1 )) && added_pkgs+=("$pkg")
       done
     fi
-    mapfile -t added_pkgs < <(printf '%s\n' "${added_pkgs[@]}" | sort)
-    commit_msg="sync: add $(IFS=', '; echo "${added_pkgs[*]}")"
+    if (( ${#prune_formulae[@]} > 0 )); then
+      for pkg in "${!prune_formulae[@]}"; do removed_pkgs+=("$pkg"); done
+    fi
+    if (( ${#prune_casks[@]} > 0 )); then
+      for pkg in "${!prune_casks[@]}"; do removed_pkgs+=("$pkg"); done
+    fi
+
+    commit_parts=()
+    if (( ${#added_pkgs[@]} > 0 )); then
+      mapfile -t added_pkgs < <(printf '%s\n' "${added_pkgs[@]}" | sort)
+      commit_parts+=("add $(IFS=', '; echo "${added_pkgs[*]}")")
+    fi
+    if (( ${#removed_pkgs[@]} > 0 )); then
+      mapfile -t removed_pkgs < <(printf '%s\n' "${removed_pkgs[@]}" | sort)
+      commit_parts+=("remove $(IFS=', '; echo "${removed_pkgs[*]}")")
+    fi
+
+    commit_msg="sync: $(IFS='; '; echo "${commit_parts[*]}")"
     git add Brewfile
     git commit -m "$commit_msg"
     log "Committed: $commit_msg"
