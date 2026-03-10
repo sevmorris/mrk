@@ -41,12 +41,13 @@ done
 export_plist() {
   local app_path="$1" bundle_id="$2" dest_file="$3" name="$4"
   local existing="$HOME/Library/Preferences/${bundle_id}.plist"
+  local sandboxed="$HOME/Library/Containers/${bundle_id}/Data/Library/Preferences/${bundle_id}.plist"
 
   if [[ ! -d "$app_path" ]]; then
     log "Skipping $name (not installed)"
     return 0
   fi
-  if [[ ! -f "$existing" ]]; then
+  if [[ ! -f "$existing" && ! -f "$sandboxed" ]]; then
     log "Skipping $name (no preferences found)"
     return 0
   fi
@@ -63,6 +64,27 @@ export_plist "/Applications/Ice.app" "com.jordanbaird.Ice" \
 
 export_plist "/Applications/iTerm.app" "com.googlecode.iterm2" \
   "$PREFS_DIR/iTerm2.plist" "iTerm2"
+
+export_plist "/Applications/AlDente.app" "com.apphousekitchen.aldente-pro" \
+  "$PREFS_DIR/AlDente.plist" "AlDente"
+
+export_plist "/Applications/Amphetamine.app" "com.if.Amphetamine" \
+  "$PREFS_DIR/Amphetamine.plist" "Amphetamine"
+
+export_plist "/Applications/Descript.app" "com.descript.beachcube" \
+  "$PREFS_DIR/Descript.plist" "Descript"
+
+export_plist "/Applications/Fission.app" "com.rogueamoeba.Fission" \
+  "$PREFS_DIR/Fission.plist" "Fission"
+
+export_plist "/Applications/HandBrake.app" "fr.handbrake.HandBrake" \
+  "$PREFS_DIR/HandBrake.plist" "HandBrake"
+
+export_plist "/Applications/Helium.app" "net.imput.helium" \
+  "$PREFS_DIR/Helium.plist" "Helium"
+
+export_plist "/Applications/ScreenFlow.app" "net.telestream.screenflow10" \
+  "$PREFS_DIR/ScreenFlow.plist" "ScreenFlow"
 
 ###############################################################################
 # Brewfile (opt-in)                                                           #
