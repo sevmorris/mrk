@@ -302,6 +302,57 @@ func (bf *brewfile) search(query string) []searchResult {
 	return results
 }
 
+// ── Descriptions ──────────────────────────────────────────────────────────
+
+type descMsg map[string]string
+
+func fetchSectionDescs(entries []*entry) tea.Cmd {
+	return func() tea.Msg {
+		result := make(map[string]string)
+
+		var formulas, casks []string
+		for _, e := range entries {
+			if e.kind == kindBrew {
+				formulas = append(formulas, e.name)
+			} else {
+				casks = append(casks, e.name)
+			}
+		}
+
+		fetch := func(kind string, names []string) {
+			if len(names) == 0 {
+				return
+			}
+			args := append([]string{"desc", "--" + kind}, names...)
+			out, err := exec.Command("brew", args...).Output()
+			if err != nil {
+				return
+			}
+			for _, line := range strings.Split(string(out), "\n") {
+				if idx := strings.Index(line, ": "); idx != -1 {
+					name := strings.TrimSpace(line[:idx])
+					desc := strings.TrimSpace(line[idx+2:])
+					result[name] = desc
+				}
+			}
+		}
+
+		fetch("formula", formulas)
+		fetch("cask", casks)
+		return descMsg(result)
+	}
+}
+
+func (m model) missingDescs(entries []*entry) []*entry {
+	var missing []*entry
+	for _, e := range entries {
+		if _, ok := m.descCache[e.name]; !ok {
+			missing = append(missing, e)
+		}
+	}
+	return missing
+}
+
 // ── TUI State ─────────────────────────────────────────────────────────────
 
 type viewState int
@@ -324,6 +375,9 @@ type model struct {
 	secIdx    int
 	entIdx    int
 	leftFocus bool
+
+	// Description cache (keyed by package name)
+	descCache map[string]string
 
 	// Search
 	searchQuery   string
@@ -354,7 +408,13 @@ func newModel(bf *brewfile) model {
 	return model{bf: bf, leftFocus: true}
 }
 
-func (m model) Init() tea.Cmd { return nil }
+func (m model) Init() tea.Cmd {
+	sec := m.currentSection()
+	if sec == nil {
+		return nil
+	}
+	return fetchSectionDescs(sec.entries)
+}
 
 // ── Update ────────────────────────────────────────────────────────────────
 
@@ -365,6 +425,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+	case descMsg:
+		if m.descCache == nil {
+			m.descCache = make(map[string]string)
+		}
+		for k, v := range msg {
+			m.descCache[k] = v
+		}
 	}
 	return m, nil
 }
@@ -421,6 +488,7 @@ func (m model) handleKey(msg tea.KeyMsg) (model, tea.Cmd) {
 
 func (m model) handleNormal(key string) (model, tea.Cmd) {
 	m.flash = ""
+	prevSec := m.secIdx
 	switch key {
 	case "q", "esc":
 		return m, tea.Quit
@@ -511,7 +579,16 @@ func (m model) handleNormal(key string) (model, tea.Cmd) {
 			m.state = stateCommit
 		}
 	}
-	return m, nil
+
+	var cmd tea.Cmd
+	if m.secIdx != prevSec {
+		if sec := m.currentSection(); sec != nil {
+			if missing := m.missingDescs(sec.entries); len(missing) > 0 {
+				cmd = fetchSectionDescs(missing)
+			}
+		}
+	}
+	return m, cmd
 }
 
 func (m model) handleSearch(key string, msg tea.KeyMsg) (model, tea.Cmd) {
@@ -735,6 +812,13 @@ func (m *model) clampCursor() {
 
 func max(a, b int) int {
 	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
 		return a
 	}
 	return b
@@ -978,10 +1062,24 @@ func (m model) viewRight(inner, height int) string {
 		start = m.entIdx - pkgH + 1
 	}
 
-	// Column widths: cursor(2) + name + gap(2) + kind badge(4) + greedy(2)
+	// Column widths: cursor(2) + name(nameW) + gap(2) + kind(4) + greedy(2) + gap(2) + desc(rest)
 	const kindW = 4
 	const greedyW = 2
-	nameW := inner - 2 - 2 - kindW - greedyW
+	const fixedOverhead = 2 + 2 + kindW + greedyW + 2 // cursor + gap + kind + greedy + gap
+
+	// Size name column to longest name in section, capped at 35
+	maxNameLen := 0
+	for _, e := range sec.entries {
+		if l := len([]rune(e.name)); l > maxNameLen {
+			maxNameLen = l
+		}
+	}
+	nameW := min(maxNameLen, 35)
+	descW := inner - nameW - fixedOverhead
+	if descW < 0 {
+		descW = 0
+		nameW = inner - fixedOverhead
+	}
 	if nameW < 8 {
 		nameW = 8
 	}
@@ -1004,15 +1102,22 @@ func (m model) viewRight(inner, height int) string {
 			greedyMark = styleGreedy.Render("◆ ")
 		}
 
+		desc := ""
+		if descW > 0 {
+			if d, ok := m.descCache[e.name]; ok {
+				desc = "  " + styleDim.Render(truncate(d, descW))
+			}
+		}
+
 		var line string
 		if isCursor {
 			line = styleEntCursor.Render("▸ ") +
 				styleEntCursor.Render(name) + "  " +
-				kindBadge + greedyMark
+				kindBadge + greedyMark + desc
 		} else {
 			line = "  " +
 				styleEntNorm.Render(name) + "  " +
-				kindBadge + greedyMark
+				kindBadge + greedyMark + desc
 		}
 		sb.WriteString(line + "\n")
 		written++
