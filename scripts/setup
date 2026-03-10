@@ -713,6 +713,14 @@ if (( ! DRY_RUN )) && (( ERRORS == 0 )); then
   echo ""
 fi
 
+# Open command reference in default browser so it can be bookmarked
+if (( ! DRY_RUN )) && (( ERRORS == 0 )); then
+  usage_page="$HOME/bin/mrk-usage.html"
+  if [[ -e "$usage_page" ]]; then
+    open "$usage_page" 2>/dev/null || true
+  fi
+fi
+
 # Exit with appropriate code
 if (( ERRORS > 0 )); then
   exit 1
