@@ -741,18 +741,22 @@ func max(a, b int) int {
 }
 
 func truncate(s string, n int) string {
-	if len(s) <= n {
+	runes := []rune(s)
+	if len(runes) <= n {
 		return s
 	}
-	return s[:n-1] + "…"
+	if n <= 1 {
+		return "…"
+	}
+	return string(runes[:n-1]) + "…"
 }
 
 func padRight(s string, n int) string {
-	l := len(s)
-	if l >= n {
+	w := lipgloss.Width(s)
+	if w >= n {
 		return s
 	}
-	return s + strings.Repeat(" ", n-l)
+	return s + strings.Repeat(" ", n-w)
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────
@@ -925,7 +929,7 @@ func (m model) viewLeft(inner, height int) string {
 			nameW = 1
 		}
 		name := truncate(sec.name, nameW)
-		pad := strings.Repeat(" ", nameW-len(name))
+		pad := strings.Repeat(" ", max(0, nameW-lipgloss.Width(name)))
 
 		var line string
 		if i == m.secIdx {
