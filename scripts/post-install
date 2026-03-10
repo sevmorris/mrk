@@ -317,3 +317,7 @@ if (( failed > 0 )); then
 else
   log "Post-install complete"
 fi
+
+echo ""
+echo "  Run \`source ~/.zshrc\` to reload your shell, or open a new terminal."
+echo ""
