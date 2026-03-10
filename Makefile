@@ -90,7 +90,8 @@ mrk-status: ## Build the mrk-status TUI health dashboard binary
 	@cd "$(REPO_ROOT)/tools/mrk-status" && go mod tidy -e && go build -o "$(BIN_DIR)/mrk-status" .
 	@chmod +x "$(BIN_DIR)/mrk-status"
 	@ln -sf "$(BIN_DIR)/mrk-status" "$(HOME)/bin/mrk-status"
-	@echo "Built and linked: ~/bin/mrk-status"
+	@ln -sf "$(BIN_DIR)/mrk-status" "$(HOME)/bin/status"
+	@echo "Built and linked: ~/bin/mrk-status and ~/bin/status"
 
 sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to commit, ARGS=-n for dry run)
 	@"$(SCRIPTS)/sync" $(ARGS)
