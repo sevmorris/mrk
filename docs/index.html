@@ -1,1100 +1,922 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="generator" content="pandoc" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>mrk — macOS Bootstrap Manual</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TO MRK-1 — mrk macOS Bootstrap Manual</title>
   <style>
+    :root {
+      --bg:           #f0ede6;
+      --page:         #fffffe;
+      --nav-bg:       #fffffe;
+      --text:         #0a0a0a;
+      --text-muted:   #333;
+      --text-faint:   #666;
+      --rule-heavy:   #000;
+      --rule-mid:     #444;
+      --rule-light:   #bbb;
+      --code-bg:      #f0ede6;
+      --header-bg:    #1b3568;
+      --header-text:  #fff;
+      --accent:       #1b3568;
+      --tag-sa-bg:    #1b3568;
+      --tag-sa-text:  #fff;
+      --tag-mrk-bg:   #555;
+      --tag-mrk-text: #fff;
+    }
 
-code{white-space: pre-wrap;}
-span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: min(4vw, 1.5em);}
-div.column{flex: auto; overflow-x: auto;}
-div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
 
-ul.task-list[class]{list-style: none;}
-ul.task-list li input[type="checkbox"] {
-font-size: inherit;
-width: 0.8em;
-margin: 0 0.8em 0.2em -1.6em;
-vertical-align: middle;
-}
-.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    body {
+      font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+      font-size: 17px;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
 
-html { -webkit-text-size-adjust: 100%; }
-pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
-pre > code.sourceCode > span:empty { height: 1.2em; }
-.sourceCode { overflow: visible; }
-code.sourceCode > span { color: inherit; text-decoration: inherit; }
-div.sourceCode { margin: 1em 0; }
-pre.sourceCode { margin: 0; }
-@media screen {
-div.sourceCode { overflow: auto; }
-}
-@media print {
-pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
-}
-pre.numberSource code
-{ counter-reset: source-line 0; }
-pre.numberSource code > span
-{ position: relative; left: -4em; counter-increment: source-line; }
-pre.numberSource code > span > a:first-child::before
-{ content: counter(source-line);
-position: relative; left: -1em; text-align: right; vertical-align: baseline;
-border: none; display: inline-block;
--webkit-touch-callout: none; -webkit-user-select: none;
--khtml-user-select: none; -moz-user-select: none;
--ms-user-select: none; user-select: none;
-padding: 0 4px; width: 4em;
-}
-pre.numberSource { margin-left: 3em; padding-left: 4px; }
-div.sourceCode
-{ color: #cccccc; background-color: #303030; }
-@media screen {
-pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
-}
-code span.al { color: #ffcfaf; } 
-code span.an { color: #7f9f7f; font-weight: bold; } 
-code span.at { } 
-code span.bn { color: #dca3a3; } 
-code span.bu { } 
-code span.cf { color: #f0dfaf; } 
-code span.ch { color: #dca3a3; } 
-code span.cn { color: #dca3a3; font-weight: bold; } 
-code span.co { color: #7f9f7f; } 
-code span.cv { color: #7f9f7f; font-weight: bold; } 
-code span.do { color: #7f9f7f; } 
-code span.dt { color: #dfdfbf; } 
-code span.dv { color: #dcdccc; } 
-code span.er { color: #c3bf9f; } 
-code span.ex { } 
-code span.fl { color: #c0bed1; } 
-code span.fu { color: #efef8f; } 
-code span.im { } 
-code span.in { color: #7f9f7f; font-weight: bold; } 
-code span.kw { color: #f0dfaf; } 
-code span.op { color: #f0efd0; } 
-code span.ot { color: #efef8f; } 
-code span.pp { color: #ffcfaf; font-weight: bold; } 
-code span.sc { color: #dca3a3; } 
-code span.ss { color: #cc9393; } 
-code span.st { color: #cc9393; } 
-code span.va { } 
-code span.vs { color: #cc9393; } 
-code span.wa { color: #7f9f7f; font-weight: bold; } 
-</style>
-  <style type="text/css">
-:root {
---ink: #1a1a1a;
---muted: #555;
---accent: #2563eb;
---accent-light: #eff6ff;
---border: #d1d5db;
---code-bg: #f3f4f6;
---header-bg: #1e293b;
---header-text: #f8fafc;
---row-alt: #f9fafb;
---warn-bg: #fefce8;
---warn-border: #ca8a04;
-font-size: 15px;
-}
-* { box-sizing: border-box; }
-body {
-font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
-color: var(--ink);
-line-height: 1.72;
-max-width: 920px;
-margin: 0 auto;
-padding: 0 0 72px;
-background: #fff;
-}
-@media (max-width: 800px) {
-body { padding-left: 20px; padding-right: 20px; }
-header { margin-left: -20px; margin-right: -20px; }
-}
+    /* ─── Sidebar ─────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      width: 234px;
+      min-width: 234px;
+      background: var(--nav-bg);
+      border-right: 2px solid var(--rule-heavy);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .nav-header {
+      padding: 16px 14px 12px;
+      border-bottom: 2px solid var(--rule-heavy);
+    }
+    .nav-to-num {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      display: block;
+      margin-bottom: 3px;
+    }
+    .nav-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      line-height: 1.25;
+      color: var(--text);
+    }
+    nav a {
+      display: block;
+      padding: 4px 16px;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-family: "Courier New", Courier, monospace;
+      border-left: 3px solid transparent;
+      transition: border-color 0.1s, color 0.1s;
+    }
+    nav a:hover { color: var(--text); border-left-color: var(--rule-heavy); }
+    nav a.section-head {
+      font-family: Arial, sans-serif;
+      font-size: 0.69rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-faint);
+      padding-top: 12px;
+      padding-bottom: 2px;
+      pointer-events: none;
+      border-left-color: transparent;
+    }
 
-header {
-background: var(--header-bg);
-color: var(--header-text);
-padding: 44px 56px 40px;
-margin: 0 0 52px;
-border-bottom: 4px solid var(--accent);
-}
-header h1.title {
-color: var(--header-text);
-border-bottom-color: #334155;
-}
-header .subtitle {
-display: none;
-}
-header .subtitle {
-font-size: 1rem;
-color: #94a3b8;
-margin: 0 0 12px;
-font-weight: 400;
-}
-header .date {
-font-size: 0.8rem;
-color: #64748b;
-margin: 0;
-}
-header .date a {
-color: #64748b;
-text-decoration: none;
-border-bottom: 1px solid #334155;
-transition: color 0.15s, border-color 0.15s;
-}
-header .date a:hover {
-color: #94a3b8;
-border-bottom-color: #64748b;
-}
+    /* ─── Page wrapper ────────────────────────────────────────── */
+    main {
+      flex: 1;
+      background: var(--page);
+      min-width: 0;
+      border-right: 1px solid var(--rule-light);
+      display: flex;
+      flex-direction: column;
+    }
 
-.logo-banner {
-text-align: center;
-margin: 0 0 2rem;
-}
-.logo-banner img {
-width: 220px;
-height: auto;
-}
+    /* ─── Document masthead ───────────────────────────────────── */
+    .doc-masthead {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 14px 48px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 24px;
+      border-bottom: 4px solid var(--rule-heavy);
+    }
+    .masthead-org {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      opacity: 0.75;
+      line-height: 1.4;
+    }
+    .masthead-center { text-align: center; }
+    .masthead-doctype {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      opacity: 0.7;
+      margin-bottom: 3px;
+    }
+    .masthead-title {
+      font-size: 1.45rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      line-height: 1.1;
+    }
+    .masthead-meta {
+      text-align: right;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.72rem;
+      opacity: 0.75;
+      line-height: 1.7;
+    }
+    .doc-infobar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-bottom: 2px solid var(--rule-heavy);
+      background: var(--page);
+    }
+    .infobar-cell {
+      padding: 6px 16px;
+      border-right: 1px solid var(--rule-mid);
+      font-size: 0.72rem;
+    }
+    .infobar-cell:last-child { border-right: none; }
+    .infobar-cell .lbl {
+      display: block;
+      font-weight: 700;
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-faint);
+      margin-bottom: 1px;
+    }
+    .infobar-cell .val {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.8rem;
+      color: var(--text);
+      font-weight: 700;
+    }
 
-details#toc-details {
-background: var(--row-alt);
-border: 1px solid var(--border);
-border-radius: 8px;
-margin: 0 0 2.5rem;
-font-size: 0.9em;
-}
-summary.toc-summary {
-display: flex;
-align-items: center;
-padding: 14px 28px;
-cursor: pointer;
-list-style: none;
-user-select: none;
-font-weight: 700;
-font-size: 0.75em;
-text-transform: uppercase;
-letter-spacing: 0.07em;
-color: var(--muted);
-border-radius: 8px;
-}
-summary.toc-summary::-webkit-details-marker { display: none; }
-summary.toc-summary::after {
-content: "›";
-margin-left: auto;
-font-size: 1.4em;
-font-weight: 300;
-color: var(--border);
-transition: transform 0.2s ease;
-line-height: 1;
-}
-details#toc-details[open] summary.toc-summary::after {
-transform: rotate(90deg);
-}
-details#toc-details[open] summary.toc-summary {
-border-radius: 8px 8px 0 0;
-border-bottom: 1px solid var(--border);
-margin-bottom: 14px;
-}
-nav#TOC {
-padding: 0 28px 18px;
-}
-nav#TOC ul {
-margin: 0;
-padding: 0;
-list-style: none;
-}
-nav#TOC li {
-margin: 0;
-}
+    /* ─── Content ─────────────────────────────────────────────── */
+    .content {
+      padding: 40px 56px 88px;
+      flex: 1;
+    }
 
-nav#TOC > ul > li {
-margin-bottom: 6px;
-}
-nav#TOC > ul > li > a {
-font-weight: 600;
-color: var(--ink);
-}
-nav#TOC > ul > li > a:hover {
-color: var(--accent);
-text-decoration: none;
-}
+    section { margin-bottom: 56px; }
 
-nav#TOC ul ul {
-padding-left: 1rem;
-margin-top: 3px;
-}
-nav#TOC ul ul li {
-margin-bottom: 2px;
-}
-nav#TOC ul ul a {
-color: var(--muted);
-font-weight: 400;
-}
-nav#TOC ul ul a:hover {
-color: var(--accent);
-text-decoration: none;
-}
+    .section-heading {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      border-top: 3px solid var(--rule-heavy);
+      border-bottom: 1px solid var(--rule-heavy);
+      padding: 6px 0;
+      margin-bottom: 22px;
+    }
+    .section-num {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-faint);
+      min-width: 36px;
+    }
+    h2 {
+      font-size: 1rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--text);
+    }
+    .section-sub {
+      font-size: 0.72rem;
+      color: var(--text-faint);
+      font-family: "Courier New", Courier, monospace;
+      margin-left: auto;
+    }
 
-h1 {
-font-size: 1.65rem;
-font-weight: 700;
-color: var(--ink);
-border-bottom: 2px solid var(--accent);
-padding-bottom: 8px;
-margin: 2.8rem 0 1.1rem;
-letter-spacing: -0.01em;
-}
-h2 {
-font-size: 1.2rem;
-font-weight: 600;
-color: var(--ink);
-margin: 2.2rem 0 0.7rem;
-padding-left: 12px;
-border-left: 3px solid var(--accent);
-}
-h3 {
-font-weight: 600;
-color: var(--muted);
-margin: 1.8rem 0 0.5rem;
-text-transform: uppercase;
-letter-spacing: 0.05em;
-font-size: 0.8rem;
-}
+    p { margin-bottom: 12px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
 
-p { margin: 0 0 1rem; }
-strong { font-weight: 600; }
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-ul, ol {
-margin: 0 0 0.9rem;
-padding-left: 1.5rem;
-}
-li { margin-bottom: 0.35rem; }
-li > ul, li > ol { margin-top: 0.2rem; margin-bottom: 0.2rem; }
-hr {
-border: none;
-border-top: 1px solid var(--border);
-margin: 2.5rem 0;
-}
+    ul, ol { padding-left: 24px; margin-bottom: 12px; }
+    li { margin-bottom: 5px; line-height: 1.55; }
 
-code {
-font-family: "SF Mono", "Menlo", "Monaco", "Cascadia Code", monospace;
-font-size: 0.875em;
-background: var(--code-bg);
-border: 1px solid var(--border);
-border-radius: 4px;
-padding: 2px 6px;
-color: #b91c1c;
-}
-pre {
-background: #1e293b;
-border-radius: 8px;
-padding: 18px 20px;
-overflow-x: auto;
-margin: 0.7rem 0 1.2rem;
-line-height: 1.6;
-}
-pre code {
-font-size: 0.865em;
-background: none;
-border: none;
-padding: 0;
-color: #e2e8f0;
-}
+    code {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.85em;
+      background: var(--code-bg);
+      border: 1px solid var(--rule-light);
+      padding: 1px 5px;
+    }
+    pre {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.88rem;
+      background: var(--code-bg);
+      border: 1px solid var(--rule-mid);
+      border-left: 4px solid var(--rule-heavy);
+      padding: 12px 18px;
+      overflow-x: auto;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    pre code { background: none; border: none; padding: 0; }
 
-blockquote {
-background: var(--warn-bg);
-border-left: 4px solid var(--warn-border);
-margin: 0.8rem 0 1rem;
-padding: 10px 14px;
-border-radius: 0 6px 6px 0;
-color: #713f12;
-font-size: 0.92em;
-}
-blockquote p { margin: 0; }
-blockquote > p > strong:first-child {
-display: block;
-margin-bottom: 2px;
-font-size: 0.78em;
-text-transform: uppercase;
-letter-spacing: 0.06em;
-color: var(--warn-border);
-}
+    /* ─── Procedure blocks ────────────────────────────────────── */
+    .proc {
+      border: 1px solid var(--rule-mid);
+      border-top: 3px solid var(--rule-heavy);
+      margin-bottom: 22px;
+    }
+    .proc-header {
+      border-bottom: 1px solid var(--rule-mid);
+      padding: 8px 16px;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .proc-num {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-faint);
+      min-width: 38px;
+    }
+    .proc-header h3 {
+      font-size: 0.97rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .proc-body { padding: 14px 18px; }
+    .proc-body .desc {
+      font-size: 0.93rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      padding-left: 12px;
+      border-left: 3px solid var(--rule-light);
+    }
+    .proc-body ul  { font-size: 0.93rem; }
+    .proc-body ol  { font-size: 0.93rem; }
+    .proc-body pre { margin-bottom: 10px; }
 
-table {
-width: 100%;
-border-collapse: collapse;
-margin: 0.7rem 0 1.4rem;
-font-size: 0.935em;
-}
-thead tr {
-background: var(--header-bg);
-color: var(--header-text);
-}
-thead th {
-padding: 10px 16px;
-text-align: left;
-font-weight: 600;
-font-size: 0.82em;
-letter-spacing: 0.04em;
-text-transform: uppercase;
-}
-tbody tr:nth-child(even) { background: var(--row-alt); }
-tbody tr:hover { background: var(--accent-light); }
-td {
-padding: 9px 16px;
-border-bottom: 1px solid var(--border);
-vertical-align: top;
-line-height: 1.55;
-}
+    /* ─── Callout boxes ───────────────────────────────────────── */
+    .callout {
+      border: 1.5px solid var(--rule-heavy);
+      margin: 14px 0;
+    }
+    .callout-label {
+      display: block;
+      background: var(--rule-heavy);
+      color: var(--page);
+      font-weight: 900;
+      font-size: 0.72rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 4px 12px;
+    }
+    .callout-body {
+      padding: 10px 14px;
+      font-size: 0.9rem;
+    }
+    .callout-warn { border-color: #8b0000; }
+    .callout-warn .callout-label { background: #8b0000; }
+    .callout-caution { border-color: #7a5500; }
+    .callout-caution .callout-label { background: #7a5500; }
 
-td:first-child {
-font-family: "SF Mono", "Menlo", "Monaco", "Cascadia Code", monospace;
-font-size: 0.845em;
-white-space: nowrap;
-color: #b91c1c;
-}
+    /* ─── Tables ──────────────────────────────────────────────── */
+    .ref-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1.5px solid var(--rule-heavy);
+      margin-bottom: 14px;
+      font-size: 0.9rem;
+    }
+    .ref-table caption {
+      caption-side: top;
+      text-align: left;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-faint);
+      padding-bottom: 5px;
+    }
+    .ref-table th {
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 7px 14px;
+      border-bottom: 2px solid var(--rule-heavy);
+      border-right: 1px solid var(--rule-mid);
+      background: var(--code-bg);
+    }
+    .ref-table th:last-child { border-right: none; }
+    .ref-table td {
+      padding: 7px 14px;
+      border-bottom: 1px solid var(--rule-light);
+      border-right: 1px solid var(--rule-light);
+      vertical-align: top;
+    }
+    .ref-table td:last-child { border-right: none; }
+    .ref-table tr:last-child td { border-bottom: none; }
+    .ref-table td:first-child {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      font-weight: 700;
+    }
 
-@media print {
-body { padding: 0; max-width: 100%; }
-header { margin: 0 0 32px; padding: 28px 40px 24px; }
-h1 { page-break-before: always; }
-h1:first-of-type { page-break-before: avoid; }
-pre, blockquote, table { page-break-inside: avoid; }
-a { color: var(--ink); }
-@page {
-margin: 18mm 20mm 18mm;
-size: A4;
-}
-@page :first {
-margin-top: 0;
-}
-}
-</style>
+    /* ─── Footer ──────────────────────────────────────────────── */
+    .doc-footer {
+      border-top: 2px solid var(--rule-heavy);
+      padding: 9px 56px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      font-family: "Courier New", Courier, monospace;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-faint);
+      background: var(--page);
+    }
+
+    /* ─── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 860px) {
+      body { flex-direction: column; }
+      nav {
+        position: static;
+        height: auto;
+        width: 100%;
+        min-width: 0;
+        border-right: none;
+        border-bottom: 2px solid var(--rule-heavy);
+        flex-direction: row;
+        flex-wrap: wrap;
+        padding: 6px 0;
+        overflow-x: auto;
+      }
+      .nav-header { display: none; }
+      nav a.section-head { display: none; }
+      nav a { white-space: nowrap; padding: 4px 10px; }
+      .doc-masthead {
+        grid-template-columns: 1fr;
+        text-align: center;
+        padding: 12px 20px;
+      }
+      .masthead-org, .masthead-meta { display: none; }
+      .doc-infobar { grid-template-columns: repeat(2,1fr); }
+      .content { padding: 28px 22px 60px; }
+      .doc-footer { padding: 9px 22px; }
+    }
+  </style>
 </head>
 <body>
-<header id="title-block-header">
-<h1 class="title">mrk — macOS Bootstrap Manual</h1>
-<p class="subtitle">Workflow guide for managing, maintaining, and
-migrating your Mac setup</p>
-<p class="date"><a href="https://github.com/sevmorris/mrk">github.com/sevmorris/mrk</a></p>
-</header>
-<details id="toc-details"><summary class="toc-summary">Table of Contents</summary><nav id="TOC" role="doc-toc">
-<ul>
-<li><a href="#overview" id="toc-overview">Overview</a></li>
-<li><a href="#how-it-works-the-three-phases" id="toc-how-it-works-the-three-phases">How It Works — The Three
-Phases</a>
-<ul>
-<li><a href="#phase-1-setup-make-setup" id="toc-phase-1-setup-make-setup">Phase 1 — Setup
-(<code>make setup</code>)</a></li>
-<li><a href="#phase-2-homebrew-make-brew" id="toc-phase-2-homebrew-make-brew">Phase 2 — Homebrew
-(<code>make brew</code>)</a></li>
-<li><a href="#phase-3-post-install-make-post-install" id="toc-phase-3-post-install-make-post-install">Phase 3 — Post-Install
-(<code>make post-install</code>)</a></li>
-<li><a href="#full-install" id="toc-full-install">Full Install</a></li>
-</ul></li>
-<li><a href="#day-to-day-workflow" id="toc-day-to-day-workflow">Day-to-Day Workflow</a>
-<ul>
-<li><a href="#keeping-the-brewfile-current" id="toc-keeping-the-brewfile-current">Keeping the Brewfile
-Current</a></li>
-<li><a href="#keeping-app-preferences-current" id="toc-keeping-app-preferences-current">Keeping App Preferences
-Current</a></li>
-<li><a href="#pulling-app-preferences" id="toc-pulling-app-preferences">Pulling App Preferences</a></li>
-<li><a href="#updating-this-manual" id="toc-updating-this-manual">Updating This Manual</a></li>
-</ul></li>
-<li><a href="#before-migrating-to-a-new-machine" id="toc-before-migrating-to-a-new-machine">Before Migrating to a New
-Machine</a></li>
-<li><a href="#setting-up-a-new-machine" id="toc-setting-up-a-new-machine">Setting Up a New Machine</a>
-<ul>
-<li><a href="#prerequisites" id="toc-prerequisites">Prerequisites</a></li>
-<li><a href="#step-1-clone-mrk" id="toc-step-1-clone-mrk">Step 1 — Clone
-mrk</a></li>
-<li><a href="#step-2-phase-1-shell-dotfiles" id="toc-step-2-phase-1-shell-dotfiles">Step 2 — Phase 1: Shell &amp;
-Dotfiles</a></li>
-<li><a href="#step-3-if-needed-add-ssh-key-to-github" id="toc-step-3-if-needed-add-ssh-key-to-github">Step 3 — (If needed) Add
-SSH Key to GitHub</a></li>
-<li><a href="#step-4-phase-2-homebrew" id="toc-step-4-phase-2-homebrew">Step 4 — Phase 2: Homebrew</a></li>
-<li><a href="#step-5-phase-3-app-configuration" id="toc-step-5-phase-3-app-configuration">Step 5 — Phase 3: App
-Configuration</a></li>
-<li><a href="#step-6-verify-the-installation" id="toc-step-6-verify-the-installation">Step 6 — Verify the
-Installation</a></li>
-<li><a href="#full-one-command-install" id="toc-full-one-command-install">Full One-Command Install</a></li>
-</ul></li>
-<li><a href="#command-reference" id="toc-command-reference">Command
-Reference</a>
-<ul>
-<li><a href="#commands-available-from-anywhere-makefile" id="toc-commands-available-from-anywhere-makefile">Commands Available
-from Anywhere (<code>~/Makefile</code>)</a></li>
-<li><a href="#commands-from-mrk" id="toc-commands-from-mrk">Commands
-from <code>~/mrk/</code></a></li>
-</ul></li>
-<li><a href="#what-make-status-checks" id="toc-what-make-status-checks">What <code>make status</code>
-Checks</a></li>
-<li><a href="#state-files" id="toc-state-files">State Files</a></li>
-<li><a href="#troubleshooting" id="toc-troubleshooting">Troubleshooting</a></li>
-</ul>
-</nav></details>
-<div class="logo-banner">
-<p><img role="img" src="data:image/png;base64,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pcX7f/PXb1T35h+FHgmEEfD+K4y7XgnsKrB6/V/dr6r3P/f+X8eWn9TLCe5drZpdJ+r68gQWt6tP1k95MzdjAo8E7J+PLPypu0Au+6f1373mziRAYByBXPbPcTTCtPLTX/7y4r/+98/dCdN72b1a/2XXf6zZe/02lmS/dmK5f2sLoF/hnP24QCwL+fFReURgHgH75zzOufaS+v5p/ee6Ms2LQPwCqe+f8QtvH6H9f7vP1M9a/1ML592++zdsfWO4f/fCEuidAAECBAgQIECAAAECBAgQIECAAIGpBYSAUwtrnwABAgQIECBAgAABAgQIECBAgEBgASFg4ALongABAgQIECBAgAABAgQIECBAgMDUAkLAqYW1T4AAAQIECBAgQIAAAQIECBAgQCCwgBAwcAF0T4AAAQIECBAgQIAAAQIECBAgQGBqASHg1MLaJ0CAAAECBAgQIECAAAECBAgQIBBYQAgYuAC6J0CAAAECBAgQIECAAAECBAgQIDC1gBBwamHtEyBAgAABAgQIECBAgAABAgQIEAgsIAQMXADdEyBAgAABAgQIECBAgAABAgQIEJhaQAg4tbD2CRAgQIAAAQIECBAgQIAAAQIECAQWEAIGLoDuCRAgQIAAAQIECBAgQIAAAQIECEwtIAScWlj7BAgQIECAAAECBAgQIECAAAECBAILCAEDF0D3BAgQIECAAAECBAgQIECAAAECBKYWEAJOLax9AgQIECBAgAABAgQIECBAgAABAoEFhICBC6B7AgQIECBAgAABAgQIECBAgAABAlMLCAGnFtY+AQIECBAgQIAAAQIECBAgQIAAgcACQsDABdA9AQIECBAgQIAAAQIECBAgQIAAgakFhIBTC2ufAAECBAgQIECAAAECBAgQIECAQGABIWDgAuieAAECBAgQIECAAAECBAgQIECAwNQCQsCphbVPgAABAgQIECBAgAABAgQIECBAILCAEDBwAXRPgAABAgQIECBAgAABAgQIECBAYGoBIeDUwtonQIAAAQIECBAgQIAAAQIECBAgEFhACBi4ALonQIAAAQIECBAgQIAAAQIECBAgMLWAEHBqYe0TIECAAAECBAgQIECAAAECBAgQCCwgBAxcAN0TIECAAAECBAgQIECAAAECBAgQmFpACDi1sPYJECBAgAABAgQIECBAgAABAgQIBBYQAgYugO4J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d9kH3bvhl9SmeocfmRHELLBpP4h5zDmNbZd9NxYH+3/YSuyy92+6/ze1uen8HNbx0Cr+/Oc/v/DNP/qnHwy93nW7C2xar7u3HHcLm+7HTR6bzt/8cay45290BHYW8AJmZ8KdG1CDnQk1QIBAoQKbXvAVymHaPQSsnR5YE5zqtc8EqJokMKOAAHBG7Jau/A5rQel5SAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjJUCAAAECBAgQIECAAAECBAgQINBTQAjYE8zpBAgQIECAAAECBAgQIECAAAECBFITEAKmVjHjHVfgq9UL4zaoNQIECBAgQIAAAQJbBLz+3ILjKQIECBCYUkAIOKWutqMXeOrLF39wOsg6+oEaIAECBAgQIECAQBYCT13+stefWVTSJAgQIJCegBAwvZoZ8YgCH9z54JWjbx+89rkXfCJwRFZNESBAgAABApEK7F/z3z5Dl+aD9//2laNvef0Zug76J0CAQCoCY/7uPkhl0sZJYCqBB+8/fOW07Vf2rk7Vw+Z2F7d9CnGzjmcIECBAYCqBvev1cd1UN6ZqX7sECGwXeHDH68/tQp4lQIDA+AJe/1SVTwKOv660SKCzwGnw2HQ+2YkECBAgQGAEAS+AR0DUBIGEBbz+TLh4hk6AwGABr38+pRMCDl5CLiRAgAABAgQIpCfgE4Dp1cyICRAgQIAAgd0EvP751E8IuNs6cjUBAgQIECBAgAABAgQIECBAgACB6AWEgNGXyAAJECBAgAABAgQIECBAgAABAgQIPBJo6ur40aNufxICdnNyFgECBAgQIECAAAECBAgQIECAAIHgAssAcHGz6f0lb74dOHjpDCC0wMmt6b+bY8yv9A7tpX8CBAgQyFdgjt+J+eqlMTOvSeKo0xz3mlrHUWujIEAgfoE59uQJFHoHgMsx+CTgBJXQZDoCc93sc/WTjryREiBAgEBsAn5XxVaRacajztO49ml1rhrM1U+fuTuXAAECsQmUtlcKAWNbgcZDgAABAgQIECBAgAABAgQIECBAYGQBIeDIoJojQIAAAQIECBAgQIAAAQIECBAgEJuAEDC2ihgPAQIECBAgQIAAAQIECBAgQIAAgZEFhIAjg2ouLQH/YHJa9TJaAgQIECBAYDcBr3128xvjajUYQ1EbBAgQILBJYNvvGd8OvEnN8WIEtt0gfRCGfkV3nz6cS4AAAQIEQgjsXa+P66Ya9C10IcarTwKxC3j9GXuFjI8AAQKn36Sb4esfnwS0sgmMJLB8c7TcJEZqTjMECBAgQCAKgRxfAEcBaxAERhDw+nMERE0QIECgRSDX1z9CwJZiO0RgqIBPSQyVcx0BAgQIxCrgd1uslTEuAp8KuEetBAIECIwvkOveKgQcf61okQABAgQIECBAgAABAgQIECBAgEBUAkLAqMphMAQIECBAgAABAgQIECBAgAABAgTGFxACjm+qRQIECBAgQIAAAQIECBAgQIAAAQLRCCxuV7VvB46mHAYSSuDkVtO767G+0a13xy4gQIAAAQIRCQz5HRrR8IscitcwcZR9yL2jdnHUzigIECCwqKqvVberX6Uo4ZOAKVbNmEcTGPICbNn50OtGG7iGCBAgQIBAYAG/CwMXYGD36jYQbsTLhtZg6HUjDl1TBAgQKF4g5QBwWTwhYPFLGAABAgQIECBAgAABAgQIECBAgMATBRL9BOBqXkLAlYSfBAgQIECAAAECBAgQIECAAAECBDIVEAJmWljTIkCAAAECBAgQIECAAAECBAgQILASEAKuJPwkQIAAAQIECBAgQIAAAQIECBAgkKmAEDDTwpoWAQIECBAgQIAAAQIECBAgQIAAgZWAEHAl4ScBAgQIECBAgAABAgQIECBAgACBTAWEgJkW1rQIECBAgAABAgQIECBAgAABAgQIrASEgCsJPwkQIECAAAECBAgQIECAAAECBAhkKiAEzLSwpkWAAAECBAgQIECAAAECBAgQIEBgJSAEXEn4SYAAAQIECBAgQIAAAQIECBAgQCBTASFgpoU1LQIECBAgQIAAAQIECBAgQIAAAQIrASHgSsJPAgQIECBAgAABAgQIECBAgAABApkKCAEzLaxpESBAgAABAgQIECBAgAABAgQIEFgJCAFXEn4SIECAAAECBAgQIECAAAECBAgQyFRACJhpYU2LAAECBAgQIECAAAECBAgQIECAwEpACLiS8JMAAQIECBAgQIAAAQIECBAgQIBApgJCwEwLa1oECBAgQIAAAQIECBAgQIAAAQIEVgJCwJWEnwQIECBAgAABAgQIECBAgAABAgQyFRACZlpY0yJAgAABAgQIECBAgAABAgQIECCwEhACriT8JECAAAECBAgQIECAAAECBAgQIJCpgBAw08KaFgECBAgQIECAAAECBAgQIECAAIGVgBBwJeEnAQIECBAgQIAAAQIECBAgQIAAgUwFhICZFta0CBAgQIAAAQIECBAgQIAAAQIECKwEhIArCT8JECBAgAABAgQIECBAgAABAgQIZCogBMy0sKZFgAABAgQIECBAgAABAgQIECBAYCUgBFxJ+EmAAAECBAgQIECAAAECBAgQIEAgUwEhYKaFNS0CBAgQIECAAAECBAgQIECAAAECKwEh4ErCTwIECBAgQIAAAQIECBAgQIAAAQKZCggBMy2saREgQIAAAQIECBAgQIAAgZVAXderP/pJgEChAkLAQgtv2gQIECBAgAABAgQIECBAgAABAuUICAHLqbWZEiBAgAABAgQIECBAgAABAgQIFCogBCy08KZNgAABAgQIECBAgAABAgQIECBQjoAQsJxamykBAgQIECBAgAABAgQIECBAgEChAkLAQgtv2gQIECBAgAABAgQIECBAgAABAuUICAHLqbWZEiBAgAABAgQIECBAgAABAgQIFCogBCy08KZNgAABAgQIECBAgAABAgQIECBQjoAQsJxamykBAgQIECBAgAABAgQIECBAgEChAkLAQgtv2gSCC7xYnQ8+BgMgQIAAAQIECBAgQIBAFwHvX7ooOSdyASFg5AUyvPwFzn9z/0b+szw7w4uL898/e9QRAgQIECBAgEC+Ak1dHec7OzMrReDoBe9fSql1TPO0f45TDSHgOI5aSVRg/1o9aOTbrmt7ru3YquOPPjz5ydHvl/OL9MLz1ZVnX7ryo3sf3nt9ZeAnAQIECPQT2PZ7ZVtL265re67t2Kr9bc+tzvEzPoGD617+h6rK8g3s4mZT5H/8DWWeY79D997ldU3TtJK0tbltr3jw4OQn+wV9kOHC8xdO37886/1L6+qZ56D9czzneu9q1b4TjNeHlp4gcHIrzRK0/bJ4wlQ9TSA7AfdvdiWdbUK7rJ1N+++mNjedv7hdDfsvIadKXj/MtlR0RIBAi8Cm/a7l1KwObdrPN3lsOt/+n9WyMBkCvQQ27Re9Gknw5E374SaPTefvsn/GwOY/BQauwqYFF3hYnbpPeeydJugkAk8QSPkeSHnsTyiLp1sE6npw1tfSmkMECBAIK+B3WFh/vRMgkK6A/TPd2o01ciHgWJLaIUCAAAECkQps+us/kQ7XsAgQIECAAAECBAgQmEBACDgBqiYJECBAgEBMAj4JGFM1jIUAAQIECBAgQIBAGAEhYBh3vRIgQIAAgdkEfBJwNmodESBAgAABAgQIEIhWQAgYbWkMjAABAgQIECBAgAABAgQIECBAgMA4AkLAcRy1QoAAAQIECBAgQIAAAQIECBAgQCBaASFgtKUxMAIECBAgQIAAAQIECBAgQIAAAQLjCAgBx3HUCgECBAgQIECAAAECBAgQIECAAIFoBYSA0ZbGwAgQIECAAAECBAgQIECAAAECBAiMIyAEHMdRKwQIECBAgAABAgQIECBAgAABAgSiFRACRlsaAyNAgAABAgQIECBAgAABAgQIECAwjoAQcBxHrRAgQIAAAQIECBAgQIAAAQIECBCIVkAIGG1pDIwAAQIECBAgQIAAAQIECBAgQIDAOAJCwHEctUKAAAECBAgQIECAAAECBAgQIEAgWgEhYLSlMTACBAgQIECAAAECBAgQIECAAAEC4wgIAcdx1AoBAgQIECBAgAABAgQIECBAgACBaAWEgNGWxsAIECBAgAABAgQIECBAgAABAgQIjCMgBBzHUSsECBAgQIAAAQIECBAgQIAAAQIEohUQAkZbGgMjQIAAAQIECBAgQIAAAQIECBAgMI6AEHAcR60QIECAAAECBAgQIECAAAECBAgQiFZACBhtaQyMAAECBAgQIECAAAECBAgQIECAwDgCQsBxHLVCgAABAgQIECBAgAABAgQIECBAIFoBIWC0pTEwAgQIECBAgAABAgQIECBAgAABAuMICAHHcdQKAQIECBAgQIAAAQIECBAgQIAAgWgFhIDRlsbACBAgQIAAAQIECBAgQIAAAQIECIwjIAQcx1ErBAgQIECAAAECBAgQIECAAAECBKIVEAJGWxoDI0CAAAECBAgQIECAAAECBAgQIDCOgBBwHEetECBAgAABAgQIECBAgAABAgQIEIhWQAgYbWkMjAABAgQIECBAgAABAgQIECBAgMA4AkLAcRy1QoAAAQIECBAgQIAAAQIECBAgQCBaASFgtKUxMAIECBAgQIAAAQIECBAgQIAAAQLjCAgBx3HUCgECBAgQIECAAAECBAgQIECAAIFoBYSA0ZbGwAgQIECAAAECBAgQIECAAAECBAiMIyAEHMdRKwQIECBAgAABAgQIECBAgAABAgSiFRACRlsa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QAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCAAAECBAgQIECAAAECBAgQINBRQAjYEcppBAgQIECAAAECBAgQIECAAAECBFIVEAKmWjnjJkCA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AtsF7h3c//H2MzxLgAABAgQIECBAIKyA0DCsv94JxCTw93v3vIeNqSCBxiIEDASv28QF3qjuJT4DwydAgAABAgQIECBAgACBUgS8hy2l0lvnKQTcyuNJAgQIECBAgAABAgQIpCng24TTrJtREyBAYCoBIeBUstolQIAAAQIECBAgQIAAAQIECBAgEImAEDCSQhgGAQIECBAgQIAAAQIECBAgQIAAgakEhIBTyWqXAAECBAgQIECAAAECIwr0/eu9vhhkRHxNESBAIAMBIWAGRTQFAgQIECBAgAABAgQIECBAgAABAtsEhIDbdDxHgAABAgQIECBAgAABAgQIECBAIAMBIWAGRTQFAgQIECBAgAABAgQIECBAgAABAtsEhIDbdDxHgAABAgQIECBAgAABAgQIECBAIAMBIWAGRTQFAgQIECBAgAABAgQIECBAgAABAtsEhIDbdDxHgAABAgQIECBAgAABAgQIECBAIAMBIWAGRTQFAgQIECBAgAABAgQIECBAgAABAtsEhIDbdDxHgAABAgQIECBAgAABAgQIECBAIAMBIWAGRTQFAgQIECBAgAABAgTyF2iaptck67rudb6TCRAgQCBvASFg3vU1OwIECBAgQIAAAQIECBAgQIAAAQKVENAiIECAAAECBAgQIECAQAICfT/Z1/eTgwkQGCIBAgQI7CAgBNwBz6UECBAgQIAAAQIECBAgQIAAAQIEUhAQAqZQJWMkQIAAAQIECBAgQIAAAQIECBAgsIOAEHAHPJcSIECAAAECBAgQIECAAAECBAgQSEFACJhClYyRAAECBAgQIECAAAECBAgQIECAwA4CQsAd8FxKgAABAgQIECBAgACBWAX6fpFIrPMwLgIECBAYR0AIOI6jVggQIECAAAECBAgQIECAAAECBAhEKyAEjLY0BkaAAAECBAgQIECAAAECBAgQIEBgHAEh4DiOWiFAgAABAgQIECBAgAABAgQIECAQrYAQMNrSGBgBAgQIECBAgAABAgQIECBAgACBcQSEgOM4aoUAAQIECBAgQIAAAQIECBAgQIBAtAJCwGhLY2AECBAgQIAAAQIECBAgQIAAAQIExhEQAo7jqBUCBAgQIECAAAECBAgQIECAAAEC0QoIAaMtjYERIECAAAECBAgQIECAAAECBAgQGEdACDiOo1YIECBAgAABAgQIECBAgAABAgQIRCsgBIy2NAZGgAABAgQIECBAgACBRwJN0zx64E8ECBAgQKCngBCwJ5jTCRAgQIAAAQIECBAgQIAAAQIECKQmIARMrWLGS4AAAQIECBAgQIBAkQJ1XRc5b5MmQIAAgXEEhIDjOGqFAAECBAgQIECAAAECBAgQIECAQLQCQsBoS2NgBAgQIECAAAECBAgQIECAAAECBMYREAKO46gVAgQIECBAgAABAgQIECBAgAABAtEKCAGjLY2BESBAgAABAgQIECBAgAABAgQIZCHwlepK6HkIAUNXQP8ECBAgQIAAAQIECBAgQIAAAQJZC3zx8jMvh56gEDB0BfRfvMD+Nd/y1ncRMOsr5nwCBAgQIECAAAECBAgQCCnw29++++rRi4d/Ur1YnQ81joNQHeuXAIFHAkKtRxb+RIAAAQIECBAgQIAAAQIEchR4cPfB66efxnu9ujr/7Ba3q9onAed31yMBAgQIECBAgAABAgQIECBAgACB2QT2rlaNEHA2bh0RIECAAAECBAgQIECAAAECBAgQCCMgBAzjrlcCBAgQIECAAAECBAgQIDCbQNM0s/WlIwIE4hQQAsZZF6PKUKCpq+MMpxXVlBhHVQ6DIUCAAAECBAgQIECAAIGIBISAERXDUPIWWNxsbgippqvx0nZpPF0PWiZAgAABAgQIECBAgAABAukK+HbgdGtn5AkKCKkmLZoAcFJejRMgQIAAAQIECKQsUNd15a8Ep1xBY89B4OTW9H8tf/9avZHKJwE30niCAAECBAgQIECAAAECBAiUKSAwLLPuZj2dwBwB4HL02/oRAk5XXy0TIECAAAECBAgQIECAAAECBAgQiEJACBhFGQyCAAECBAgQIECAAAECBAjEI7D868P+R4BAXgJCwLzqaTYECBAgQIAAAQIECBAgQIAAAQIEzggIAc+QOEBgN4Ft/wjnbi27eqiAmgyVcx0BAgQIECBAgAABAgQIjCEQw/tS3w48RiW1QWBNIIabe21IHhIgQIAAAQIECBAgULCAL/oouPimHo3AWFlBU1fHi5vNjb4T80nAvmLOJ0CAAAECBAgQIECAAAECBAgQIBBIoG6qG3vX6+O+3QsB+4o5nwABAgQIECBAgAABAgQIECBAgEBAgWUQ2Ld7IWBfMecTIECwWHj/AAAOl0lEQVSAAAECBAgQIECAAIHMBfz14cwLbHpFCggBiyy7SRMgQIAAAQIECBAgQIBASQJ1XZc0XXMlQKBFQAjYguIQgS4Ci9uV36JdoCI+Rw0jLo6hESBAgAABAgQIECBAgMCoAr4deFROjZUmIEQqreLmS4AAAQIECBAgQKAMgeUnB/2V4DJqbZbzCZzcanp3NtY3Ci879knA3vwuIECAAAECBAgQIECAAAECBAgQINBdYEgAuGx96HVtIxMCtqk4RoAAAQIECBAgQIAAAQIECBAgQCAjASFgRsU0FQIECBAgQIAAAQIECBAgQIAAAQJtAkLANhXHCBAgQIAAAQIECBAgQIAAAQIECGQkIATMqJimQoAAAQIECBAgQIAAAQIECBAgQKBNQAjYpuIYAQIECBAgQIAAAQIECBAoWMA3AxdcfFPPVkAImG1pTYwAAQIECBAgQIAAAQIECBAgQIDApwJCQCuBAAECBAgQIECAAAECBAgQIECAQOYCQsDMC2x6BAgQIECAAAECBAgQIECAAAECBISA1gABAgQIECBAgAABAgQIECDwmEBd14899oAAgfQFhIDp19AMCBAgQIAAAQIECBAgQIAAAQIECGwVEAJu5fEkAQIECBAgQIAAAQIECBAoT8C3A5dXczPOX0AImH+NzZAAAQIECBAgQIAAAQIECPQS8NeBe3E5mUASAkLAJMpkkAQIECBAgAABAgQIECBAgAABAgSGCwgBh9u5kgABAgQIECBAgAABAgQIECBAgEASAkLAJMpkkAQIECBAgAABAgQIECBAgAABAgSGCwgBh9u5kgABAgQIECBAgAABAgQIECBAgEASAkLAJMpkkAQIECBAgAABAgQIECBAYLhA32/77Xv+8JG5kgCBuQSEgHNJ64cAAQIECBAgQIAAAQIECBAgQIBAIAEhYCB43RIgQIAAAQIECBAgQIAAAQIECBCYS0AIOJe0fggQIECAAAECBAgQIECAAAECBAgEEhACBoLXLQECBAgQIECAAAECBAgQIECAAIG5BISAc0nrhwABAgQIECBAgAABAgQIECBAgEAgASFgIHjdEiBAgAABAgQIECBAgAABAgQIEJhLQAg4l7R+CBAgQIAAAQIECBAgQIBAIIG6rnv13Pf8Xo07mQCBIAJCwCDsOiVAgAABAgQIECBAgAABAgQIECAwn4AQcD5rPREgQIAAAQIECBAgQIAAAQIECBAIIiAEDMKuUwIECBAgQIAAAQIECBAgMJ9A0zS9Out7fq/GnUyAQBABIWAQdp0SIECAAAECBAgQIECAAAECBAgQmE9ACDiftZ4IECBAgAABAgQIECBAgAABAgQIBBEQAgZh1ykBAgQIECBAgAABAgQIECBAgACB+QSEgPNZ64kAAQIECBAgQIAAAQIECBAgQIBAEAEhYBB2nRIgQIAAAQIECBAgQIAAAQIECBCYT0AIOJ+1nggQIECAAAECBAgQIECAAAECBAgEERACBmHXKQECBAgQIECAAAECBAgQIECAAIH5BISA81nriQABAgQIECBAgAABAgQIJCFQ13US4zRIAgS6CwgBu1s5kwABAgQIECBAgAABAgQIFCHQNE0R8zRJAiUJCAFLqra5EiBAgAABAgQIECBAgAABAgQIFCkgBCyy7CZNgAABAgQIECBAgAABAgQIECBQkoAQMGC1m7o6Dti9rgkQIEAgkID9PxB8Jt1aP5kU0jSKFHD/Fln20SZt/YxGqSECswvEcv/uLW5X/rXP2ctfVcsFsLjZ3AjQtS4JECDwiYD9P8xCyGX/t36snzACeh1DwP07hmL/Nuz//c1c8Uggl/XzaEb+FELA/h9CPa7852BJ0GchXHi+unLp8rMvv/Wb37y6je/k1uP/iOj+te1Z4/r529rO5DkBYCaFNA0CKQv03f8vX/6HL//f37xl/9+t6Nns/33Xz6UvXXr5rXf+zvqxfnYTcPUoAn3v3yH7/8H1vWrbFwt4/T9KKYM00nf9DNn/rZ8zpc3m9cOZmTkwq0Df+3fI/i//OVPSaO7f3n8d+O4vqrd//dPfvHZ4dPjDM9P6/wfafqG3HVtdv+251Tl+EiBAgEBYgeX+/39++pb9P2wZku39k9cPP/u71w4PvH5ItogGXqzA0P3/4c1FVdftHwTw+r+c5TR0/7d+ylkjZhqvwND9f9sev+25eCXyGVnvEHA19fsHD368+rOfBAgQIFCOgP2/nFpPMdP7R14/TOGqTQJzCNj/51DOtw/7f761NbP8Bez/+dR4cAhYvVHdy4fBTAgQIECgs4D9vzOVE1sErJ8WFIcIJCLg/k2kUJEO0/qJtDCGRaCDgPu3A1IapwwPAdOYn1ESIECAAAECBAgQIECAAAECBAgQKF5ACFj8EgBAgAABAgQIECBAgAABAgQIECCQu4AQMPcKmx8BAgQIECBAgAABAgQIECBAgEDxAkLA4pcAAAIECBAgQIAAAQIECBAgQIAAgdwFhIC5V9j8CBAgQIAAAQIECBAgQIAAAQIEihcQAha/BAAQIECAAAECBAgQIECAAAECBAjkLiAEzL3C5keAAAECBAgQIECAAAECBAgQIFC8gBCw+CUAgAABAgQIECBAgAABAgQIECBAIHcBIWDuFTY/AgQIECBAgAABAgQIECBAgACB4gWEgMUvAQAECBAgQIAAAQIECBAgQIAAAQK5CwgBc6+w+REgQIAAAQIECBAgQIAAAQIECBQvIAQsfgkAIECAAAECBAgQIECAAAECBAgQyF1ACJh7hc2PAAECBAgQIECAAAECBAgQIECgeAEhYPFLAAABAgQIECBAgAABAgQIECBAgEDuAkLA3CtsfgQIECBAgAABAgQIZCHQNE0W8zAJAgQIEAgjIAQM465XAgQIECBAgAABAgQIECBAgAABArMJCAFno9YRAQIECBAgQIAAAQIECBAgQIAAgTACQsAw7nolQIAAAQIECBAgQIAAAQKzCdR1PVtfOiJAIE4BIWCcdTEqAgQIECBAgAABAskL+Dfski+hCWQk4H7MqJgJTEXoHGeRhIBx1sWoCBAgQIAAAQIECBAgQIAAAQIECIwmIAQcjVJDBAgQIECAAAECBAgQIECAAAECBOIUEALGWRejIkCAAAECBAgQIECAwGMC/nrdYxweECAQsYC/fh5ncYSAcdbFqAgQIECAAAECBAgQIECAAAECBAiMJiAEHI1SQwQIECBAgAABAgQIECBAgAABAgTiFBACxlkXoyJAgAABAgQIECCQvIC/vpp8CU2AAAECBDISEAJmVExTIUCAAAECBAgQIECAAAECBAgQINAmIARsU3GMAAECBAgQIECAAAECBAgQIECAQEYCQsCMimkqBAgQIECAAAECBGIS8O2QMVXDWAgQIECgdAEhYOkrwPwJECBAgAABAgQITCTg3wScCFazBAgQIEBggIAQcACaSwgQIECAAAECBAgQIECAAAECBNoF/EegdpfQR4WAoSugfwIECBAgQIAAAQIECBAgQIAAAQITCwgBJwbWPAECBAgQIECAAAECBAgQIECAAIHQAkLA0BXQPwECBAgQIECAAAECBAgQIECAAIGJBYSAEwNrngABAgQIECBAgAABAgQIECBAgEBoASFg6AronwABAgQIECBAgAABAgTOCDRNc+aYAwQIECAwXEAIONzOlQQIECBAgAABAgQIECBAgAABAgSSEBACJlEmgyRAgAABAgQIECBAgAABAgQIECAwXCCKEHD/Wj18BoVeyazQwps2gcwE7GX9C8rskRmLRxZd/8Ssq5TzphawFvsLL81K++uxdd3+PtH6GbZ++l/lCgLjC7h/+5uOaXbQv/tprhhzUtOMUKsECBAgMIWA/X8K1XLatH7KqbWZ5ifg/s2vpnPOyPqZU1tfBMYVcP+O69mntSg+CdhnwM4lQIAAAQIECBAgQIAAAQIECBAgQKCfgBCwn5ezCRAgQIAAAQIECBAgQIAAAQIECCQnIARMrmQGTIAAAQIECBAgQIAAAQIECBAgQKCfwKwhYFNXx/2G5+y+Aoz7ijmfAIE5BOxN0yvnbJzz3KZfGd16YNzNyVkDBLz+H4DW75Ks71/rp99iGHB21utngIdLRhRw/46I2d7UkPt31hDw7s+bG0MG2T5dR9cFlraLm82N9eMeEyBAILTAe//z4R/Y/6erQu77/73/5fXDdKunqnJfP1PaafvJAu+/8fBf2f+f7DT0jNzv34e/XHj/OHRxdLgu9/XTgcApEwq89z8eftf+Px3w0Pu3/TvXO45z72rVtJ16cqv1cNupjs0osOkbeBa3q53WwYxT0BUBApEI2P8jKUTHYcS2/1s/HQsXyWmxrZ9IWIodhvs3rdIfXN+rmubse7NQr/+tn7TWj/0/rXpNPVr379TC47a/6f6d9ZOA405JawQIECBAgAABAgQIECBAgAABAgQIdBEQAnZRcg4BAgQIECBAgAABAgQIECBAgACBhAWEgAkXz9AJECBAgAABAgQIECBAgAABAgQIdBEQAnZRcg4BAgQIECBAgAABAgQIECBAgACBhAUmCQE3/QOECTslP3Q1Sb6EJkAgCQF7TXxlSqkmKY01vkpPMyI1mcY1x1atlfiquulLQeIbaVVZP/FVRU3iq0msI7JW4qvMtpocTDXcbZ1O1ad2CRAgQCC8gP0/fA1SHoH1k3L1jL10Afdv6Stgt/lbP7v5uZpASAH3b0j9fn1P8knAfkNwNgECBAgQIECAAAECBAgQIECAAAECUwoIAafU1TYBAgQIECBAgAABAgQIECBAgACBCASEgBEUwRAIECBAgAABAgQIECBAgAABAgQITCkgBJxSV9sECBAgQIAAAQIECBAgQIAAAQIEIhCodx3D3tWq2bUN14cTWNyudl4D4UavZwIEQgrY/0Pq79536P3f+tm9hiFbCL1+Qs5d31Xl/k17FYS+f60f6ydtgbJH7/5Nu/7L/f//AbC3rdSAtGiYAAAAAElFTkSuQmCC" /></p>
-</div>
-<h1 id="overview">Overview</h1>
-<p><strong>mrk</strong> is a personal, opinionated macOS bootstrap
-system tailored to my workflow and toolset. It automates the
-configuration of a Mac from a clean install, managing the shell
-environment, dotfiles, macOS system preferences, Homebrew packages, app
-settings, login items, and personal app preferences.</p>
-<p><strong>Key repositories:</strong></p>
-<table>
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 33%" />
-<col style="width: 33%" />
-</colgroup>
-<thead>
-<tr>
-<th>Repo</th>
-<th>Location</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>sevmorris/mrk</code></td>
-<td><code>~/mrk</code></td>
-<td>Public bootstrap repo</td>
-</tr>
-<tr>
-<td><code>sevmorris/mrk-prefs</code></td>
-<td><code>~/.mrk/preferences/</code></td>
-<td>Private app preferences</td>
-</tr>
-</tbody>
-</table>
-<p>The two-repo split keeps personal preference data (iTerm2 profiles,
-Raycast settings, etc.) out of the public repo while still making them
-fully portable across machines.</p>
-<p>As long as both repos are kept current, the entire setup can be fully
-restored on a new machine from scratch — nothing needs to be manually
-transferred. The repos are the source of truth.</p>
-<blockquote>
-<p><strong>Adapting for your own use:</strong> This project is built
-around a specific setup. If you fork it, you’ll need to replace
-<code>sevmorris/mrk-prefs</code> with your own private preferences repo,
-swap in your own dotfiles, and review the app lists in
-<code>scripts/post-install</code> and
-<code>scripts/snapshot-prefs</code> to match your environment.</p>
-</blockquote>
-<hr />
-<h1 id="how-it-works-the-three-phases">How It Works — The Three
-Phases</h1>
-<h2 id="phase-1-setup-make-setup">Phase 1 — Setup
-(<code>make setup</code>)</h2>
-<p>Script: <code>scripts/setup</code></p>
-<p>Sets up the foundational shell environment on a new or existing
-machine.</p>
-<p><strong>What it does:</strong></p>
-<ul>
-<li>Installs Xcode Command Line Tools if not present</li>
-<li>Links everything in <code>dotfiles/</code> into <code>$HOME</code>
-as symlinks (with automatic backups of any existing files)</li>
-</ul>
-<p><strong>Managed dotfiles:</strong></p>
-<table>
-<thead>
-<tr>
-<th>File</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>.aliases</code></td>
-<td>Shell aliases</td>
-</tr>
-<tr>
-<td><code>.gitconfig</code></td>
-<td>Git configuration</td>
-</tr>
-<tr>
-<td><code>.hushlogin</code></td>
-<td>Suppresses “Last login” terminal message</td>
-</tr>
-<tr>
-<td><code>.zprofile</code></td>
-<td>Zsh login shell profile</td>
-</tr>
-<tr>
-<td><code>.zshenv</code></td>
-<td>Zsh environment variables</td>
-</tr>
-<tr>
-<td><code>.zshrc</code></td>
-<td>Zsh interactive shell config</td>
-</tr>
-<tr>
-<td><code>Makefile</code></td>
-<td>mrk commands available from <code>~/</code></td>
-</tr>
-</tbody>
-</table>
-<ul>
-<li>Links <code>scripts/</code> and <code>bin/</code> into
-<code>~/bin</code> so tools are on your PATH</li>
-<li>Applies macOS system preferences via
-<code>scripts/defaults.sh</code></li>
-<li>Sets Zsh as the login shell</li>
-<li>Generates a rollback script at
-<code>~/.mrk/defaults-rollback.sh</code></li>
-</ul>
-<p><strong>Options:</strong></p>
-<pre><code>make setup --only dotfiles    # Link dotfiles only
+
+<nav>
+  <div class="nav-header">
+    <span class="nav-to-num">TO MRK-1</span>
+    <span class="nav-title">mrk<br>Bootstrap Manual</span>
+  </div>
+  <a class="section-head">Sect. 1 — Overview</a>
+  <a href="#overview">1. Overview</a>
+  <a class="section-head">Sect. 2 — Install</a>
+  <a href="#phase1">2.1 Phase 1 — Setup</a>
+  <a href="#phase2">2.2 Phase 2 — Homebrew</a>
+  <a href="#phase3">2.3 Phase 3 — Post-Install</a>
+  <a class="section-head">Sect. 3 — Day-to-Day</a>
+  <a href="#brewfile">3.1 Brewfile</a>
+  <a href="#prefs">3.2 Preferences</a>
+  <a href="#this-manual">3.3 This Manual</a>
+  <a class="section-head">Sect. 4 — Migration</a>
+  <a href="#pre-migration">4.1 Pre-Migration</a>
+  <a href="#new-machine">4.2 New Machine</a>
+  <a class="section-head">Sect. 5 — Reference</a>
+  <a href="#commands">5.1 Commands</a>
+  <a href="#status-checks">5.2 Status Checks</a>
+  <a href="#state-files">5.3 State Files</a>
+  <a href="#troubleshooting">5.4 Troubleshooting</a>
+</nav>
+
+<main>
+
+  <header>
+    <div class="doc-masthead">
+      <div class="masthead-org">Personal Systems Branch<br>macOS Bootstrap</div>
+      <div class="masthead-center">
+        <span class="masthead-doctype">Technical Manual</span>
+        <div class="masthead-title">mrk — macOS Bootstrap</div>
+      </div>
+      <div class="masthead-meta">
+        TO MRK-1<br>
+        DATED: 2026-03-10<br>
+        PAGES: N/A
+      </div>
+    </div>
+    <div class="doc-infobar">
+      <div class="infobar-cell">
+        <span class="lbl">TO Number</span>
+        <span class="val">MRK-1</span>
+      </div>
+      <div class="infobar-cell">
+        <span class="lbl">Platform</span>
+        <span class="val">macOS 15+</span>
+      </div>
+      <div class="infobar-cell">
+        <span class="lbl">Source Repo</span>
+        <span class="val">sevmorris/mrk</span>
+      </div>
+      <div class="infobar-cell">
+        <span class="lbl">Classification</span>
+        <span class="val">UNCLASSIFIED</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section id="overview">
+      <div class="section-heading">
+        <span class="section-num">1.</span>
+        <h2>Overview</h2>
+      </div>
+      <p><strong>mrk</strong> is a personal, opinionated macOS bootstrap system tailored to a specific workflow and toolset. It automates the configuration of a Mac from a clean install, managing the shell environment, dotfiles, macOS system preferences, Homebrew packages, app settings, login items, and personal app preferences.</p>
+
+      <table class="ref-table">
+        <caption>Table 1-1. Key Repositories</caption>
+        <thead>
+          <tr><th>Repo</th><th>Local Path</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>sevmorris/mrk</td><td><code>~/mrk</code></td><td>Public bootstrap repo</td></tr>
+          <tr><td>sevmorris/mrk-prefs</td><td><code>~/.mrk/preferences/</code></td><td>Private app preferences</td></tr>
+        </tbody>
+      </table>
+
+      <p>The two-repo split keeps personal preference data (iTerm2 profiles, Raycast settings, etc.) out of the public repo while still making them fully portable across machines. As long as both repos are kept current, the entire setup can be fully restored on a new machine from scratch.</p>
+
+      <div class="callout">
+        <span class="callout-label">Note — Adapting for Your Own Use</span>
+        <div class="callout-body">This project is built around a specific setup. If you fork it, replace <code>sevmorris/mrk-prefs</code> with your own private preferences repo, swap in your own dotfiles, and review the app lists in <code>scripts/post-install</code> and <code>scripts/snapshot-prefs</code> to match your environment.</div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section>
+      <div class="section-heading">
+        <span class="section-num">2.</span>
+        <h2>Install Phases</h2>
+        <span class="section-sub">three-phase bootstrap</span>
+      </div>
+
+      <div class="proc" id="phase1">
+        <div class="proc-header">
+          <span class="proc-num">2.1</span>
+          <h3>Phase 1 — Setup</h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">Script: <code>scripts/setup</code>. Sets up the foundational shell environment on a new or existing machine.</p>
+          <p><strong>What it does:</strong></p>
+          <ul>
+            <li>Installs Xcode Command Line Tools if not present</li>
+            <li>Links everything in <code>dotfiles/</code> into <code>$HOME</code> as symlinks (with automatic backups of any existing files)</li>
+            <li>Links <code>scripts/</code> and <code>bin/</code> into <code>~/bin</code> so tools are on PATH</li>
+            <li>Applies macOS system preferences via <code>scripts/defaults.sh</code></li>
+            <li>Sets Zsh as the login shell</li>
+            <li>Generates a rollback script at <code>~/.mrk/defaults-rollback.sh</code></li>
+          </ul>
+
+          <table class="ref-table" style="margin-top:14px;">
+            <caption>Table 2.1-1. Managed Dotfiles</caption>
+            <thead><tr><th>File</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>.aliases</td><td>Shell aliases</td></tr>
+              <tr><td>.gitconfig</td><td>Git configuration</td></tr>
+              <tr><td>.hushlogin</td><td>Suppresses "Last login" terminal message</td></tr>
+              <tr><td>.zprofile</td><td>Zsh login shell profile</td></tr>
+              <tr><td>.zshenv</td><td>Zsh environment variables</td></tr>
+              <tr><td>.zshrc</td><td>Zsh interactive shell config</td></tr>
+              <tr><td>Makefile</td><td>mrk commands available from <code>~/</code></td></tr>
+            </tbody>
+          </table>
+
+          <pre><code>make setup                    # Full Phase 1
+make setup --only dotfiles    # Link dotfiles only
 make setup --only tools       # Link scripts/bin only
 make setup --only defaults    # Apply macOS defaults only
-make setup --dry-run          # Preview changes without applying
-make dotfiles                 # Shorthand for --only dotfiles
-make tools                    # Shorthand for --only tools
-make defaults                 # Shorthand for --only defaults
-make trackpad                 # Apply defaults including trackpad settings</code></pre>
-<h2 id="phase-2-homebrew-make-brew">Phase 2 — Homebrew
-(<code>make brew</code>)</h2>
-<p>Script: <code>scripts/brew</code></p>
-<p>Installs Homebrew and all packages listed in the
-<code>Brewfile</code>.</p>
-<p><strong>What it does:</strong></p>
-<ul>
-<li>Installs Homebrew if not present</li>
-<li>Runs <code>brew bundle install</code> from the Brewfile</li>
-<li>Presents interactive prompts for packages that are new (not
-previously installed)</li>
-<li>Uses the mrk-picker TUI or <code>gum</code> to let you select which
-packages to accept</li>
-</ul>
-<h2 id="phase-3-post-install-make-post-install">Phase 3 — Post-Install
-(<code>make post-install</code>)</h2>
-<p>Script: <code>scripts/post-install</code></p>
-<p>Configures installed apps. Must be run after Phase 2.</p>
-<p><strong>What it does:</strong></p>
-<ul>
-<li><strong>Topgrade:</strong> Links <code>assets/topgrade.toml</code>
-to <code>~/.config/topgrade.toml</code></li>
-<li><strong>Browsers:</strong> Applies Safari defaults, Chrome/Brave
-managed policies, Helium defaults; opens extension install URLs on
-request</li>
-<li><strong>App defaults:</strong> Applies <code>defaults write</code>
-settings for Audio Hijack, Fission, AlDente, Rogue Amoeba update
-settings</li>
-<li><strong>Preferences auto-pull:</strong> If
-<code>~/.mrk/preferences/</code> is absent and SSH is authenticated to
-GitHub, automatically clones <code>mrk-prefs</code></li>
-<li><strong>Plist imports</strong> (15 apps): Imports personal
-preference plists; skips any app that already has a preferences file
-(non-destructive)</li>
-<li><strong>App Support restore:</strong> Restores Loopback and
-SoundSource configuration files (non-destructive)</li>
-<li><strong>Login items:</strong> Registers AlDente, Dropbox, Ice, Hot,
-Raycast, Stats, BetterSnapTool, Chrono Plus as login items</li>
-</ul>
-<p><strong>Managed app preferences:</strong></p>
-<table>
-<thead>
-<tr>
-<th>App</th>
-<th>Plist imported</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>BetterSnapTool</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>Ice</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>iTerm2</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>Raycast</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>Stats</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>Loopback</td>
-<td>✓ + App Support files</td>
-</tr>
-<tr>
-<td>SoundSource</td>
-<td>✓ + App Support files</td>
-</tr>
-<tr>
-<td>Audio Hijack</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>Farrago</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>Piezo</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>Typora</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>Hot</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>Keka</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>TimeMachineEditor</td>
-<td>✓</td>
-</tr>
-<tr>
-<td>MacWhisper</td>
-<td>✓</td>
-</tr>
-</tbody>
-</table>
-<h2 id="full-install">Full Install</h2>
-<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> all        <span class="co"># Runs setup + brew + post-install in sequence</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">exec</span> zsh        <span class="co"># Reload shell after setup</span></span></code></pre></div>
-<hr />
-<h1 id="day-to-day-workflow">Day-to-Day Workflow</h1>
-<h2 id="keeping-the-brewfile-current">Keeping the Brewfile Current</h2>
-<p>Two tools cover day-to-day Brewfile management:</p>
-<p><strong><code>bf</code></strong> — interactive TUI for browsing,
-adding, deleting, and moving Brewfile entries:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">bf</span>                    <span class="co"># Open the Brewfile manager TUI</span></span></code></pre></div>
-<p><strong><code>sync</code></strong> — scan installed packages, diff
-against the Brewfile, and add anything missing:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sync</span>                  <span class="co"># Interactive — opens mrk-picker TUI to select packages</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sync</span> <span class="at">-n</span>               <span class="co"># Dry run — show what would be added, make no changes</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sync</span> <span class="at">-c</span>               <span class="co"># Auto-commit the Brewfile after updating</span></span></code></pre></div>
-<p><strong>How sync works:</strong></p>
-<ol type="1">
-<li>Reads the Brewfile to build a list of already-tracked packages</li>
-<li>Runs <code>brew leaves</code> (top-level formulae) and
-<code>brew list --cask</code> to see what’s installed</li>
-<li>Computes the diff — packages installed but not yet in the
-Brewfile</li>
-<li>Opens <strong>mrk-picker</strong> TUI: use <code>Space</code> to
-select packages, <code>Enter</code> to confirm, <code>q</code> to
-quit</li>
-<li>For each selected formula, prompts via <code>gum</code> to choose
-which Brewfile section to add it to</li>
-<li>Casks are auto-assigned to the existing cask section</li>
-<li>Inserts each entry alphabetically within its section</li>
-</ol>
-<blockquote>
-<p><strong>Note:</strong> The mrk-picker binary lives at
-<code>bin/mrk-picker</code> (gitignored, platform-specific). If it’s
-missing, rebuild it first with <code>make picker</code>.</p>
-</blockquote>
-<h2 id="keeping-app-preferences-current">Keeping App Preferences
-Current</h2>
-<p>After configuring an app, run <code>snapshot-prefs</code> to capture
-and push the preferences.</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">snapshot-prefs</span></span></code></pre></div>
-<p><strong>How snapshot-prefs works:</strong></p>
-<ol type="1">
-<li>Exports the preference plist for each managed app using
-<code>defaults export</code></li>
-<li>Commits all changes to <code>~/.mrk/preferences/</code> with a
-timestamped message</li>
-<li>Pushes to <code>sevmorris/mrk-prefs</code> on GitHub</li>
-</ol>
-<p>Snapshots are idempotent — if nothing changed, it reports “No changes
-to push.”</p>
-<h2 id="pulling-app-preferences">Pulling App Preferences</h2>
-<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">pull-prefs</span></span></code></pre></div>
-<p>Clones <code>mrk-prefs</code> into <code>~/.mrk/preferences/</code>
-if it doesn’t exist, or fast-forward pulls if it does.</p>
-<blockquote>
-<p><strong>Note:</strong> <code>make post-install</code> does this
-automatically if <code>~/.mrk/preferences/</code> is absent and your SSH
-key is authenticated with GitHub.</p>
-</blockquote>
-<h2 id="updating-this-manual">Updating This Manual</h2>
-<p>The manual source lives in the repo at <code>docs/manual.md</code>.
-After editing it, regenerate the HTML and commit:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit the source</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="va">$EDITOR</span> ~/mrk/docs/manual.md</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Regenerate the site HTML (requires pandoc)</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> manual</span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Commit and push both files</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add docs/manual.md docs/index.html</span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">&quot;docs: update manual&quot;</span></span>
-<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push</span></code></pre></div>
-<p>GitHub Pages picks up the change automatically — the site at
-<code>sevmorris.github.io/mrk</code> updates within a minute of the
-push.</p>
-<blockquote>
-<p><strong>Note:</strong> Only edit <code>docs/manual.md</code> — never
-edit <code>docs/index.html</code> directly, as it is overwritten by
-<code>make manual</code>.</p>
-</blockquote>
-<hr />
-<h1 id="before-migrating-to-a-new-machine">Before Migrating to a New
-Machine</h1>
-<p>Run these steps on the <strong>old machine</strong> before you
-transfer.</p>
-<p><strong>1. Sync the Brewfile</strong></p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync ARGS=-c</span></code></pre></div>
-<p>Captures any packages installed since the last sync and commits the
-updated Brewfile.</p>
-<p><strong>2. Snapshot app preferences</strong></p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> snapshot-prefs</span></code></pre></div>
-<p>Exports and pushes all 15 app preference plists plus Application
-Support files. Verify the push succeeded — you should see “Pushed to
-git@github.com:sevmorris/mrk-prefs.git” in the output.</p>
-<p><strong>3. Push any pending mrk changes</strong></p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> status</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push</span></code></pre></div>
-<p><strong>4. Verify SSH authentication</strong></p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> <span class="at">-T</span> git@github.com</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Expected: Hi sevmorris! You&#39;ve successfully authenticated...</span></span></code></pre></div>
-<p>The new machine needs your SSH key to auto-pull mrk-prefs during
-<code>make post-install</code>.</p>
-<p><strong>5. Note anything not covered by mrk</strong></p>
-<p>Write down any apps, license keys, or configurations not yet
-automated:</p>
-<ul>
-<li>App Store apps (manually reinstall from Purchases)</li>
-<li>Software licenses (export from your license manager)</li>
-<li>Any manual system settings not captured by
-<code>defaults write</code></li>
-<li>VPN configurations, certificates, etc.</li>
-</ul>
-<hr />
-<h1 id="setting-up-a-new-machine">Setting Up a New Machine</h1>
-<h2 id="prerequisites">Prerequisites</h2>
-<ul>
-<li>macOS 15 or later</li>
-<li>Active internet connection</li>
-<li>Your GitHub SSH key (or ability to create and add one)</li>
-</ul>
-<h2 id="step-1-clone-mrk">Step 1 — Clone mrk</h2>
-<p><strong>If SSH is already set up:</strong></p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> ~/Projects</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone git@github.com:sevmorris/mrk.git ~/mrk</span></code></pre></div>
-<p><strong>If SSH is not yet configured</strong> (fresh machine), clone
-over HTTPS first:</p>
-<div class="sourceCode" id="cb13"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> ~/Projects</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/sevmorris/mrk.git ~/mrk</span></code></pre></div>
-<p>Then generate and add your SSH key to GitHub before continuing, so
-mrk-prefs can be pulled automatically in Phase 3.</p>
-<h2 id="step-2-phase-1-shell-dotfiles">Step 2 — Phase 1: Shell &amp;
-Dotfiles</h2>
-<div class="sourceCode" id="cb14"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> setup</span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="bu">exec</span> zsh        <span class="co"># Reload shell to pick up dotfiles and ~/bin</span></span></code></pre></div>
-<p>After this step, the shell is configured, dotfiles are linked, and
-macOS system preferences are applied.</p>
-<h2 id="step-3-if-needed-add-ssh-key-to-github">Step 3 — (If needed) Add
-SSH Key to GitHub</h2>
-<p>If you cloned over HTTPS, add your SSH key now before running Phase
-3:</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate a new key</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh-keygen</span> <span class="at">-t</span> ed25519 <span class="at">-C</span> <span class="st">&quot;your-email@example.com&quot;</span></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Copy the public key</span></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> ~/.ssh/id_ed25519.pub <span class="kw">|</span> <span class="ex">pbcopy</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Add to GitHub: github.com → Settings → SSH and GPG keys → New SSH key</span></span>
-<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Then verify:</span></span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> <span class="at">-T</span> git@github.com</span></code></pre></div>
-<h2 id="step-4-phase-2-homebrew">Step 4 — Phase 2: Homebrew</h2>
-<div class="sourceCode" id="cb16"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> brew</span></code></pre></div>
-<p>Installs Homebrew (if needed) and all packages from the Brewfile.
-This step takes the most time depending on how many packages are in the
-Brewfile.</p>
-<h2 id="step-5-phase-3-app-configuration">Step 5 — Phase 3: App
-Configuration</h2>
-<div class="sourceCode" id="cb17"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> post-install</span></code></pre></div>
-<p>This configures apps, imports your personal preferences, and sets up
-login items. If SSH is authenticated, it automatically pulls your
-preferences from <code>mrk-prefs</code>.</p>
-<p>If <code>~/.mrk/preferences/</code> is not populated (SSH wasn’t
-ready), run manually:</p>
-<div class="sourceCode" id="cb18"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> pull-prefs</span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> post-install   <span class="co"># Re-run to import plists</span></span></code></pre></div>
-<h2 id="step-6-verify-the-installation">Step 6 — Verify the
-Installation</h2>
-<div class="sourceCode" id="cb19"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> status     <span class="co"># Check dotfiles, tools, shell, Homebrew, Brewfile packages</span></span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> doctor     <span class="co"># Run full diagnostics</span></span></code></pre></div>
-<p>Review the output and address any items marked ✗ or ⚠.</p>
-<h2 id="full-one-command-install">Full One-Command Install</h2>
-<div class="sourceCode" id="cb20"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> all</span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="bu">exec</span> zsh</span></code></pre></div>
-<hr />
-<h1 id="command-reference">Command Reference</h1>
-<h2 id="commands-available-from-anywhere-makefile">Commands Available
-from Anywhere (<code>~/Makefile</code>)</h2>
-<p><code>~/Makefile</code> is deployed automatically by
-<code>make setup</code> via <code>dotfiles/</code>. Running
-<code>make help</code> from <code>~/</code> shows all commands from both
-this file and <code>mrk/</code>.</p>
-<table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr>
-<th>Command</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>make sync</code></td>
-<td>Sync installed Homebrew packages into the Brewfile</td>
-</tr>
-<tr>
-<td><code>make sync ARGS=-c</code></td>
-<td>Sync and auto-commit the Brewfile</td>
-</tr>
-<tr>
-<td><code>make sync ARGS=-n</code></td>
-<td>Dry run — preview additions without modifying the Brewfile</td>
-</tr>
-<tr>
-<td><code>make snapshot-prefs</code></td>
-<td>Export app preferences and push to mrk-prefs</td>
-</tr>
-<tr>
-<td><code>make pull-prefs</code></td>
-<td>Clone or pull app preferences from mrk-prefs</td>
-</tr>
-<tr>
-<td><code>make picker</code></td>
-<td>Build the mrk-picker TUI binary</td>
-</tr>
-<tr>
-<td><code>make help</code></td>
-<td>Show all available commands from <code>~/</code> and
-<code>mrk/</code></td>
-</tr>
-</tbody>
-</table>
-<h2 id="commands-from-mrk">Commands from <code>~/mrk/</code></h2>
-<table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr>
-<th>Command</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>make all</code></td>
-<td>Full install: setup + brew + post-install</td>
-</tr>
-<tr>
-<td><code>make setup</code> / <code>make install</code></td>
-<td>Phase 1: shell, dotfiles, macOS defaults</td>
-</tr>
-<tr>
-<td><code>make brew</code></td>
-<td>Phase 2: Homebrew packages and casks</td>
-</tr>
-<tr>
-<td><code>make post-install</code></td>
-<td>Phase 3: app configs and login items</td>
-</tr>
-<tr>
-<td><code>make dotfiles</code></td>
-<td>Link dotfiles only</td>
-</tr>
-<tr>
-<td><code>make tools</code></td>
-<td>Install CLI tools only</td>
-</tr>
-<tr>
-<td><code>make defaults</code></td>
-<td>Apply macOS defaults only</td>
-</tr>
-<tr>
-<td><code>make trackpad</code></td>
-<td>Apply macOS defaults including trackpad settings</td>
-</tr>
-<tr>
-<td><code>make harden</code></td>
-<td>Apply macOS security hardening</td>
-</tr>
-<tr>
-<td><code>make update</code></td>
-<td>Upgrade all packages (topgrade or brew upgrade)</td>
-</tr>
-<tr>
-<td><code>make updates</code></td>
-<td>Run macOS software updates (<code>softwareupdate -ia</code>)</td>
-</tr>
-<tr>
-<td><code>make uninstall</code></td>
-<td>Remove symlinks and undo setup</td>
-</tr>
-<tr>
-<td><code>make status</code></td>
-<td>Show installation status</td>
-</tr>
-<tr>
-<td><code>make doctor</code></td>
-<td>Check <code>~/bin</code> is on PATH; <code>--fix</code> adds it to
-<code>.zshrc</code></td>
-</tr>
-<tr>
-<td><code>make fix-exec</code></td>
-<td>Make all scripts and bin files executable</td>
-</tr>
-<tr>
-<td><code>make help</code></td>
-<td>Show all available commands</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h1 id="what-make-status-checks">What <code>make status</code>
-Checks</h1>
-<p>Running <code>make status</code> gives a quick health check of the
-entire installation:</p>
-<ul>
-<li><strong>Dotfiles</strong> — Which files are symlinked into
-<code>~/</code> and which are missing</li>
-<li><strong>Tools</strong> — Which scripts/bin symlinks are live in
-<code>~/bin</code> and which are broken</li>
-<li><strong>macOS Defaults</strong> — Whether defaults have been applied
-(rollback script present)</li>
-<li><strong>Security Hardening</strong> — Whether hardening has been
-applied</li>
-<li><strong>Backups</strong> — Number of dotfile backups in
-<code>~/.mrk/backups/</code></li>
-<li><strong>Shell</strong> — Current login shell (should be Zsh)</li>
-<li><strong>PATH</strong> — Whether <code>~/bin</code> is on the
-PATH</li>
-<li><strong>Homebrew</strong> — Version installed</li>
-<li><strong>Brewfile packages</strong> — Each formula and cask: ✓
-installed or ✗ missing</li>
-</ul>
-<hr />
-<h1 id="state-files">State Files</h1>
-<p>mrk writes runtime state to <code>~/.mrk/</code> (gitignored):</p>
-<table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr>
-<th>File / Directory</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>~/.mrk/preferences/</code></td>
-<td>Cloned from <code>sevmorris/mrk-prefs</code>; app plists + App
-Support files</td>
-</tr>
-<tr>
-<td><code>~/.mrk/backups/</code></td>
-<td>Timestamped backups of dotfiles that were replaced during setup</td>
-</tr>
-<tr>
-<td><code>~/.mrk/defaults-rollback.sh</code></td>
-<td>Shell script to undo all <code>defaults write</code> changes</td>
-</tr>
-<tr>
-<td><code>~/.mrk/hardening-rollback.sh</code></td>
-<td>Shell script to undo security hardening</td>
-</tr>
-</tbody>
-</table>
-<p>To undo macOS defaults applied by mrk:</p>
-<div class="sourceCode" id="cb21"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> ~/.mrk/defaults-rollback.sh</span></code></pre></div>
-<hr />
-<h1 id="troubleshooting">Troubleshooting</h1>
-<table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr>
-<th>Problem</th>
-<th>Solution</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>make setup</code> fails at Xcode CLT</td>
-<td>Run <code>xcode-select --install</code>, wait for the GUI install
-dialog to complete, then re-run</td>
-</tr>
-<tr>
-<td>Dotfile conflict (“file exists” warning)</td>
-<td>Backup auto-created in <code>~/.mrk/backups/</code>; resolve
-manually then re-run</td>
-</tr>
-<tr>
-<td>post-install skips plist imports</td>
-<td>SSH key not authenticated; run <code>make pull-prefs</code> after
-adding key to GitHub</td>
-</tr>
-<tr>
-<td>mrk-picker not rendering</td>
-<td>Rebuild the binary: <code>make picker</code></td>
-</tr>
-<tr>
-<td><code>~/bin</code> not on PATH</td>
-<td>Run <code>make doctor --fix</code> — automatically adds
-<code>~/bin</code> to PATH in <code>.zshrc</code></td>
-</tr>
-<tr>
-<td>Brewfile entry shows ✗ (missing)</td>
-<td>Package name may differ from formula name; check with
-<code>brew info &lt;pkg&gt;</code></td>
-</tr>
-<tr>
-<td><code>make sync</code> exits with “nothing to add”</td>
-<td>All installed packages are already in the Brewfile — nothing to
-do</td>
-</tr>
-<tr>
-<td><code>make snapshot-prefs</code> fails for an app</td>
-<td>App is not installed or <code>defaults export</code> failed; check
-the app is running</td>
-</tr>
-<tr>
-<td>post-install login item already exists</td>
-<td>Safe to ignore — <code>add_login_item</code> checks before
-adding</td>
-</tr>
-</tbody>
-</table>
+make setup --dry-run          # Preview changes without applying</code></pre>
+        </div>
+      </div>
+
+      <div class="proc" id="phase2">
+        <div class="proc-header">
+          <span class="proc-num">2.2</span>
+          <h3>Phase 2 — Homebrew</h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">Script: <code>scripts/brew</code>. Installs Homebrew and all packages listed in the <code>Brewfile</code>.</p>
+          <p><strong>What it does:</strong></p>
+          <ul>
+            <li>Installs Homebrew if not present</li>
+            <li>Runs <code>brew bundle install</code> from the Brewfile</li>
+            <li>Presents interactive prompts for packages that are new</li>
+            <li>Uses the mrk-picker TUI or <code>gum</code> for package selection</li>
+          </ul>
+          <pre><code>make brew</code></pre>
+        </div>
+      </div>
+
+      <div class="proc" id="phase3">
+        <div class="proc-header">
+          <span class="proc-num">2.3</span>
+          <h3>Phase 3 — Post-Install</h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">Script: <code>scripts/post-install</code>. Configures installed apps. Must be run after Phase 2.</p>
+          <p><strong>What it does:</strong></p>
+          <ul>
+            <li><strong>Topgrade:</strong> Links <code>assets/topgrade.toml</code> to <code>~/.config/topgrade.toml</code></li>
+            <li><strong>Browsers:</strong> Applies Safari defaults, Chrome/Brave managed policies, Helium defaults</li>
+            <li><strong>App defaults:</strong> Applies <code>defaults write</code> settings for Audio Hijack, Fission, AlDente, Rogue Amoeba update settings</li>
+            <li><strong>Preferences auto-pull:</strong> If <code>~/.mrk/preferences/</code> is absent and SSH is authenticated, automatically clones <code>mrk-prefs</code></li>
+            <li><strong>Plist imports (15 apps):</strong> Non-destructive — skips any app that already has a preferences file</li>
+            <li><strong>App Support restore:</strong> Restores Loopback and SoundSource configuration files (non-destructive)</li>
+            <li><strong>Login items:</strong> Registers AlDente, Dropbox, Ice, Hot, Raycast, Stats, BetterSnapTool, Chrono Plus</li>
+          </ul>
+
+          <table class="ref-table" style="margin-top:14px;">
+            <caption>Table 2.3-1. Managed App Preferences</caption>
+            <thead><tr><th>App</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td>BetterSnapTool</td><td>Plist imported</td></tr>
+              <tr><td>Ice</td><td>Plist imported</td></tr>
+              <tr><td>iTerm2</td><td>Plist imported</td></tr>
+              <tr><td>Raycast</td><td>Plist imported</td></tr>
+              <tr><td>Stats</td><td>Plist imported</td></tr>
+              <tr><td>Loopback</td><td>Plist + App Support files</td></tr>
+              <tr><td>SoundSource</td><td>Plist + App Support files</td></tr>
+              <tr><td>Audio Hijack</td><td>Plist imported</td></tr>
+              <tr><td>Farrago</td><td>Plist imported</td></tr>
+              <tr><td>Piezo</td><td>Plist imported</td></tr>
+              <tr><td>Typora</td><td>Plist imported</td></tr>
+              <tr><td>Hot</td><td>Plist imported</td></tr>
+              <tr><td>Keka</td><td>Plist imported</td></tr>
+              <tr><td>TimeMachineEditor</td><td>Plist imported</td></tr>
+              <tr><td>MacWhisper</td><td>Plist imported</td></tr>
+            </tbody>
+          </table>
+
+          <pre><code>make post-install</code></pre>
+        </div>
+      </div>
+
+      <div class="callout">
+        <span class="callout-label">Note — Full Install</span>
+        <div class="callout-body">Run all three phases in sequence with <code>make all</code>, then reload the shell with <code>exec zsh</code>.</div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section>
+      <div class="section-heading">
+        <span class="section-num">3.</span>
+        <h2>Day-to-Day Workflow</h2>
+        <span class="section-sub">ongoing maintenance</span>
+      </div>
+
+      <div class="proc" id="brewfile">
+        <div class="proc-header">
+          <span class="proc-num">3.1</span>
+          <h3>Keeping the Brewfile Current</h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">Two tools cover day-to-day Brewfile management.</p>
+
+          <p><strong><code>bf</code></strong> — interactive TUI for browsing, adding, deleting, and moving Brewfile entries:</p>
+          <pre><code>bf                    # Open the Brewfile manager TUI
+bf --help             # Show keys and options</code></pre>
+
+          <p><strong><code>sync</code></strong> — scan installed packages, diff against the Brewfile, and add anything missing:</p>
+          <pre><code>sync                  # Interactive — opens mrk-picker TUI to select packages
+sync -n               # Dry run — show what would be added, make no changes
+sync -c               # Auto-commit the Brewfile after updating</code></pre>
+
+          <p><strong>How sync works:</strong></p>
+          <ol>
+            <li>Reads the Brewfile to build a list of already-tracked packages</li>
+            <li>Runs <code>brew leaves</code> (top-level formulae) and <code>brew list --cask</code> to see what's installed</li>
+            <li>Computes the diff — packages installed but not yet in the Brewfile</li>
+            <li>Opens <strong>mrk-picker</strong> TUI: use <code>Space</code> to select, <code>Enter</code> to confirm, <code>q</code> to quit</li>
+            <li>Prompts via <code>gum</code> to choose which Brewfile section each formula goes into</li>
+            <li>Casks are auto-assigned to the existing cask section</li>
+            <li>Inserts each entry alphabetically within its section</li>
+          </ol>
+
+          <div class="callout">
+            <span class="callout-label">Note</span>
+            <div class="callout-body">The mrk-picker binary lives at <code>bin/mrk-picker</code> (gitignored, platform-specific). If it's missing, rebuild it with <code>make picker</code>.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="proc" id="prefs">
+        <div class="proc-header">
+          <span class="proc-num">3.2</span>
+          <h3>Keeping App Preferences Current</h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">After configuring an app, capture and push the preferences.</p>
+
+          <p><strong><code>snapshot-prefs</code></strong> — export all managed app preferences and push to the private repo:</p>
+          <pre><code>snapshot-prefs</code></pre>
+
+          <p><strong>How it works:</strong></p>
+          <ol>
+            <li>Exports the preference plist for each managed app using <code>defaults export</code></li>
+            <li>Commits all changes to <code>~/.mrk/preferences/</code> with a timestamped message</li>
+            <li>Pushes to <code>sevmorris/mrk-prefs</code> on GitHub</li>
+          </ol>
+          <p>Snapshots are idempotent — if nothing changed, it reports "No changes to push."</p>
+
+          <p><strong><code>pull-prefs</code></strong> — clone or update preferences from the private repo:</p>
+          <pre><code>pull-prefs</code></pre>
+          <p>Clones <code>mrk-prefs</code> into <code>~/.mrk/preferences/</code> if it doesn't exist, or fast-forward pulls if it does.</p>
+
+          <div class="callout">
+            <span class="callout-label">Note</span>
+            <div class="callout-body"><code>make post-install</code> runs <code>pull-prefs</code> automatically if <code>~/.mrk/preferences/</code> is absent and your SSH key is authenticated with GitHub.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="proc" id="this-manual">
+        <div class="proc-header">
+          <span class="proc-num">3.3</span>
+          <h3>Updating This Manual</h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">The manual is a hand-authored HTML document at <code>docs/index.html</code>. Edit it directly and commit both it and <code>docs/manual.md</code> (the prose reference).</p>
+          <pre><code># Edit the manual
+$EDITOR ~/mrk/docs/index.html
+
+# Commit and push
+cd ~/mrk
+git add docs/index.html docs/manual.md
+git commit -m "docs: update manual"
+git push</code></pre>
+          <div class="callout">
+            <span class="callout-label">Note</span>
+            <div class="callout-body">GitHub Pages picks up the change automatically — <a href="https://sevmorris.github.io/mrk">sevmorris.github.io/mrk</a> updates within a minute of the push.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section>
+      <div class="section-heading">
+        <span class="section-num">4.</span>
+        <h2>Migration</h2>
+        <span class="section-sub">machine transfers</span>
+      </div>
+
+      <div class="proc" id="pre-migration">
+        <div class="proc-header">
+          <span class="proc-num">4.1</span>
+          <h3>Before Migrating to a New Machine</h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">Run these steps on the <strong>old machine</strong> before transferring.</p>
+
+          <p><strong>1. Sync the Brewfile</strong></p>
+          <pre><code>sync -c</code></pre>
+          <p>Captures any packages installed since the last sync and commits the updated Brewfile.</p>
+
+          <p><strong>2. Snapshot app preferences</strong></p>
+          <pre><code>snapshot-prefs</code></pre>
+          <p>Exports and pushes all app preference plists plus Application Support files. Verify "Pushed to git@github.com:sevmorris/mrk-prefs.git" appears in the output.</p>
+
+          <p><strong>3. Push any pending mrk changes</strong></p>
+          <pre><code>cd ~/mrk
+git status
+git push</code></pre>
+
+          <p><strong>4. Verify SSH authentication</strong></p>
+          <pre><code>ssh -T git@github.com
+# Expected: Hi sevmorris! You've successfully authenticated...</code></pre>
+          <p>The new machine needs your SSH key to auto-pull mrk-prefs during <code>make post-install</code>.</p>
+
+          <p><strong>5. Note anything not covered by mrk</strong></p>
+          <ul>
+            <li>App Store apps (manually reinstall from Purchases)</li>
+            <li>Software licenses (export from your license manager)</li>
+            <li>Any manual system settings not captured by <code>defaults write</code></li>
+            <li>VPN configurations, certificates, etc.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="new-machine">
+        <div class="proc-header">
+          <span class="proc-num">4.2</span>
+          <h3>Setting Up a New Machine</h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">Prerequisites: macOS 15 or later, active internet connection, GitHub SSH key (or ability to create one).</p>
+
+          <p><strong>Step 1 — Clone mrk</strong></p>
+          <p>If SSH is already set up:</p>
+          <pre><code>git clone git@github.com:sevmorris/mrk.git ~/mrk</code></pre>
+          <p>On a fresh machine without SSH configured, clone over HTTPS first:</p>
+          <pre><code>git clone https://github.com/sevmorris/mrk.git ~/mrk</code></pre>
+
+          <p><strong>Step 2 — Phase 1: Shell &amp; Dotfiles</strong></p>
+          <pre><code>cd ~/mrk
+make setup
+exec zsh        # Reload shell to pick up dotfiles and ~/bin</code></pre>
+
+          <p><strong>Step 3 — (If needed) Add SSH Key to GitHub</strong></p>
+          <p>If you cloned over HTTPS, add your SSH key now before Phase 3:</p>
+          <pre><code>ssh-keygen -t ed25519 -C "your-email@example.com"
+cat ~/.ssh/id_ed25519.pub | pbcopy
+# Add to: github.com → Settings → SSH and GPG keys → New SSH key
+ssh -T git@github.com</code></pre>
+
+          <p><strong>Step 4 — Phase 2: Homebrew</strong></p>
+          <pre><code>make brew</code></pre>
+          <p>Installs Homebrew (if needed) and all packages from the Brewfile.</p>
+
+          <p><strong>Step 5 — Phase 3: App Configuration</strong></p>
+          <pre><code>make post-install</code></pre>
+          <p>Configures apps, imports personal preferences, and sets up login items. If <code>~/.mrk/preferences/</code> was not auto-pulled:</p>
+          <pre><code>pull-prefs
+make post-install   # Re-run to import plists</code></pre>
+
+          <p><strong>Step 6 — Verify the Installation</strong></p>
+          <pre><code>make status     # Check dotfiles, tools, shell, Homebrew, Brewfile packages
+make doctor     # Run full diagnostics</code></pre>
+
+          <div class="callout">
+            <span class="callout-label">Note — One-Command Install</span>
+            <div class="callout-body">All three phases can be run together: <code>make all &amp;&amp; exec zsh</code></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section id="commands">
+      <div class="section-heading">
+        <span class="section-num">5.1</span>
+        <h2>Command Reference</h2>
+        <span class="section-sub">all make targets</span>
+      </div>
+
+      <p><code>~/Makefile</code> is deployed automatically by <code>make setup</code> via <code>dotfiles/</code>. Run <code>make help</code> from <code>~/</code> to see all commands from both this file and <code>mrk/</code>.</p>
+
+      <table class="ref-table">
+        <caption>Table 5.1-1. Commands Available from Anywhere (~/Makefile)</caption>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>make sync</td><td>Sync installed Homebrew packages into the Brewfile</td></tr>
+          <tr><td>make sync ARGS=-c</td><td>Sync and auto-commit the Brewfile</td></tr>
+          <tr><td>make sync ARGS=-n</td><td>Dry run — preview additions without modifying</td></tr>
+          <tr><td>make snapshot-prefs</td><td>Export app preferences and push to mrk-prefs</td></tr>
+          <tr><td>make pull-prefs</td><td>Clone or pull app preferences from mrk-prefs</td></tr>
+          <tr><td>make picker</td><td>Build the mrk-picker TUI binary</td></tr>
+          <tr><td>make bf</td><td>Build the bf Brewfile manager TUI binary</td></tr>
+          <tr><td>make help</td><td>Show all available commands</td></tr>
+        </tbody>
+      </table>
+
+      <table class="ref-table">
+        <caption>Table 5.1-2. Commands from ~/mrk/</caption>
+        <thead><tr><th>Command</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>make all</td><td>Full install: setup + brew + post-install + TUI binaries</td></tr>
+          <tr><td>make setup</td><td>Phase 1: shell, dotfiles, macOS defaults</td></tr>
+          <tr><td>make brew</td><td>Phase 2: Homebrew packages and casks</td></tr>
+          <tr><td>make post-install</td><td>Phase 3: app configs and login items</td></tr>
+          <tr><td>make dotfiles</td><td>Link dotfiles only</td></tr>
+          <tr><td>make tools</td><td>Install CLI tools only</td></tr>
+          <tr><td>make defaults</td><td>Apply macOS defaults only</td></tr>
+          <tr><td>make trackpad</td><td>Apply macOS defaults including trackpad settings</td></tr>
+          <tr><td>make harden</td><td>Apply macOS security hardening</td></tr>
+          <tr><td>make update</td><td>Upgrade all packages (topgrade or brew upgrade)</td></tr>
+          <tr><td>make updates</td><td>Run macOS software updates (softwareupdate -ia)</td></tr>
+          <tr><td>make uninstall</td><td>Remove symlinks and undo setup</td></tr>
+          <tr><td>make status</td><td>Show installation status</td></tr>
+          <tr><td>make doctor</td><td>Check ~/bin is on PATH; --fix adds it to .zshrc</td></tr>
+          <tr><td>make fix-exec</td><td>Make all scripts and bin files executable</td></tr>
+          <tr><td>make help</td><td>Show all available commands</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section id="status-checks">
+      <div class="section-heading">
+        <span class="section-num">5.2</span>
+        <h2>Status Checks</h2>
+        <span class="section-sub">make status</span>
+      </div>
+      <p>Running <code>make status</code> gives a quick health check of the entire installation:</p>
+      <ul>
+        <li><strong>Dotfiles</strong> — Which files are symlinked into <code>~/</code> and which are missing</li>
+        <li><strong>Tools</strong> — Which scripts/bin symlinks are live in <code>~/bin</code> and which are broken</li>
+        <li><strong>macOS Defaults</strong> — Whether defaults have been applied (rollback script present)</li>
+        <li><strong>Security Hardening</strong> — Whether hardening has been applied</li>
+        <li><strong>Backups</strong> — Number of dotfile backups in <code>~/.mrk/backups/</code></li>
+        <li><strong>Shell</strong> — Current login shell (should be Zsh)</li>
+        <li><strong>PATH</strong> — Whether <code>~/bin</code> is on the PATH</li>
+        <li><strong>Homebrew</strong> — Version installed</li>
+        <li><strong>Brewfile packages</strong> — Each formula and cask: ✓ installed or ✗ missing</li>
+      </ul>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section id="state-files">
+      <div class="section-heading">
+        <span class="section-num">5.3</span>
+        <h2>State Files</h2>
+        <span class="section-sub">~/.mrk/ (gitignored)</span>
+      </div>
+      <p>mrk writes runtime state to <code>~/.mrk/</code>, which is gitignored:</p>
+
+      <table class="ref-table">
+        <caption>Table 5.3-1. State File Reference</caption>
+        <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>~/.mrk/preferences/</td><td>Cloned from <code>sevmorris/mrk-prefs</code>; app plists + App Support files</td></tr>
+          <tr><td>~/.mrk/backups/</td><td>Timestamped backups of dotfiles replaced during setup</td></tr>
+          <tr><td>~/.mrk/defaults-rollback.sh</td><td>Shell script to undo all <code>defaults write</code> changes</td></tr>
+          <tr><td>~/.mrk/hardening-rollback.sh</td><td>Shell script to undo security hardening</td></tr>
+        </tbody>
+      </table>
+
+      <p>To undo macOS defaults applied by mrk:</p>
+      <pre><code>bash ~/.mrk/defaults-rollback.sh</code></pre>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section id="troubleshooting">
+      <div class="section-heading">
+        <span class="section-num">5.4</span>
+        <h2>Troubleshooting</h2>
+        <span class="section-sub">common problems</span>
+      </div>
+
+      <table class="ref-table">
+        <caption>Table 5.4-1. Troubleshooting Reference</caption>
+        <thead><tr><th>Problem</th><th>Solution</th></tr></thead>
+        <tbody>
+          <tr><td>make setup fails at Xcode CLT</td><td>Run <code>xcode-select --install</code>, wait for the GUI install dialog to complete, then re-run</td></tr>
+          <tr><td>Dotfile conflict ("file exists")</td><td>Backup auto-created in <code>~/.mrk/backups/</code>; resolve manually then re-run</td></tr>
+          <tr><td>post-install skips plist imports</td><td>SSH key not authenticated; run <code>pull-prefs</code> after adding key to GitHub</td></tr>
+          <tr><td>mrk-picker not rendering</td><td>Rebuild the binary: <code>make picker</code></td></tr>
+          <tr><td>~/bin not on PATH</td><td>Run <code>make doctor --fix</code> — automatically adds <code>~/bin</code> to PATH in <code>.zshrc</code></td></tr>
+          <tr><td>Brewfile entry shows ✗ (missing)</td><td>Package name may differ from formula name; check with <code>brew info &lt;pkg&gt;</code></td></tr>
+          <tr><td>sync exits with "nothing to add"</td><td>All installed packages are already in the Brewfile — nothing to do</td></tr>
+          <tr><td>snapshot-prefs fails for an app</td><td>App is not installed or <code>defaults export</code> failed; check the app is running</td></tr>
+          <tr><td>post-install login item already exists</td><td>Safe to ignore — <code>add_login_item</code> checks before adding</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+  </div><!-- /content -->
+
+  <footer class="doc-footer">
+    <span>TO MRK-1</span>
+    <span>mrk · Personal Systems</span>
+    <span>UNCLASSIFIED</span>
+  </footer>
+
+</main>
 </body>
 </html>

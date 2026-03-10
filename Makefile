@@ -90,26 +90,6 @@ snapshot-prefs: ## Export app preferences to ~/.mrk/preferences/ and push to mrk
 pull-prefs: ## Clone or pull app preferences from mrk-prefs into ~/.mrk/preferences/
 	@"$(SCRIPTS)/pull-prefs"
 
-manual: ## Regenerate docs/index.html from docs/manual.md (requires pandoc)
-	@if ! command -v pandoc >/dev/null 2>&1; then \
-		echo "error: pandoc is not installed. Install it with: brew install pandoc"; \
-		exit 1; \
-	fi
-	@echo "Generating docs/index.html..."
-	@pandoc "$(REPO_ROOT)/docs/manual.md" \
-		--standalone \
-		--embed-resources \
-		--resource-path "$(REPO_ROOT)/docs" \
-		--toc \
-		--toc-depth=2 \
-		--css "$(REPO_ROOT)/docs/assets/manual.css" \
-		--highlight-style=zenburn \
-		--output "$(REPO_ROOT)/docs/index.html" 2>/dev/null
-	@# Wrap nav#TOC in <details> for collapsible behaviour
-	@python3 -c "\
-f = open('$(REPO_ROOT)/docs/index.html', 'r+'); \
-s = f.read(); \
-s = s.replace('<nav id=\"TOC\" role=\"doc-toc\">', '<details id=\"toc-details\"><summary class=\"toc-summary\">Table of Contents</summary><nav id=\"TOC\" role=\"doc-toc\">', 1); \
-s = s.replace('</nav>', '</nav></details>', 1); \
-f.seek(0); f.write(s); f.truncate(); f.close()"
-	@echo "Generated: docs/index.html"
+manual: ## Open docs/index.html for editing (hand-authored AFTO-style document)
+	@echo "docs/index.html is a hand-authored document — edit it directly."
+	@echo "  $$EDITOR $(REPO_ROOT)/docs/index.html"

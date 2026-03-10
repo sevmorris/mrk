@@ -206,8 +206,6 @@ git push
 
 GitHub Pages picks up the change automatically — the site at `sevmorris.github.io/mrk` updates within a minute of the push.
 
-> **Note:** Only edit `docs/manual.md` — never edit `docs/index.html` directly, as it is overwritten by `make manual`.
-
 ---
 
 # Before Migrating to a New Machine
