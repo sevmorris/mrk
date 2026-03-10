@@ -108,6 +108,7 @@ cask "mdrp"
 cask "mediainfo"
 cask "minecraft", greedy: true
 cask "musicbrainz-picard"
+cask "nordpass"
 cask "nordvpn", greedy: true
 cask "omnidisksweeper", greedy: true
 cask "onyx"
