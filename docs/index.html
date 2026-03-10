@@ -400,14 +400,12 @@ Phases</a>
 </ul></li>
 <li><a href="#day-to-day-workflow" id="toc-day-to-day-workflow">Day-to-Day Workflow</a>
 <ul>
-<li><a href="#keeping-the-brewfile-current-make-sync" id="toc-keeping-the-brewfile-current-make-sync">Keeping the Brewfile
-Current (<code>make sync</code>)</a></li>
-<li><a href="#keeping-app-preferences-current-make-snapshot-prefs" id="toc-keeping-app-preferences-current-make-snapshot-prefs">Keeping App
-Preferences Current (<code>make snapshot-prefs</code>)</a></li>
-<li><a href="#pulling-app-preferences-make-pull-prefs" id="toc-pulling-app-preferences-make-pull-prefs">Pulling App Preferences
-(<code>make pull-prefs</code>)</a></li>
-<li><a href="#updating-this-manual-make-manual" id="toc-updating-this-manual-make-manual">Updating This Manual
-(<code>make manual</code>)</a></li>
+<li><a href="#keeping-the-brewfile-current" id="toc-keeping-the-brewfile-current">Keeping the Brewfile
+Current</a></li>
+<li><a href="#keeping-app-preferences-current" id="toc-keeping-app-preferences-current">Keeping App Preferences
+Current</a></li>
+<li><a href="#pulling-app-preferences" id="toc-pulling-app-preferences">Pulling App Preferences</a></li>
+<li><a href="#updating-this-manual" id="toc-updating-this-manual">Updating This Manual</a></li>
 </ul></li>
 <li><a href="#before-migrating-to-a-new-machine" id="toc-before-migrating-to-a-new-machine">Before Migrating to a New
 Machine</a></li>
@@ -423,8 +421,7 @@ SSH Key to GitHub</a></li>
 <li><a href="#step-4-phase-2-homebrew" id="toc-step-4-phase-2-homebrew">Step 4 — Phase 2: Homebrew</a></li>
 <li><a href="#step-5-phase-3-app-configuration" id="toc-step-5-phase-3-app-configuration">Step 5 — Phase 3: App
 Configuration</a></li>
-<li><a href="#step-6-build-mrk-picker" id="toc-step-6-build-mrk-picker">Step 6 — Build mrk-picker</a></li>
-<li><a href="#step-7-verify-the-installation" id="toc-step-7-verify-the-installation">Step 7 — Verify the
+<li><a href="#step-6-verify-the-installation" id="toc-step-6-verify-the-installation">Step 6 — Verify the
 Installation</a></li>
 <li><a href="#full-one-command-install" id="toc-full-one-command-install">Full One-Command Install</a></li>
 </ul></li>
@@ -678,13 +675,16 @@ Raycast, Stats, BetterSnapTool, Chrono Plus as login items</li>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">exec</span> zsh        <span class="co"># Reload shell after setup</span></span></code></pre></div>
 <hr />
 <h1 id="day-to-day-workflow">Day-to-Day Workflow</h1>
-<h2 id="keeping-the-brewfile-current-make-sync">Keeping the Brewfile
-Current (<code>make sync</code>)</h2>
-<p>Whenever you install a new Homebrew package, run
-<code>make sync</code> to record it in the Brewfile.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync             <span class="co"># Interactive — opens mrk-picker TUI to select packages</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync ARGS=-n     <span class="co"># Dry run — show what would be added, make no changes</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync ARGS=-c     <span class="co"># Auto-commit the Brewfile after updating</span></span></code></pre></div>
+<h2 id="keeping-the-brewfile-current">Keeping the Brewfile Current</h2>
+<p>Two tools cover day-to-day Brewfile management:</p>
+<p><strong><code>bf</code></strong> — interactive TUI for browsing,
+adding, deleting, and moving Brewfile entries:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">bf</span>                    <span class="co"># Open the Brewfile manager TUI</span></span></code></pre></div>
+<p><strong><code>sync</code></strong> — scan installed packages, diff
+against the Brewfile, and add anything missing:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sync</span>                  <span class="co"># Interactive — opens mrk-picker TUI to select packages</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sync</span> <span class="at">-n</span>               <span class="co"># Dry run — show what would be added, make no changes</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sync</span> <span class="at">-c</span>               <span class="co"># Auto-commit the Brewfile after updating</span></span></code></pre></div>
 <p><strong>How sync works:</strong></p>
 <ol type="1">
 <li>Reads the Brewfile to build a list of already-tracked packages</li>
@@ -705,25 +705,23 @@ which Brewfile section to add it to</li>
 <code>bin/mrk-picker</code> (gitignored, platform-specific). If it’s
 missing, rebuild it first with <code>make picker</code>.</p>
 </blockquote>
-<h2 id="keeping-app-preferences-current-make-snapshot-prefs">Keeping App
-Preferences Current (<code>make snapshot-prefs</code>)</h2>
-<p>After configuring an app, run <code>make snapshot-prefs</code> to
-capture and push the preferences.</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> snapshot-prefs</span></code></pre></div>
+<h2 id="keeping-app-preferences-current">Keeping App Preferences
+Current</h2>
+<p>After configuring an app, run <code>snapshot-prefs</code> to capture
+and push the preferences.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">snapshot-prefs</span></span></code></pre></div>
 <p><strong>How snapshot-prefs works:</strong></p>
 <ol type="1">
-<li>Exports the preference plist for each of the 15 managed apps using
+<li>Exports the preference plist for each managed app using
 <code>defaults export</code></li>
-<li>Copies Loopback and SoundSource Application Support files</li>
 <li>Commits all changes to <code>~/.mrk/preferences/</code> with a
 timestamped message</li>
 <li>Pushes to <code>sevmorris/mrk-prefs</code> on GitHub</li>
 </ol>
 <p>Snapshots are idempotent — if nothing changed, it reports “No changes
 to push.”</p>
-<h2 id="pulling-app-preferences-make-pull-prefs">Pulling App Preferences
-(<code>make pull-prefs</code>)</h2>
-<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> pull-prefs</span></code></pre></div>
+<h2 id="pulling-app-preferences">Pulling App Preferences</h2>
+<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">pull-prefs</span></span></code></pre></div>
 <p>Clones <code>mrk-prefs</code> into <code>~/.mrk/preferences/</code>
 if it doesn’t exist, or fast-forward pulls if it does.</p>
 <blockquote>
@@ -731,21 +729,20 @@ if it doesn’t exist, or fast-forward pulls if it does.</p>
 automatically if <code>~/.mrk/preferences/</code> is absent and your SSH
 key is authenticated with GitHub.</p>
 </blockquote>
-<h2 id="updating-this-manual-make-manual">Updating This Manual
-(<code>make manual</code>)</h2>
+<h2 id="updating-this-manual">Updating This Manual</h2>
 <p>The manual source lives in the repo at <code>docs/manual.md</code>.
 After editing it, regenerate the HTML and commit:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit the source</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="va">$EDITOR</span> ~/mrk/docs/manual.md</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Regenerate the site HTML (requires pandoc)</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> manual</span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Commit and push both files</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add docs/manual.md docs/index.html</span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">&quot;docs: update manual&quot;</span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push</span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit the source</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="va">$EDITOR</span> ~/mrk/docs/manual.md</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Regenerate the site HTML (requires pandoc)</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> manual</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Commit and push both files</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add docs/manual.md docs/index.html</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">&quot;docs: update manual&quot;</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push</span></code></pre></div>
 <p>GitHub Pages picks up the change automatically — the site at
 <code>sevmorris.github.io/mrk</code> updates within a minute of the
 push.</p>
@@ -760,21 +757,21 @@ Machine</h1>
 <p>Run these steps on the <strong>old machine</strong> before you
 transfer.</p>
 <p><strong>1. Sync the Brewfile</strong></p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync ARGS=-c</span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> sync ARGS=-c</span></code></pre></div>
 <p>Captures any packages installed since the last sync and commits the
 updated Brewfile.</p>
 <p><strong>2. Snapshot app preferences</strong></p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> snapshot-prefs</span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> snapshot-prefs</span></code></pre></div>
 <p>Exports and pushes all 15 app preference plists plus Application
 Support files. Verify the push succeeded — you should see “Pushed to
 git@github.com:sevmorris/mrk-prefs.git” in the output.</p>
 <p><strong>3. Push any pending mrk changes</strong></p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> status</span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> status</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push</span></code></pre></div>
 <p><strong>4. Verify SSH authentication</strong></p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> <span class="at">-T</span> git@github.com</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Expected: Hi sevmorris! You&#39;ve successfully authenticated...</span></span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> <span class="at">-T</span> git@github.com</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Expected: Hi sevmorris! You&#39;ve successfully authenticated...</span></span></code></pre></div>
 <p>The new machine needs your SSH key to auto-pull mrk-prefs during
 <code>make post-install</code>.</p>
 <p><strong>5. Note anything not covered by mrk</strong></p>
@@ -797,55 +794,50 @@ automated:</p>
 </ul>
 <h2 id="step-1-clone-mrk">Step 1 — Clone mrk</h2>
 <p><strong>If SSH is already set up:</strong></p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> ~/Projects</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone git@github.com:sevmorris/mrk.git ~/mrk</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> ~/Projects</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone git@github.com:sevmorris/mrk.git ~/mrk</span></code></pre></div>
 <p><strong>If SSH is not yet configured</strong> (fresh machine), clone
 over HTTPS first:</p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> ~/Projects</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/sevmorris/mrk.git ~/mrk</span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> ~/Projects</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/sevmorris/mrk.git ~/mrk</span></code></pre></div>
 <p>Then generate and add your SSH key to GitHub before continuing, so
 mrk-prefs can be pulled automatically in Phase 3.</p>
 <h2 id="step-2-phase-1-shell-dotfiles">Step 2 — Phase 1: Shell &amp;
 Dotfiles</h2>
-<div class="sourceCode" id="cb13"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> setup</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="bu">exec</span> zsh        <span class="co"># Reload shell to pick up dotfiles and ~/bin</span></span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> setup</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="bu">exec</span> zsh        <span class="co"># Reload shell to pick up dotfiles and ~/bin</span></span></code></pre></div>
 <p>After this step, the shell is configured, dotfiles are linked, and
 macOS system preferences are applied.</p>
 <h2 id="step-3-if-needed-add-ssh-key-to-github">Step 3 — (If needed) Add
 SSH Key to GitHub</h2>
 <p>If you cloned over HTTPS, add your SSH key now before running Phase
 3:</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate a new key</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh-keygen</span> <span class="at">-t</span> ed25519 <span class="at">-C</span> <span class="st">&quot;your-email@example.com&quot;</span></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Copy the public key</span></span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> ~/.ssh/id_ed25519.pub <span class="kw">|</span> <span class="ex">pbcopy</span></span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Add to GitHub: github.com → Settings → SSH and GPG keys → New SSH key</span></span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Then verify:</span></span>
-<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> <span class="at">-T</span> git@github.com</span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate a new key</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh-keygen</span> <span class="at">-t</span> ed25519 <span class="at">-C</span> <span class="st">&quot;your-email@example.com&quot;</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Copy the public key</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> ~/.ssh/id_ed25519.pub <span class="kw">|</span> <span class="ex">pbcopy</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Add to GitHub: github.com → Settings → SSH and GPG keys → New SSH key</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Then verify:</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh</span> <span class="at">-T</span> git@github.com</span></code></pre></div>
 <h2 id="step-4-phase-2-homebrew">Step 4 — Phase 2: Homebrew</h2>
-<div class="sourceCode" id="cb15"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> brew</span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> brew</span></code></pre></div>
 <p>Installs Homebrew (if needed) and all packages from the Brewfile.
 This step takes the most time depending on how many packages are in the
 Brewfile.</p>
 <h2 id="step-5-phase-3-app-configuration">Step 5 — Phase 3: App
 Configuration</h2>
-<div class="sourceCode" id="cb16"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> post-install</span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> post-install</span></code></pre></div>
 <p>This configures apps, imports your personal preferences, and sets up
 login items. If SSH is authenticated, it automatically pulls your
 preferences from <code>mrk-prefs</code>.</p>
 <p>If <code>~/.mrk/preferences/</code> is not populated (SSH wasn’t
 ready), run manually:</p>
-<div class="sourceCode" id="cb17"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> pull-prefs</span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> post-install   <span class="co"># Re-run to import plists</span></span></code></pre></div>
-<h2 id="step-6-build-mrk-picker">Step 6 — Build mrk-picker</h2>
-<div class="sourceCode" id="cb18"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> picker</span></code></pre></div>
-<p>The mrk-picker binary is platform-specific and not stored in git.
-Build it once after installation. It is required by
-<code>make sync</code>.</p>
-<h2 id="step-7-verify-the-installation">Step 7 — Verify the
+<div class="sourceCode" id="cb18"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> pull-prefs</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> post-install   <span class="co"># Re-run to import plists</span></span></code></pre></div>
+<h2 id="step-6-verify-the-installation">Step 6 — Verify the
 Installation</h2>
 <div class="sourceCode" id="cb19"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> status     <span class="co"># Check dotfiles, tools, shell, Homebrew, Brewfile packages</span></span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> doctor     <span class="co"># Run full diagnostics</span></span></code></pre></div>
@@ -853,8 +845,7 @@ Installation</h2>
 <h2 id="full-one-command-install">Full One-Command Install</h2>
 <div class="sourceCode" id="cb20"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> all</span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="bu">exec</span> zsh</span>
-<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> picker</span></code></pre></div>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="bu">exec</span> zsh</span></code></pre></div>
 <hr />
 <h1 id="command-reference">Command Reference</h1>
 <h2 id="commands-available-from-anywhere-makefile">Commands Available

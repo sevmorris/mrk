@@ -129,14 +129,22 @@ exec zsh        # Reload shell after setup
 
 # Day-to-Day Workflow
 
-## Keeping the Brewfile Current (`make sync`)
+## Keeping the Brewfile Current
 
-Whenever you install a new Homebrew package, run `make sync` to record it in the Brewfile.
+Two tools cover day-to-day Brewfile management:
+
+**`bf`** — interactive TUI for browsing, adding, deleting, and moving Brewfile entries:
 
 ```bash
-make sync             # Interactive — opens mrk-picker TUI to select packages
-make sync ARGS=-n     # Dry run — show what would be added, make no changes
-make sync ARGS=-c     # Auto-commit the Brewfile after updating
+bf                    # Open the Brewfile manager TUI
+```
+
+**`sync`** — scan installed packages, diff against the Brewfile, and add anything missing:
+
+```bash
+sync                  # Interactive — opens mrk-picker TUI to select packages
+sync -n               # Dry run — show what would be added, make no changes
+sync -c               # Auto-commit the Brewfile after updating
 ```
 
 **How sync works:**
@@ -152,34 +160,33 @@ make sync ARGS=-c     # Auto-commit the Brewfile after updating
 > **Note:** The mrk-picker binary lives at `bin/mrk-picker` (gitignored, platform-specific).
 > If it's missing, rebuild it first with `make picker`.
 
-## Keeping App Preferences Current (`make snapshot-prefs`)
+## Keeping App Preferences Current
 
-After configuring an app, run `make snapshot-prefs` to capture and push the preferences.
+After configuring an app, run `snapshot-prefs` to capture and push the preferences.
 
 ```bash
-make snapshot-prefs
+snapshot-prefs
 ```
 
 **How snapshot-prefs works:**
 
-1. Exports the preference plist for each of the 15 managed apps using `defaults export`
-2. Copies Loopback and SoundSource Application Support files
-3. Commits all changes to `~/.mrk/preferences/` with a timestamped message
-4. Pushes to `sevmorris/mrk-prefs` on GitHub
+1. Exports the preference plist for each managed app using `defaults export`
+2. Commits all changes to `~/.mrk/preferences/` with a timestamped message
+3. Pushes to `sevmorris/mrk-prefs` on GitHub
 
 Snapshots are idempotent — if nothing changed, it reports "No changes to push."
 
-## Pulling App Preferences (`make pull-prefs`)
+## Pulling App Preferences
 
 ```bash
-make pull-prefs
+pull-prefs
 ```
 
 Clones `mrk-prefs` into `~/.mrk/preferences/` if it doesn't exist, or fast-forward pulls if it does.
 
 > **Note:** `make post-install` does this automatically if `~/.mrk/preferences/` is absent and your SSH key is authenticated with GitHub.
 
-## Updating This Manual (`make manual`)
+## Updating This Manual
 
 The manual source lives in the repo at `docs/manual.md`. After editing it, regenerate the HTML and commit:
 
