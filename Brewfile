@@ -60,20 +60,20 @@ brew "yt-dlp"
 # Casks - General Applications & Utilities
 cask "4k-video-downloader+"
 cask "a-better-finder-rename", greedy: true
-cask "adapter"
+cask "adapter", greedy: true
 cask "aldente", greedy: true
 cask "appcleaner", greedy: true
 cask "arctic", greedy: true
 cask "audio-hijack", greedy: true
-cask "auto-claude"
-cask "balenaetcher"
+cask "auto-claude", greedy: true
+cask "balenaetcher", greedy: true
 cask "bitwarden", greedy: true
 cask "brave-browser", greedy: true
 cask "calibre"
 cask "chatgpt", greedy: true
 cask "claude", greedy: true
-cask "claude-code"
-cask "cryptomator"
+cask "claude-code", greedy: true
+cask "cryptomator", greedy: true
 cask "descript", greedy: true
 cask "discord", greedy: true
 cask "disk-drill", greedy: true
