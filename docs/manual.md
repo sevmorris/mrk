@@ -16,7 +16,7 @@ date: "[github.com/sevmorris/mrk](https://github.com/sevmorris/mrk)"
 
 | Repo | Location | Purpose |
 |---|---|---|
-| `sevmorris/mrk` | `~/Projects/mrk-dev/` | Public bootstrap repo |
+| `sevmorris/mrk` | `~/mrk` | Public bootstrap repo |
 | `sevmorris/mrk-prefs` | `~/.mrk/preferences/` | Private app preferences |
 
 The two-repo split keeps personal preference data (iTerm2 profiles, Raycast settings, etc.) out of the public repo while still making them fully portable across machines.
@@ -185,13 +185,13 @@ The manual source lives in the repo at `docs/manual.md`. After editing it, regen
 
 ```bash
 # Edit the source
-$EDITOR ~/Projects/mrk-dev/docs/manual.md
+$EDITOR ~/mrk/docs/manual.md
 
 # Regenerate the site HTML (requires pandoc)
 make manual
 
 # Commit and push both files
-cd ~/Projects/mrk-dev
+cd ~/mrk
 git add docs/manual.md docs/index.html
 git commit -m "docs: update manual"
 git push
@@ -223,10 +223,10 @@ make snapshot-prefs
 
 Exports and pushes all 15 app preference plists plus Application Support files. Verify the push succeeded — you should see "Pushed to git@github.com:sevmorris/mrk-prefs.git" in the output.
 
-**3. Push any pending mrk-dev changes**
+**3. Push any pending mrk changes**
 
 ```bash
-cd ~/Projects/mrk-dev
+cd ~/mrk
 git status
 git push
 ```
@@ -265,14 +265,14 @@ Write down any apps, license keys, or configurations not yet automated:
 
 ```bash
 mkdir -p ~/Projects
-git clone git@github.com:sevmorris/mrk.git ~/Projects/mrk-dev
+git clone git@github.com:sevmorris/mrk.git ~/mrk
 ```
 
 **If SSH is not yet configured** (fresh machine), clone over HTTPS first:
 
 ```bash
 mkdir -p ~/Projects
-git clone https://github.com/sevmorris/mrk.git ~/Projects/mrk-dev
+git clone https://github.com/sevmorris/mrk.git ~/mrk
 ```
 
 Then generate and add your SSH key to GitHub before continuing, so mrk-prefs can be pulled automatically in Phase 3.
@@ -280,7 +280,7 @@ Then generate and add your SSH key to GitHub before continuing, so mrk-prefs can
 ## Step 2 — Phase 1: Shell & Dotfiles
 
 ```bash
-cd ~/Projects/mrk-dev
+cd ~/mrk
 make setup
 exec zsh        # Reload shell to pick up dotfiles and ~/bin
 ```
@@ -346,7 +346,7 @@ Review the output and address any items marked ✗ or ⚠.
 ## Full One-Command Install
 
 ```bash
-cd ~/Projects/mrk-dev
+cd ~/mrk
 make all
 exec zsh
 make picker
@@ -358,7 +358,7 @@ make picker
 
 ## Commands Available from Anywhere (`~/Makefile`)
 
-`~/Makefile` is deployed automatically by `make setup` via `dotfiles/`. Running `make help` from `~/` shows all commands from both this file and `mrk-dev/`.
+`~/Makefile` is deployed automatically by `make setup` via `dotfiles/`. Running `make help` from `~/` shows all commands from both this file and `mrk/`.
 
 | Command | Description |
 |---|---|
@@ -368,9 +368,9 @@ make picker
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
 | `make picker` | Build the mrk-picker TUI binary |
-| `make help` | Show all available commands from `~/` and `mrk-dev/` |
+| `make help` | Show all available commands from `~/` and `mrk/` |
 
-## Commands from `~/Projects/mrk-dev/`
+## Commands from `~/mrk/`
 
 | Command | Description |
 |---|---|

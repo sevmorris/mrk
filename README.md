@@ -11,8 +11,8 @@ Personal, opinionated macOS bootstrap tailored to my workflow and toolset. Idemp
 ## Quick Start
 
 ```bash
-git clone https://github.com/sevmorris/mrk.git ~/Projects/mrk-dev
-cd ~/Projects/mrk-dev
+git clone https://github.com/sevmorris/mrk.git ~/mrk
+cd ~/mrk
 make install
 make brew
 make post-install

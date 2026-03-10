@@ -433,8 +433,8 @@ Reference</a>
 <ul>
 <li><a href="#commands-available-from-anywhere-makefile" id="toc-commands-available-from-anywhere-makefile">Commands Available
 from Anywhere (<code>~/Makefile</code>)</a></li>
-<li><a href="#commands-from-projectsmrk-dev" id="toc-commands-from-projectsmrk-dev">Commands from
-<code>~/Projects/mrk-dev/</code></a></li>
+<li><a href="#commands-from-mrk" id="toc-commands-from-mrk">Commands
+from <code>~/mrk/</code></a></li>
 </ul></li>
 <li><a href="#what-make-status-checks" id="toc-what-make-status-checks">What <code>make status</code>
 Checks</a></li>
@@ -468,7 +468,7 @@ settings, login items, and personal app preferences.</p>
 <tbody>
 <tr>
 <td><code>sevmorris/mrk</code></td>
-<td><code>~/Projects/mrk-dev/</code></td>
+<td><code>~/mrk</code></td>
 <td>Public bootstrap repo</td>
 </tr>
 <tr>
@@ -736,13 +736,13 @@ key is authenticated with GitHub.</p>
 <p>The manual source lives in the repo at <code>docs/manual.md</code>.
 After editing it, regenerate the HTML and commit:</p>
 <div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit the source</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="va">$EDITOR</span> ~/Projects/mrk-dev/docs/manual.md</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="va">$EDITOR</span> ~/mrk/docs/manual.md</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Regenerate the site HTML (requires pandoc)</span></span>
 <span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> manual</span>
 <span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Commit and push both files</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/Projects/mrk-dev</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
 <span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> add docs/manual.md docs/index.html</span>
 <span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">&quot;docs: update manual&quot;</span></span>
 <span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push</span></code></pre></div>
@@ -768,8 +768,8 @@ updated Brewfile.</p>
 <p>Exports and pushes all 15 app preference plists plus Application
 Support files. Verify the push succeeded — you should see “Pushed to
 git@github.com:sevmorris/mrk-prefs.git” in the output.</p>
-<p><strong>3. Push any pending mrk-dev changes</strong></p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/Projects/mrk-dev</span>
+<p><strong>3. Push any pending mrk changes</strong></p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> status</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> push</span></code></pre></div>
 <p><strong>4. Verify SSH authentication</strong></p>
@@ -798,16 +798,16 @@ automated:</p>
 <h2 id="step-1-clone-mrk">Step 1 — Clone mrk</h2>
 <p><strong>If SSH is already set up:</strong></p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> ~/Projects</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone git@github.com:sevmorris/mrk.git ~/Projects/mrk-dev</span></code></pre></div>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone git@github.com:sevmorris/mrk.git ~/mrk</span></code></pre></div>
 <p><strong>If SSH is not yet configured</strong> (fresh machine), clone
 over HTTPS first:</p>
 <div class="sourceCode" id="cb12"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> ~/Projects</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/sevmorris/mrk.git ~/Projects/mrk-dev</span></code></pre></div>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/sevmorris/mrk.git ~/mrk</span></code></pre></div>
 <p>Then generate and add your SSH key to GitHub before continuing, so
 mrk-prefs can be pulled automatically in Phase 3.</p>
 <h2 id="step-2-phase-1-shell-dotfiles">Step 2 — Phase 1: Shell &amp;
 Dotfiles</h2>
-<div class="sourceCode" id="cb13"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/Projects/mrk-dev</span>
+<div class="sourceCode" id="cb13"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> setup</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="bu">exec</span> zsh        <span class="co"># Reload shell to pick up dotfiles and ~/bin</span></span></code></pre></div>
 <p>After this step, the shell is configured, dotfiles are linked, and
@@ -851,7 +851,7 @@ Installation</h2>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> doctor     <span class="co"># Run full diagnostics</span></span></code></pre></div>
 <p>Review the output and address any items marked ✗ or ⚠.</p>
 <h2 id="full-one-command-install">Full One-Command Install</h2>
-<div class="sourceCode" id="cb20"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/Projects/mrk-dev</span>
+<div class="sourceCode" id="cb20"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/mrk</span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> all</span>
 <span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="bu">exec</span> zsh</span>
 <span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="fu">make</span> picker</span></code></pre></div>
@@ -862,7 +862,7 @@ from Anywhere (<code>~/Makefile</code>)</h2>
 <p><code>~/Makefile</code> is deployed automatically by
 <code>make setup</code> via <code>dotfiles/</code>. Running
 <code>make help</code> from <code>~/</code> shows all commands from both
-this file and <code>mrk-dev/</code>.</p>
+this file and <code>mrk/</code>.</p>
 <table>
 <colgroup>
 <col style="width: 50%" />
@@ -902,12 +902,11 @@ this file and <code>mrk-dev/</code>.</p>
 <tr>
 <td><code>make help</code></td>
 <td>Show all available commands from <code>~/</code> and
-<code>mrk-dev/</code></td>
+<code>mrk/</code></td>
 </tr>
 </tbody>
 </table>
-<h2 id="commands-from-projectsmrk-dev">Commands from
-<code>~/Projects/mrk-dev/</code></h2>
+<h2 id="commands-from-mrk">Commands from <code>~/mrk/</code></h2>
 <table>
 <colgroup>
 <col style="width: 50%" />

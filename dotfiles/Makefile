@@ -1,4 +1,4 @@
-MRK := $(HOME)/Projects/mrk-dev
+MRK := $(HOME)/mrk
 
 .PHONY: sync snapshot-prefs pull-prefs picker manual help
 
@@ -10,7 +10,7 @@ help: ## Show available make commands
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}' \
 		| sort
 	@echo ""
-	@echo "  \033[1mFrom ~/Projects/mrk-dev/\033[0m"
+	@echo "  \033[1mFrom ~/mrk/\033[0m"
 	@$(MAKE) -C $(MRK) help --no-print-directory 2>/dev/null
 	@echo ""
 
