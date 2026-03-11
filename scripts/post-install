@@ -316,13 +316,17 @@ add_login_item(){
 }
 
 add_login_item "/Applications/AlDente.app"          || ((failed++))
-add_login_item "/Applications/Dropbox.app"          || ((failed++))
-add_login_item "/Applications/Ice.app"              || ((failed++))
-add_login_item "/Applications/Hot.app"              || ((failed++))
-add_login_item "/Applications/Raycast.app"          || ((failed++))
-add_login_item "/Applications/Stats.app"            || ((failed++))
 add_login_item "/Applications/BetterSnapTool.app"   || ((failed++))
+add_login_item "/Applications/Bitwarden.app"        || ((failed++))
 add_login_item "/Applications/Chrono Plus.app"      || ((failed++))
+add_login_item "/Applications/Dropbox.app"          || ((failed++))
+add_login_item "/Applications/Hammerspoon.app"      || ((failed++))
+add_login_item "/Applications/Hot.app"              || ((failed++))
+add_login_item "/Applications/Ice.app"              || ((failed++))
+add_login_item "/Applications/NordPass.app"         || ((failed++))
+add_login_item "/Applications/Raycast.app"          || ((failed++))
+add_login_item "/Applications/SoundSource.app"      || ((failed++))
+add_login_item "/Applications/Stats.app"            || ((failed++))
 
 ###############################################################################
 # Summary                                                                     #

@@ -96,7 +96,7 @@ Configures installed apps. Must be run after Phase 2.
 - **Preferences auto-pull:** If `~/.mrk/preferences/` is absent and SSH is authenticated to GitHub, automatically clones `mrk-prefs`
 - **Plist imports** (15 apps): Imports personal preference plists; skips any app that already has a preferences file (non-destructive)
 - **App Support restore:** Restores Loopback and SoundSource configuration files (non-destructive)
-- **Login items:** Registers AlDente, Dropbox, Ice, Hot, Raycast, Stats, BetterSnapTool, Chrono Plus as login items
+- **Login items:** Registers AlDente, BetterSnapTool, Bitwarden, Chrono Plus, Dropbox, Hammerspoon, Hot, Ice, NordPass, Raycast, SoundSource, Stats as login items
 
 **Managed app preferences:**
 

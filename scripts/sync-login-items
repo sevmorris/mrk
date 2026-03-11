@@ -1,0 +1,381 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk sync-login-items — diff system login items against post-install and update repo
+
+# Resolve symlinks so this works when called via ~/bin
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+check_macos
+
+DRY_RUN=0
+COMMIT=0
+
+while (("$#")); do
+  case "$1" in
+    --dry-run|-n) DRY_RUN=1 ;;
+    --commit|-c)  COMMIT=1 ;;
+    -h|--help)
+      cat <<'USAGE'
+mrk sync-login-items — diff system login items against post-install and update repo
+
+Usage: scripts/sync-login-items [options]
+  --dry-run, -n   Show what would change without modifying files
+  --commit, -c    Auto-commit changes after updating
+USAGE
+      exit 0
+      ;;
+    *) err "Unknown option: $1"; exit 2 ;;
+  esac
+  shift
+done
+
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+readonly POST_INSTALL="$REPO_ROOT/scripts/post-install"
+readonly MANUAL_MD="$REPO_ROOT/docs/manual.md"
+readonly INDEX_HTML="$REPO_ROOT/docs/index.html"
+
+# Temp files
+TEMP_ADD=""
+TEMP_REMOVE=""
+cleanup() {
+  [[ -n "$TEMP_ADD"    && -f "$TEMP_ADD"    ]] && rm -f "$TEMP_ADD"    || true
+  [[ -n "$TEMP_REMOVE" && -f "$TEMP_REMOVE" ]] && rm -f "$TEMP_REMOVE" || true
+}
+trap cleanup EXIT INT TERM
+
+# ─── 1. Get system login items (name -> path) ────────────────────────────────
+
+log "Reading system login items..."
+
+declare -A system_items=()
+
+raw_names=$(osascript -e "tell application \"System Events\" to get the name of every login item" 2>/dev/null || true)
+
+if [[ -n "$raw_names" ]]; then
+  while IFS= read -r name; do
+    name="${name#"${name%%[![:space:]]*}"}"
+    name="${name%"${name##*[![:space:]]}"}"
+    if [[ -n "$name" ]]; then
+      app_path=$(osascript -e "tell application \"System Events\" to get the path of login item \"$name\"" 2>/dev/null || true)
+      [[ -z "$app_path" ]] && app_path="/Applications/${name}.app"
+      system_items["$name"]="$app_path"
+    fi
+  done < <(echo "$raw_names" | tr ',' '\n')
+fi
+
+# ─── 2. Parse tracked login items from post-install ──────────────────────────
+
+declare -A tracked_items=()  # name -> path
+
+while IFS= read -r line; do
+  if [[ "$line" =~ ^add_login_item[[:space:]]+\"(/[^\"]+\.app)\" ]]; then
+    app_path="${BASH_REMATCH[1]}"
+    app_name="${app_path##*/}"
+    app_name="${app_name%.app}"
+    tracked_items["$app_name"]="$app_path"
+  fi
+done < "$POST_INSTALL"
+
+# ─── 3. Compute diff ─────────────────────────────────────────────────────────
+
+new_items_arr=()
+stale_items_arr=()
+
+for name in "${!system_items[@]}"; do
+  [[ -z "${tracked_items[$name]+x}" ]] && new_items_arr+=("$name")
+done
+
+for name in "${!tracked_items[@]}"; do
+  [[ -z "${system_items[$name]+x}" ]] && stale_items_arr+=("$name")
+done
+
+if (( ${#new_items_arr[@]} > 0 )); then
+  mapfile -t new_items_arr < <(printf '%s\n' "${new_items_arr[@]}" | sort)
+fi
+if (( ${#stale_items_arr[@]} > 0 )); then
+  mapfile -t stale_items_arr < <(printf '%s\n' "${stale_items_arr[@]}" | sort)
+fi
+
+if (( ${#new_items_arr[@]} == 0 && ${#stale_items_arr[@]} == 0 )); then
+  log "Login items are up to date. Nothing to do."
+  exit 0
+fi
+
+# ─── 4. Display diff ─────────────────────────────────────────────────────────
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Sync Login Items"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if (( ${#new_items_arr[@]} > 0 )); then
+  echo ""
+  echo "  New (on system, not tracked):"
+  for name in "${new_items_arr[@]}"; do printf "    + %s\n" "$name"; done
+fi
+
+if (( ${#stale_items_arr[@]} > 0 )); then
+  echo ""
+  echo "  Stale (tracked, not on system):"
+  for name in "${stale_items_arr[@]}"; do printf "    - %s\n" "$name"; done
+fi
+
+echo ""
+
+# ─── 5. Selection UI ─────────────────────────────────────────────────────────
+
+declare -A add_items=()
+declare -A remove_items=()
+
+if command -v gum >/dev/null 2>&1; then
+  if (( ${#new_items_arr[@]} > 0 )); then
+    gum_out=$(gum choose --no-limit \
+      --cursor.foreground=212 \
+      --selected.foreground=212 \
+      --header="Select login items to ADD to tracking (space to toggle, enter to confirm):" \
+      "${new_items_arr[@]}" < /dev/tty 2>/dev/tty) || true
+    while IFS= read -r name; do
+      [[ -n "$name" ]] && add_items["$name"]=1
+    done <<< "$gum_out"
+  fi
+  if (( ${#stale_items_arr[@]} > 0 )); then
+    gum_out=$(gum choose --no-limit \
+      --cursor.foreground=196 \
+      --selected.foreground=196 \
+      --header="Select login items to REMOVE from tracking (space to toggle, enter to confirm):" \
+      "${stale_items_arr[@]}" < /dev/tty 2>/dev/tty) || true
+    while IFS= read -r name; do
+      [[ -n "$name" ]] && remove_items["$name"]=1
+    done <<< "$gum_out"
+  fi
+else
+  if (( ${#new_items_arr[@]} > 0 )); then
+    printf "Add all %d new item(s)? [y/N] " "${#new_items_arr[@]}"
+    read -r answer </dev/tty
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+      for name in "${new_items_arr[@]}"; do add_items["$name"]=1; done
+    fi
+  fi
+  if (( ${#stale_items_arr[@]} > 0 )); then
+    printf "Remove all %d stale item(s)? [y/N] " "${#stale_items_arr[@]}"
+    read -r answer </dev/tty
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+      for name in "${stale_items_arr[@]}"; do remove_items["$name"]=1; done
+    fi
+  fi
+fi
+
+n_add=${#add_items[@]}
+n_remove=${#remove_items[@]}
+
+if (( n_add == 0 && n_remove == 0 )); then
+  log "No changes selected. Nothing to do."
+  exit 0
+fi
+
+# ─── 6. Show summary ─────────────────────────────────────────────────────────
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Sync Login Items — Changes"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if (( n_add > 0 )); then
+  echo ""
+  echo "  Adding:"
+  while IFS= read -r name; do printf "    + %s\n" "$name"; done \
+    < <(printf '%s\n' "${!add_items[@]}" | sort)
+fi
+if (( n_remove > 0 )); then
+  echo ""
+  echo "  Removing:"
+  while IFS= read -r name; do printf "    - %s\n" "$name"; done \
+    < <(printf '%s\n' "${!remove_items[@]}" | sort)
+fi
+echo ""
+
+if (( DRY_RUN )); then
+  echo "  [dry run] No files modified."
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  exit 0
+fi
+
+# ─── 7. Update post-install ──────────────────────────────────────────────────
+
+TEMP_ADD=$(mktemp /tmp/mrk-login-add.XXXXXX)
+TEMP_REMOVE=$(mktemp /tmp/mrk-login-rm.XXXXXX)
+
+for name in "${!add_items[@]}"; do
+  printf '%s\t%s\n' "$name" "${system_items[$name]}" >> "$TEMP_ADD"
+done
+
+for name in "${!remove_items[@]}"; do
+  printf '%s\n' "$name" >> "$TEMP_REMOVE"
+done
+
+python3 - "$POST_INSTALL" "$TEMP_ADD" "$TEMP_REMOVE" <<'PYEOF'
+import sys, re
+
+post_install = sys.argv[1]
+add_file     = sys.argv[2]
+remove_file  = sys.argv[3]
+
+to_add    = {}
+to_remove = set()
+
+with open(add_file) as f:
+    for line in f:
+        line = line.strip()
+        if '\t' in line:
+            name, path = line.split('\t', 1)
+            to_add[name] = path
+
+with open(remove_file) as f:
+    for line in f:
+        name = line.strip()
+        if name:
+            to_remove.add(name)
+
+with open(post_install) as f:
+    lines = f.readlines()
+
+LOGIN_ITEM_RE = re.compile(r'^add_login_item\s+"(/[^"]+\.app)"\s*\|\|\s*\(\(failed\+\+\)\)')
+
+first_idx = None
+last_idx  = None
+existing  = {}
+
+for i, line in enumerate(lines):
+    m = LOGIN_ITEM_RE.match(line.rstrip())
+    if m:
+        if first_idx is None:
+            first_idx = i
+        last_idx = i
+        path = m.group(1)
+        name = path.rsplit('/', 1)[-1]
+        if name.endswith('.app'):
+            name = name[:-4]
+        existing[name] = path
+
+final = {}
+for name, path in existing.items():
+    if name not in to_remove:
+        final[name] = path
+for name, path in to_add.items():
+    final[name] = path
+
+max_entry_len = max(len(f'add_login_item "{path}"') for path in final.values()) if final else 0
+col = max_entry_len + 3
+
+def make_line(path):
+    entry = f'add_login_item "{path}"'
+    padding = col - len(entry)
+    return f'{entry}{" " * padding}|| ((failed++))\n'
+
+new_lines = [make_line(final[name]) for name in sorted(final.keys())]
+
+if first_idx is not None:
+    lines[first_idx:last_idx + 1] = new_lines
+    with open(post_install, 'w') as f:
+        f.writelines(lines)
+    print(f'Updated post-install: {len(to_add)} added, {len(to_remove)} removed, {len(final)} total.')
+else:
+    print('Warning: could not locate add_login_item block in post-install.', file=sys.stderr)
+    sys.exit(1)
+PYEOF
+
+log "post-install updated."
+
+# ─── 8. Build final items list for docs ──────────────────────────────────────
+
+declare -A final_items=()
+for name in "${!tracked_items[@]}"; do
+  [[ -z "${remove_items[$name]+x}" ]] && final_items["$name"]=1 || true
+done
+for name in "${!add_items[@]}"; do
+  final_items["$name"]=1
+done
+
+mapfile -t sorted_names < <(printf '%s\n' "${!final_items[@]}" | sort)
+items_list=$(IFS=', '; echo "${sorted_names[*]}")
+
+# ─── 9. Update docs ──────────────────────────────────────────────────────────
+
+python3 - "$MANUAL_MD" "$items_list" <<'PYEOF'
+import sys, re
+path, items = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    content = f.read()
+new_content = re.sub(
+    r'(- \*\*Login items:\*\* Registers )([^\n]+?)( as login items)',
+    lambda m: m.group(1) + items + m.group(3),
+    content
+)
+with open(path, 'w') as f:
+    f.write(new_content)
+PYEOF
+
+python3 - "$INDEX_HTML" "$items_list" <<'PYEOF'
+import sys, re
+path, items = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    content = f.read()
+new_content = re.sub(
+    r'(<li><strong>Login items:</strong> Registers )([^<]+?)(\s*</li>)',
+    lambda m: m.group(1) + items + m.group(3),
+    content
+)
+with open(path, 'w') as f:
+    f.write(new_content)
+PYEOF
+
+log "Docs updated."
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# ─── 10. Optional commit ─────────────────────────────────────────────────────
+
+if (( COMMIT )); then
+  cd "$REPO_ROOT"
+
+  changed_files=()
+  git diff --quiet "$POST_INSTALL" 2>/dev/null || changed_files+=("scripts/post-install")
+  git diff --quiet "$MANUAL_MD"    2>/dev/null || changed_files+=("docs/manual.md")
+  git diff --quiet "$INDEX_HTML"   2>/dev/null || changed_files+=("docs/index.html")
+
+  if (( ${#changed_files[@]} == 0 )); then
+    log "No changes to commit."
+  else
+    added_names=()
+    removed_names=()
+    for name in "${!add_items[@]}"; do added_names+=("$name"); done
+    for name in "${!remove_items[@]}"; do removed_names+=("$name"); done
+
+    commit_parts=()
+    if (( ${#added_names[@]} > 0 )); then
+      mapfile -t added_names < <(printf '%s\n' "${added_names[@]}" | sort)
+      commit_parts+=("add $(IFS=', '; echo "${added_names[*]}")")
+    fi
+    if (( ${#removed_names[@]} > 0 )); then
+      mapfile -t removed_names < <(printf '%s\n' "${removed_names[@]}" | sort)
+      commit_parts+=("remove $(IFS=', '; echo "${removed_names[*]}")")
+    fi
+
+    commit_msg="login-items: $(IFS='; '; echo "${commit_parts[*]}")"
+    git add "${changed_files[@]}"
+    git commit -m "$commit_msg"
+    log "Committed: $commit_msg"
+  fi
+fi

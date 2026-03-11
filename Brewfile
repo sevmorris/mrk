@@ -24,6 +24,7 @@ brew "openssh"
 brew "pandoc"
 brew "paperkey"
 brew "pinentry-mac"
+brew "poppler"
 brew "pwgen"
 brew "qemu"
 brew "qrencode"
@@ -88,6 +89,7 @@ cask "google-chrome", greedy: true
 cask "google-chrome@canary", greedy: true
 cask "google-drive", greedy: true
 cask "gpg-suite-no-mail", greedy: true
+cask "hammerspoon", greedy: true
 cask "handbrake-app", greedy: true
 cask "helium-browser", greedy: true
 cask "hot", greedy: true
