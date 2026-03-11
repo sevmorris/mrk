@@ -38,6 +38,7 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 | `make post-install` | Phase 3 (app config) |
 | `make all` | All three phases + build TUI binaries |
 | `make sync` | Snapshot installed Homebrew packages into the Brewfile |
+| `make sync-login-items` | Sync system login items into post-install and docs |
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
 | `make tools` | Link scripts into `~/bin` only |
@@ -53,7 +54,7 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 | `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status) |
 | `make picker` | Build mrk-picker only |
 | `make bf` | Build bf Brewfile manager only |
-| `make manual` | Regenerate `docs/index.html` from `docs/manual.md` |
+| `make manual` | Open `docs/index.html` for editing |
 | `make uninstall` | Remove symlinks, optionally rollback defaults |
 | `make fix-exec` | Fix executable permissions on scripts |
 

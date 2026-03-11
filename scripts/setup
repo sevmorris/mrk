@@ -345,20 +345,20 @@ phase_link_tools() {
     done
     printf "\r" >&2 || true  # Clear progress line
 
-  # Symlink lib/ directory so scripts sourcing lib/common.sh work from ~/bin
-  if [[ -d "$BIN_DIR/lib" ]]; then
-    if [[ -L "$INSTALL_BIN/lib" ]] && [[ "$(readlink "$INSTALL_BIN/lib")" == "$BIN_DIR/lib" ]]; then
-      ((skipped++)) || true
-    elif (( DRY_RUN )); then
-      dry "Would link: $INSTALL_BIN/lib -> $BIN_DIR/lib"
-      ((linked++)) || true
-    elif ln -sf "$BIN_DIR/lib" "$INSTALL_BIN/lib" 2>/dev/null; then
-      ((linked++)) || true
-    else
-      err "Failed to link: $INSTALL_BIN/lib -> $BIN_DIR/lib"
-      ((failed++)) || true
+    # Symlink lib/ directory so scripts sourcing lib/common.sh work from ~/bin
+    if [[ -d "$BIN_DIR/lib" ]]; then
+      if [[ -L "$INSTALL_BIN/lib" ]] && [[ "$(readlink "$INSTALL_BIN/lib")" == "$BIN_DIR/lib" ]]; then
+        ((skipped++)) || true
+      elif (( DRY_RUN )); then
+        dry "Would link: $INSTALL_BIN/lib -> $BIN_DIR/lib"
+        ((linked++)) || true
+      elif ln -sf "$BIN_DIR/lib" "$INSTALL_BIN/lib" 2>/dev/null; then
+        ((linked++)) || true
+      else
+        err "Failed to link: $INSTALL_BIN/lib -> $BIN_DIR/lib"
+        ((failed++)) || true
+      fi
     fi
-  fi
   fi
 
   if (( linked > 0 )); then

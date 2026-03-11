@@ -186,20 +186,51 @@ Clones `mrk-prefs` into `~/.mrk/preferences/` if it doesn't exist, or fast-forwa
 
 > **Note:** `make post-install` does this automatically if `~/.mrk/preferences/` is absent and your SSH key is authenticated with GitHub.
 
-## Updating This Manual
+## Keeping Login Items Current
 
-The manual source lives in the repo at `docs/manual.md`. After editing it, regenerate the HTML and commit:
+**`sync-login-items`** — diff system login items against `post-install` and update the repo:
 
 ```bash
-# Edit the source
-$EDITOR ~/mrk/docs/manual.md
+sync-login-items          # Interactive — select items to add/remove
+sync-login-items -n       # Dry run — show what would change
+sync-login-items -c       # Auto-commit changes after updating
+```
 
-# Regenerate the site HTML (requires pandoc)
-make manual
+**How it works:**
 
-# Commit and push both files
+1. Reads the current system login items via AppleScript
+2. Parses `scripts/post-install` for tracked `add_login_item` calls
+3. Shows the diff: items on the system but not tracked, and vice versa
+4. Opens a TUI selector (via `gum`) to choose which items to add or remove
+5. Updates `scripts/post-install`, `docs/manual.md`, and `docs/index.html`
+
+## Installation Health Dashboard
+
+**`mrk-status`** (also aliased as `status`) — interactive TUI showing the health of your mrk installation:
+
+```bash
+mrk-status                # Open the TUI dashboard
+status                    # Same thing (alias)
+```
+
+Two-pane TUI: checks on the left, details on the right. Press `f` to run the suggested fix for any failing check, `r` to refresh.
+
+## Updating the Manual
+
+The manual is maintained in two places:
+
+- `docs/manual.md` — Markdown source (this file)
+- `docs/index.html` — hand-authored AFTO-style HTML document (the canonical published version)
+
+The HTML document is the authoritative version served by GitHub Pages. Edit `docs/index.html` directly for the published site. This Markdown file serves as a reference and may lag behind the HTML.
+
+```bash
+# Edit the published manual directly
+$EDITOR ~/mrk/docs/index.html
+
+# Commit and push
 cd ~/mrk
-git add docs/manual.md docs/index.html
+git add docs/index.html
 git commit -m "docs: update manual"
 git push
 ```
@@ -364,6 +395,7 @@ exec zsh
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
 | `make picker` | Build the mrk-picker TUI binary |
+| `make manual` | Open docs/index.html for editing |
 | `make help` | Show all available commands from `~/` and `mrk/` |
 
 ## Commands from `~/mrk/`
@@ -385,6 +417,10 @@ exec zsh
 | `make status` | Show installation status |
 | `make doctor` | Check `~/bin` is on PATH; `--fix` adds it to `.zshrc` |
 | `make fix-exec` | Make all scripts and bin files executable |
+| `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status) |
+| `make bf` | Build the bf Brewfile manager TUI binary |
+| `make mrk-status` | Build the mrk-status TUI health dashboard binary |
+| `make sync-login-items` | Sync system login items into post-install and docs |
 | `make help` | Show all available commands |
 
 ---
