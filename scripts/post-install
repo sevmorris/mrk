@@ -342,8 +342,5 @@ echo ""
 echo "  Run \`source ~/.zshrc\` to reload your shell, or open a new terminal."
 echo ""
 
-# Open command reference in default browser so it can be bookmarked
-usage_page="$HOME/bin/mrk-usage.html"
-if [[ -e "$usage_page" ]]; then
-  open "$usage_page" 2>/dev/null || true
-fi
+echo "  Manual: https://sevmorris.github.io/mrk"
+echo ""
