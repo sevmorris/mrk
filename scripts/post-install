@@ -339,8 +339,3 @@ else
 fi
 
 echo ""
-echo "  Run \`source ~/.zshrc\` to reload your shell, or open a new terminal."
-echo ""
-
-echo "  Manual: https://sevmorris.github.io/mrk"
-echo ""

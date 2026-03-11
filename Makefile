@@ -11,6 +11,10 @@ help: ## Show available make commands
 		| sort
 
 all: setup brew post-install build-tools ## Full install: setup + brew + post-install + TUI binaries
+	@echo ""
+	@echo "  Run \`exec zsh\` to reload your shell, or open a new terminal."
+	@echo "  Manual: https://sevmorris.github.io/mrk"
+	@echo ""
 
 build-tools: picker bf mrk-status ## Build all Go TUI binaries (requires Go)
 
