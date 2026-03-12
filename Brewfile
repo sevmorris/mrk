@@ -92,7 +92,6 @@ cask "gpg-suite-no-mail", greedy: true
 cask "hammerspoon", greedy: true
 cask "handbrake-app", greedy: true
 cask "helium-browser", greedy: true
-cask "hot", greedy: true
 cask "ilok-license-manager"
 cask "iterm2", greedy: true
 cask "izotope-product-portal"
