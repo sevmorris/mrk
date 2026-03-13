@@ -64,7 +64,7 @@ func filterBar(text: Binding<String>) -> some View {
 
 func emptyLabel(_ text: String) -> some View {
     Text(text)
-        .font(.footnote)
+        .font(.body)
         .foregroundStyle(.tertiary)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
 }

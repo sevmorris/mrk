@@ -10,7 +10,7 @@ struct ActionPanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("ACTIONS")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .kerning(0.5)
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 14)
@@ -50,7 +50,7 @@ struct ActionPanelView: View {
                         }
                     } else {
                         Text("Select a package\nto see actions.")
-                            .font(.footnote)
+                            .font(.callout)
                             .foregroundStyle(.tertiary)
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity)

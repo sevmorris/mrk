@@ -7,6 +7,8 @@ struct RootContentView: View {
     @State private var isRunning   = false
     @State private var showConsole = false
     @State private var alertMessage: String? = nil
+    @State private var consoleHeight: CGFloat = 180
+    @State private var consoleDragStart: CGFloat = 180
 
     var body: some View {
         @Bindable var appState = appState
@@ -57,9 +59,23 @@ struct RootContentView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     if showConsole {
-                        Divider()
+                        Rectangle()
+                            .fill(Color.primary.opacity(0.08))
+                            .frame(height: 5)
+                            .contentShape(Rectangle())
+                            .onHover { inside in
+                                if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
+                            }
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { value in
+                                        let newHeight = consoleDragStart - value.translation.height
+                                        consoleHeight = max(80, min(600, newHeight))
+                                    }
+                                    .onEnded { _ in consoleDragStart = consoleHeight }
+                            )
                         ConsoleView(log: log)
-                            .frame(height: 170)
+                            .frame(height: consoleHeight)
                     }
                 }
 
@@ -88,7 +104,7 @@ struct RootContentView: View {
                     .font(.subheadline.bold())
                 Text(url.deletingLastPathComponent().path
                          .replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                    .font(.footnote)
+                    .font(.callout)
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
             }
@@ -101,7 +117,7 @@ struct RootContentView: View {
 
             if !brewfileVM.outdatedNames.isEmpty {
                 Label("\(brewfileVM.outdatedNames.count) updates", systemImage: "arrow.up.circle.fill")
-                    .font(.footnote)
+                    .font(.callout)
                     .foregroundStyle(.orange)
             }
 

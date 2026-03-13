@@ -28,14 +28,14 @@ struct PackageDetailView: View {
                 // ── Header ──────────────────────────────────────────────
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Image(systemName: kind == .cask ? "app.gift" : "shippingbox")
-                        .font(.title2)
+                        .font(.title)
                         .foregroundStyle(.secondary)
                     Text(name)
-                        .font(.title2.bold())
+                        .font(.title.bold())
                     Spacer()
                     if outdated {
                         Label("Update available", systemImage: "arrow.up.circle")
-                            .font(.footnote)
+                            .font(.callout)
                             .foregroundStyle(.orange)
                     }
                 }
@@ -119,7 +119,7 @@ struct PackageDetailView: View {
                         FlowLayout(spacing: 6) {
                             ForEach(conflicts, id: \.self) { name in
                                 Text(name)
-                                    .font(.system(.footnote, design: .monospaced))
+                                    .font(.system(.callout, design: .monospaced))
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 3)
                                     .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 4))
@@ -138,7 +138,7 @@ struct PackageDetailView: View {
                             sectionLabel("EXAMPLES")
                             Spacer()
                             Text("via tldr")
-                                .font(.system(size: 10))
+                                .font(.system(size: 11))
                                 .foregroundStyle(.quaternary)
                         }
 
@@ -154,7 +154,7 @@ struct PackageDetailView: View {
                                     .font(.body)
                                     .foregroundStyle(.secondary)
                                 Text(example.command)
-                                    .font(.system(.callout, design: .monospaced))
+                                    .font(.system(.body, design: .monospaced))
                                     .foregroundStyle(.primary)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
@@ -175,7 +175,7 @@ struct PackageDetailView: View {
                         FlowLayout(spacing: 6) {
                             ForEach(reverseDependencies, id: \.self) { name in
                                 Text(name)
-                                    .font(.system(.footnote, design: .monospaced))
+                                    .font(.system(.callout, design: .monospaced))
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 3)
                                     .background(.primary.opacity(0.06),
@@ -193,13 +193,13 @@ struct PackageDetailView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         sectionLabel("MAN PAGE")
                         ForEach(manSections) { section in
-                            VStack(alignment: .leading, spacing: 6) {
+                            VStack(alignment: .leading, spacing: 8) {
                                 Text(section.title)
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.system(size: 13, weight: .semibold))
                                     .kerning(0.3)
                                     .foregroundStyle(.secondary)
                                 Text(section.content)
-                                    .font(.system(.footnote, design: .monospaced))
+                                    .font(.system(.body, design: .monospaced))
                                     .foregroundStyle(.primary)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .textSelection(.enabled)
@@ -214,13 +214,13 @@ struct PackageDetailView: View {
                     Divider()
                     Link(destination: url) {
                         HStack {
-                            Image(systemName: "globe").font(.footnote)
+                            Image(systemName: "globe").font(.callout)
                             Text(homepage)
-                                .font(.footnote)
+                                .font(.callout)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                             Spacer()
-                            Image(systemName: "arrow.up.right").font(.caption)
+                            Image(systemName: "arrow.up.right").font(.footnote)
                         }
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 16)
@@ -237,12 +237,12 @@ struct PackageDetailView: View {
     private func statCell(label: String, value: String, valueColor: Color = .primary) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .kerning(0.4)
                 .foregroundStyle(.tertiary)
                 .textCase(.uppercase)
             Text(value)
-                .font(.system(size: 13, weight: .medium).monospaced())
+                .font(.system(size: 15, weight: .medium).monospaced())
                 .foregroundStyle(valueColor)
                 .lineLimit(1)
         }
@@ -253,7 +253,7 @@ struct PackageDetailView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: 11, weight: .semibold))
             .kerning(0.4)
             .foregroundStyle(.tertiary)
     }
@@ -265,7 +265,7 @@ struct PackageDetailView: View {
             FlowLayout(spacing: 6) {
                 ForEach(names, id: \.self) { dep in
                     Text(dep)
-                        .font(.system(.footnote, design: .monospaced))
+                        .font(.system(.callout, design: .monospaced))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
                         .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))

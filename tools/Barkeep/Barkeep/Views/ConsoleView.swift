@@ -7,7 +7,7 @@ struct ConsoleView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("CONSOLE")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .kerning(0.5)
                     .foregroundStyle(.tertiary)
                 Spacer()
@@ -15,7 +15,7 @@ struct ConsoleView: View {
                     log.clear()
                 } label: {
                     Text("Clear")
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
@@ -27,7 +27,7 @@ struct ConsoleView: View {
 
             if log.entries.isEmpty {
                 Text("No output yet.")
-                    .font(.system(.footnote, design: .monospaced))
+                    .font(.system(.callout, design: .monospaced))
                     .foregroundStyle(.tertiary)
                     .padding(12)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -37,7 +37,7 @@ struct ConsoleView: View {
                         LazyVStack(alignment: .leading, spacing: 3) {
                             ForEach(log.entries) { entry in
                                 Text(entry.message)
-                                    .font(.system(.footnote, design: .monospaced))
+                                    .font(.system(.callout, design: .monospaced))
                                     .foregroundStyle(color(for: entry.level))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .id(entry.id)
