@@ -34,7 +34,7 @@ targets:
       properties:
         CFBundleName: Barkeep
         CFBundleDisplayName: Barkeep
-        CFBundleShortVersionString: "1.0.0"
+        CFBundleShortVersionString: "1.0.1"
         CFBundleVersion: "1"
         LSApplicationCategoryType: public.app-category.utilities
         LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
