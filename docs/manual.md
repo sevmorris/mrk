@@ -217,26 +217,7 @@ Two-pane TUI: checks on the left, details on the right. Press `f` to run the sug
 
 ## Barkeep
 
-**Barkeep** is a native macOS app (SwiftUI) for visually managing your Brewfile. It provides a three-pane interface for browsing Brewfile entries, viewing package details (including man pages, tldr examples, and reverse dependencies), and running Homebrew operations like install, uninstall, and upgrade — all without touching the terminal.
-
-Barkeep lives at `tools/Barkeep/` and is built with [XcodeGen](https://github.com/yonaskolb/XcodeGen), which generates the Xcode project from `project.yml`.
-
-**Building Barkeep:**
-
-```bash
-make barkeep        # Build and install Barkeep.app to /Applications
-```
-
-**Prerequisites:**
-
-- Xcode (with Swift 5.9+)
-- `xcodegen` — install via `brew install xcodegen`
-
-**First launch:** macOS may quarantine the app on first run. Clear the quarantine flag with:
-
-```bash
-xattr -cr /Applications/Barkeep.app
-```
+**[Barkeep](https://github.com/sevmorris/Barkeep)** is a native macOS companion app for visually managing your Homebrew Brewfile. It is installed automatically during `make post-install`.
 
 ## Updating the Manual
 

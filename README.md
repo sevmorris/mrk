@@ -52,7 +52,6 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 | `make update` | Update via topgrade (or brew) |
 | `make updates` | Install macOS software updates |
 | `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status) |
-| `make barkeep` | Build and install Barkeep.app to `/Applications` (requires xcodegen) |
 | `make picker` | Build mrk-picker only |
 | `make bf` | Build bf Brewfile manager only |
 | `make manual` | Open `docs/index.html` for editing |
@@ -71,7 +70,7 @@ State lives in `~/.mrk`. Rollback scripts are generated automatically for defaul
 
 ## Barkeep
 
-**Barkeep** is a native macOS app (SwiftUI) for visually managing your Brewfile. It provides a three-pane interface for browsing Brewfile entries, viewing package details (man pages, tldr examples, reverse dependencies), and running Homebrew operations like install, uninstall, and upgrade — all without the terminal. Built with [XcodeGen](https://github.com/yonaskolb/XcodeGen); run `make barkeep` to build and install to `/Applications`. Requires `xcodegen` (`brew install xcodegen`). On first launch you may need to run `xattr -cr /Applications/Barkeep.app` to clear the macOS quarantine flag.
+**[Barkeep](https://github.com/sevmorris/Barkeep)** is a native macOS app for visually managing your Homebrew Brewfile. It's a companion app to mrk and is installed automatically by `make post-install`.
 
 ## License
 
