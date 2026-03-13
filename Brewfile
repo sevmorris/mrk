@@ -12,7 +12,6 @@ brew "gnupg"
 brew "htop"
 brew "lsd"
 brew "mac-cleanup-py"
-#brew "mas"
 brew "mkdocs"
 brew "moreutils"
 brew "nano"
@@ -138,23 +137,3 @@ cask "waves-central", greedy: true
 cask "whatsapp", greedy: true
 cask "zoom", greedy: true
 
-# Mac App Store Apps
-#mas "Amphetamine", id: 937984704
-#mas "BetterSnapTool", id: 417375580
-#mas "Blackmagic Disk Speed Test", id: 425264550
-#mas "Chrono Plus", id: 946047238
-#mas "Compressor", id: 424390742
-#mas "Encrypto", id: 935235287
-#mas "Final Cut Pro", id: 424389933
-#mas "GarageBand", id: 682658836
-#mas "Hush", id: 1664181766
-#mas "iMovie", id: 408981434
-#mas "Keynote", id: 409183694
-#mas "Logic Pro", id: 634148309
-#mas "NextDNS", id: 1464122853
-#mas "Numbers", id: 409203825
-#mas "Pages", id: 409201541
-#mas "Parcel", id: 639968404
-#mas "Pixelmator Pro", id: 1289583905
-#mas "Pure Paste", id: 1611378436
-#mas "Speedtest", id: 1153157709

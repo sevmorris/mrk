@@ -52,6 +52,7 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 | `make update` | Update via topgrade (or brew) |
 | `make updates` | Install macOS software updates |
 | `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status) |
+| `make barkeep` | Build and install Barkeep.app to `/Applications` (requires xcodegen) |
 | `make picker` | Build mrk-picker only |
 | `make bf` | Build bf Brewfile manager only |
 | `make manual` | Open `docs/index.html` for editing |

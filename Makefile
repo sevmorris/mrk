@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status build-tools sync sync-login-items snapshot-prefs pull-prefs manual help
+.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status build-tools barkeep sync sync-login-items snapshot-prefs pull-prefs manual help
 
 help: ## Show available make commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -96,6 +96,23 @@ mrk-status: ## Build the mrk-status TUI health dashboard binary
 	@ln -sf "$(BIN_DIR)/mrk-status" "$(HOME)/bin/mrk-status"
 	@ln -sf "$(BIN_DIR)/mrk-status" "$(HOME)/bin/status"
 	@echo "Built and linked: ~/bin/mrk-status and ~/bin/status"
+
+barkeep: ## Build and install Barkeep.app to /Applications (requires xcodegen)
+	@if ! command -v xcodegen >/dev/null 2>&1; then \
+		echo "error: xcodegen is not installed. Install it with: brew install xcodegen"; \
+		exit 1; \
+	fi
+	@echo "Building Barkeep…"
+	@cd "$(REPO_ROOT)/tools/Barkeep" && xcodegen generate --quiet
+	@xcodebuild \
+		-project "$(REPO_ROOT)/tools/Barkeep/Barkeep.xcodeproj" \
+		-scheme Barkeep \
+		-configuration Release \
+		-derivedDataPath /tmp/barkeep_build \
+		-quiet
+	@cp -Rf /tmp/barkeep_build/Build/Products/Release/Barkeep.app /Applications/
+	@rm -rf /tmp/barkeep_build
+	@echo "Installed: /Applications/Barkeep.app"
 
 sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to commit, ARGS=-n for dry run)
 	@"$(SCRIPTS)/sync" $(ARGS)
