@@ -262,8 +262,10 @@ actor BrewRunner {
     /// Fetches and parses the man page for a formula, returning key sections.
     /// Returns empty array for casks or when no man page exists.
     func manPage(for name: String) async -> [ManSection] {
-        guard let raw = try? await captureRaw("/bin/bash",
-            args: ["-c", "MANPAGER=cat man \(name) 2>/dev/null | col -b"]),
+        // Use Process directly with /usr/bin/man to avoid shell injection via package name.
+        // Pipe through col -b to strip backspace formatting.
+        guard let manOut = try? await captureRaw("/usr/bin/man", args: [name]),
+              let raw = try? await captureRawInput("/usr/bin/col", args: ["-b"], input: manOut),
               !raw.isEmpty
         else { return [] }
         return parseManPage(raw)
@@ -369,6 +371,40 @@ actor BrewRunner {
                 }
             }
             do { try process.run() } catch { continuation.resume(throwing: error) }
+        }
+    }
+
+    /// Like captureRaw but feeds `input` to the process's stdin.
+    private func captureRawInput(_ executable: String, args: [String], input: String) async throws -> String {
+        return try await withCheckedThrowingContinuation { continuation in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: executable)
+            process.arguments = args
+            process.environment = Self.brewEnvironment()
+
+            let inPipe  = Pipe()
+            let outPipe = Pipe()
+            process.standardInput  = inPipe
+            process.standardOutput = outPipe
+            process.standardError  = Pipe() // discard
+
+            process.terminationHandler = { p in
+                let data = outPipe.fileHandleForReading.readDataToEndOfFile()
+                if p.terminationStatus == 0 {
+                    continuation.resume(returning: String(data: data, encoding: .utf8) ?? "")
+                } else {
+                    continuation.resume(throwing: BrewError.failed(p.terminationStatus))
+                }
+            }
+            do {
+                try process.run()
+                if let inputData = input.data(using: .utf8) {
+                    inPipe.fileHandleForWriting.write(inputData)
+                }
+                inPipe.fileHandleForWriting.closeFile()
+            } catch {
+                continuation.resume(throwing: error)
+            }
         }
     }
 

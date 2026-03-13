@@ -41,6 +41,7 @@ brew "gum"
 brew "ripgrep"
 brew "shellcheck"
 brew "shfmt"
+brew "xcodegen"
 
 # Languages / runtimes
 brew "deno"

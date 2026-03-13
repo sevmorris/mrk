@@ -81,14 +81,16 @@ struct RootContentView: View {
 
                 Divider()
 
-                ActionPanelView(
-                    brewfileVM:  brewfileVM,
-                    log:         log,
-                    isRunning:   $isRunning,
-                    onError:     { alertMessage = $0 },
-                    brewfilePath: appState.brewfilePath!
-                )
-                .frame(width: 220)
+                if let brewfilePath = appState.brewfilePath {
+                    ActionPanelView(
+                        brewfileVM:  brewfileVM,
+                        log:         log,
+                        isRunning:   $isRunning,
+                        onError:     { alertMessage = $0 },
+                        brewfilePath: brewfilePath
+                    )
+                    .frame(width: 220)
+                }
             }
         }
         .frame(minWidth: 860, minHeight: 520)

@@ -413,6 +413,7 @@
   <a href="#brewfile">3.1 Brewfile</a>
   <a href="#prefs">3.2 Preferences</a>
   <a href="#this-manual">3.3 This Manual</a>
+  <a href="#barkeep">3.4 Barkeep</a>
   <a class="section-head">Sect. 4 — Migration</a>
   <a href="#pre-migration">4.1 Pre-Migration</a>
   <a href="#new-machine">4.2 New Machine</a>
@@ -695,6 +696,33 @@ git push</code></pre>
           <div class="callout">
             <span class="callout-label">Note</span>
             <div class="callout-body">GitHub Pages picks up the change automatically — <a href="https://sevmorris.github.io/mrk">sevmorris.github.io/mrk</a> updates within a minute of the push.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+      <div class="proc" id="barkeep">
+        <div class="proc-header">
+          <span class="proc-num">3.4</span>
+          <h3>Barkeep</h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc"><strong>Barkeep</strong> is a native macOS app (SwiftUI) for visually managing your Brewfile. Three-pane interface for browsing entries, viewing package details (man pages, tldr examples, reverse dependencies), and running Homebrew operations — all without touching the terminal.</p>
+
+          <p>Barkeep lives at <code>tools/Barkeep/</code> and is built with <a href="https://github.com/yonaskolb/XcodeGen">XcodeGen</a>, which generates the Xcode project from <code>project.yml</code>.</p>
+
+          <p><strong>Building:</strong></p>
+          <pre><code>make barkeep        # Build and install Barkeep.app to /Applications</code></pre>
+
+          <p><strong>Prerequisites:</strong></p>
+          <ul>
+            <li>Xcode (with Swift 5.9+)</li>
+            <li><code>xcodegen</code> — install via <code>brew install xcodegen</code></li>
+          </ul>
+
+          <div class="callout callout-caution">
+            <span class="callout-label">Caution — First Launch</span>
+            <div class="callout-body">macOS may quarantine the app on first run. Clear the quarantine flag with: <code>xattr -cr /Applications/Barkeep.app</code></div>
           </div>
         </div>
       </div>

@@ -12,6 +12,9 @@ final class BrewfileViewModel {
     var filterText = ""
     var outdatedNames: Set<String> = []
 
+    /// Cache of fully-loaded package details, keyed by entry name.
+    private var detailCache: [String: BrewPackage] = [:]
+
     // MARK: - Computed
 
     var allEntries: [BrewfileEntry] {
@@ -47,6 +50,7 @@ final class BrewfileViewModel {
             self.error = error.localizedDescription
         }
         isLoading = false
+        detailCache.removeAll()
         Task { outdatedNames = await BrewRunner.shared.outdatedNames() }
     }
 
@@ -54,27 +58,48 @@ final class BrewfileViewModel {
 
     func loadDetail(for entry: BrewfileEntry) async {
         guard entry.kind != .tap else { return }
+
+        // Return cached detail immediately if available.
+        if let cached = detailCache[entry.name] {
+            selectedDetail = cached
+            isLoadingDetail = false
+            return
+        }
+
         selectedDetail = nil
         isLoadingDetail = true
 
-        async let infoFetch  = BrewRunner.shared.info(names: [entry.name], kind: entry.kind)
-        async let tldrFetch  = BrewRunner.shared.tldr(for: entry.name)
-        async let manFetch   = BrewRunner.shared.manPage(for: entry.name)
-        async let usesFetch  = BrewRunner.shared.uses(for: entry.name)
-
-        let (infos, tldrResult, manResult, usesResult) =
-            await (try? infoFetch ?? [], tldrFetch, manFetch, usesFetch)
-
-        if var pkg = infos?.first {
-            pkg.isInBrewfile          = true
-            pkg.brewfileSection       = entry.section
-            pkg.tldr                  = tldrResult.examples
-            pkg.tldrSummary           = tldrResult.summary
-            pkg.manSections           = manResult
-            pkg.reverseDependencies   = usesResult
-            selectedDetail = pkg
+        // Phase 1: fast fetch — brew info only.
+        let infos = try? await BrewRunner.shared.info(names: [entry.name], kind: entry.kind)
+        guard var pkg = infos?.first else {
+            isLoadingDetail = false
+            return
         }
+        pkg.isInBrewfile    = true
+        pkg.brewfileSection = entry.section
+
+        // Show basic info immediately.
+        selectedDetail = pkg
         isLoadingDetail = false
+
+        // Phase 2: background-fetch expensive data concurrently.
+        let capturedName = entry.name
+        async let tldrFetch = BrewRunner.shared.tldr(for: capturedName)
+        async let manFetch  = BrewRunner.shared.manPage(for: capturedName)
+        async let usesFetch = BrewRunner.shared.uses(for: capturedName)
+
+        let (tldrResult, manResult, usesResult) = await (tldrFetch, manFetch, usesFetch)
+
+        // Guard against stale updates — only apply if the user hasn't navigated away.
+        guard selectedEntry?.name == capturedName else { return }
+
+        pkg.tldr                = tldrResult.examples
+        pkg.tldrSummary         = tldrResult.summary
+        pkg.manSections         = manResult
+        pkg.reverseDependencies = usesResult
+
+        selectedDetail = pkg
+        detailCache[capturedName] = pkg
     }
 
     // MARK: - Mutations

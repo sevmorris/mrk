@@ -37,7 +37,7 @@ enum BrewfileParser {
     }
 
     /// Returns true if a string (already stripped of the leading #) looks like a commented-out entry.
-    private static func looksLikeEntry(_ body: String) -> Bool {
+    static func looksLikeEntry(_ body: String) -> Bool {
         let pattern = #"^(brew|cask|tap|mas)\s+""#
         return (try? NSRegularExpression(pattern: pattern))
             .flatMap { $0.firstMatch(in: body, range: NSRange(body.startIndex..., in: body)) } != nil
@@ -96,7 +96,7 @@ enum BrewfileParser {
             case .comment(let raw):
                 let body = String(raw.trimmingCharacters(in: .whitespaces).dropFirst())
                     .trimmingCharacters(in: .whitespaces)
-                guard !body.isEmpty else { continue }
+                guard !body.isEmpty, !looksLikeEntry(body) else { continue }
                 if !currentEntries.isEmpty {
                     result.append((name: currentSection, entries: currentEntries))
                     currentEntries = []

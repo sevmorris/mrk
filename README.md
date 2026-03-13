@@ -69,6 +69,10 @@ Setup is split into phases so you can:
 
 State lives in `~/.mrk`. Rollback scripts are generated automatically for defaults changes.
 
+## Barkeep
+
+**Barkeep** is a native macOS app (SwiftUI) for visually managing your Brewfile. It provides a three-pane interface for browsing Brewfile entries, viewing package details (man pages, tldr examples, reverse dependencies), and running Homebrew operations like install, uninstall, and upgrade — all without the terminal. Built with [XcodeGen](https://github.com/yonaskolb/XcodeGen); run `make barkeep` to build and install to `/Applications`. Requires `xcodegen` (`brew install xcodegen`). On first launch you may need to run `xattr -cr /Applications/Barkeep.app` to clear the macOS quarantine flag.
+
 ## License
 
 MIT — Seven Morris
