@@ -161,6 +161,9 @@ fi
 
 install_github_app(){
   local app_path="$1" repo="$2" name="$3"
+  # Install-only: skips if the app is already present.
+  # This is intentional — mrk bootstraps a new machine, it doesn't manage updates.
+  # To update Barkeep, use Barkeep itself or re-run after removing the app.
   if [[ -d "$app_path" ]]; then
     log "$name already installed — skipping"
     return 0
