@@ -156,6 +156,42 @@ else
 fi
 
 ###############################################################################
+# Companion apps (installed from GitHub releases)                             #
+###############################################################################
+
+install_github_app(){
+  local app_path="$1" repo="$2" name="$3"
+  if [[ -d "$app_path" ]]; then
+    log "$name already installed — skipping"
+    return 0
+  fi
+  local dmg_url
+  dmg_url=$(curl -sf "https://api.github.com/repos/${repo}/releases/latest" \
+    | grep '"browser_download_url"' | grep '\.dmg"' | head -1 | cut -d '"' -f 4)
+  if [[ -z "$dmg_url" ]]; then
+    log "Warning: could not find $name DMG in latest release"
+    return 1
+  fi
+  local tmp_dmg tmp_mount
+  tmp_dmg=$(mktemp "/tmp/${name}_XXXXXX.dmg")
+  tmp_mount="/tmp/${name}_mount_$$"
+  log "Downloading $name..."
+  curl -L -sf -o "$tmp_dmg" "$dmg_url" || { log "Warning: failed to download $name"; rm -f "$tmp_dmg"; return 1; }
+  mkdir -p "$tmp_mount"
+  hdiutil attach "$tmp_dmg" -mountpoint "$tmp_mount" -quiet -nobrowse \
+    || { log "Warning: failed to mount $name DMG"; rm -f "$tmp_dmg"; rmdir "$tmp_mount" 2>/dev/null; return 1; }
+  cp -R "$tmp_mount/"*.app /Applications/ \
+    || { log "Warning: failed to copy $name to /Applications"; hdiutil detach "$tmp_mount" -quiet; rm -f "$tmp_dmg"; return 1; }
+  hdiutil detach "$tmp_mount" -quiet
+  rm -f "$tmp_dmg"
+  rmdir "$tmp_mount" 2>/dev/null || true
+  xattr -cr "$app_path" 2>/dev/null || true
+  log "Installed $name → $app_path"
+}
+
+install_github_app "/Applications/Barkeep.app" "sevmorris/Barkeep" "Barkeep" || ((failed++))
+
+###############################################################################
 # Application preferences — defaults write scripts                            #
 ###############################################################################
 
