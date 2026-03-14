@@ -65,8 +65,12 @@ defaults write com.apple.screensaver askForPasswordDelay -int 0
 # 3) Enable firewall (global + stealth)
 if $have_sudo; then
   log "Enabling macOS firewall (global on, stealth on)"
-  prev=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>/dev/null | awk '{print $3}' || echo "off")
-  rollback "/usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate ${prev:-off}"
+  prev_raw=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>/dev/null || echo "")
+  case "$prev_raw" in
+    *enabled*) prev="on" ;;
+    *)         prev="off" ;;
+  esac
+  rollback "/usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate $prev"
   if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on 2>/dev/null; then
     if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on 2>/dev/null; then
       log "Firewall enabled with stealth mode"

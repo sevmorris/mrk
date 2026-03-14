@@ -14,6 +14,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	theme "mrk-theme"
 )
 
 // ── Severity ──────────────────────────────────────────────────────────────
@@ -546,31 +547,24 @@ func (m model) currentGroup() *group {
 // ── Styles ────────────────────────────────────────────────────────────────
 
 var (
-	colSubtle    = lipgloss.AdaptiveColor{Light: "#888888", Dark: "#555555"}
-	colNormal    = lipgloss.AdaptiveColor{Light: "#222222", Dark: "#cccccc"}
-	colHighlight = lipgloss.AdaptiveColor{Light: "#d7005f", Dark: "#ff87af"}
-	colAccent    = lipgloss.AdaptiveColor{Light: "#005fd7", Dark: "#87d7ff"}
-	colGreen     = lipgloss.AdaptiveColor{Light: "#00875f", Dark: "#5fd7a7"}
-	colAmber     = lipgloss.AdaptiveColor{Light: "#875f00", Dark: "#ffd787"}
-	colRed       = lipgloss.AdaptiveColor{Light: "#af0000", Dark: "#ff8787"}
-	colDim       = lipgloss.AdaptiveColor{Light: "#aaaaaa", Dark: "#444444"}
+	// Local aliases for shared theme
+	stylePaneOff = theme.StylePaneOff
+	stylePaneOn  = theme.StylePaneOn
+	styleTitle   = theme.StyleTitle
+	styleFooter  = theme.StyleFooter
 
-	stylePaneOff = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colSubtle)
-	stylePaneOn  = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(colAccent)
+	// mrk-status-specific styles
+	styleFlash     = lipgloss.NewStyle().Foreground(theme.ColGreen)
+	styleFlashWarn = lipgloss.NewStyle().Foreground(theme.ColAmber)
+	styleDim       = lipgloss.NewStyle().Foreground(theme.ColDim)
+	styleCursor    = lipgloss.NewStyle().Bold(true).Foreground(theme.ColHighlight)
+	styleNorm      = lipgloss.NewStyle().Foreground(theme.ColNormal)
+	styleLoading   = lipgloss.NewStyle().Foreground(theme.ColSubtle)
 
-	styleTitle     = lipgloss.NewStyle().Bold(true).Foreground(colNormal)
-	styleFooter    = lipgloss.NewStyle().Foreground(colSubtle)
-	styleFlash     = lipgloss.NewStyle().Foreground(colGreen)
-	styleFlashWarn = lipgloss.NewStyle().Foreground(colAmber)
-	styleDim       = lipgloss.NewStyle().Foreground(colDim)
-	styleCursor    = lipgloss.NewStyle().Bold(true).Foreground(colHighlight)
-	styleNorm      = lipgloss.NewStyle().Foreground(colNormal)
-	styleLoading   = lipgloss.NewStyle().Foreground(colSubtle)
-
-	styleOK   = lipgloss.NewStyle().Foreground(colGreen)
-	styleWarn = lipgloss.NewStyle().Foreground(colAmber)
-	styleErr  = lipgloss.NewStyle().Foreground(colRed)
-	styleInfo = lipgloss.NewStyle().Foreground(colDim)
+	styleOK   = lipgloss.NewStyle().Foreground(theme.ColGreen)
+	styleWarn = lipgloss.NewStyle().Foreground(theme.ColAmber)
+	styleErr  = lipgloss.NewStyle().Foreground(theme.ColRed)
+	styleInfo = lipgloss.NewStyle().Foreground(theme.ColDim)
 )
 
 func sevStyle(s severity) lipgloss.Style {

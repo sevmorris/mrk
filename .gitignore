@@ -56,3 +56,4 @@ bin/mrk-status
 
 # Personal app preferences (captured via `make snapshot-prefs`, stored in ~/.mrk/preferences/)
 assets/preferences/*.plist
+
