@@ -89,6 +89,27 @@ else
   dim "$MRK_DIR (not found)"
 fi
 
+# Offer to remove Barkeep (installed by mrk post-install)
+if [[ -d "/Applications/Barkeep.app" ]]; then
+  echo ""
+  printf "${_B}Remove Barkeep.app from /Applications? [y/N]:${_R} "
+  read -r remove_barkeep
+  if [[ "$remove_barkeep" =~ ^[Yy]$ ]]; then
+    log "Removing Barkeep.app..."
+    if brew list --cask barkeep &>/dev/null; then
+      brew uninstall --cask barkeep 2>/dev/null && ok "Uninstalled via brew" || {
+        rm -rf "/Applications/Barkeep.app"
+        ok "Removed /Applications/Barkeep.app"
+      }
+    else
+      rm -rf "/Applications/Barkeep.app"
+      ok "Removed /Applications/Barkeep.app"
+    fi
+  else
+    dim "Keeping Barkeep.app"
+  fi
+fi
+
 # Clean up log files
 for f in "$HOME/mrk-install.log" "$HOME/mrk-install.log.old"; do
   if [[ -f "$f" ]]; then
