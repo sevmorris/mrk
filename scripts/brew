@@ -77,12 +77,13 @@ setup_logging
 
 # Override lib.sh logging to write to both stderr and logfile explicitly.
 # exec > >(tee) breaks brew output capture in subshells, so we tee per-call instead.
-log()  { printf "[mrk] %s\n" "$*" | tee -a "$LOGFILE" >&2; }
-warn() { printf "[warn] %s\n" "$*" | tee -a "$LOGFILE" >&2; }
-err()  { printf "[err ] %s\n" "$*" | tee -a "$LOGFILE" >&2; }
-dry()  { if (( DRY_RUN )); then printf "[dry] %s\n" "$*" | tee -a "$LOGFILE" >&2; else log "$@"; fi; }
+log()  { printf "${_CYN}  ▸${_R} %s\n" "$*" | tee -a "$LOGFILE" >&2; }
+ok()   { printf "${_GRN}  ✓${_R} %s\n" "$*" | tee -a "$LOGFILE" >&2; }
+warn() { printf "${_YLW}  ⚠${_R} %s\n" "$*" | tee -a "$LOGFILE" >&2; }
+err()  { printf "${_RED}  ✗${_R} %s\n" "$*" | tee -a "$LOGFILE" >&2; }
+dry()  { if (( DRY_RUN )); then printf "${_D}  · [dry] %s${_R}\n" "$*" | tee -a "$LOGFILE" >&2; else log "$@"; fi; }
 
-log "Starting brew installation... (log: $LOGFILE)"
+section "Phase 2: Homebrew"
 if (( DRY_RUN )); then
   log "DRY RUN MODE: No changes will be made"
 fi

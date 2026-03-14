@@ -18,10 +18,11 @@ all: setup brew post-install build-tools ## Full install: setup + brew + post-in
 	@printf '  \033[1;34m→\033[0m  Manual: \033[4mhttps://sevmorris.github.io/mrk\033[0m\n'
 	@printf '\n'
 
-build-tools: picker bf mrk-status ## Build all Go TUI binaries (requires Go)
+build-tools: ## Build all Go TUI binaries (requires Go)
+	@printf '\n\033[1;34m══ Phase 4: TUI Tools\033[0m\n\n'
+	@$(MAKE) --no-print-directory picker bf mrk-status
 
 fix-exec: ## Make scripts and bin files executable
-	@echo "Making scripts and bin executables..."
 	@find $(SCRIPTS) -type f -maxdepth 1 -not -name "*.md" -exec chmod +x {} + 2>/dev/null || true
 	@find $(BIN_DIR) -type f -maxdepth 1 -not -name "*.md" -exec chmod +x {} + 2>/dev/null || true
 
@@ -70,34 +71,34 @@ bf: ## Build the bf Brewfile manager TUI binary
 		echo "error: Go is not installed. Install it with: brew install go"; \
 		exit 1; \
 	fi
-	@echo "Building bf…"
+	@printf '  \033[36m▸\033[0m Building bf…\n'
 	@cd "$(REPO_ROOT)/tools/bf" && go mod tidy -e && go build -o "$(BIN_DIR)/bf" .
 	@chmod +x "$(BIN_DIR)/bf"
 	@ln -sf "$(BIN_DIR)/bf" "$(HOME)/bin/bf"
-	@echo "Built and linked: ~/bin/bf"
+	@printf '  \033[32m✓\033[0m bf → ~/bin/bf\n'
 
 picker: ## Build the mrk-picker TUI binary
 	@if ! command -v go >/dev/null 2>&1; then \
 		echo "error: Go is not installed. Install it with: brew install go"; \
 		exit 1; \
 	fi
-	@echo "Building mrk-picker…"
+	@printf '  \033[36m▸\033[0m Building mrk-picker…\n'
 	@cd "$(REPO_ROOT)/tools/picker" && go mod tidy -e && go build -o "$(BIN_DIR)/mrk-picker" .
 	@chmod +x "$(BIN_DIR)/mrk-picker"
 	@ln -sf "$(BIN_DIR)/mrk-picker" "$(HOME)/bin/mrk-picker"
-	@echo "Built and linked: ~/bin/mrk-picker"
+	@printf '  \033[32m✓\033[0m mrk-picker → ~/bin/mrk-picker\n'
 
 mrk-status: ## Build the mrk-status TUI health dashboard binary
 	@if ! command -v go >/dev/null 2>&1; then \
 		echo "error: Go is not installed. Install it with: brew install go"; \
 		exit 1; \
 	fi
-	@echo "Building mrk-status…"
+	@printf '  \033[36m▸\033[0m Building mrk-status…\n'
 	@cd "$(REPO_ROOT)/tools/mrk-status" && go mod tidy -e && go build -o "$(BIN_DIR)/mrk-status" .
 	@chmod +x "$(BIN_DIR)/mrk-status"
 	@ln -sf "$(BIN_DIR)/mrk-status" "$(HOME)/bin/mrk-status"
 	@ln -sf "$(BIN_DIR)/mrk-status" "$(HOME)/bin/status"
-	@echo "Built and linked: ~/bin/mrk-status and ~/bin/status"
+	@printf '  \033[32m✓\033[0m mrk-status → ~/bin/mrk-status, ~/bin/status\n'
 
 
 sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to commit, ARGS=-n for dry run)

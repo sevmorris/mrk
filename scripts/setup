@@ -103,7 +103,7 @@ fi
 # Setup logging with rotation
 setup_logging
 exec > >(tee -a "$LOGFILE") 2>&1
-log "Starting setup... (log: $LOGFILE)"
+section "Phase 1: Setup"
 if (( DRY_RUN )); then
   log "DRY RUN MODE: No changes will be made"
 fi
@@ -140,7 +140,7 @@ run_phase() {
   
   CURRENT_STEP="$name"
   sudo_refresh
-  log "Running phase: $name"
+  log "Running phase: ${_B}$name${_R}"
   if (( CONTINUE_ON_ERROR )); then
     if ! "$@"; then
       warn "Phase $name failed, continuing with remaining phases..."

@@ -17,15 +17,17 @@ SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 readonly SCRIPT_DIR REPO_ROOT
 
-log(){ printf "[post-install] %s\n" "$*"; }
+source "$SCRIPT_DIR/lib.sh"
 
 failed=0
+
+section "Phase 3: Post-install"
 
 # Run a defaults script, log the result
 apply_defaults(){
   local script="$1" name="$2"
   if bash "$script"; then
-    log "Applied $name defaults"
+    ok "Applied $name defaults"
   else
     log "Warning: $name defaults script failed"
     return 1
@@ -38,11 +40,11 @@ install_browser_policy(){
   local dest="$dest_dir/mrk-policy.json"
   mkdir -p "$dest_dir"
   if [[ -f "$dest" ]] && cmp -s "$src" "$dest"; then
-    log "$name policy already installed"
+    logskip "$name policy" "installed"
     return 0
   fi
   cp "$src" "$dest" || return 1
-  log "Installed $name managed policy → $dest"
+  ok "$name managed policy → $dest"
 }
 
 # Open extension URLs from a list file, one per line
@@ -70,18 +72,18 @@ TOPGRADE_DST="$HOME/.config/topgrade.toml"
 if command -v topgrade >/dev/null 2>&1 && [[ -f "$TOPGRADE_SRC" ]]; then
   mkdir -p "$HOME/.config"
   if [[ -L "$TOPGRADE_DST" ]] && [[ "$(readlink "$TOPGRADE_DST")" == "$TOPGRADE_SRC" ]]; then
-    log "Topgrade config already linked"
+    logskip "Topgrade config" "linked"
   else
     [[ -f "$TOPGRADE_DST" ]] && mv "$TOPGRADE_DST" "${TOPGRADE_DST}.bak"
     if ln -s "$TOPGRADE_SRC" "$TOPGRADE_DST"; then
-      log "Linked topgrade config → $TOPGRADE_DST"
+      ok "Linked topgrade config → $TOPGRADE_DST"
     else
       log "Warning: failed to link topgrade config"
       ((++failed))
     fi
   fi
 else
-  log "Skipping topgrade config (topgrade not installed)"
+  logskip "topgrade config" "topgrade not installed"
 fi
 
 ###############################################################################
@@ -100,12 +102,12 @@ if [[ -d "/Applications/Safari.app" ]]; then
       if [[ "$answer" =~ ^[Yy]$ ]]; then
         open_extension_urls "$BROWSERS_DIR/safari-extensions.txt" "Safari" || ((failed++))
       else
-        log "Skipped Safari extension URLs"
+        logskip "Safari extension URLs" "user declined"
       fi
     fi
   fi
 else
-  log "Skipping Safari (not installed)"
+  logskip "Safari" "not installed"
 fi
 
 # Google Chrome
@@ -120,12 +122,12 @@ if [[ -d "/Applications/Google Chrome.app" ]]; then
       if [[ "$answer" =~ ^[Yy]$ ]]; then
         open_extension_urls "$BROWSERS_DIR/chrome-extensions.txt" "Chrome" || ((failed++))
       else
-        log "Skipped Chrome extension URLs"
+        logskip "Chrome extension URLs" "user declined"
       fi
     fi
   fi
 else
-  log "Skipping Chrome (not installed)"
+  logskip "Chrome" "not installed"
 fi
 
 # Brave
@@ -140,19 +142,19 @@ if [[ -d "/Applications/Brave Browser.app" ]]; then
       if [[ "$answer" =~ ^[Yy]$ ]]; then
         open_extension_urls "$BROWSERS_DIR/brave-extensions.txt" "Brave" || ((failed++))
       else
-        log "Skipped Brave extension URLs"
+        logskip "Brave extension URLs" "user declined"
       fi
     fi
   fi
 else
-  log "Skipping Brave (not installed)"
+  logskip "Brave" "not installed"
 fi
 
 # Helium
 if [[ -d "/Applications/Helium.app" ]]; then
   apply_defaults "$BROWSERS_DIR/helium-defaults.sh" "Helium" || ((failed++))
 else
-  log "Skipping Helium (not installed)"
+  logskip "Helium" "not installed"
 fi
 
 ###############################################################################
@@ -165,7 +167,7 @@ install_github_app(){
   # This is intentional — mrk bootstraps a new machine, it doesn't manage updates.
   # To update Barkeep, use Barkeep itself or re-run after removing the app.
   if [[ -d "$app_path" ]]; then
-    log "$name already installed — skipping"
+    logskip "$name" "installed — skipping"
     return 0
   fi
   local dmg_url
@@ -189,7 +191,7 @@ install_github_app(){
   rm -f "$tmp_dmg"
   rmdir "$tmp_mount" 2>/dev/null || true
   xattr -cr "$app_path" 2>/dev/null || true
-  log "Installed $name → $app_path"
+  ok "$name → $app_path"
 }
 
 install_github_app "/Applications/Barkeep.app" "sevmorris/Barkeep" "Barkeep" || ((failed++))
@@ -204,14 +206,14 @@ PREFS_DIR="$REPO_ROOT/assets/preferences"
 if [[ -d "/Applications/Audio Hijack.app" ]]; then
   apply_defaults "$PREFS_DIR/audio-hijack-defaults.sh" "Audio Hijack" || ((failed++))
 else
-  log "Skipping Audio Hijack defaults (not installed)"
+  logskip "Audio Hijack defaults" "not installed"
 fi
 
 # Fission
 if [[ -d "/Applications/Fission.app" ]]; then
   apply_defaults "$PREFS_DIR/fission-defaults.sh" "Fission" || ((failed++))
 else
-  log "Skipping Fission defaults (not installed)"
+  logskip "Fission defaults" "not installed"
 fi
 
 # Rogue Amoeba — disable Sparkle auto-updates (managed by topgrade)
@@ -221,7 +223,7 @@ apply_defaults "$PREFS_DIR/rogue-amoeba-updates.sh" "Rogue Amoeba updates" || ((
 if [[ -d "/Applications/AlDente.app" ]]; then
   apply_defaults "$PREFS_DIR/aldente-defaults.sh" "AlDente" || ((failed++))
 else
-  log "Skipping AlDente defaults (not installed)"
+  logskip "AlDente defaults" "not installed"
 fi
 
 ###############################################################################
@@ -262,17 +264,17 @@ fi
 import_plist(){
   local app_path="$1" bundle_id="$2" plist_file="$3" name="$4"
   if [[ ! -d "$app_path" ]]; then
-    log "Skipping $name plist (not installed)"
+    logskip "$name plist" "not installed"
     return 0
   fi
   if [[ ! -f "$plist_file" ]]; then
-    log "Skipping $name plist (not found in $LOCAL_PREFS_DIR — run: make snapshot-prefs)"
+    logskip "$name plist" "not found in $LOCAL_PREFS_DIR — run: make snapshot-prefs"
     return 0
   fi
   # Only import if the app hasn't been configured yet (no existing plist)
   local existing="$HOME/Library/Preferences/${bundle_id}.plist"
   if [[ -f "$existing" ]]; then
-    log "$name plist already exists — skipping import (won't overwrite)"
+    logskip "$name plist" "exists — skipping import (won't overwrite)"
     return 0
   fi
   defaults import "$bundle_id" "$plist_file" || return 1
@@ -307,7 +309,7 @@ restore_app_support(){
   local dest_dir="$HOME/Library/Application Support/$app_name"
 
   if [[ ! -d "$src_dir" ]]; then
-    log "Skipping $app_name app support (not in preferences — run: make snapshot-prefs)"
+    logskip "$app_name app support" "not in preferences — run: make snapshot-prefs"
     return 0
   fi
 
@@ -316,7 +318,7 @@ restore_app_support(){
   for file in "${files[@]}"; do
     local dest="$dest_dir/$file"
     if [[ -f "$dest" ]]; then
-      log "$app_name/$file already exists — skipping (won't overwrite)"
+      logskip "$app_name/$file" "exists — skipping (won't overwrite)"
       continue
     fi
     if [[ -f "$src_dir/$file" ]]; then
@@ -346,7 +348,7 @@ add_login_item(){
   fi
 
   if osascript -e "tell application \"System Events\" to get the name of every login item" 2>/dev/null | grep -qF "$app_name"; then
-    log "Login item already exists: $app_name"
+    logskip "Login item" "exists: $app_name"
     return 0
   fi
 
