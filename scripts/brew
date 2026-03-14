@@ -77,11 +77,11 @@ setup_logging
 
 # Override lib.sh logging to write to both stderr and logfile explicitly.
 # exec > >(tee) breaks brew output capture in subshells, so we tee per-call instead.
-log()  { printf "${_CYN}  ▸${_R} %s\n" "$*" | tee -a "$LOGFILE" >&2; }
-ok()   { printf "${_GRN}  ✓${_R} %s\n" "$*" | tee -a "$LOGFILE" >&2; }
-warn() { printf "${_YLW}  ⚠${_R} %s\n" "$*" | tee -a "$LOGFILE" >&2; }
-err()  { printf "${_RED}  ✗${_R} %s\n" "$*" | tee -a "$LOGFILE" >&2; }
-dry()  { if (( DRY_RUN )); then printf "${_D}  · [dry] %s${_R}\n" "$*" | tee -a "$LOGFILE" >&2; else log "$@"; fi; }
+log()  { printf '%s  ▸%s %s\n' "$_CYN" "$_R" "$*" | tee -a "$LOGFILE" >&2; }
+ok()   { printf '%s  ✓%s %s\n' "$_GRN" "$_R" "$*" | tee -a "$LOGFILE" >&2; }
+warn() { printf '%s  ⚠%s %s\n' "$_YLW" "$_R" "$*" | tee -a "$LOGFILE" >&2; }
+err()  { printf '%s  ✗%s %s\n' "$_RED" "$_R" "$*" | tee -a "$LOGFILE" >&2; }
+dry()  { if (( DRY_RUN )); then printf '%s  · [dry] %s%s\n' "$_D" "$*" "$_R" | tee -a "$LOGFILE" >&2; else log "$@"; fi; }
 
 section "Phase 2: Homebrew"
 if (( DRY_RUN )); then
@@ -619,42 +619,35 @@ main() {
 }
 
 show_summary() {
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  Brew Summary (Phase 2)"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  printf '\n%s%s  ── Brew Summary ──%s\n\n' "$_B" "$_BLU" "$_R"
   
   if (( DRY_RUN )); then
-    echo "  Mode: DRY RUN (no changes were made)"
-    echo ""
+    printf '  %sMode: DRY RUN (no changes were made)%s\n\n' "$_YLW" "$_R"
   fi
   
   if (( BREW_INSTALLED > 0 )); then
-    echo "  ✓ Homebrew installed"
+    ok "Homebrew installed"
   fi
   
   if (( FORMULAE_INSTALLED > 0 )); then
-    echo "  ✓ Formulae installed: ~$FORMULAE_INSTALLED"
+    ok "Formulae installed: ~$FORMULAE_INSTALLED"
   fi
   if (( FORMULAE_SKIPPED > 0 )); then
-    echo "  · Formulae skipped: $FORMULAE_SKIPPED (already installed)"
+    logskip "Formulae" "$FORMULAE_SKIPPED already installed"
   fi
   
   if (( CASKS_INSTALLED > 0 )); then
-    echo "  ✓ Casks installed: ~$CASKS_INSTALLED"
+    ok "Casks installed: ~$CASKS_INSTALLED"
   fi
   if (( CASKS_SKIPPED > 0 )); then
-    echo "  · Casks skipped: $CASKS_SKIPPED (already installed)"
+    logskip "Casks" "$CASKS_SKIPPED already installed"
   fi
   
   if (( ERRORS > 0 )); then
-    echo "  ✗ Errors encountered: $ERRORS"
+    err "Errors encountered: $ERRORS"
   fi
 
-  echo ""
-  echo "  Log file: $LOGFILE"
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  printf '\n%s  Log: %s%s\n' "$_D" "$LOGFILE" "$_R"
   echo ""
 }
 

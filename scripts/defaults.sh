@@ -29,7 +29,8 @@ if ! printf '#!/usr/bin/env bash\n' > "$ROLLBACK" || ! chmod +x "$ROLLBACK"; the
   exit 1
 fi
 
-log(){ printf "[defaults] %s\n" "$*"; }
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib.sh"
 backup_line(){ echo "$1" >> "$ROLLBACK"; }
 
 # Helper: capture current value (if any) and append the inverse to rollback
@@ -283,7 +284,7 @@ fi
 ###############################################################################
 
 if (( failed > 0 )); then
-  log "Warning: $failed default(s) failed to apply"
+  warn "$failed default(s) failed to apply"
 fi
 
 log "Writing rollback helper to $ROLLBACK"
@@ -296,4 +297,4 @@ killall Finder >/dev/null 2>&1 || true
 killall Dock >/dev/null 2>&1 || true
 killall SystemUIServer >/dev/null 2>&1 || true
 
-log "Defaults applied. You can revert with: $ROLLBACK"
+ok "Defaults applied. Revert with: $ROLLBACK"

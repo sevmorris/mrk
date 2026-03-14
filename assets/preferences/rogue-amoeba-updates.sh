@@ -6,7 +6,8 @@ set -euo pipefail
 # Applied by mrk post-install.
 # Updates are managed via topgrade / brew upgrade instead.
 
-log(){ printf "[rogue-amoeba-updates] %s\n" "$*"; }
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts"
+source "$SCRIPT_DIR/lib.sh"
 
 failed=0
 
@@ -27,7 +28,7 @@ for bundle_id in "${apps[@]}"; do
 done
 
 if (( failed > 0 )); then
-  log "Warning: $failed default(s) failed to apply"
+  warn "$failed default(s) failed to apply"
 else
-  log "All Rogue Amoeba auto-updates disabled"
+  ok "All Rogue Amoeba auto-updates disabled"
 fi

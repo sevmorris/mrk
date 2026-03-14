@@ -5,7 +5,8 @@ set -euo pipefail
 #
 # Applied by mrk post-install.
 
-log(){ printf "[aldente-defaults] %s\n" "$*"; }
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts"
+source "$SCRIPT_DIR/lib.sh"
 
 failed=0
 
@@ -35,7 +36,7 @@ defaults write com.apphousekitchen.aldente-pro SUAutomaticallyUpdate -bool true 
 defaults write com.apphousekitchen.aldente-pro SUEnableAutomaticChecks -bool true || ((failed++))
 
 if (( failed > 0 )); then
-  log "Warning: $failed default(s) failed to apply"
+  warn "$failed default(s) failed to apply"
 else
-  log "All defaults applied"
+  ok "All defaults applied"
 fi

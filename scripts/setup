@@ -644,54 +644,47 @@ run_phase shell    phase_shell
 
 # Installation summary
 show_summary() {
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  Setup Summary (Phase 1)"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  printf '\n%s%s  ── Setup Summary ──%s\n\n' "$_B" "$_BLU" "$_R"
   
   if (( DRY_RUN )); then
-    echo "  Mode: DRY RUN (no changes were made)"
-    echo ""
+    printf '  %sMode: DRY RUN (no changes were made)%s\n\n' "$_YLW" "$_R"
   fi
   
   if (( DOTFILES_LINKED > 0 )); then
-    echo "  ✓ Dotfiles linked: $DOTFILES_LINKED"
+    ok "Dotfiles linked: $DOTFILES_LINKED"
   fi
   if (( DOTFILES_SKIPPED > 0 )); then
-    echo "  · Dotfiles unchanged: $DOTFILES_SKIPPED (already linked)"
+    logskip "Dotfiles unchanged" "$DOTFILES_SKIPPED already linked"
   fi
 
   if (( TOOLS_LINKED > 0 )); then
-    echo "  ✓ Tools linked: $TOOLS_LINKED"
+    ok "Tools linked: $TOOLS_LINKED"
   fi
   if (( TOOLS_SKIPPED > 0 )); then
-    echo "  · Tools unchanged: $TOOLS_SKIPPED (already linked)"
+    logskip "Tools unchanged" "$TOOLS_SKIPPED already linked"
   fi
   
   if (( DEFAULTS_APPLIED > 0 )); then
-    echo "  ✓ macOS defaults applied"
+    ok "macOS defaults applied"
   fi
   
   if (( BACKUPS_CREATED > 0 )); then
-    echo "  ✓ Backups created: $BACKUPS_CREATED"
-    echo "    Location: $BACKUP_DIR"
+    ok "Backups created: $BACKUPS_CREATED"
+    printf '    Location: %s\n' "$BACKUP_DIR"
   fi
   
   if (( ERRORS > 0 )); then
-    echo "  ✗ Errors encountered: $ERRORS"
+    err "Errors encountered: $ERRORS"
   fi
   
   if (( WARNINGS > 0 )); then
-    echo "  ⚠ Warnings: $WARNINGS"
+    warn "Warnings: $WARNINGS"
   fi
   
-  echo ""
-  echo "  Log file: $LOGFILE"
+  printf '\n%s  Log: %s%s\n' "$_D" "$LOGFILE" "$_R"
   if [[ -f "$ROLLBACK" ]] && [[ -s "$ROLLBACK" ]]; then
-    echo "  Rollback script: $ROLLBACK"
+    printf '%s  Rollback: %s%s\n' "$_D" "$ROLLBACK" "$_R"
   fi
-  echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
 }
 
