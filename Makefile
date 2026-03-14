@@ -14,7 +14,7 @@ all: setup brew post-install build-tools ## Full install: setup + brew + post-in
 	@printf '\n'
 	@printf '\033[1;32m  ✔  mrk installed successfully.\033[0m\n'
 	@printf '\n'
-	@printf '  \033[43;1;30m  Run: exec zsh  \033[0m  to reload your shell, or open a new terminal.\n'
+	@printf '  Run \033[43;1;30m exec zsh \033[0m to reload your shell, or open a new terminal.\n'
 	@printf '\n'
 	@printf '  \033[2mManual: \033[4mhttps://sevmorris.github.io/mrk\033[0m\n'
 	@printf '\n'
