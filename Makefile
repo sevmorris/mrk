@@ -11,12 +11,12 @@ help: ## Show available make commands
 		| sort
 
 all: setup brew post-install build-tools ## Full install: setup + brew + post-install + TUI binaries
-	@echo ""
-	@echo "\033[1;32m  ✔  mrk installed successfully.\033[0m"
-	@echo ""
-	@echo "  \033[1;33m→\033[0m  Run \033[1mexec zsh\033[0m to reload your shell, or open a new terminal."
-	@echo "  \033[1;34m→\033[0m  Manual: \033[4mhttps://sevmorris.github.io/mrk\033[0m"
-	@echo ""
+	@printf '\n'
+	@printf '\033[1;32m  ✔  mrk installed successfully.\033[0m\n'
+	@printf '\n'
+	@printf '  \033[1;33m→\033[0m  Run \033[1mexec zsh\033[0m to reload your shell, or open a new terminal.\n'
+	@printf '  \033[1;34m→\033[0m  Manual: \033[4mhttps://sevmorris.github.io/mrk\033[0m\n'
+	@printf '\n'
 
 build-tools: picker bf mrk-status ## Build all Go TUI binaries (requires Go)
 
