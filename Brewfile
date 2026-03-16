@@ -35,6 +35,7 @@ brew "tree"
 brew "watch"
 brew "wget"
 brew "zsh"
+cask "claudebar"
 
 # Repo essentials
 brew "gum"
@@ -72,7 +73,6 @@ cask "bitwarden", greedy: true
 cask "brave-browser", greedy: true
 cask "calibre"
 cask "chatgpt", greedy: true
-cask "claude", greedy: true
 cask "claude-code", greedy: true
 cask "cryptomator", greedy: true
 cask "descript", greedy: true
