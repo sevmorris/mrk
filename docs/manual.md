@@ -399,7 +399,6 @@ exec zsh
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
 | `make picker` | Build the mrk-picker TUI binary |
-| `make manual` | Open docs/index.html for editing |
 | `make help` | Show all available commands from `~/` and `mrk/` |
 
 ## Commands from `~/mrk/`
