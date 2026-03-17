@@ -590,7 +590,7 @@ class DefaultsDocGenerator {
                     ${section.description ? `<p class="section__description">${section.description}</p>` : ''}
                     <div class="section__actions">
                         <button class="button copy-section-button" data-section="${section.name}">
-                            📋 Copy All Commands
+                            Copy All Commands
                         </button>
                     </div>
                 </div>
@@ -642,7 +642,7 @@ class DefaultsDocGenerator {
                     <div class="command-display__label">Command</div>
                     <pre class="command-display__command">${entry.command}</pre>
                     <button class="copy-button" data-command="${this.escapeHtml(entry.command)}">
-                        📋 Copy
+                        Copy
                     </button>
                 </div>
             </div>
