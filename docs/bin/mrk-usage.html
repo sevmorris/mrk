@@ -451,12 +451,13 @@
   <a href="#snapshot-prefs">2.8 snapshot-prefs</a>
   <a href="#status">2.9 status</a>
   <a href="#sync">2.10 sync</a>
-  <a href="#mrk-install">2.11 mrk-install</a>
-  <a href="#mrk-setup">2.12 mrk-setup</a>
-  <a href="#mrk-brew">2.13 mrk-brew</a>
-  <a href="#mrk-post-install">2.14 mrk-post-install</a>
-  <a href="#mrk-defaults">2.15 mrk-defaults</a>
-  <a href="#mrk-uninstall">2.16 mrk-uninstall</a>
+  <a href="#sync-login-items">2.11 sync-login-items</a>
+  <a href="#mrk-install">2.12 mrk-install</a>
+  <a href="#mrk-setup">2.13 mrk-setup</a>
+  <a href="#mrk-brew">2.14 mrk-brew</a>
+  <a href="#mrk-post-install">2.15 mrk-post-install</a>
+  <a href="#mrk-defaults">2.16 mrk-defaults</a>
+  <a href="#mrk-uninstall">2.17 mrk-uninstall</a>
   <a class="section-head">Sect. 3 — Reference</a>
   <a href="#lib">3.1 Shared Library</a>
   <a href="#quick-ref">3.2 Quick Reference</a>
@@ -497,8 +498,10 @@ audio-mode off
 audio-mode status</code></pre>
           <ul>
             <li><strong>on</strong> — Pauses Dropbox (always), plus iCloud and/or Google Drive with flags. Snapshots pre-state so <code>off</code> only restores what was actually running.</li>
-            <li><strong>off</strong> — Restores services to their pre-<code>on</code> state.</li>
+            <li><strong>off</strong> — Restores services to their pre-<code>on</code> state. Only resumes services that were running before <code>on</code> was called.</li>
             <li><strong>status</strong> — Shows current state of audio mode and each service.</li>
+            <li>State persisted at <code>~/.audio_mode_state.json</code> (JSON, managed via jq).</li>
+            <li>Activity logged to <code>~/Library/Logs/audio-mode.log</code>.</li>
           </ul>
         </div>
       </div>
@@ -572,8 +575,12 @@ audio-mode status</code></pre>
           <h3>doctor <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Verifies <code>~/bin</code> is on PATH. With <code>--fix</code>, appends the export to <code>~/.zshrc</code>.</p>
+          <p class="desc">Verifies <code>~/bin</code> is on PATH. With <code>--fix</code>, appends a conditional PATH export to <code>~/.zshrc</code>.</p>
           <pre><code>doctor [check | --fix | fix]</code></pre>
+          <ul>
+            <li><code>check</code> (default) — prints pass/fail and exits with status 0 or 1</li>
+            <li><code>--fix</code> / <code>fix</code> — idempotent: only writes to <code>~/.zshrc</code> if the line isn't already there. The exported line checks that <code>~/bin</code> exists and isn't already in PATH before prepending it.</li>
+          </ul>
         </div>
       </div>
 
@@ -697,9 +704,26 @@ mrk-status --help</code></pre>
         </div>
       </div>
 
-      <div class="proc" id="mrk-install">
+      <div class="proc" id="sync-login-items">
         <div class="proc-header">
           <span class="proc-num">2.11</span>
+          <h3>sync-login-items <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">Diffs system login items against those tracked in <code>scripts/post-install</code>. Presents an interactive picker to add new items or remove stale ones, then updates <code>post-install</code>, <code>docs/manual.md</code>, and <code>docs/index.html</code> in one pass.</p>
+          <pre><code>sync-login-items [--dry-run | -n] [--commit | -c]</code></pre>
+          <ul>
+            <li><code>--dry-run</code> — shows the diff and selected changes without writing any files</li>
+            <li><code>--commit</code> — auto-commits all changed files after updating with a descriptive message (<code>login-items: add X; remove Y</code>)</li>
+            <li>Uses <code>gum</code> for multi-select UI when available; falls back to y/N bulk prompts.</li>
+            <li>Login items are read from System Events via AppleScript. Paths are resolved automatically.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="mrk-install">
+        <div class="proc-header">
+          <span class="proc-num">2.12</span>
           <h3>mrk-install <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -714,7 +738,7 @@ mrk-status --help</code></pre>
 
       <div class="proc" id="mrk-setup">
         <div class="proc-header">
-          <span class="proc-num">2.12</span>
+          <span class="proc-num">2.13</span>
           <h3>mrk-setup <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -725,7 +749,7 @@ mrk-status --help</code></pre>
 
       <div class="proc" id="mrk-brew">
         <div class="proc-header">
-          <span class="proc-num">2.13</span>
+          <span class="proc-num">2.14</span>
           <h3>mrk-brew <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -736,7 +760,7 @@ mrk-status --help</code></pre>
 
       <div class="proc" id="mrk-post-install">
         <div class="proc-header">
-          <span class="proc-num">2.14</span>
+          <span class="proc-num">2.15</span>
           <h3>mrk-post-install <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -747,7 +771,7 @@ mrk-status --help</code></pre>
 
       <div class="proc" id="mrk-defaults">
         <div class="proc-header">
-          <span class="proc-num">2.15</span>
+          <span class="proc-num">2.16</span>
           <h3>mrk-defaults <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -762,7 +786,7 @@ mrk-status --help</code></pre>
 
       <div class="proc" id="mrk-uninstall">
         <div class="proc-header">
-          <span class="proc-num">2.16</span>
+          <span class="proc-num">2.17</span>
           <h3>mrk-uninstall <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -828,6 +852,7 @@ mrk-status --help</code></pre>
           <tr><td><code>snapshot</code></td><td>Export app prefs to mrk</td></tr>
           <tr><td><code>snapshot-prefs</code></td><td>Export + push prefs to private repo</td></tr>
           <tr><td><code>sync</code></td><td>Add new Homebrew packages to Brewfile</td></tr>
+          <tr><td><code>sync-login-items</code></td><td>Diff &amp; update tracked login items in post-install + docs</td></tr>
           <tr><td><code>status</code></td><td>Interactive TUI health dashboard (dotfiles, tools, Homebrew, etc.)</td></tr>
           <tr><td><code>nuke-mrk</code></td><td>Clean uninstall mrk for reinstall</td></tr>
           <tr><td><code>hardening.sh</code></td><td>Apply macOS security tweaks</td></tr>
@@ -835,8 +860,8 @@ mrk-status --help</code></pre>
           <tr><td><code>mrk-install</code></td><td>Full mrk bootstrap (all phases)</td></tr>
           <tr><td><code>mrk-setup</code></td><td>Phase 1: dotfiles, symlinks, shell</td></tr>
           <tr><td><code>mrk-brew</code></td><td>Phase 2: Homebrew packages</td></tr>
-          <tr><td><code>mrk-defaults</code></td><td>Apply macOS defaults</td></tr>
-          <tr><td><code>mrk-uninstall</code></td><td>Remove mrk symlinks and state</td></tr>
+          <tr><td><code>mrk-defaults [--with-trackpad]</code></td><td>Apply macOS defaults (add trackpad gestures with flag)</td></tr>
+          <tr><td><code>mrk-uninstall</code></td><td>Remove mrk symlinks and state (does not touch Homebrew or defaults)</td></tr>
         </tbody>
       </table>
     </section>

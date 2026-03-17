@@ -489,8 +489,9 @@
   <a class="section-head">Sect. 3 — Day-to-Day</a>
   <a href="#brewfile">3.1 Brewfile</a>
   <a href="#prefs">3.2 Preferences</a>
-  <a href="#this-manual">3.3 This Manual</a>
-  <a href="#barkeep">3.4 Barkeep</a>
+  <a href="#login-items">3.3 Login Items</a>
+  <a href="#this-manual">3.4 This Manual</a>
+  <a href="#barkeep">3.5 Barkeep</a>
   <a class="section-head">Sect. 4 — Migration</a>
   <a href="#pre-migration">4.1 Pre-Migration</a>
   <a href="#new-machine">4.2 New Machine</a>
@@ -550,10 +551,10 @@
           <p><strong>What it does:</strong></p>
           <ul>
             <li>Installs Xcode Command Line Tools if not present</li>
-            <li>Links everything in <code>dotfiles/</code> into <code>$HOME</code> as symlinks (with automatic backups of any existing files)</li>
-            <li>Links <code>scripts/</code> and <code>bin/</code> into <code>~/bin</code> so tools are on PATH</li>
+            <li>Links everything in <code>dotfiles/</code> into <code>$HOME</code> as symlinks (automatic backups of any existing files go to <code>~/.mrk/backups/</code>)</li>
+            <li>Links <code>scripts/</code> and <code>bin/</code> into <code>~/bin</code> so tools are on PATH. Scripts that would shadow system commands are linked with an <code>mrk-</code> prefix: <code>brew</code> → <code>mrk-brew</code>, <code>setup</code> → <code>mrk-setup</code>, <code>install</code> → <code>mrk-install</code>, <code>post-install</code> → <code>mrk-post-install</code>, <code>uninstall</code> → <code>mrk-uninstall</code>, <code>defaults.sh</code> → <code>mrk-defaults</code></li>
             <li>Applies macOS system preferences via <code>scripts/defaults.sh</code></li>
-            <li>Sets Zsh as the login shell</li>
+            <li>Sets Zsh as the login shell if it isn't already</li>
             <li>Generates a rollback script at <code>~/.mrk/defaults-rollback.sh</code></li>
           </ul>
 
@@ -571,11 +572,22 @@
             </tbody>
           </table>
 
-          <pre><code>make setup                    # Full Phase 1
-make setup --only dotfiles    # Link dotfiles only
-make setup --only tools       # Link scripts/bin only
-make setup --only defaults    # Apply macOS defaults only
-make setup --dry-run          # Preview changes without applying</code></pre>
+          <pre><code>make setup                      # Full Phase 1
+make setup --only dotfiles      # Link dotfiles only
+make setup --only tools         # Link scripts/bin only
+make setup --only defaults      # Apply macOS defaults only
+make setup --only ext           # Run external dotfiles repo hooks only
+make setup --dry-run            # Preview changes without applying
+make setup --validate           # Check prerequisites before running
+make setup --continue-on-error  # Continue remaining phases if one fails</code></pre>
+
+          <div class="callout">
+            <span class="callout-label">Environment Variables</span>
+            <div class="callout-body">
+              <code>MRK_DOTFILES_REPO=&lt;git-url&gt;</code> — if set, clones the repo to <code>~/.dotfiles</code> and runs <code>script/setup</code> and <code>script/strap-after-setup</code> from it (enables modular external dotfile hooks).<br><br>
+              <code>MRK_LOGIN_MSG=&lt;message&gt;</code> — if set, writes a login window message (requires sudo). The change is included in the defaults rollback script.
+            </div>
+          </div>
         </div>
       </div>
 
@@ -590,8 +602,9 @@ make setup --dry-run          # Preview changes without applying</code></pre>
           <ul>
             <li>Installs Homebrew if not present</li>
             <li>Runs <code>brew bundle install</code> from the Brewfile</li>
-            <li>Presents interactive prompts for packages that are new</li>
-            <li>Uses the mrk-picker TUI or <code>gum</code> for package selection</li>
+            <li>For packages not previously installed, presents an interactive selection prompt — formulae are shown with inline descriptions so you can make an informed choice</li>
+            <li>Uses mrk-picker TUI if available, falls back to <code>gum choose</code></li>
+            <li>Mac App Store (<code>mas</code>) entries in the Brewfile are silently skipped — MAS support was removed due to reliability issues. App Store apps must be reinstalled manually from Purchases.</li>
           </ul>
           <pre><code>make brew</code></pre>
         </div>
@@ -607,11 +620,12 @@ make setup --dry-run          # Preview changes without applying</code></pre>
           <p><strong>What it does:</strong></p>
           <ul>
             <li><strong>Topgrade:</strong> Links <code>assets/topgrade.toml</code> to <code>~/.config/topgrade.toml</code></li>
-            <li><strong>Browsers:</strong> Applies Safari defaults, Chrome/Brave managed policies, Helium defaults</li>
-            <li><strong>App defaults:</strong> Applies <code>defaults write</code> settings for Audio Hijack, Fission, AlDente, Rogue Amoeba update settings</li>
+            <li><strong>Browsers:</strong> Applies Safari defaults, Chrome/Brave managed policies, Helium defaults; opens browser extension install URLs from <code>assets/browsers/safari-extensions.txt</code>, <code>chrome-extensions.txt</code>, and <code>brave-extensions.txt</code> if those files exist</li>
+            <li><strong>App defaults:</strong> Applies <code>defaults write</code> settings via dedicated scripts for Audio Hijack, Fission, AlDente, and all Rogue Amoeba apps (update settings)</li>
+            <li><strong>Barkeep:</strong> Downloads and installs Barkeep from the latest GitHub release. Skipped if <code>/Applications/Barkeep.app</code> already exists — to update, use Barkeep itself or remove the app first</li>
             <li><strong>Preferences auto-pull:</strong> If <code>~/.mrk/preferences/</code> is absent and SSH is authenticated, automatically clones <code>mrk-prefs</code></li>
             <li><strong>Plist imports (15 apps):</strong> Non-destructive — skips any app that already has a preferences file</li>
-            <li><strong>App Support restore:</strong> Restores Loopback and SoundSource configuration files (non-destructive)</li>
+            <li><strong>App Support restore:</strong> Restores Loopback (devices, routing) and SoundSource (presets, sources) configuration files — non-destructive, skips if files already exist</li>
             <li><strong>Login items:</strong> Registers AlDente, BetterSnapTool, Bitwarden, Chrono Plus, Dropbox, Hammerspoon, Hot, Ice, NordPass, Raycast, SoundSource, Stats</li>
           </ul>
 
@@ -672,7 +686,8 @@ bf --help             # Show keys and options</code></pre>
           <p><strong><code>sync</code></strong> — scan installed packages, diff against the Brewfile, and add anything missing:</p>
           <pre><code>sync                  # Interactive — opens mrk-picker TUI to select packages
 sync -n               # Dry run — show what would be added, make no changes
-sync -c               # Auto-commit the Brewfile after updating</code></pre>
+sync -c               # Auto-commit the Brewfile after updating
+sync -p               # Prune — remove Brewfile entries for packages no longer installed</code></pre>
 
           <p><strong>How sync works:</strong></p>
           <ol>
@@ -722,9 +737,33 @@ sync -c               # Auto-commit the Brewfile after updating</code></pre>
         </div>
       </div>
 
-      <div class="proc" id="this-manual">
+      <div class="proc" id="login-items">
         <div class="proc-header">
           <span class="proc-num">3.3</span>
+          <h3>Keeping Login Items Current</h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc"><code>sync-login-items</code> diffs the system's current login items against the list tracked in <code>scripts/post-install</code> and syncs them.</p>
+
+          <pre><code>sync-login-items          # Interactive — select items to add or remove
+sync-login-items -n       # Dry run — show what would change, make no changes
+sync-login-items -c       # Auto-commit changes after updating</code></pre>
+
+          <p><strong>How it works:</strong></p>
+          <ol>
+            <li>Reads the system's current login items via AppleScript</li>
+            <li>Parses tracked <code>add_login_item</code> calls from <code>scripts/post-install</code></li>
+            <li>Computes the diff: items on the system but not tracked, and tracked items no longer on the system</li>
+            <li>Opens an interactive selector (<code>gum</code>) to choose which items to add or remove</li>
+            <li>Updates <code>scripts/post-install</code> to reflect the new set</li>
+            <li>Also updates <code>docs/manual.md</code> and <code>docs/index.html</code> with the new login items list</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="proc" id="this-manual">
+        <div class="proc-header">
+          <span class="proc-num">3.4</span>
           <h3>Updating This Manual</h3>
         </div>
         <div class="proc-body">
@@ -747,7 +786,7 @@ git push</code></pre>
 
       <div class="proc" id="barkeep">
         <div class="proc-header">
-          <span class="proc-num">3.4</span>
+          <span class="proc-num">3.5</span>
           <h3>Barkeep</h3>
         </div>
         <div class="proc-body">
@@ -872,6 +911,8 @@ make doctor     # Run full diagnostics</code></pre>
           <tr><td>make sync</td><td>Sync installed Homebrew packages into the Brewfile</td></tr>
           <tr><td>make sync ARGS=-c</td><td>Sync and auto-commit the Brewfile</td></tr>
           <tr><td>make sync ARGS=-n</td><td>Dry run — preview additions without modifying</td></tr>
+          <tr><td>make sync ARGS=-p</td><td>Prune — remove Brewfile entries for packages no longer installed</td></tr>
+          <tr><td>make sync-login-items</td><td>Diff and sync system login items against post-install</td></tr>
           <tr><td>make snapshot-prefs</td><td>Export app preferences and push to mrk-prefs</td></tr>
           <tr><td>make pull-prefs</td><td>Clone or pull app preferences from mrk-prefs</td></tr>
           <tr><td>make picker</td><td>Build the mrk-picker TUI binary</td></tr>
