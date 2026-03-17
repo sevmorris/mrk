@@ -20,8 +20,8 @@
       --color-background-tertiary:  #f1f3f4;
       --color-danger:               #dc3545;
       --color-warning-dark:         #7a5500;
-      --font-base: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-      --font-mono: "JetBrains Mono", "SF Mono", Monaco, Consolas, "Courier New", monospace;
+      --font-family-base: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      --font-family-mono: "JetBrains Mono", "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
       --sidebar-width: 300px;
     }
 
@@ -29,7 +29,7 @@
     html { scroll-behavior: smooth; }
 
     body {
-      font-family: var(--font-base);
+      font-family: var(--font-family-base);
       font-size: 16px;
       background: var(--color-background);
       color: var(--color-text);
@@ -75,7 +75,7 @@
       background: var(--color-background);
     }
     .nav-to-num {
-      font-family: var(--font-mono);
+      font-family: var(--font-family-mono);
       font-size: 0.72rem;
       font-weight: 500;
       letter-spacing: 0.05em;
@@ -85,10 +85,12 @@
       margin-bottom: 4px;
     }
     .nav-title {
-      font-size: 1rem;
+      font-size: 1.1rem;
       font-weight: 600;
       line-height: 1.3;
       color: var(--color-text);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
     }
     nav a.section-head {
       display: block;
@@ -204,7 +206,7 @@
       margin-bottom: 1.25rem;
     }
     .section-num {
-      font-family: var(--font-mono);
+      font-family: var(--font-family-mono);
       font-size: 0.8rem;
       font-weight: 500;
       color: var(--color-text-secondary);
@@ -218,7 +220,7 @@
     .section-sub {
       font-size: 0.8rem;
       color: var(--color-text-tertiary);
-      font-family: var(--font-mono);
+      font-family: var(--font-family-mono);
       margin-left: auto;
     }
 
@@ -230,7 +232,7 @@
     li { margin-bottom: 0.3rem; line-height: 1.55; }
 
     code {
-      font-family: var(--font-mono);
+      font-family: var(--font-family-mono);
       font-size: 0.85em;
       background: var(--color-background-tertiary);
       border: 1px solid var(--color-border-light);
@@ -238,7 +240,7 @@
       border-radius: 3px;
     }
     pre {
-      font-family: var(--font-mono);
+      font-family: var(--font-family-mono);
       font-size: 0.875rem;
       background: var(--color-background-tertiary);
       border: 1px solid var(--color-border);
@@ -268,7 +270,7 @@
       gap: 0.625rem;
     }
     .proc-num {
-      font-family: var(--font-mono);
+      font-family: var(--font-family-mono);
       font-size: 0.75rem;
       font-weight: 500;
       color: var(--color-text-secondary);
@@ -372,7 +374,7 @@
     .ref-table td:last-child { border-right: none; }
     .ref-table tr:last-child td { border-bottom: none; }
     .ref-table td:first-child {
-      font-family: var(--font-mono);
+      font-family: var(--font-family-mono);
       font-size: 0.85rem;
       white-space: nowrap;
       font-weight: 500;
@@ -385,7 +387,7 @@
       display: flex;
       justify-content: space-between;
       font-size: 0.72rem;
-      font-family: var(--font-mono);
+      font-family: var(--font-family-mono);
       font-weight: 500;
       text-transform: uppercase;
       letter-spacing: 0.05em;
