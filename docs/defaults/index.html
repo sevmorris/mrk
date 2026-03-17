@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MRK-1 — mrk defaults.sh Reference Manual</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Blue Header Banner -->
+    <header class="main-header">
+        <div class="header-top">
+            <div class="header-left">Personal Systems Branch / macOS Bootstrap</div>
+            <div class="header-center">TECHNICAL MANUAL / <strong>mrk — defaults.sh Reference</strong></div>
+            <div class="header-right">MRK-1 / DATED: 2026-03-16 / PAGES: N/A</div>
+        </div>
+        <div class="header-meta">
+            <div class="meta-field">
+                <span class="meta-label">TO NUMBER:</span>
+                <span class="meta-value">MRK-1</span>
+            </div>
+            <div class="meta-field">
+                <span class="meta-label">PLATFORM:</span>
+                <span class="meta-value">macOS 14+</span>
+            </div>
+            <div class="meta-field">
+                <span class="meta-label">SOURCE REPO:</span>
+                <span class="meta-value"><a href="https://github.com/sevmorris/mrk">sevmorris/mrk</a></span>
+            </div>
+            <div class="meta-field">
+                <span class="meta-label">CLASSIFICATION:</span>
+                <span class="meta-value">UNCLASSIFIED</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="layout">
+        <!-- Left Sidebar Navigation -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar__header">
+                <span class="sidebar__subtitle">MRK-1</span>
+                <h1 class="sidebar__title">macOS Defaults<br>Reference</h1>
+            </div>
+            
+            <div class="sidebar__search">
+                <div class="search-box">
+                    <input type="search" id="searchInput" placeholder="Search defaults..." class="search-input">
+                    <button id="clearSearch" class="search-clear" style="display: none;">×</button>
+                </div>
+                <div class="search-stats" id="searchStats"></div>
+            </div>
+
+            <div class="sidebar__toc" id="tableOfContents">
+                <h2 class="toc__title">Contents</h2>
+                <div class="toc__loading">Loading sections...</div>
+            </div>
+
+            <div class="sidebar__footer">
+                <a href="#top" class="return-to-top" id="returnToTop">↑ Return to Top</a>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main" id="main">
+            <div id="top"></div>
+            <div class="content" id="content">
+                <div class="loading">
+                    <div class="loading__spinner"></div>
+                    <p>Parsing defaults.sh script...</p>
+                </div>
+            </div>
+
+            <div class="no-results" id="noResults" style="display: none;">
+                <h3>No results found</h3>
+                <p>Try adjusting your search terms or <button id="resetSearch" class="link-button">view all defaults</button></p>
+            </div>
+
+            <footer class="footer">
+                <p>&copy; 2026 <a href="https://github.com/sevmorris">Sev Morris</a> | Generated from <a href="https://github.com/sevmorris/mrk/blob/main/scripts/defaults.sh">defaults.sh</a></p>
+                <p class="footer__note">This documentation is automatically generated from the mrk bootstrap script.</p>
+            </footer>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
