@@ -34,20 +34,37 @@
       background: var(--color-background);
       color: var(--color-text);
       line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Fixed Header Layout */
+    .main-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 200;
+    }
+
+    .layout {
       display: flex;
       min-height: 100vh;
+      padding-top: 100px; /* Space for fixed header */
     }
 
     /* ─── Sidebar ─────────────────────────────────────────────── */
     nav {
-      position: sticky;
-      top: 0;
-      height: 100vh;
+      position: fixed;
+      left: 0;
+      top: 100px;
+      height: calc(100vh - 100px);
       width: var(--sidebar-width);
       min-width: var(--sidebar-width);
       background: var(--color-background-secondary);
       border-right: 2px solid var(--color-border);
       overflow-y: auto;
+      flex-shrink: 0;
+      z-index: 100;
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
@@ -102,6 +119,9 @@
     /* ─── Page wrapper ────────────────────────────────────────── */
     main {
       flex: 1;
+      margin-left: var(--sidebar-width);
+      height: calc(100vh - 100px);
+      overflow-y: auto;
       background: var(--color-background);
       min-width: 0;
       display: flex;
@@ -174,6 +194,13 @@
       font-size: 0.8rem;
       color: var(--color-text);
       font-weight: 600;
+    }
+    .infobar-cell .val a {
+      color: var(--color-primary);
+      text-decoration: none;
+    }
+    .infobar-cell .val a:hover {
+      text-decoration: underline;
     }
 
     /* ─── Content ─────────────────────────────────────────────── */
@@ -384,12 +411,28 @@
 
     /* ─── Responsive ──────────────────────────────────────────── */
     @media (max-width: 860px) {
-      body { flex-direction: column; }
+      .layout {
+        flex-direction: column;
+        height: auto;
+        padding-top: 120px; /* More space for mobile header */
+      }
+      
+      .doc-masthead {
+        grid-template-columns: 1fr;
+        text-align: center;
+        padding: 12px 20px;
+      }
+      .masthead-org, .masthead-meta { display: none; }
+      .doc-infobar { 
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
       nav {
-        position: static;
+        position: relative;
         height: auto;
         width: 100%;
         min-width: 0;
+        top: auto;
         border-right: none;
         border-bottom: 2px solid var(--color-border);
         flex-direction: row;
@@ -400,19 +443,54 @@
       .nav-header { display: none; }
       nav a.section-head { display: none; }
       nav a:not(.section-head) { white-space: nowrap; padding: 4px 10px; }
-      .doc-masthead {
-        grid-template-columns: 1fr;
-        text-align: center;
-        padding: 12px 20px;
+      
+      main {
+        margin-left: 0;
+        height: auto;
       }
-      .masthead-org, .masthead-meta { display: none; }
-      .doc-infobar { grid-template-columns: repeat(2, 1fr); }
+      
       .content { padding: 1.75rem 1.25rem 3.75rem; }
       .doc-footer { padding: 0.625rem 1.25rem; }
     }
   </style>
 </head>
 <body>
+
+<!-- Blue Header Banner -->
+<header class="main-header">
+  <div class="doc-masthead">
+    <div class="masthead-org">Personal Systems Branch<br>macOS Bootstrap</div>
+    <div class="masthead-center">
+      <span class="masthead-doctype">TECHNICAL MANUAL</span>
+      <div class="masthead-title">mrk — macOS Bootstrap</div>
+    </div>
+    <div class="masthead-meta">
+      TO MRK-1<br>
+      DATED: 2026-03-10<br>
+      PAGES: N/A
+    </div>
+  </div>
+  <div class="doc-infobar">
+    <div class="infobar-cell">
+      <span class="lbl">TO Number</span>
+      <span class="val">MRK-1</span>
+    </div>
+    <div class="infobar-cell">
+      <span class="lbl">Platform</span>
+      <span class="val">macOS 15+</span>
+    </div>
+    <div class="infobar-cell">
+      <span class="lbl">Source Repo</span>
+      <span class="val"><a href="https://github.com/sevmorris/mrk">sevmorris/mrk</a></span>
+    </div>
+    <div class="infobar-cell">
+      <span class="lbl">Classification</span>
+      <span class="val">UNCLASSIFIED</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
 
 <nav>
   <div class="nav-header">
@@ -441,39 +519,6 @@
 </nav>
 
 <main>
-
-  <header>
-    <div class="doc-masthead">
-      <div class="masthead-org">Personal Systems Branch<br>macOS Bootstrap</div>
-      <div class="masthead-center">
-        <span class="masthead-doctype">Technical Manual</span>
-        <div class="masthead-title">mrk — macOS Bootstrap</div>
-      </div>
-      <div class="masthead-meta">
-        TO MRK-1<br>
-        DATED: 2026-03-10<br>
-        PAGES: N/A
-      </div>
-    </div>
-    <div class="doc-infobar">
-      <div class="infobar-cell">
-        <span class="lbl">TO Number</span>
-        <span class="val">MRK-1</span>
-      </div>
-      <div class="infobar-cell">
-        <span class="lbl">Platform</span>
-        <span class="val">macOS 15+</span>
-      </div>
-      <div class="infobar-cell">
-        <span class="lbl">Source Repo</span>
-        <span class="val">sevmorris/mrk</span>
-      </div>
-      <div class="infobar-cell">
-        <span class="lbl">Classification</span>
-        <span class="val">UNCLASSIFIED</span>
-      </div>
-    </div>
-  </header>
 
   <div class="content">
 
@@ -958,5 +1003,8 @@ make doctor     # Run full diagnostics</code></pre>
   </footer>
 
 </main>
+
+</div> <!-- /layout -->
+
 </body>
 </html>
