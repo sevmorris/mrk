@@ -6,7 +6,7 @@
 
 Personal, opinionated macOS bootstrap tailored to my workflow and toolset. Idempotent setup in three phases.
 
-**[Full workflow manual →](https://sevmorris.github.io/mrk/)**
+**[Full workflow manual →](https://sevmorris.github.io/mrk/)** · **[macOS defaults reference →](https://sevmorris.github.io/mrk-defaults-docs/)**
 
 ## Quick Start
 
