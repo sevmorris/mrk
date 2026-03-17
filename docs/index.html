@@ -130,73 +130,57 @@
 
     /* ─── Document masthead ───────────────────────────────────── */
     .doc-masthead {
-      background: var(--color-primary);
+      background-color: #1a365d;
       color: #fff;
-      padding: 14px 48px;
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
+      padding: 0.75rem 1.5rem;
+      display: flex;
       align-items: center;
-      gap: 24px;
-      border-bottom: 3px solid rgba(0,0,0,0.15);
+      font-size: 0.875rem;
+      font-weight: 500;
+      letter-spacing: 0.025em;
+      border-bottom: 1px solid #2d3748;
     }
     .masthead-org {
-      font-size: 0.75rem;
-      font-weight: 500;
-      opacity: 0.8;
-      line-height: 1.4;
+      flex: 1;
+      text-align: left;
     }
-    .masthead-center { text-align: center; }
-    .masthead-doctype {
-      display: block;
-      font-size: 0.65rem;
+    .masthead-center { 
+      flex: 2;
+      text-align: center;
+      font-weight: 400;
+    }
+    .masthead-center strong {
       font-weight: 600;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      opacity: 0.75;
-      margin-bottom: 4px;
-    }
-    .masthead-title {
-      font-size: 1.45rem;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-      line-height: 1.1;
     }
     .masthead-meta {
+      flex: 1;
       text-align: right;
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      opacity: 0.75;
-      line-height: 1.7;
     }
     .doc-infobar {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      border-bottom: 2px solid var(--color-border);
-      background: var(--color-background);
+      display: flex;
+      background-color: #e2e8f0;
+      color: #2d3748;
+      padding: 0.5rem 1.5rem;
+      border-top: 1px solid #cbd5e0;
+      font-size: 0.75rem;
+      font-weight: 500;
     }
     .infobar-cell {
-      padding: 6px 16px;
-      border-right: 1px solid var(--color-border-light);
-      font-size: 0.72rem;
+      flex: 1;
+      display: flex;
+      gap: 0.5rem;
     }
-    .infobar-cell:last-child { border-right: none; }
     .infobar-cell .lbl {
-      display: block;
       font-weight: 600;
-      font-size: 0.6rem;
+      color: #4a5568;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--color-text-tertiary);
-      margin-bottom: 2px;
+      letter-spacing: 0.05em;
     }
     .infobar-cell .val {
-      font-family: var(--font-mono);
-      font-size: 0.8rem;
-      color: var(--color-text);
-      font-weight: 600;
+      color: #2d3748;
     }
     .infobar-cell .val a {
-      color: var(--color-primary);
+      color: #3182ce;
       text-decoration: none;
     }
     .infobar-cell .val a:hover {
@@ -418,13 +402,25 @@
       }
       
       .doc-masthead {
-        grid-template-columns: 1fr;
+        flex-direction: column;
+        gap: 0.5rem;
         text-align: center;
-        padding: 12px 20px;
+        padding: 1rem 1rem 0.75rem;
       }
-      .masthead-org, .masthead-meta { display: none; }
-      .doc-infobar { 
-        grid-template-columns: repeat(2, 1fr);
+      .masthead-org,
+      .masthead-center, 
+      .masthead-meta {
+        flex: none;
+        text-align: center;
+      }
+      .doc-infobar {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+      }
+      .infobar-cell {
+        flex: 1 1 50%;
+        min-width: 0;
       }
       
       nav {
@@ -459,32 +455,25 @@
 <!-- Blue Header Banner -->
 <header class="main-header">
   <div class="doc-masthead">
-    <div class="masthead-org">Personal Systems Branch<br>macOS Bootstrap</div>
-    <div class="masthead-center">
-      <span class="masthead-doctype">TECHNICAL MANUAL</span>
-      <div class="masthead-title">mrk — macOS Bootstrap</div>
-    </div>
-    <div class="masthead-meta">
-      TO MRK-1<br>
-      DATED: 2026-03-10<br>
-      PAGES: N/A
-    </div>
+    <div class="masthead-org">Personal Systems Branch / macOS Bootstrap</div>
+    <div class="masthead-center">TECHNICAL MANUAL / <strong>mrk — macOS Bootstrap</strong></div>
+    <div class="masthead-meta">TO MRK-1 / DATED: 2026-03-10 / PAGES: N/A</div>
   </div>
   <div class="doc-infobar">
     <div class="infobar-cell">
-      <span class="lbl">TO Number</span>
+      <span class="lbl">TO NUMBER:</span>
       <span class="val">MRK-1</span>
     </div>
     <div class="infobar-cell">
-      <span class="lbl">Platform</span>
+      <span class="lbl">PLATFORM:</span>
       <span class="val">macOS 15+</span>
     </div>
     <div class="infobar-cell">
-      <span class="lbl">Source Repo</span>
+      <span class="lbl">SOURCE REPO:</span>
       <span class="val"><a href="https://github.com/sevmorris/mrk">sevmorris/mrk</a></span>
     </div>
     <div class="infobar-cell">
-      <span class="lbl">Classification</span>
+      <span class="lbl">CLASSIFICATION:</span>
       <span class="val">UNCLASSIFIED</span>
     </div>
   </div>
