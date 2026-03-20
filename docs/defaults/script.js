@@ -9,32 +9,38 @@ const DEFAULT_DESCRIPTIONS = {
     'NSGlobalDomain.AppleShowScrollBars': {
         title: 'Always Show Scrollbars',
         description: 'Controls scrollbar visibility. "Always" keeps scrollbars permanently visible; "Automatic" lets macOS decide based on input device (trackpad = hidden, mouse = visible); "WhenScrolling" hides them until you scroll. Scrollbars were always visible before OS X 10.7 Lion, which ported the iOS overlay-scrollbar paradigm to the Mac. Setting "Always" overrides the automatic device-detection logic.',
-        category: 'Interface'
+        category: 'Interface',
+        why: 'Overlay scrollbars appear and disappear dynamically, shifting layout and moving click targets. Always-visible scrollbars provide a consistent, predictable interface.'
     },
     'NSGlobalDomain.AppleShowAllExtensions': {
         title: 'Show All File Extensions',
         description: 'Forces Finder to display file extensions for all files, including types macOS normally hides (.jpg, .txt, .mov). Improves security by preventing files from disguising themselves with misleading names. Also a CIS Benchmark recommendation for macOS hardening (control 6.2). Individual files can still override this with a per-file "Hide extension" attribute.',
-        category: 'Security'
+        category: 'Security',
+        why: 'Hidden extensions can make malicious files appear harmless — a file named "invoice.pdf.exe" displays as "invoice.pdf" with extensions hidden.'
     },
     'NSGlobalDomain.NSAutomaticWindowAnimationsEnabled': {
         title: 'Disable Window Open Animations',
         description: 'Disables the scale-up animation when windows first appear, making them open instantly. Introduced in OS X 10.7 Lion. Only affects apps launched after the setting is applied; running apps must be relaunched. Some animations in newer macOS are handled by the compositor and may not be affected.',
-        category: 'Performance'
+        category: 'Performance',
+        why: 'Eliminates visual delay when rapidly switching or tiling windows.'
     },
     'NSGlobalDomain.NSWindowResizeTime': {
         title: 'Sheet (Dialog) Animation Duration',
         description: 'Despite its name, this key controls sheet animation speed — how quickly Save and Print dialogs roll down from a window\'s title bar. It does not affect general window resizing. The default is 0.2 seconds; 0.001 makes dialogs appear near-instantly. Robservatory.com measured a 47% time reduction for repeated Save dialog workflows. Many dotfiles misidentify this as a window-resize setting.',
-        category: 'Performance'
+        category: 'Performance',
+        why: 'The default 0.2s delay is perceptible and compounds across dozens of daily Save/Print interactions.'
     },
     'NSGlobalDomain.NSQuitAlwaysKeepsWindows': {
         title: 'Disable Window Restoration (Resume)',
         description: 'Disables Resume — the OS X 10.7 Lion feature that restores all windows from the previous session when an app relaunches. Resume was immediately controversial on release; "how do I disable Resume?" was among the most-searched Lion questions in 2011. Setting false is equivalent to checking "Close windows when quitting an app" in System Settings → Desktop & Dock, which Apple finally surfaced as a visible toggle in Ventura.',
-        category: 'Performance'
+        category: 'Performance',
+        why: 'Stale windows from a previous session can cause confusion after crashes or updates — apps reopen to whatever state they were in, which is rarely useful.'
     },
     'NSGlobalDomain.NSNavPanelExpandedStateForSaveMode': {
         title: 'Expanded Save Dialogs',
         description: 'Forces Save dialogs to open in expanded mode showing the full folder browser, rather than the simplified collapsed view Apple introduced in OS X 10.7 Lion (before which Save dialogs always showed the full hierarchy). Both this key and its "2" variant are required — the second covers additional Save panel contexts added for document-scoped saving.',
-        category: 'Interface'
+        category: 'Interface',
+        why: 'The collapsed panel hides the destination path. Files frequently end up saved to the wrong location because the user accepted a default they couldn\'t see.'
     },
     'NSGlobalDomain.NSNavPanelExpandedStateForSaveMode2': {
         title: 'Expanded Save Dialogs (Extended)',
@@ -54,7 +60,8 @@ const DEFAULT_DESCRIPTIONS = {
     'NSGlobalDomain.NSDocumentSaveNewDocumentsToCloud': {
         title: 'Default New Documents to Local Storage',
         description: 'Prevents iCloud-aware apps (TextEdit, Pages, Preview, Numbers, Keynote) from defaulting to iCloud Drive for new document saves. Apple introduced iCloud document storage in OS X Mountain Lion (10.8, 2012) and set it as the default save location — a decision that surprised many users who later found their documents "missing" (stored in iCloud, not locally). Setting false keeps local storage as the default while still allowing manual saves to iCloud.',
-        category: 'File Management'
+        category: 'File Management',
+        why: 'Avoids accidental sync of sensitive or work-in-progress files to iCloud without explicit intent.'
     },
     'NSGlobalDomain.QLPanelAnimationDuration': {
         title: 'Quick Look Animation Duration',
@@ -88,37 +95,44 @@ const DEFAULT_DESCRIPTIONS = {
     'NSGlobalDomain.ApplePressAndHoldEnabled': {
         title: 'Disable Accent Picker, Restore Key Repeat',
         description: 'Restores traditional key-repeat behavior by disabling the iOS-style accent character picker that appears when holding a key. This popup was introduced in OS X 10.7 Lion as a direct port of iOS keyboard behavior, replacing decades of key-repeat defaults. It was one of the first popular Lion customization tips (osxdaily.com covered it within days of Lion\'s July 2011 release). As of 2024, Apple still provides no System Settings toggle — defaults write or a third-party tool like TinkerTool remain the only options.',
-        category: 'Keyboard'
+        category: 'Keyboard',
+        why: 'The accent picker interrupts keyboard-driven navigation and editing. Holding j or k in a text editor should repeat the character, not open a popup.'
     },
     'NSGlobalDomain.AppleKeyboardUIMode': {
         title: 'Full Keyboard Navigation',
         description: 'Enables full keyboard navigation so Tab moves focus to all UI controls — buttons, checkboxes, radio buttons — not just text fields and lists. Value 2 enables this; values 2 and 3 appear equivalent on modern macOS. The UI toggle is System Settings → Keyboard → "Keyboard navigation." The shortcut Control-F7 toggles this live without a settings change.',
-        category: 'Keyboard'
+        category: 'Keyboard',
+        why: 'Allows Tab to cycle through all controls — buttons, radio buttons, checkboxes — without reaching for the mouse.'
     },
     'NSGlobalDomain.NSAutomaticCapitalizationEnabled': {
         title: 'Disable Auto-Capitalization',
         description: 'Disables automatic capitalization of the first word after a sentence-ending period. Part of the NSAutomatic* family of text-correction features ported from iOS keyboard intelligence to macOS. Corresponds to "Capitalize words automatically" in System Settings → Keyboard → Text Replacements.',
-        category: 'Keyboard'
+        category: 'Keyboard',
+        why: 'Breaks commands, code, and domain names entered in text fields outside terminals.'
     },
     'NSGlobalDomain.NSAutomaticDashSubstitutionEnabled': {
         title: 'Disable Smart Dashes',
         description: 'Disables automatic replacement of -- with an en-dash (–) and --- with an em-dash (—). Particularly disruptive when writing shell commands, markdown, code comments, or any structured text where literal hyphens are meaningful.',
-        category: 'Keyboard'
+        category: 'Keyboard',
+        why: 'Silently converts "--" to an em dash, breaking markdown, CLI flags, and code pasted into apps with smart dashes enabled.'
     },
     'NSGlobalDomain.NSAutomaticPeriodSubstitutionEnabled': {
         title: 'Disable Double-Space Period',
         description: 'Disables the double-space to period substitution ported from iOS: typing two spaces normally inserts a period and a space. Most desktop users find this unwanted, especially when writing code or structured prose where sentence spacing is intentional.',
-        category: 'Keyboard'
+        category: 'Keyboard',
+        why: 'Interferes with intentional double-spacing in code, indentation, and command entry.'
     },
     'NSGlobalDomain.NSAutomaticQuoteSubstitutionEnabled': {
         title: 'Disable Smart Quotes',
         description: 'Disables smart quote substitution — replacement of straight apostrophes and quotation marks with typographically correct curly variants. Critical for developers: smart quotes silently break code, JSON, YAML, shell scripts, and configuration files when pasted from an app that substituted them.',
-        category: 'Keyboard'
+        category: 'Keyboard',
+        why: 'Curly quotes break shell scripts, JSON, code snippets, and command-line arguments. The substitution is invisible until something fails.'
     },
     'NSGlobalDomain.NSAutomaticSpellingCorrectionEnabled': {
         title: 'Disable Autocorrect',
         description: 'Disables automatic on-the-fly spelling correction. Corresponds to "Correct spelling automatically" in System Settings → Keyboard → Text Replacements.',
-        category: 'Keyboard'
+        category: 'Keyboard',
+        why: 'Mangles technical terms, hostnames, variable names, and other domain-specific vocabulary that the system dictionary doesn\'t recognize.'
     },
 
     // Dock
@@ -140,12 +154,14 @@ const DEFAULT_DESCRIPTIONS = {
     'com.apple.dock.minimize-to-application': {
         title: 'Minimize Windows into App Icon',
         description: 'Minimized windows shrink into the app\'s Dock icon rather than creating a separate thumbnail in the minimized-windows area of the Dock. Keeps the Dock clean and uncluttered when many windows are minimized.',
-        category: 'Dock'
+        category: 'Dock',
+        why: 'Minimized windows otherwise accumulate as separate thumbnails in the Dock, cluttering it. This keeps the Dock layout stable regardless of how many windows are minimized.'
     },
     'com.apple.dock.no-bouncing': {
         title: 'Disable Dock Icon Bouncing',
         description: 'Disables both types of Dock icon bouncing: the launch bounce (when clicking an icon while an app loads) and the alert bounce (when an app wants your attention). In macOS 10.3 Panther these were two separate keys — launchanim controlled launch bouncing and had a UI checkbox in Dock preferences; no-bouncing controlled notification bouncing. Both remain independently settable today.',
-        category: 'Dock'
+        category: 'Dock',
+        why: 'Eliminates attention-hijacking animations during focused work. If an app needs attention, the notification will still appear — it just won\'t be accompanied by a bouncing icon.'
     },
     'com.apple.dock.show-recents': {
         title: 'Hide Recent Apps in Dock',
@@ -167,7 +183,8 @@ const DEFAULT_DESCRIPTIONS = {
     'com.apple.finder.DisableAllAnimations': {
         title: 'Disable Finder Animations',
         description: 'Disables Finder animations including Get Info window open/close, icon movement, and scroll overscroll bounce. One of the earliest macOS performance tips, documented since ~2007. Requires killall Finder. Some animations in newer macOS use compositor layers and may not be affected.',
-        category: 'Finder'
+        category: 'Finder',
+        why: 'Makes file operations feel instant. Each animation adds visible latency per action, which compounds across a day of file management.'
     },
     // kept for compatibility — not in defaults.sh
     'com.apple.finder.AppleShowAllFiles': { title: 'Show Hidden Files', description: 'Forces Finder to display hidden files and folders.', category: 'Finder' },
@@ -188,17 +205,20 @@ const DEFAULT_DESCRIPTIONS = {
     'com.apple.screencapture.disable-shadow': {
         title: 'Disable Screenshot Window Shadow',
         description: 'Removes the drop shadow added to window screenshots (Cmd+Shift+4 then Space). The shadow adds transparent padding around the image and was a celebrated feature of Mac screenshots since the Leopard era. Setting true produces clean PNG files without shadow padding. Only affects window-mode captures; region and full-screen captures never have shadows. Requires killall SystemUIServer.',
-        category: 'Screenshots'
+        category: 'Screenshots',
+        why: 'Shadows add invisible padding around the image canvas and visual noise in documentation, where a clean window edge is more useful than a soft drop shadow.'
     },
     'com.apple.screencapture.show-thumbnail': {
         title: 'Disable Screenshot Thumbnail Preview',
         description: 'Hides the floating thumbnail preview that appears after taking a screenshot, introduced in macOS 10.14 Mojave. Known bug in macOS 15 Sequoia: multiple reports (including MacRumors forum threads specific to 15.3.2) confirm this setting spontaneously resets itself, sometimes multiple times per day. The preference may not persist reliably on Sequoia.',
-        category: 'Screenshots'
+        category: 'Screenshots',
+        why: 'The thumbnail overlays the screen for several seconds after each capture and delays access to the file path — it adds friction without adding information.'
     },
     'com.apple.screencapture.include-date': {
         title: 'Exclude Date from Screenshot Filenames',
         description: 'Controls whether the capture date and time appear in the screenshot filename. Default (true) produces names like "Screenshot 2025-03-20 at 13.27.20.png." Setting false produces "Screenshot.png" with deduplication numbering for subsequent captures. Requires killall SystemUIServer.',
-        category: 'Screenshots'
+        category: 'Screenshots',
+        why: 'Predictable, date-free filenames are easier to reference in scripts, automation, and documentation without needing to know the exact capture time.'
     },
     'com.apple.screencapture.location': {
         title: 'Screenshot Save Location',
@@ -211,19 +231,22 @@ const DEFAULT_DESCRIPTIONS = {
     'com.apple.desktopservices.DSDontWriteNetworkStores': {
         title: 'No .DS_Store Files on Network Volumes',
         description: 'Prevents Finder from creating .DS_Store and ._ (AppleDouble) sidecar files on network volumes (AFP, SMB, NFS, WebDAV). .DS_Store files store folder view preferences; on network shares they appear as clutter to non-macOS users and can slow SMB browsing. Apple has an official support article (HT208209) recommending this setting for enterprise SMB environments. Does not delete existing .DS_Store files retroactively.',
-        category: 'File Management'
+        category: 'File Management',
+        why: '.DS_Store files expose directory metadata and appear as visible clutter to Windows and Linux users on shared volumes.'
     },
     'com.apple.desktopservices.DSDontWriteUSBStores': {
         title: 'No .DS_Store Files on USB Volumes',
         description: 'Prevents .DS_Store and ._ (AppleDouble) sidecar files from being written to USB drives, SD cards, and other removable media. Eliminates the notorious cross-platform friction where USB drives inserted into Windows PCs show up littered with invisible macOS metadata files.',
-        category: 'File Management'
+        category: 'File Management',
+        why: 'Portable drives are frequently shared across OSes. .DS_Store files are invisible on macOS but show up as junk on Windows and Linux.'
     },
 
     // Disk images
     'com.apple.frameworks.diskimages.skip-verify': {
         title: 'Skip DMG Checksum Verification',
         description: 'Skips checksum verification when mounting disk image (.dmg) files. Likely ineffective since OS X 10.11.3 El Capitan — community reports indicate DiskImageMounter ignores these keys as of that release, though they write without error. DMG verification exists to detect corruption or tampering; skipping it for downloaded images in particular is a security trade-off.',
-        category: 'Performance'
+        category: 'Performance',
+        why: 'Verification is redundant when the source is trusted and skips multi-second delays on large installers. Note: likely a no-op since El Capitan.'
     },
     'com.apple.frameworks.diskimages.skip-verify-locked': {
         title: 'Skip Locked DMG Verification',
@@ -240,14 +263,16 @@ const DEFAULT_DESCRIPTIONS = {
     'com.apple.TimeMachine.DoNotOfferNewDisksForBackup': {
         title: 'Suppress Time Machine New Disk Prompt',
         description: 'Suppresses the "Do you want to use [disk] to back up with Time Machine?" dialog when a blank external drive is connected. Only prevents the prompt — does not disable Time Machine or affect existing backup destinations. Normally, clicking "Don\'t Use" writes an invisible .com.apple.timemachine.donotpresent marker file to that specific volume; this preference suppresses the prompt globally for all new disks.',
-        category: 'System'
+        category: 'System',
+        why: 'Prevents Time Machine dialogs from interrupting when external drives are connected for other purposes — archiving, file transfers, etc.'
     },
 
     // Software Update & App Store
     'com.apple.SoftwareUpdate.AutomaticCheckEnabled': {
         title: 'Check for Updates Automatically',
         description: 'Enables background checking for macOS software updates. Corresponds to "Automatically keep my Mac up to date" in System Settings → General → Software Update.',
-        category: 'Security'
+        category: 'Security',
+        why: 'Security patches are applied automatically without waiting for manual intervention. The risk of an unpatched vulnerability outweighs the risk of an automatic update.'
     },
     'com.apple.SoftwareUpdate.AutomaticDownload': {
         title: 'Download Updates Automatically',
@@ -274,17 +299,20 @@ const DEFAULT_DESCRIPTIONS = {
     'com.apple.ActivityMonitor.IconType': {
         title: 'Activity Monitor Dock Icon Display',
         description: 'Sets what the Activity Monitor Dock icon shows while the app is running. Value 2 = network usage (mirrored line graphs). All options: 0 = standard icon (default), 2 = network usage, 3 = disk usage, 5 = CPU meter bar, 6 = CPU history graph. Most dotfiles use 5 (CPU meter) for at-a-glance load visibility; this script uses 2 (network).',
-        category: 'System Monitoring'
+        category: 'System Monitoring',
+        why: 'Makes system activity visible at a glance in the Dock without needing to switch windows.'
     },
     'com.apple.ActivityMonitor.ShowCategory': {
         title: 'Activity Monitor Default Process Filter',
         description: 'Sets the default process filter. Value 100 = All Processes. Other values: 101 = My Processes, 102 = System Processes, 103 = Other Processes, 106 = Active Processes, 107 = Windowed Processes.',
-        category: 'System Monitoring'
+        category: 'System Monitoring',
+        why: 'The default "My Processes" view hides background and system processes that may be consuming significant resources.'
     },
     'com.apple.ActivityMonitor.SortColumn': {
         title: 'Activity Monitor Sort Column',
         description: 'Sets the default sort column. CPUUsage sorts by CPU consumption — most useful for spotting runaway processes at the top. Other valid values include CPUTime, PID, ProcessName, RealPrivateMemory, PhysicalMemory.',
-        category: 'System Monitoring'
+        category: 'System Monitoring',
+        why: 'Surfaces the highest-load process immediately on open, without manually clicking a column header each time.'
     },
     'com.apple.ActivityMonitor.SortDirection': {
         title: 'Activity Monitor Sort Direction',
@@ -294,26 +322,30 @@ const DEFAULT_DESCRIPTIONS = {
     'com.apple.ActivityMonitor.UpdatePeriod': {
         title: 'Activity Monitor Refresh Rate',
         description: 'Sets Activity Monitor\'s data refresh interval in seconds. Value 1 = every second (most responsive), 2 = every 2 seconds, 5 = every 5 seconds (default). More frequent updates add a small amount of CPU overhead from the monitoring process itself.',
-        category: 'System Monitoring'
+        category: 'System Monitoring',
+        why: 'The 5s default misses short-lived CPU spikes. A runaway process can max out a core and settle down before the display refreshes.'
     },
 
     // TextEdit
     'com.apple.TextEdit.RichText': {
         title: 'Default to Plain Text',
         description: 'Makes new TextEdit documents open as plain text (.txt) by default instead of rich text (.rtf). TextEdit\'s default RTF mode has confused many users who expected a plain text editor — pasting code into an RTF document silently corrupts formatting with invisible markup. One of the most commonly cited macOS developer setup tips; has existed as a preference since early Mac OS X.',
-        category: 'Applications'
+        category: 'Applications',
+        why: 'RTF creates binary files that can\'t be read by other editors, diffed in git, or inspected as plain text. TextEdit is most useful as a scratch-pad for plain text.'
     },
 
     // Terminal
     'com.apple.Terminal.FocusFollowsMouse': {
         title: 'Terminal Focus Follows Mouse',
         description: 'Enables X11/Unix-style focus-follows-mouse for Terminal windows: any Terminal window under the cursor accepts keyboard input without needing to click to bring it forward. The window is not raised — focus shifts silently. Useful for multi-terminal workflows but can cause unexpected input if the cursor drifts over a Terminal window while typing elsewhere.',
-        category: 'Terminal'
+        category: 'Terminal',
+        why: 'Avoids needing to click to focus a terminal window when working across multiple panes, reducing hand movement.'
     },
     'com.apple.Terminal.SecureKeyboardEntry': {
         title: 'Secure Keyboard Entry',
         description: 'Prevents other processes — screen readers, accessibility tools, TextExpander, and potential keyloggers — from intercepting keystrokes typed into Terminal. This is a Level 1 recommendation in the CIS Apple macOS benchmarks (control 6.4.1 in the Ventura benchmark and equivalents in earlier versions). Trade-off: breaks TextExpander and similar keyboard-monitoring utilities in Terminal windows.',
-        category: 'Terminal'
+        category: 'Terminal',
+        why: 'Prevents other processes from intercepting keystrokes typed into Terminal — including passwords, private keys, and API tokens.'
     },
     'com.apple.Terminal.ShowLineMarks': {
         title: 'Hide Terminal Line Marks',
@@ -562,6 +594,7 @@ class DefaultsDocGenerator {
             comment: comment || (description ? description.title : key),
             description: description ? description.description : this.generateGenericDescription(key, value, type),
             category: description ? description.category : 'System',
+            why: description ? (description.why || null) : null,
             command: `defaults write ${domain} ${key} -${type} ${this.formatValueForCommand(value, type)}`
         };
     }
@@ -704,6 +737,7 @@ class DefaultsDocGenerator {
                 
                 <div class="default-entry__main">
                     <p class="default-entry__description">${entry.description}</p>
+                    ${entry.why ? `<div class="default-entry__why"><span class="why-label">Why this setting</span>${entry.why}</div>` : ''}
                 </div>
                 
                 <div class="default-entry__values">

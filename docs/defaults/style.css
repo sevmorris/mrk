@@ -510,6 +510,27 @@ body {
     font-size: 0.95rem;
 }
 
+/* Why Callout */
+.default-entry__why {
+    margin-top: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    background-color: #f0f4ff;
+    border-left: 3px solid var(--color-primary);
+    font-size: 0.9rem;
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+.why-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-primary);
+    margin-bottom: 0.2rem;
+}
+
 /* Values Table */
 .default-entry__values {
     background-color: var(--color-background-secondary);
