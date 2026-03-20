@@ -5,13 +5,15 @@ const DEFAULT_DESCRIPTIONS = {
         title: 'Dark Mode',
         description: 'Enables system-wide Dark Mode, affecting the menu bar, Dock, window frames, and most built-in apps. Introduced in macOS 10.14 Mojave (2018). The key accepts only the string "Dark" — there is no "Light" value. To revert to Light Mode you must delete the key entirely: defaults delete NSGlobalDomain AppleInterfaceStyle. A partial dark menu bar existed since Yosemite (10.10) but used a different mechanism.',
         category: 'Appearance',
-        preference: true
+        preference: true,
+        systemDefault: 'Key absent (Light Mode)'
     },
     'NSGlobalDomain.AppleShowScrollBars': {
         title: 'Always Show Scrollbars',
         description: 'Controls scrollbar visibility. "Always" keeps scrollbars permanently visible; "Automatic" lets macOS decide based on input device (trackpad = hidden, mouse = visible); "WhenScrolling" hides them until you scroll. Scrollbars were always visible before OS X 10.7 Lion, which ported the iOS overlay-scrollbar paradigm to the Mac. Setting "Always" overrides the automatic device-detection logic.',
         category: 'Interface',
-        why: 'Overlay scrollbars appear and disappear dynamically, shifting layout and moving click targets. Always-visible scrollbars provide a consistent, predictable interface.'
+        why: 'Overlay scrollbars appear and disappear dynamically, shifting layout and moving click targets. Always-visible scrollbars provide a consistent, predictable interface.',
+        systemDefault: '"Automatic"'
     },
     'NSGlobalDomain.AppleShowAllExtensions': {
         title: 'Show All File Extensions',
@@ -29,13 +31,15 @@ const DEFAULT_DESCRIPTIONS = {
         title: 'Sheet (Dialog) Animation Duration',
         description: 'Despite its name, this key controls sheet animation speed — how quickly Save and Print dialogs roll down from a window\'s title bar. It does not affect general window resizing. The default is 0.2 seconds; 0.001 makes dialogs appear near-instantly. Robservatory.com measured a 47% time reduction for repeated Save dialog workflows. Many dotfiles misidentify this as a window-resize setting.',
         category: 'Performance',
-        why: 'The default 0.2s delay is perceptible and compounds across dozens of daily Save/Print interactions.'
+        why: 'The default 0.2s delay is perceptible and compounds across dozens of daily Save/Print interactions.',
+        systemDefault: '0.2'
     },
     'NSGlobalDomain.NSQuitAlwaysKeepsWindows': {
         title: 'Disable Window Restoration (Resume)',
         description: 'Disables Resume — the OS X 10.7 Lion feature that restores all windows from the previous session when an app relaunches. Resume was immediately controversial on release; "how do I disable Resume?" was among the most-searched Lion questions in 2011. Setting false is equivalent to checking "Close windows when quitting an app" in System Settings → Desktop & Dock, which Apple finally surfaced as a visible toggle in Ventura.',
         category: 'Performance',
-        why: 'Stale windows from a previous session can cause confusion after crashes or updates — apps reopen to whatever state they were in, which is rarely useful.'
+        why: 'Stale windows from a previous session can cause confusion after crashes or updates — apps reopen to whatever state they were in, which is rarely useful.',
+        systemDefault: 'true (window restoration enabled)'
     },
     'NSGlobalDomain.NSNavPanelExpandedStateForSaveMode': {
         title: 'Expanded Save Dialogs',
@@ -62,7 +66,8 @@ const DEFAULT_DESCRIPTIONS = {
         title: 'Default New Documents to Local Storage',
         description: 'Prevents iCloud-aware apps (TextEdit, Pages, Preview, Numbers, Keynote) from defaulting to iCloud Drive for new document saves. Apple introduced iCloud document storage in OS X Mountain Lion (10.8, 2012) and set it as the default save location — a decision that surprised many users who later found their documents "missing" (stored in iCloud, not locally). Setting false keeps local storage as the default while still allowing manual saves to iCloud.',
         category: 'File Management',
-        why: 'Avoids accidental sync of sensitive or work-in-progress files to iCloud without explicit intent.'
+        why: 'Avoids accidental sync of sensitive or work-in-progress files to iCloud without explicit intent.',
+        systemDefault: 'true (saves to iCloud by default)'
     },
     'NSGlobalDomain.QLPanelAnimationDuration': {
         title: 'Quick Look Animation Duration',
@@ -90,25 +95,29 @@ const DEFAULT_DESCRIPTIONS = {
         title: 'Key Repeat Rate',
         description: 'Sets the interval between repeated characters when a key is held, in units of ~16.7 ms. Value 2 = ~33 ms (very fast). The System Settings slider exposes a limited range, but defaults write can set values below the UI minimum — value 1 (~16.7 ms) is faster than anything achievable through System Settings. Requires logout/restart to take effect.',
         category: 'Keyboard',
-        preference: true
+        preference: true,
+        systemDefault: '6 (~100ms)'
     },
     'NSGlobalDomain.InitialKeyRepeat': {
         title: 'Key Repeat Delay',
         description: 'Sets the delay before key repeat begins when a key is held, in units of ~16.7 ms. Value 15 = ~250 ms, which is shorter than the System Settings UI minimum of 25 (~420 ms). Caution: do not set below 10 (~167 ms) — values that low risk accidental character repetition. Requires logout/restart to take effect.',
         category: 'Keyboard',
-        preference: true
+        preference: true,
+        systemDefault: '25 (~420ms)'
     },
     'NSGlobalDomain.ApplePressAndHoldEnabled': {
         title: 'Disable Accent Picker, Restore Key Repeat',
         description: 'Restores traditional key-repeat behavior by disabling the iOS-style accent character picker that appears when holding a key. This popup was introduced in OS X 10.7 Lion as a direct port of iOS keyboard behavior, replacing decades of key-repeat defaults. It was one of the first popular Lion customization tips (osxdaily.com covered it within days of Lion\'s July 2011 release). As of 2024, Apple still provides no System Settings toggle — defaults write or a third-party tool like TinkerTool remain the only options.',
         category: 'Keyboard',
-        why: 'The accent picker interrupts keyboard-driven navigation and editing. Holding j or k in a text editor should repeat the character, not open a popup.'
+        why: 'The accent picker interrupts keyboard-driven navigation and editing. Holding j or k in a text editor should repeat the character, not open a popup.',
+        systemDefault: 'true (accent picker enabled)'
     },
     'NSGlobalDomain.AppleKeyboardUIMode': {
         title: 'Full Keyboard Navigation',
         description: 'Enables full keyboard navigation so Tab moves focus to all UI controls — buttons, checkboxes, radio buttons — not just text fields and lists. Value 2 enables this; values 2 and 3 appear equivalent on modern macOS. The UI toggle is System Settings → Keyboard → "Keyboard navigation." The shortcut Control-F7 toggles this live without a settings change.',
         category: 'Keyboard',
-        why: 'Allows Tab to cycle through all controls — buttons, radio buttons, checkboxes — without reaching for the mouse.'
+        why: 'Allows Tab to cycle through all controls — buttons, radio buttons, checkboxes — without reaching for the mouse.',
+        systemDefault: '0 (text fields and lists only)'
     },
     'NSGlobalDomain.NSAutomaticCapitalizationEnabled': {
         title: 'Disable Auto-Capitalization',
@@ -146,43 +155,50 @@ const DEFAULT_DESCRIPTIONS = {
         title: 'Dock Position',
         description: 'Sets the Dock position on screen. Valid values: "left", "bottom" (default), "right". Requires killall Dock to take effect. On multi-display setups, the Dock appears on the display designated as primary in System Settings → Displays → Arrangement.',
         category: 'Dock',
-        preference: true
+        preference: true,
+        systemDefault: '"bottom"'
     },
     'com.apple.dock.tilesize': {
         title: 'Dock Icon Size',
         description: 'Sets Dock icon size in pixels. Valid range is approximately 16–128; the System Settings slider default is around 36–48 depending on display resolution. Requires killall Dock.',
         category: 'Dock',
-        preference: true
+        preference: true,
+        systemDefault: '~48px (varies by display resolution)'
     },
     'com.apple.dock.mineffect': {
         title: 'Window Minimize Effect',
         description: 'Sets the window minimize animation. "genie" (default) uses the stretchy drain-into-Dock effect; "scale" shrinks the window in place. There is also a hidden third value "suck" — a vacuum-like animation that has existed since macOS 10.0 (reportedly even in pre-release builds) but has never appeared in System Preferences. The popular theory is Apple kept it hidden because of the name. All three values work on macOS 15.',
         category: 'Dock',
-        preference: true
+        preference: true,
+        systemDefault: '"genie"'
     },
     'com.apple.dock.minimize-to-application': {
         title: 'Minimize Windows into App Icon',
         description: 'Minimized windows shrink into the app\'s Dock icon rather than creating a separate thumbnail in the minimized-windows area of the Dock. Keeps the Dock clean and uncluttered when many windows are minimized.',
         category: 'Dock',
-        why: 'Minimized windows otherwise accumulate as separate thumbnails in the Dock, cluttering it. This keeps the Dock layout stable regardless of how many windows are minimized.'
+        why: 'Minimized windows otherwise accumulate as separate thumbnails in the Dock, cluttering it. This keeps the Dock layout stable regardless of how many windows are minimized.',
+        systemDefault: 'false (minimized windows appear as separate thumbnails)'
     },
     'com.apple.dock.no-bouncing': {
         title: 'Disable Dock Icon Bouncing',
         description: 'Disables both types of Dock icon bouncing: the launch bounce (when clicking an icon while an app loads) and the alert bounce (when an app wants your attention). In macOS 10.3 Panther these were two separate keys — launchanim controlled launch bouncing and had a UI checkbox in Dock preferences; no-bouncing controlled notification bouncing. Both remain independently settable today.',
         category: 'Dock',
-        why: 'Eliminates attention-hijacking animations during focused work. If an app needs attention, the notification will still appear — it just won\'t be accompanied by a bouncing icon.'
+        why: 'Eliminates attention-hijacking animations during focused work. If an app needs attention, the notification will still appear — it just won\'t be accompanied by a bouncing icon.',
+        systemDefault: 'false (bouncing enabled)'
     },
     'com.apple.dock.show-recents': {
         title: 'Hide Recent Apps in Dock',
         description: 'Hides the "Recent Applications" section — the area separated by a divider showing recently used apps not permanently pinned. This section was introduced in macOS 10.14 Mojave (2018) and is enabled by default. Power users with curated Dock layouts typically disable it.',
         category: 'Dock',
-        preference: true
+        preference: true,
+        systemDefault: 'true (recent apps shown)'
     },
     'com.apple.dock.autohide-delay': {
         title: 'Dock Auto-Hide Delay',
         description: 'Sets the delay before a hidden Dock reappears when the cursor approaches the screen edge. Default is ~0.5 seconds; 0 makes it appear immediately on hover. This setting only has visible effect if Dock auto-hide is enabled — auto-hide is not enabled by this script, but the preference will apply if you enable it later.',
         category: 'Dock',
-        preference: true
+        preference: true,
+        systemDefault: '0.5 (seconds)'
     },
     // kept for compatibility — not in defaults.sh
     'com.apple.dock.autohide': { title: 'Auto-hide Dock', description: 'Automatically hides the Dock when not in use.', category: 'Dock' },
@@ -217,19 +233,22 @@ const DEFAULT_DESCRIPTIONS = {
         title: 'Disable Screenshot Window Shadow',
         description: 'Removes the drop shadow added to window screenshots (Cmd+Shift+4 then Space). The shadow adds transparent padding around the image and was a celebrated feature of Mac screenshots since the Leopard era. Setting true produces clean PNG files without shadow padding. Only affects window-mode captures; region and full-screen captures never have shadows. Requires killall SystemUIServer.',
         category: 'Screenshots',
-        why: 'Shadows add invisible padding around the image canvas and visual noise in documentation, where a clean window edge is more useful than a soft drop shadow.'
+        why: 'Shadows add invisible padding around the image canvas and visual noise in documentation, where a clean window edge is more useful than a soft drop shadow.',
+        systemDefault: 'false (shadow enabled)'
     },
     'com.apple.screencapture.show-thumbnail': {
         title: 'Disable Screenshot Thumbnail Preview',
         description: 'Hides the floating thumbnail preview that appears after taking a screenshot, introduced in macOS 10.14 Mojave. Known bug in macOS 15 Sequoia: multiple reports (including MacRumors forum threads specific to 15.3.2) confirm this setting spontaneously resets itself, sometimes multiple times per day. The preference may not persist reliably on Sequoia.',
         category: 'Screenshots',
-        why: 'The thumbnail overlays the screen for several seconds after each capture and delays access to the file path — it adds friction without adding information.'
+        why: 'The thumbnail overlays the screen for several seconds after each capture and delays access to the file path — it adds friction without adding information.',
+        systemDefault: 'true (thumbnail shown)'
     },
     'com.apple.screencapture.include-date': {
         title: 'Exclude Date from Screenshot Filenames',
         description: 'Controls whether the capture date and time appear in the screenshot filename. Default (true) produces names like "Screenshot 2025-03-20 at 13.27.20.png." Setting false produces "Screenshot.png" with deduplication numbering for subsequent captures. Requires killall SystemUIServer.',
         category: 'Screenshots',
-        why: 'Predictable, date-free filenames are easier to reference in scripts, automation, and documentation without needing to know the exact capture time.'
+        why: 'Predictable, date-free filenames are easier to reference in scripts, automation, and documentation without needing to know the exact capture time.',
+        systemDefault: 'true (date included)'
     },
     'com.apple.screencapture.location': {
         title: 'Screenshot Save Location',
@@ -312,13 +331,15 @@ const DEFAULT_DESCRIPTIONS = {
         title: 'Activity Monitor Dock Icon Display',
         description: 'Sets what the Activity Monitor Dock icon shows while the app is running. Value 2 = network usage (mirrored line graphs). All options: 0 = standard icon (default), 2 = network usage, 3 = disk usage, 5 = CPU meter bar, 6 = CPU history graph. Most dotfiles use 5 (CPU meter) for at-a-glance load visibility; this script uses 2 (network).',
         category: 'System Monitoring',
-        why: 'Makes system activity visible at a glance in the Dock without needing to switch windows.'
+        why: 'Makes system activity visible at a glance in the Dock without needing to switch windows.',
+        systemDefault: '0 (standard app icon)'
     },
     'com.apple.ActivityMonitor.ShowCategory': {
         title: 'Activity Monitor Default Process Filter',
         description: 'Sets the default process filter. Value 100 = All Processes. Other values: 101 = My Processes, 102 = System Processes, 103 = Other Processes, 106 = Active Processes, 107 = Windowed Processes.',
         category: 'System Monitoring',
-        why: 'The default "My Processes" view hides background and system processes that may be consuming significant resources.'
+        why: 'The default "My Processes" view hides background and system processes that may be consuming significant resources.',
+        systemDefault: '101 (My Processes only)'
     },
     'com.apple.ActivityMonitor.SortColumn': {
         title: 'Activity Monitor Sort Column',
@@ -335,7 +356,8 @@ const DEFAULT_DESCRIPTIONS = {
         title: 'Activity Monitor Refresh Rate',
         description: 'Sets Activity Monitor\'s data refresh interval in seconds. Value 1 = every second (most responsive), 2 = every 2 seconds, 5 = every 5 seconds (default). More frequent updates add a small amount of CPU overhead from the monitoring process itself.',
         category: 'System Monitoring',
-        why: 'The 5s default misses short-lived CPU spikes. A runaway process can max out a core and settle down before the display refreshes.'
+        why: 'The 5s default misses short-lived CPU spikes. A runaway process can max out a core and settle down before the display refreshes.',
+        systemDefault: '5 (seconds)'
     },
 
     // TextEdit
@@ -343,7 +365,8 @@ const DEFAULT_DESCRIPTIONS = {
         title: 'Default to Plain Text',
         description: 'Makes new TextEdit documents open as plain text (.txt) by default instead of rich text (.rtf). TextEdit\'s default RTF mode has confused many users who expected a plain text editor — pasting code into an RTF document silently corrupts formatting with invisible markup. One of the most commonly cited macOS developer setup tips; has existed as a preference since early Mac OS X.',
         category: 'Applications',
-        why: 'RTF creates binary files that can\'t be read by other editors, diffed in git, or inspected as plain text. TextEdit is most useful as a scratch-pad for plain text.'
+        why: 'RTF creates binary files that can\'t be read by other editors, diffed in git, or inspected as plain text. TextEdit is most useful as a scratch-pad for plain text.',
+        systemDefault: '1 (Rich Text / RTF)'
     },
 
     // Terminal
@@ -351,19 +374,22 @@ const DEFAULT_DESCRIPTIONS = {
         title: 'Terminal Focus Follows Mouse',
         description: 'Enables X11/Unix-style focus-follows-mouse for Terminal windows: any Terminal window under the cursor accepts keyboard input without needing to click to bring it forward. The window is not raised — focus shifts silently. Useful for multi-terminal workflows but can cause unexpected input if the cursor drifts over a Terminal window while typing elsewhere.',
         category: 'Terminal',
-        why: 'Avoids needing to click to focus a terminal window when working across multiple panes, reducing hand movement.'
+        why: 'Avoids needing to click to focus a terminal window when working across multiple panes, reducing hand movement.',
+        systemDefault: 'false (click to focus)'
     },
     'com.apple.Terminal.SecureKeyboardEntry': {
         title: 'Secure Keyboard Entry',
         description: 'Prevents other processes — screen readers, accessibility tools, TextExpander, and potential keyloggers — from intercepting keystrokes typed into Terminal. This is a Level 1 recommendation in the CIS Apple macOS benchmarks (control 6.4.1 in the Ventura benchmark and equivalents in earlier versions). Trade-off: breaks TextExpander and similar keyboard-monitoring utilities in Terminal windows.',
         category: 'Terminal',
-        why: 'Prevents other processes from intercepting keystrokes typed into Terminal — including passwords, private keys, and API tokens.'
+        why: 'Prevents other processes from intercepting keystrokes typed into Terminal — including passwords, private keys, and API tokens.',
+        systemDefault: 'false (not secure)'
     },
     'com.apple.Terminal.ShowLineMarks': {
         title: 'Hide Terminal Line Marks',
         description: 'Disables the line mark gutter — small arrow indicators in Terminal\'s left margin marking the start of each shell prompt, intended to help navigate between command outputs. Setting false removes them for a cleaner appearance.',
         category: 'Terminal',
-        preference: true
+        preference: true,
+        systemDefault: 'true (line marks shown)'
     },
 
     // Menu bar clock
@@ -613,6 +639,8 @@ class DefaultsDocGenerator {
             category: description ? description.category : 'System',
             why: description ? (description.why || null) : null,
             preference: description ? (description.preference || false) : false,
+            systemDefault: description ? (description.systemDefault || null) : null,
+            revertCommand: `defaults delete ${domain} ${key}`,
             command: `defaults write ${domain} ${key} -${type} ${this.formatValueForCommand(value, type)}`
         };
     }
@@ -780,6 +808,14 @@ class DefaultsDocGenerator {
                     <div class="command-display__label">Command</div>
                     <pre class="command-display__command">${entry.command}</pre>
                     <button class="copy-button" data-command="${this.escapeHtml(entry.command)}">
+                        Copy
+                    </button>
+                </div>
+
+                <div class="default-entry__revert">
+                    <div class="revert-display__label">Revert to macOS default${entry.systemDefault ? ` <span class="revert-system-default">(default: ${entry.systemDefault})</span>` : ''}</div>
+                    <pre class="revert-display__command">${entry.revertCommand}</pre>
+                    <button class="copy-button copy-button--revert" data-command="${this.escapeHtml(entry.revertCommand)}">
                         Copy
                     </button>
                 </div>
