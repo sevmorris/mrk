@@ -93,7 +93,7 @@ declare -A installed_casks=()
 
 while IFS= read -r pkg; do
   [[ -n "$pkg" ]] && installed_formulae["$pkg"]=1
-done < <($HOMEBREW leaves 2>/dev/null)
+done < <($HOMEBREW list --formula 2>/dev/null)
 
 while IFS= read -r pkg; do
   [[ -n "$pkg" ]] && installed_casks["$pkg"]=1
