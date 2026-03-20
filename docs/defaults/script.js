@@ -1,276 +1,355 @@
 // macOS defaults documentation and descriptions
 const DEFAULT_DESCRIPTIONS = {
-    // General UI/UX
+    // General UI / UX
     'NSGlobalDomain.AppleInterfaceStyle': {
         title: 'Dark Mode',
-        description: 'Sets the system-wide appearance to Dark mode. This affects the menu bar, Dock, window frames, and most built-in apps. Dark mode reduces eye strain in low-light environments and provides a more immersive experience.',
+        description: 'Enables system-wide Dark Mode, affecting the menu bar, Dock, window frames, and most built-in apps. Introduced in macOS 10.14 Mojave (2018). The key accepts only the string "Dark" — there is no "Light" value. To revert to Light Mode you must delete the key entirely: defaults delete NSGlobalDomain AppleInterfaceStyle. A partial dark menu bar existed since Yosemite (10.10) but used a different mechanism.',
         category: 'Appearance'
     },
     'NSGlobalDomain.AppleShowScrollBars': {
-        title: 'Scrollbar Visibility',
-        description: 'Controls when scrollbars are visible. "Always" shows scrollbars permanently, "WhenScrolling" shows them only during scrolling, and "Automatic" shows them only when needed. Permanent scrollbars improve accessibility and provide visual feedback about content length.',
+        title: 'Always Show Scrollbars',
+        description: 'Controls scrollbar visibility. "Always" keeps scrollbars permanently visible; "Automatic" lets macOS decide based on input device (trackpad = hidden, mouse = visible); "WhenScrolling" hides them until you scroll. Scrollbars were always visible before OS X 10.7 Lion, which ported the iOS overlay-scrollbar paradigm to the Mac. Setting "Always" overrides the automatic device-detection logic.',
         category: 'Interface'
     },
     'NSGlobalDomain.AppleShowAllExtensions': {
         title: 'Show All File Extensions',
-        description: 'Forces Finder to display file extensions for all files, even those typically hidden (like .jpg, .txt). This improves security by making it harder for malicious files to masquerade as safe file types, and provides better file type awareness.',
-        category: 'File Management'
+        description: 'Forces Finder to display file extensions for all files, including types macOS normally hides (.jpg, .txt, .mov). Improves security by preventing files from disguising themselves with misleading names. Also a CIS Benchmark recommendation for macOS hardening (control 6.2). Individual files can still override this with a per-file "Hide extension" attribute.',
+        category: 'Security'
     },
-    'NSGlobalDomain.NSDocumentSaveNewDocumentsToCloud': {
-        title: 'Disable iCloud Save by Default',
-        description: 'Prevents apps from defaulting to iCloud when saving new documents. When disabled (false), the save dialog will default to local storage instead of iCloud Drive. Useful for maintaining local control over file storage.',
-        category: 'File Management'
-    },
-    'NSGlobalDomain.NSNavPanelExpandedStateForSaveMode': {
-        title: 'Expanded Save Panels',
-        description: 'Controls whether save dialogs open in expanded view by default. When enabled, save dialogs show the full folder hierarchy and additional options immediately, rather than requiring users to click a disclosure triangle.',
-        category: 'Interface'
-    },
-    'NSGlobalDomain.NSNavPanelExpandedStateForSaveMode2': {
-        title: 'Expanded Save Panels (Extended)',
-        description: 'Secondary setting for expanded save panels that ensures the expanded state is maintained across all save dialog types and applications.',
-        category: 'Interface'
-    },
-    'NSGlobalDomain.PMPrintingExpandedStateForPrint': {
-        title: 'Expanded Print Panels',
-        description: 'Forces print dialogs to open in expanded view, showing all printing options immediately instead of requiring users to expand the dialog manually. Provides immediate access to paper size, orientation, quality settings, and other print options.',
-        category: 'Printing'
-    },
-    'NSGlobalDomain.PMPrintingExpandedStateForPrint2': {
-        title: 'Expanded Print Panels (Extended)',
-        description: 'Secondary setting for expanded print panels that ensures the expanded state is maintained across all print dialog types and applications.',
-        category: 'Printing'
+    'NSGlobalDomain.NSAutomaticWindowAnimationsEnabled': {
+        title: 'Disable Window Open Animations',
+        description: 'Disables the scale-up animation when windows first appear, making them open instantly. Introduced in OS X 10.7 Lion. Only affects apps launched after the setting is applied; running apps must be relaunched. Some animations in newer macOS are handled by the compositor and may not be affected.',
+        category: 'Performance'
     },
     'NSGlobalDomain.NSWindowResizeTime': {
-        title: 'Window Resize Animation Duration',
-        description: 'Sets the duration of window resize animations in seconds. A value of 0.001 makes resize animations nearly instantaneous, improving perceived system responsiveness. The default value is typically 0.2 seconds.',
+        title: 'Sheet (Dialog) Animation Duration',
+        description: 'Despite its name, this key controls sheet animation speed — how quickly Save and Print dialogs roll down from a window\'s title bar. It does not affect general window resizing. The default is 0.2 seconds; 0.001 makes dialogs appear near-instantly. Robservatory.com measured a 47% time reduction for repeated Save dialog workflows. Many dotfiles misidentify this as a window-resize setting.',
         category: 'Performance'
     },
     'NSGlobalDomain.NSQuitAlwaysKeepsWindows': {
-        title: 'Disable Window Restoration',
-        description: 'When disabled (false), prevents apps from automatically restoring windows when relaunched. This provides a clean slate on each app launch and can improve startup performance, especially for apps with many windows.',
+        title: 'Disable Window Restoration (Resume)',
+        description: 'Disables Resume — the OS X 10.7 Lion feature that restores all windows from the previous session when an app relaunches. Resume was immediately controversial on release; "how do I disable Resume?" was among the most-searched Lion questions in 2011. Setting false is equivalent to checking "Close windows when quitting an app" in System Settings → Desktop & Dock, which Apple finally surfaced as a visible toggle in Ventura.',
         category: 'Performance'
     },
-    'NSGlobalDomain.NSAutomaticWindowAnimationsEnabled': {
-        title: 'Window Animation',
-        description: 'Controls whether windows animate when opening, closing, minimizing, and maximizing. Disabling (false) makes these operations instant, which can improve perceived performance and reduce visual distraction.',
+    'NSGlobalDomain.NSNavPanelExpandedStateForSaveMode': {
+        title: 'Expanded Save Dialogs',
+        description: 'Forces Save dialogs to open in expanded mode showing the full folder browser, rather than the simplified collapsed view Apple introduced in OS X 10.7 Lion (before which Save dialogs always showed the full hierarchy). Both this key and its "2" variant are required — the second covers additional Save panel contexts added for document-scoped saving.',
+        category: 'Interface'
+    },
+    'NSGlobalDomain.NSNavPanelExpandedStateForSaveMode2': {
+        title: 'Expanded Save Dialogs (Extended)',
+        description: 'Companion to NSNavPanelExpandedStateForSaveMode. Covers additional document-saving contexts that use a separate code path. Set both keys together for consistent behavior across all apps.',
+        category: 'Interface'
+    },
+    'NSGlobalDomain.PMPrintingExpandedStateForPrint': {
+        title: 'Expanded Print Dialogs',
+        description: 'Forces Print dialogs to open fully expanded, showing paper size, orientation, quality, and other options immediately. The simplified collapsed Print dialog arrived in OS X 10.7 Lion alongside the collapsed Save dialog and was equally unpopular. Both this key and the "2" variant should be set together.',
+        category: 'Interface'
+    },
+    'NSGlobalDomain.PMPrintingExpandedStateForPrint2': {
+        title: 'Expanded Print Dialogs (Extended)',
+        description: 'Companion to PMPrintingExpandedStateForPrint. Covers additional print dialog contexts. Set both keys together for consistent behavior across all apps.',
+        category: 'Interface'
+    },
+    'NSGlobalDomain.NSDocumentSaveNewDocumentsToCloud': {
+        title: 'Default New Documents to Local Storage',
+        description: 'Prevents iCloud-aware apps (TextEdit, Pages, Preview, Numbers, Keynote) from defaulting to iCloud Drive for new document saves. Apple introduced iCloud document storage in OS X Mountain Lion (10.8, 2012) and set it as the default save location — a decision that surprised many users who later found their documents "missing" (stored in iCloud, not locally). Setting false keeps local storage as the default while still allowing manual saves to iCloud.',
+        category: 'File Management'
+    },
+    'NSGlobalDomain.QLPanelAnimationDuration': {
+        title: 'Quick Look Animation Duration',
+        description: 'Controls the Quick Look preview panel animation speed. Available since Quick Look debuted in Mac OS X 10.5 Leopard (2007). Setting 0 removes the animation — but only partially: since El Capitan (10.11) this key affects only the close (zoom-out) animation. The open (zoom-in) animation is unaffected. Community reports from 2016 confirmed this is intentional, not a bug.',
         category: 'Performance'
     },
-    'NSGlobalDomain.NSDisableAutomaticTermination': {
-        title: 'Disable Automatic App Termination',
-        description: 'Prevents macOS from automatically terminating apps when memory pressure is high. When enabled (true), apps will remain running even when not actively used, which can improve app launch times but may use more memory.',
-        category: 'Performance'
-    },
-    
+
     // Sound
-    'NSGlobalDomain.com.apple.sound.beep.feedback': {
-        title: 'Beep Feedback Volume',
-        description: 'Controls the volume level of system beep sounds. A value of 0 disables beep feedback entirely, while higher values increase the volume. The beep sound occurs during alerts, errors, and when reaching volume limits.',
-        category: 'Audio'
-    },
     'NSGlobalDomain.com.apple.sound.beep.volume': {
-        title: 'System Beep Volume',
-        description: 'Sets the volume level specifically for system alert beeps, separate from the main system volume. This allows fine-tuning of alert sounds without affecting media playback volume.',
+        title: 'System Alert Volume',
+        description: 'Sets the system alert beep volume to 0 (silent). This key controls only the alert audio channel — error sounds, notification chimes, volume-limit feedback — without affecting media playback in apps like Spotify or Safari. The alert channel is routed separately from the main output volume at the Core Audio mixer layer.',
         category: 'Audio'
     },
     'NSGlobalDomain.com.apple.sound.uiaudio.enabled': {
         title: 'UI Sound Effects',
-        description: 'Controls whether interface sound effects are played. When disabled (false), actions like moving files to trash, connecting devices, and other UI interactions will not play sound effects.',
+        description: 'Disables interface sound effects: the drag-to-trash swoosh, empty trash rumble, and other UI interaction sounds. Corresponds to "Play user interface sound effects" in System Settings → Sound. Setting 0 is equivalent to unchecking that option.',
         category: 'Audio'
     },
-    
-    // Keyboard
-    'NSGlobalDomain.ApplePressAndHoldEnabled': {
-        title: 'Disable Press and Hold for Accents',
-        description: 'When disabled (false), prevents the accent character picker from appearing when holding down keys. This allows key repeat to work normally, which is preferred by developers and power users who rely on key repeat for navigation.',
-        category: 'Keyboard'
-    },
+
+    // Keyboard & input
     'NSGlobalDomain.KeyRepeat': {
         title: 'Key Repeat Rate',
-        description: 'Sets how quickly characters repeat when a key is held down. Lower values mean faster repeat rates. A value of 1 is the fastest setting available in System Preferences, while this setting can go even lower for ultra-fast repeat.',
+        description: 'Sets the interval between repeated characters when a key is held, in units of ~16.7 ms. Value 2 = ~33 ms (very fast). The System Settings slider exposes a limited range, but defaults write can set values below the UI minimum — value 1 (~16.7 ms) is faster than anything achievable through System Settings. Requires logout/restart to take effect.',
         category: 'Keyboard'
     },
     'NSGlobalDomain.InitialKeyRepeat': {
         title: 'Key Repeat Delay',
-        description: 'Sets the delay before key repeat begins when a key is held down. Lower values mean shorter delays. A value of 10 is faster than the fastest System Preferences setting, reducing the time before repeat starts.',
+        description: 'Sets the delay before key repeat begins when a key is held, in units of ~16.7 ms. Value 15 = ~250 ms, which is shorter than the System Settings UI minimum of 25 (~420 ms). Caution: do not set below 10 (~167 ms) — values that low risk accidental character repetition. Requires logout/restart to take effect.',
+        category: 'Keyboard'
+    },
+    'NSGlobalDomain.ApplePressAndHoldEnabled': {
+        title: 'Disable Accent Picker, Restore Key Repeat',
+        description: 'Restores traditional key-repeat behavior by disabling the iOS-style accent character picker that appears when holding a key. This popup was introduced in OS X 10.7 Lion as a direct port of iOS keyboard behavior, replacing decades of key-repeat defaults. It was one of the first popular Lion customization tips (osxdaily.com covered it within days of Lion\'s July 2011 release). As of 2024, Apple still provides no System Settings toggle — defaults write or a third-party tool like TinkerTool remain the only options.',
         category: 'Keyboard'
     },
     'NSGlobalDomain.AppleKeyboardUIMode': {
-        title: 'Full Keyboard Access',
-        description: 'Enables full keyboard navigation for all controls. When set to 3, Tab and Shift-Tab can navigate to every button, checkbox, and control in dialogs and windows, not just text fields. Essential for accessibility and power user workflows.',
+        title: 'Full Keyboard Navigation',
+        description: 'Enables full keyboard navigation so Tab moves focus to all UI controls — buttons, checkboxes, radio buttons — not just text fields and lists. Value 2 enables this; values 2 and 3 appear equivalent on modern macOS. The UI toggle is System Settings → Keyboard → "Keyboard navigation." The shortcut Control-F7 toggles this live without a settings change.',
         category: 'Keyboard'
     },
-    
+    'NSGlobalDomain.NSAutomaticCapitalizationEnabled': {
+        title: 'Disable Auto-Capitalization',
+        description: 'Disables automatic capitalization of the first word after a sentence-ending period. Part of the NSAutomatic* family of text-correction features ported from iOS keyboard intelligence to macOS. Corresponds to "Capitalize words automatically" in System Settings → Keyboard → Text Replacements.',
+        category: 'Keyboard'
+    },
+    'NSGlobalDomain.NSAutomaticDashSubstitutionEnabled': {
+        title: 'Disable Smart Dashes',
+        description: 'Disables automatic replacement of -- with an en-dash (–) and --- with an em-dash (—). Particularly disruptive when writing shell commands, markdown, code comments, or any structured text where literal hyphens are meaningful.',
+        category: 'Keyboard'
+    },
+    'NSGlobalDomain.NSAutomaticPeriodSubstitutionEnabled': {
+        title: 'Disable Double-Space Period',
+        description: 'Disables the double-space to period substitution ported from iOS: typing two spaces normally inserts a period and a space. Most desktop users find this unwanted, especially when writing code or structured prose where sentence spacing is intentional.',
+        category: 'Keyboard'
+    },
+    'NSGlobalDomain.NSAutomaticQuoteSubstitutionEnabled': {
+        title: 'Disable Smart Quotes',
+        description: 'Disables smart quote substitution — replacement of straight apostrophes and quotation marks with typographically correct curly variants. Critical for developers: smart quotes silently break code, JSON, YAML, shell scripts, and configuration files when pasted from an app that substituted them.',
+        category: 'Keyboard'
+    },
+    'NSGlobalDomain.NSAutomaticSpellingCorrectionEnabled': {
+        title: 'Disable Autocorrect',
+        description: 'Disables automatic on-the-fly spelling correction. Corresponds to "Correct spelling automatically" in System Settings → Keyboard → Text Replacements.',
+        category: 'Keyboard'
+    },
+
     // Dock
+    'com.apple.dock.orientation': {
+        title: 'Dock Position',
+        description: 'Sets the Dock position on screen. Valid values: "left", "bottom" (default), "right". Requires killall Dock to take effect. On multi-display setups, the Dock appears on the display designated as primary in System Settings → Displays → Arrangement.',
+        category: 'Dock'
+    },
     'com.apple.dock.tilesize': {
         title: 'Dock Icon Size',
-        description: 'Sets the size of icons in the Dock in pixels. Smaller sizes (like 36 pixels) provide more space for apps while maintaining usability. The default size is typically 68 pixels.',
+        description: 'Sets Dock icon size in pixels. Valid range is approximately 16–128; the System Settings slider default is around 36–48 depending on display resolution. Requires killall Dock.',
         category: 'Dock'
     },
-    'com.apple.dock.autohide': {
-        title: 'Auto-hide Dock',
-        description: 'When enabled (true), the Dock automatically hides when not in use and reappears when the cursor moves to the Dock area. This maximizes available screen space, especially useful on smaller displays.',
-        category: 'Dock'
-    },
-    'com.apple.dock.autohide-delay': {
-        title: 'Auto-hide Delay',
-        description: 'Sets the delay before the Dock hides when auto-hide is enabled. A value of 0 makes the Dock hide immediately when the cursor moves away, providing instant screen space reclamation.',
-        category: 'Dock'
-    },
-    'com.apple.dock.autohide-time-modifier': {
-        title: 'Auto-hide Animation Speed',
-        description: 'Controls the speed of the Dock hide/show animation. A value of 0 makes the animation instant, while higher values slow down the animation. Fast animations reduce waiting time when accessing the Dock.',
-        category: 'Dock'
-    },
-    'com.apple.dock.show-recents': {
-        title: 'Show Recent Apps in Dock',
-        description: 'Controls whether recently used applications appear in a separate section of the Dock. When disabled (false), only pinned applications are shown, providing a cleaner and more predictable Dock layout.',
-        category: 'Dock'
-    },
-    'com.apple.dock.show-process-indicators': {
-        title: 'Show App Running Indicators',
-        description: 'Controls whether small dots appear under running applications in the Dock. When enabled (true), provides visual feedback about which apps are currently running versus just pinned to the Dock.',
+    'com.apple.dock.mineffect': {
+        title: 'Window Minimize Effect',
+        description: 'Sets the window minimize animation. "genie" (default) uses the stretchy drain-into-Dock effect; "scale" shrinks the window in place. There is also a hidden third value "suck" — a vacuum-like animation that has existed since macOS 10.0 (reportedly even in pre-release builds) but has never appeared in System Preferences. The popular theory is Apple kept it hidden because of the name. All three values work on macOS 15.',
         category: 'Dock'
     },
     'com.apple.dock.minimize-to-application': {
-        title: 'Minimize Windows to App Icon',
-        description: 'When enabled (true), minimized windows are minimized to their application icon in the Dock rather than creating separate window thumbnails. This keeps the Dock cleaner and more organized.',
+        title: 'Minimize Windows into App Icon',
+        description: 'Minimized windows shrink into the app\'s Dock icon rather than creating a separate thumbnail in the minimized-windows area of the Dock. Keeps the Dock clean and uncluttered when many windows are minimized.',
         category: 'Dock'
     },
-    'com.apple.dock.enable-spring-load-actions-on-all-items': {
-        title: 'Spring Loading for All Dock Items',
-        description: 'Enables spring-loading functionality for all items in the Dock. When dragging files, hovering over Dock items will open them or reveal their contents, making file operations more efficient.',
+    'com.apple.dock.no-bouncing': {
+        title: 'Disable Dock Icon Bouncing',
+        description: 'Disables both types of Dock icon bouncing: the launch bounce (when clicking an icon while an app loads) and the alert bounce (when an app wants your attention). In macOS 10.3 Panther these were two separate keys — launchanim controlled launch bouncing and had a UI checkbox in Dock preferences; no-bouncing controlled notification bouncing. Both remain independently settable today.',
         category: 'Dock'
     },
-    
+    'com.apple.dock.show-recents': {
+        title: 'Hide Recent Apps in Dock',
+        description: 'Hides the "Recent Applications" section — the area separated by a divider showing recently used apps not permanently pinned. This section was introduced in macOS 10.14 Mojave (2018) and is enabled by default. Power users with curated Dock layouts typically disable it.',
+        category: 'Dock'
+    },
+    'com.apple.dock.autohide-delay': {
+        title: 'Dock Auto-Hide Delay',
+        description: 'Sets the delay before a hidden Dock reappears when the cursor approaches the screen edge. Default is ~0.5 seconds; 0 makes it appear immediately on hover. This setting only has visible effect if Dock auto-hide is enabled — auto-hide is not enabled by this script, but the preference will apply if you enable it later.',
+        category: 'Dock'
+    },
+    // kept for compatibility — not in defaults.sh
+    'com.apple.dock.autohide': { title: 'Auto-hide Dock', description: 'Automatically hides the Dock when not in use.', category: 'Dock' },
+    'com.apple.dock.autohide-time-modifier': { title: 'Auto-hide Animation Speed', description: 'Controls the speed of the Dock hide/show animation.', category: 'Dock' },
+    'com.apple.dock.show-process-indicators': { title: 'Show App Running Indicators', description: 'Controls whether dots appear under running apps in the Dock.', category: 'Dock' },
+    'com.apple.dock.enable-spring-load-actions-on-all-items': { title: 'Spring Loading for Dock Items', description: 'Enables spring-loading for all Dock items.', category: 'Dock' },
+
     // Finder
-    'com.apple.finder.AppleShowAllFiles': {
-        title: 'Show Hidden Files',
-        description: 'Forces Finder to display hidden files and folders (those beginning with a dot). This is essential for developers and system administrators who need to access configuration files, system folders, and other typically hidden items.',
-        category: 'Finder'
-    },
-    'com.apple.finder.ShowStatusBar': {
-        title: 'Show Finder Status Bar',
-        description: 'Displays a status bar at the bottom of Finder windows showing information about the current folder, such as number of items, available space, and selection details. Provides useful context about folder contents.',
-        category: 'Finder'
-    },
-    'com.apple.finder.ShowPathbar': {
-        title: 'Show Finder Path Bar',
-        description: 'Displays a path bar at the bottom of Finder windows showing the complete folder hierarchy from root to current location. Enables quick navigation to parent folders and provides context about current location.',
-        category: 'Finder'
-    },
-    'com.apple.finder._FXShowPosixPathInTitle': {
-        title: 'Show Full Path in Title',
-        description: 'Displays the complete POSIX path (Unix-style path) in the Finder window title bar instead of just the folder name. Extremely useful for developers and users who work with deep folder hierarchies.',
-        category: 'Finder'
-    },
-    'com.apple.finder.FXDefaultSearchScope': {
-        title: 'Default Search Scope',
-        description: 'Sets the default scope for Finder searches. "SCcf" restricts searches to the current folder, preventing slow system-wide searches when you only need to search within the current location.',
-        category: 'Finder'
-    },
-    'com.apple.finder.FXEnableExtensionChangeWarning': {
-        title: 'File Extension Change Warning',
-        description: 'Controls whether Finder warns when changing a file extension. When disabled (false), prevents interruption when batch renaming files or changing extensions, while requiring more caution to avoid accidental changes.',
-        category: 'Finder'
-    },
-    'com.apple.finder.WarnOnEmptyTrash': {
-        title: 'Empty Trash Warning',
-        description: 'Controls whether Finder displays a confirmation dialog when emptying the Trash. When disabled (false), Trash empties immediately without confirmation, speeding up the workflow but requiring more caution.',
-        category: 'Finder'
-    },
-    'com.apple.finder.FXPreferredViewStyle': {
-        title: 'Default View Style',
-        description: 'Sets the default view mode for new Finder windows. "Nlsv" sets list view, which provides the most information density and is ideal for quickly scanning file details and sorting.',
-        category: 'Finder'
-    },
-    'com.apple.finder.NewWindowTarget': {
-        title: 'New Window Default Location',
-        description: 'Sets where new Finder windows open by default. "PfHm" opens to the user home folder, providing immediate access to Documents, Desktop, and other personal folders.',
-        category: 'Finder'
-    },
     'com.apple.finder.DisableAllAnimations': {
         title: 'Disable Finder Animations',
-        description: 'When enabled (true), disables various animations in Finder such as the Get Info window animation, spring-loading animations, and icon bounce effects. Improves performance and reduces visual distraction.',
+        description: 'Disables Finder animations including Get Info window open/close, icon movement, and scroll overscroll bounce. One of the earliest macOS performance tips, documented since ~2007. Requires killall Finder. Some animations in newer macOS use compositor layers and may not be affected.',
         category: 'Finder'
     },
-    
-    // Desktop & Screen Saver
-    'com.apple.finder.ShowExternalHardDrivesOnDesktop': {
-        title: 'Show External Drives on Desktop',
-        description: 'Controls whether external hard drives appear as icons on the Desktop when connected. When enabled (true), provides immediate visual feedback when drives are mounted and quick access for file operations.',
-        category: 'Desktop'
-    },
-    'com.apple.finder.ShowHardDrivesOnDesktop': {
-        title: 'Show Internal Drives on Desktop',
-        description: 'Controls whether internal hard drives appear as icons on the Desktop. When enabled (true), provides quick access to the boot drive and any other internal storage devices.',
-        category: 'Desktop'
-    },
-    'com.apple.finder.ShowMountedServersOnDesktop': {
-        title: 'Show Network Drives on Desktop',
-        description: 'Controls whether mounted network servers and shared folders appear as icons on the Desktop. When enabled (true), provides easy access to network resources and visual confirmation of network connections.',
-        category: 'Desktop'
-    },
-    'com.apple.finder.ShowRemovableMediaOnDesktop': {
-        title: 'Show Removable Media on Desktop',
-        description: 'Controls whether removable media (CDs, DVDs, USB drives, SD cards) appear as icons on the Desktop when inserted. When enabled (true), provides immediate access to removable media contents.',
-        category: 'Desktop'
-    },
-    
+    // kept for compatibility — not in defaults.sh
+    'com.apple.finder.AppleShowAllFiles': { title: 'Show Hidden Files', description: 'Forces Finder to display hidden files and folders.', category: 'Finder' },
+    'com.apple.finder.ShowStatusBar': { title: 'Show Finder Status Bar', description: 'Displays a status bar at the bottom of Finder windows.', category: 'Finder' },
+    'com.apple.finder.ShowPathbar': { title: 'Show Finder Path Bar', description: 'Displays a path bar at the bottom of Finder windows.', category: 'Finder' },
+    'com.apple.finder._FXShowPosixPathInTitle': { title: 'Show Full Path in Title', description: 'Displays the full POSIX path in the Finder title bar.', category: 'Finder' },
+    'com.apple.finder.FXDefaultSearchScope': { title: 'Default Search Scope', description: 'Sets the default scope for Finder searches.', category: 'Finder' },
+    'com.apple.finder.FXEnableExtensionChangeWarning': { title: 'File Extension Change Warning', description: 'Controls whether Finder warns when changing a file extension.', category: 'Finder' },
+    'com.apple.finder.WarnOnEmptyTrash': { title: 'Empty Trash Warning', description: 'Controls whether Finder asks for confirmation before emptying Trash.', category: 'Finder' },
+    'com.apple.finder.FXPreferredViewStyle': { title: 'Default View Style', description: 'Sets the default view mode for new Finder windows.', category: 'Finder' },
+    'com.apple.finder.NewWindowTarget': { title: 'New Window Default Location', description: 'Sets where new Finder windows open by default.', category: 'Finder' },
+    'com.apple.finder.ShowExternalHardDrivesOnDesktop': { title: 'Show External Drives on Desktop', description: 'Controls whether external drives appear on the Desktop.', category: 'Desktop' },
+    'com.apple.finder.ShowHardDrivesOnDesktop': { title: 'Show Internal Drives on Desktop', description: 'Controls whether internal drives appear on the Desktop.', category: 'Desktop' },
+    'com.apple.finder.ShowMountedServersOnDesktop': { title: 'Show Network Drives on Desktop', description: 'Controls whether mounted network shares appear on the Desktop.', category: 'Desktop' },
+    'com.apple.finder.ShowRemovableMediaOnDesktop': { title: 'Show Removable Media on Desktop', description: 'Controls whether removable media appear on the Desktop.', category: 'Desktop' },
+
     // Screenshots
+    'com.apple.screencapture.disable-shadow': {
+        title: 'Disable Screenshot Window Shadow',
+        description: 'Removes the drop shadow added to window screenshots (Cmd+Shift+4 then Space). The shadow adds transparent padding around the image and was a celebrated feature of Mac screenshots since the Leopard era. Setting true produces clean PNG files without shadow padding. Only affects window-mode captures; region and full-screen captures never have shadows. Requires killall SystemUIServer.',
+        category: 'Screenshots'
+    },
+    'com.apple.screencapture.show-thumbnail': {
+        title: 'Disable Screenshot Thumbnail Preview',
+        description: 'Hides the floating thumbnail preview that appears after taking a screenshot, introduced in macOS 10.14 Mojave. Known bug in macOS 15 Sequoia: multiple reports (including MacRumors forum threads specific to 15.3.2) confirm this setting spontaneously resets itself, sometimes multiple times per day. The preference may not persist reliably on Sequoia.',
+        category: 'Screenshots'
+    },
+    'com.apple.screencapture.include-date': {
+        title: 'Exclude Date from Screenshot Filenames',
+        description: 'Controls whether the capture date and time appear in the screenshot filename. Default (true) produces names like "Screenshot 2025-03-20 at 13.27.20.png." Setting false produces "Screenshot.png" with deduplication numbering for subsequent captures. Requires killall SystemUIServer.',
+        category: 'Screenshots'
+    },
     'com.apple.screencapture.location': {
         title: 'Screenshot Save Location',
-        description: 'Sets where screenshots are saved by default. By setting a specific folder, screenshots can be organized separately from the Desktop, reducing clutter and improving file organization.',
+        description: 'Sets the default save location for all screenshots. Before macOS 10.14 Mojave, this was only changeable via defaults write — no UI option existed. Mojave finally added the location picker to the Shift-Cmd-5 screenshot toolbar. If the specified directory does not exist, screenshots may fail silently. Requires killall SystemUIServer.',
         category: 'Screenshots'
     },
-    'com.apple.screencapture.type': {
-        title: 'Screenshot File Format',
-        description: 'Sets the default file format for screenshots. Options include PNG (lossless, larger files), JPG (compressed, smaller files), PDF, TIFF, or other formats. PNG is ideal for most use cases due to perfect quality and transparency support.',
-        category: 'Screenshots'
+    'com.apple.screencapture.type': { title: 'Screenshot File Format', description: 'Sets the default file format for screenshots (png, jpg, pdf, tiff).', category: 'Screenshots' },
+
+    // Desktop Services
+    'com.apple.desktopservices.DSDontWriteNetworkStores': {
+        title: 'No .DS_Store Files on Network Volumes',
+        description: 'Prevents Finder from creating .DS_Store and ._ (AppleDouble) sidecar files on network volumes (AFP, SMB, NFS, WebDAV). .DS_Store files store folder view preferences; on network shares they appear as clutter to non-macOS users and can slow SMB browsing. Apple has an official support article (HT208209) recommending this setting for enterprise SMB environments. Does not delete existing .DS_Store files retroactively.',
+        category: 'File Management'
     },
-    'com.apple.screencapture.disable-shadow': {
-        title: 'Disable Screenshot Shadows',
-        description: 'When enabled (true), removes the drop shadow effect from window screenshots. This creates cleaner images for documentation and reduces file size, while maintaining the exact window content.',
-        category: 'Screenshots'
+    'com.apple.desktopservices.DSDontWriteUSBStores': {
+        title: 'No .DS_Store Files on USB Volumes',
+        description: 'Prevents .DS_Store and ._ (AppleDouble) sidecar files from being written to USB drives, SD cards, and other removable media. Eliminates the notorious cross-platform friction where USB drives inserted into Windows PCs show up littered with invisible macOS metadata files.',
+        category: 'File Management'
     },
-    
+
+    // Disk images
+    'com.apple.frameworks.diskimages.skip-verify': {
+        title: 'Skip DMG Checksum Verification',
+        description: 'Skips checksum verification when mounting disk image (.dmg) files. Likely ineffective since OS X 10.11.3 El Capitan — community reports indicate DiskImageMounter ignores these keys as of that release, though they write without error. DMG verification exists to detect corruption or tampering; skipping it for downloaded images in particular is a security trade-off.',
+        category: 'Performance'
+    },
+    'com.apple.frameworks.diskimages.skip-verify-locked': {
+        title: 'Skip Locked DMG Verification',
+        description: 'Skips checksum verification for locked disk images. Like skip-verify, this key is likely non-functional since OS X 10.11.3 El Capitan.',
+        category: 'Performance'
+    },
+    'com.apple.frameworks.diskimages.skip-verify-remote': {
+        title: 'Skip Remote DMG Verification',
+        description: 'Skips the "Verifying..." spinner for disk images downloaded from the internet — historically the most user-visible of the three verify keys. Like the others, likely non-functional since OS X 10.11.3 El Capitan.',
+        category: 'Performance'
+    },
+
+    // Time Machine
+    'com.apple.TimeMachine.DoNotOfferNewDisksForBackup': {
+        title: 'Suppress Time Machine New Disk Prompt',
+        description: 'Suppresses the "Do you want to use [disk] to back up with Time Machine?" dialog when a blank external drive is connected. Only prevents the prompt — does not disable Time Machine or affect existing backup destinations. Normally, clicking "Don\'t Use" writes an invisible .com.apple.timemachine.donotpresent marker file to that specific volume; this preference suppresses the prompt globally for all new disks.',
+        category: 'System'
+    },
+
+    // Software Update & App Store
+    'com.apple.SoftwareUpdate.AutomaticCheckEnabled': {
+        title: 'Check for Updates Automatically',
+        description: 'Enables background checking for macOS software updates. Corresponds to "Automatically keep my Mac up to date" in System Settings → General → Software Update.',
+        category: 'Security'
+    },
+    'com.apple.SoftwareUpdate.AutomaticDownload': {
+        title: 'Download Updates Automatically',
+        description: 'Enables background downloading of available updates when found. Downloads proceed silently but installation is not automatic unless other installation keys (CriticalUpdateInstall, etc.) are also enabled.',
+        category: 'Security'
+    },
+    'com.apple.SoftwareUpdate.ConfigDataInstall': {
+        title: 'Install System Data Files Automatically',
+        description: 'Enables automatic installation of Apple\'s security data files: XProtect malware signature database, MRT (Malware Removal Tool), and Gatekeeper compatibility data. These are security-critical and pushed silently by Apple. The CIS macOS benchmark specifically recommends leaving this enabled — disabling it means XProtect will not receive malware signature updates.',
+        category: 'Security'
+    },
+    'com.apple.SoftwareUpdate.CriticalUpdateInstall': {
+        title: 'Install Critical Security Updates Automatically',
+        description: 'Enables automatic installation of critical security patches, including Apple\'s Rapid Security Responses (RSRs) introduced in macOS Ventura — streamlined security-only updates that can be deployed without a full OS update, typically within hours of a critical vulnerability disclosure.',
+        category: 'Security'
+    },
+    'com.apple.commerce.AutoUpdate': {
+        title: 'Auto-Update App Store Apps',
+        description: 'Enables automatic updates for App Store apps. This key lives in com.apple.commerce (the App Store\'s purchase/commerce engine domain) rather than com.apple.SoftwareUpdate, reflecting the historically separate lineage of App Store and OS-level update pipelines.',
+        category: 'System'
+    },
+
     // Activity Monitor
-    'com.apple.ActivityMonitor.UpdatePeriod': {
-        title: 'Activity Monitor Update Frequency',
-        description: 'Sets how frequently Activity Monitor refreshes its data, in seconds. Lower values provide more real-time monitoring at the cost of slightly higher CPU usage from the monitoring itself.',
+    'com.apple.ActivityMonitor.IconType': {
+        title: 'Activity Monitor Dock Icon Display',
+        description: 'Sets what the Activity Monitor Dock icon shows while the app is running. Value 2 = network usage (mirrored line graphs). All options: 0 = standard icon (default), 2 = network usage, 3 = disk usage, 5 = CPU meter bar, 6 = CPU history graph. Most dotfiles use 5 (CPU meter) for at-a-glance load visibility; this script uses 2 (network).',
         category: 'System Monitoring'
     },
     'com.apple.ActivityMonitor.ShowCategory': {
-        title: 'Activity Monitor Default View',
-        description: 'Sets the default view in Activity Monitor. Different values show different process categories: All Processes, My Processes, System Processes, etc. "All Processes" provides the most comprehensive view.',
+        title: 'Activity Monitor Default Process Filter',
+        description: 'Sets the default process filter. Value 100 = All Processes. Other values: 101 = My Processes, 102 = System Processes, 103 = Other Processes, 106 = Active Processes, 107 = Windowed Processes.',
         category: 'System Monitoring'
     },
-    
-    // Disk Utility
-    'com.apple.DiskUtility.DUDebugMenuEnabled': {
-        title: 'Enable Disk Utility Debug Menu',
-        description: 'Enables advanced debugging and developer options in Disk Utility. This reveals additional tools and information useful for disk diagnostics, repair operations, and low-level disk management.',
-        category: 'System Tools'
+    'com.apple.ActivityMonitor.SortColumn': {
+        title: 'Activity Monitor Sort Column',
+        description: 'Sets the default sort column. CPUUsage sorts by CPU consumption — most useful for spotting runaway processes at the top. Other valid values include CPUTime, PID, ProcessName, RealPrivateMemory, PhysicalMemory.',
+        category: 'System Monitoring'
     },
-    'com.apple.DiskUtility.advanced-image-options': {
-        title: 'Advanced Disk Image Options',
-        description: 'Enables advanced options when creating disk images in Disk Utility, such as additional formats, compression levels, and encryption options not normally visible in the standard interface.',
-        category: 'System Tools'
+    'com.apple.ActivityMonitor.SortDirection': {
+        title: 'Activity Monitor Sort Direction',
+        description: 'Sets the sort direction. 0 = descending (highest values first), 1 = ascending. Descending with CPUUsage puts the most CPU-hungry processes at the top — the most useful configuration for diagnosing slowdowns.',
+        category: 'System Monitoring'
     },
-    
-    // Address Book
-    'com.apple.AddressBook.ABShowDebugMenu': {
-        title: 'Address Book Debug Menu',
-        description: 'Enables a debug menu in the Contacts app (formerly Address Book) that provides access to additional diagnostic tools, import/export options, and development features.',
+    'com.apple.ActivityMonitor.UpdatePeriod': {
+        title: 'Activity Monitor Refresh Rate',
+        description: 'Sets Activity Monitor\'s data refresh interval in seconds. Value 1 = every second (most responsive), 2 = every 2 seconds, 5 = every 5 seconds (default). More frequent updates add a small amount of CPU overhead from the monitoring process itself.',
+        category: 'System Monitoring'
+    },
+
+    // TextEdit
+    'com.apple.TextEdit.RichText': {
+        title: 'Default to Plain Text',
+        description: 'Makes new TextEdit documents open as plain text (.txt) by default instead of rich text (.rtf). TextEdit\'s default RTF mode has confused many users who expected a plain text editor — pasting code into an RTF document silently corrupts formatting with invisible markup. One of the most commonly cited macOS developer setup tips; has existed as a preference since early Mac OS X.',
         category: 'Applications'
     },
-    
-    // Other
-    'com.apple.LaunchServices.LSQuarantine': {
-        title: 'Disable Quarantine for Downloaded Files',
-        description: 'When disabled (false), prevents macOS from quarantining downloaded files, which eliminates the "Are you sure you want to open this file?" dialogs for downloaded applications. This improves workflow but reduces security protection.',
-        category: 'Security'
-    }
+
+    // Terminal
+    'com.apple.Terminal.FocusFollowsMouse': {
+        title: 'Terminal Focus Follows Mouse',
+        description: 'Enables X11/Unix-style focus-follows-mouse for Terminal windows: any Terminal window under the cursor accepts keyboard input without needing to click to bring it forward. The window is not raised — focus shifts silently. Useful for multi-terminal workflows but can cause unexpected input if the cursor drifts over a Terminal window while typing elsewhere.',
+        category: 'Terminal'
+    },
+    'com.apple.Terminal.SecureKeyboardEntry': {
+        title: 'Secure Keyboard Entry',
+        description: 'Prevents other processes — screen readers, accessibility tools, TextExpander, and potential keyloggers — from intercepting keystrokes typed into Terminal. This is a Level 1 recommendation in the CIS Apple macOS benchmarks (control 6.4.1 in the Ventura benchmark and equivalents in earlier versions). Trade-off: breaks TextExpander and similar keyboard-monitoring utilities in Terminal windows.',
+        category: 'Terminal'
+    },
+    'com.apple.Terminal.ShowLineMarks': {
+        title: 'Hide Terminal Line Marks',
+        description: 'Disables the line mark gutter — small arrow indicators in Terminal\'s left margin marking the start of each shell prompt, intended to help navigate between command outputs. Setting false removes them for a cleaner appearance.',
+        category: 'Terminal'
+    },
+
+    // Menu bar clock
+    'com.apple.menuextra.clock.IsAnalog': {
+        title: 'Digital Clock (not Analog)',
+        description: 'Sets the menu bar clock to digital (false) or analog circular face (true). Important: since macOS Big Sur (11.0), changes to com.apple.menuextra.clock require killall ControlCenter to take effect — killall SystemUIServer no longer works for clock settings. Using the wrong process will have no visible effect.',
+        category: 'Menu Bar'
+    },
+    'com.apple.menuextra.clock.ShowAMPM': {
+        title: 'Show AM/PM Indicator',
+        description: 'Shows the AM/PM designator in the menu bar clock for 12-hour time. Requires killall ControlCenter (not SystemUIServer) on Big Sur and later to take effect.',
+        category: 'Menu Bar'
+    },
+    'com.apple.menuextra.clock.ShowDayOfWeek': {
+        title: 'Show Day of Week',
+        description: 'Shows the abbreviated day of the week (e.g., "Thu") in the menu bar clock. Requires killall ControlCenter (not SystemUIServer) on Big Sur and later.',
+        category: 'Menu Bar'
+    },
+    'com.apple.menuextra.clock.ShowDate': {
+        title: 'Show Date in Menu Bar Clock',
+        description: 'Controls date display in the menu bar clock. Values: 0 = never show date, 1 = always show, 2 = show when space allows. Introduced in macOS 12.4 Monterey as a replacement for the older boolean ShowDayOfMonth key, which lacked the "when space allows" middle option. Dotfiles using ShowDayOfMonth are using its deprecated predecessor.',
+        category: 'Menu Bar'
+    },
+
+    // kept for compatibility — not in defaults.sh
+    'NSGlobalDomain.NSDisableAutomaticTermination': { title: 'Disable Automatic App Termination', description: 'Prevents macOS from automatically terminating background apps under memory pressure.', category: 'Performance' },
+    'NSGlobalDomain.com.apple.sound.beep.feedback': { title: 'Beep Feedback Volume', description: 'Controls the volume of system beep feedback sounds.', category: 'Audio' },
+    'com.apple.DiskUtility.DUDebugMenuEnabled': { title: 'Disk Utility Debug Menu', description: 'Enables the debug menu in Disk Utility.', category: 'System Tools' },
+    'com.apple.DiskUtility.advanced-image-options': { title: 'Advanced Disk Image Options', description: 'Enables advanced disk image creation options in Disk Utility.', category: 'System Tools' },
+    'com.apple.AddressBook.ABShowDebugMenu': { title: 'Address Book Debug Menu', description: 'Enables the debug menu in the Contacts app.', category: 'Applications' },
+    'com.apple.LaunchServices.LSQuarantine': { title: 'Disable Download Quarantine', description: 'Prevents macOS from quarantining downloaded files.', category: 'Security' }
 };
 
 class DefaultsDocGenerator {
@@ -437,18 +516,24 @@ class DefaultsDocGenerator {
     
     getSectionDescription(sectionName) {
         const descriptions = {
-            'General UI / UX': 'Core user interface and user experience settings that affect the overall look, feel, and behavior of macOS.',
-            'Sound': 'Audio feedback and sound effect settings for system events and user interface interactions.',
-            'Keyboard': 'Keyboard behavior, repeat rates, and input method configurations for improved typing efficiency.',
-            'Dock': 'Dock appearance, behavior, and functionality settings for application management and system navigation.',
-            'Finder': 'File browser settings that control how files and folders are displayed and managed throughout the system.',
-            'Desktop & Screen Saver': 'Desktop appearance and screen saver configuration options.',
-            'Activity Monitor': 'System monitoring and performance tracking tool settings.',
-            'Trackpad': 'Trackpad gesture and behavior settings for enhanced navigation and control.',
-            'Screenshots': 'Screen capture settings including file format, location, and capture behavior.',
-            'Other': 'Miscellaneous system settings and application-specific configurations.'
+            'General UI / UX': 'Core interface and experience settings that affect the overall look, feel, and behavior of macOS — animations, dialogs, scrollbars, text handling, and miscellaneous system-wide polish.',
+            'Sound': 'Audio feedback settings for system events and UI interactions. The interface sound effects system dates to the classic Mac OS era; these defaults let you silence it globally without entering Sound preferences.',
+            'Keyboard & input': 'Keyboard behavior, repeat rates, and automatic text substitution settings. macOS ships with conservative key-repeat defaults tuned for casual users — power users routinely crank InitialKeyRepeat and KeyRepeat to their minimums.',
+            'Dock': 'Dock appearance, auto-hide behavior, and launch animation settings. The Dock was introduced in Mac OS X 10.0 as a replacement for the Launcher and Application Switcher; many of its animation defaults remain unchanged since 10.4 Tiger.',
+            'Finder': 'Finder display and behavior settings. Finder has been the macOS file manager since System 1 (1984); the defaults domain com.apple.finder controls everything from icon sizes to whether the Quit menu item even appears.',
+            'Screenshots': 'Screen capture output settings — format, save location, shadow, and thumbnail behavior. The built-in screenshot system was unified under com.apple.screencapture in macOS 10.14 Mojave when Screenshot.app replaced the older Grab utility.',
+            'Desktop Services': 'Metadata file suppression settings for network shares and USB drives. .DS_Store files store Finder layout data per-folder; disabling them on external volumes prevents littering other operating systems with invisible macOS housekeeping files.',
+            'Disk images': 'Disk image mount and verification settings. The skip-verify keys were added to speed up mounting of trusted disk images; note that some of these keys have had no effect since macOS 10.11.3 El Capitan due to Gatekeeper enforcement changes.',
+            'Time Machine': 'Time Machine backup behavior settings. DoNotOfferNewDisksForBackup suppresses the recurring prompt to use every newly attached drive as a backup destination — useful on machines with many external drives.',
+            'Software Update & App Store': 'Automatic update and app purchase settings across both the system software update mechanism and the Mac App Store. These keys control background download, auto-install, and critical update behavior independently.',
+            'Activity Monitor': 'Activity Monitor display and update settings. The app is the modern successor to ProcessViewer and CPU Monitor, consolidated in OS X 10.9 Mavericks. These defaults control dock icon behavior and how frequently the display refreshes.',
+            'TextEdit': 'TextEdit format and behavior settings. TextEdit has shipped with every version of Mac OS X; RichText defaults to 1 (RTF), which surprises developers who expect a plain-text editor — setting it to 0 makes TextEdit behave like a simple code-friendly notepad.',
+            'Terminal.app': 'Terminal.app security and usability settings. Secure Keyboard Entry (enabled here) prevents other apps and processes from reading keystrokes while Terminal is focused — important when typing passwords in a terminal on a shared or untrusted machine.',
+            'Menu bar clock': 'Menu bar clock format and display settings. The clock lives in com.apple.menuextra.clock and supports a rich custom format string. Changes require restarting ControlCenter (not the older SystemUIServer, which handled this prior to macOS 11 Big Sur).',
+            'Trackpad (opt-in: --with-trackpad)': 'Trackpad gesture and sensitivity settings. This section is opt-in — it only runs when defaults.sh is invoked with the --with-trackpad flag — because trackpad preferences are highly personal and the system defaults are reasonable for most users.',
+            'Finish up': 'Post-configuration cleanup — kills and restarts affected system processes so that all the changes applied above take effect immediately without requiring a logout or reboot.'
         };
-        
+
         return descriptions[sectionName] || 'System configuration settings.';
     }
     
