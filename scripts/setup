@@ -229,18 +229,18 @@ phase_link_tools() {
   
   # Scripts that should NOT be linked at all:
   local -A SKIP_LINK=(
-    [lib.sh]=1      # sourced helper, not executable
+    ["lib.sh"]=1      # sourced helper, not executable
   )
 
   # Scripts that should be linked with an "mrk-" prefix to avoid
   # shadowing system commands or to clarify they are mrk phases:
   local -A PREFIX_LINK=(
-    [brew]=1        # shadows /opt/homebrew/bin/brew
-    [install]=1     # shadows /usr/bin/install
-    [setup]=1       # generic name — prefix for clarity
-    [post-install]=1 # generic name — prefix for clarity
-    [defaults.sh]=1 # linked as mrk-defaults (drop .sh)
-    [uninstall]=1   # generic name — prefix for clarity
+    ["brew"]=1        # shadows /opt/homebrew/bin/brew
+    ["install"]=1     # shadows /usr/bin/install
+    ["setup"]=1       # generic name — prefix for clarity
+    ["post-install"]=1 # generic name — prefix for clarity
+    ["defaults.sh"]=1 # linked as mrk-defaults (drop .sh)
+    ["uninstall"]=1   # generic name — prefix for clarity
   )
   
   if [[ ! -d "$SCRIPTS_DIR" ]]; then
