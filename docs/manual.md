@@ -305,7 +305,7 @@ Write down any apps, license keys, or configurations not yet automated:
 
 ## Prerequisites
 
-- macOS 15 or later
+- macOS (developed and confirmed on 15; may work on 13/14)
 - Active internet connection
 - Your GitHub SSH key (or ability to create and add one)
 
