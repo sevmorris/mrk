@@ -16,6 +16,7 @@ failed=0
 ###############################################################################
 
 # Show full URL in Smart Search Field
+# Why: partial URL display hides the actual domain, making phishing and spoofed links harder to spot
 defaults write com.apple.Safari ShowFullURLInSmartSearchField -bool true || ((failed++))
 
 # Show favorites bar
@@ -35,9 +36,11 @@ defaults write com.apple.Safari SendDoNotTrackHTTPHeader -bool true || ((failed+
 defaults write com.apple.Safari BlockStoragePolicy -int 2 || ((failed++))
 
 # Don't auto-open "safe" downloads
+# Why: file type alone doesn't determine safety; auto-opening can execute malicious content without prompting
 defaults write com.apple.Safari AutoOpenSafeDownloads -bool false || ((failed++))
 
 # Disable AutoFill for credit cards
+# Why: reduces exposure if the browser is accessed without authorization or on a shared machine
 defaults write com.apple.Safari AutoFillCreditCardData -bool false || ((failed++))
 
 ###############################################################################

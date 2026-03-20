@@ -69,22 +69,29 @@ failed=0
 # Dark mode
 write_default NSGlobalDomain AppleInterfaceStyle string Dark || ((failed++))
 # Always show scrollbars
+# Why: overlay scrollbars appear/disappear and shift layout; always-visible scrollbars provide a consistent click target
 write_default NSGlobalDomain AppleShowScrollBars string Always || ((failed++))
 # Show all filename extensions
+# Why: hidden extensions can make malicious files appear harmless (e.g. "invoice.pdf.exe" shows as "invoice.pdf")
 write_default NSGlobalDomain AppleShowAllExtensions bool true || ((failed++))
 # Disable window open/close animations
+# Why: eliminates visual delay when rapidly switching or tiling windows
 write_default NSGlobalDomain NSAutomaticWindowAnimationsEnabled bool false || ((failed++))
 # Near-instant window resize animation
+# Why: eliminates the perceivable lag when resizing windows
 write_default NSGlobalDomain NSWindowResizeTime float 0.001 || ((failed++))
 # Don't restore windows on relaunch
+# Why: stale windows from a previous session can cause confusion after crashes or updates
 write_default NSGlobalDomain NSQuitAlwaysKeepsWindows bool false || ((failed++))
 # Expand save panel by default
+# Why: collapsed panel hides the destination path, making accidental misplacement easy
 write_default NSGlobalDomain NSNavPanelExpandedStateForSaveMode bool true || ((failed++))
 write_default NSGlobalDomain NSNavPanelExpandedStateForSaveMode2 bool true || ((failed++))
 # Expand print dialog by default
 write_default NSGlobalDomain PMPrintingExpandedStateForPrint bool true || ((failed++))
 write_default NSGlobalDomain PMPrintingExpandedStateForPrint2 bool true || ((failed++))
 # Save to disk (not iCloud) by default
+# Why: avoids accidental sync of sensitive files to iCloud without explicit intent
 write_default NSGlobalDomain NSDocumentSaveNewDocumentsToCloud bool false || ((failed++))
 # Instant Quick Look animation
 write_default NSGlobalDomain QLPanelAnimationDuration float 0 || ((failed++))
@@ -106,18 +113,25 @@ write_default NSGlobalDomain com.apple.sound.uiaudio.enabled bool false || ((fai
 write_default NSGlobalDomain KeyRepeat int 2 || ((failed++))
 write_default NSGlobalDomain InitialKeyRepeat int 15 || ((failed++))
 # Key repeat instead of accent character picker
+# Why: the accent picker interrupts keyboard-driven navigation and editing in code and terminal
 write_default NSGlobalDomain ApplePressAndHoldEnabled bool false || ((failed++))
 # Full keyboard access (Tab through all UI controls)
+# Why: allows Tab to cycle through buttons, radio buttons, etc. without reaching for the mouse
 write_default NSGlobalDomain AppleKeyboardUIMode int 2 || ((failed++))
 # Disable auto-capitalization
+# Why: breaks commands, code, and domain names entered in text fields outside terminals
 write_default NSGlobalDomain NSAutomaticCapitalizationEnabled bool false || ((failed++))
 # Disable smart dashes
+# Why: converts "--" to an em dash, breaking markdown, CLI flags, and code
 write_default NSGlobalDomain NSAutomaticDashSubstitutionEnabled bool false || ((failed++))
 # Disable double-space period shortcut
+# Why: interferes with intentional spacing in code, prose, and command entry
 write_default NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled bool false || ((failed++))
 # Disable smart quotes
+# Why: curly quotes break shell scripts, JSON, code snippets, and command-line arguments
 write_default NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled bool false || ((failed++))
 # Disable autocorrect
+# Why: mangles technical terms, hostnames, variable names, and other domain-specific vocabulary
 write_default NSGlobalDomain NSAutomaticSpellingCorrectionEnabled bool false || ((failed++))
 
 ###############################################################################
@@ -131,8 +145,10 @@ write_default com.apple.dock tilesize int 36 || ((failed++))
 # Scale effect for minimize
 write_default com.apple.dock mineffect string scale || ((failed++))
 # Minimize windows into application icon
+# Why: minimized windows don't clutter the Dock's strip; they're reachable via the app's icon
 write_default com.apple.dock minimize-to-application bool true || ((failed++))
 # Disable dock icon bouncing
+# Why: eliminates attention-hijacking animations during focused work
 write_default com.apple.dock no-bouncing bool true || ((failed++))
 # Don't show recent applications
 write_default com.apple.dock show-recents bool false || ((failed++))
@@ -144,6 +160,7 @@ write_default com.apple.dock autohide-delay float 0 || ((failed++))
 ###############################################################################
 
 # Disable all Finder animations
+# Why: makes file operations feel instant; each animation adds visible latency per action
 write_default com.apple.finder DisableAllAnimations bool true || ((failed++))
 
 ###############################################################################
@@ -151,10 +168,13 @@ write_default com.apple.finder DisableAllAnimations bool true || ((failed++))
 ###############################################################################
 
 # Disable window shadow in screenshots
+# Why: shadows add padding and visual noise to documentation screenshots
 write_default com.apple.screencapture disable-shadow bool true || ((failed++))
 # Don't show floating thumbnail after capture
+# Why: the thumbnail overlays the screen for several seconds and delays access to the file path
 write_default com.apple.screencapture show-thumbnail bool false || ((failed++))
 # Don't include date in screenshot filename
+# Why: predictable, date-free filenames are easier to reference in scripts and automation
 write_default com.apple.screencapture include-date bool false || ((failed++))
 # Save screenshots to ~/Desktop
 write_default com.apple.screencapture location string "$HOME/Desktop" || ((failed++))
@@ -164,8 +184,10 @@ write_default com.apple.screencapture location string "$HOME/Desktop" || ((faile
 ###############################################################################
 
 # Don't create .DS_Store files on network volumes
+# Why: DS_Store files expose directory metadata and appear as clutter to non-macOS users on shared volumes
 write_default com.apple.desktopservices DSDontWriteNetworkStores bool true || ((failed++))
 # Don't create .DS_Store files on USB volumes
+# Why: portable drives are often shared across OSes where DS_Store files are visible noise
 write_default com.apple.desktopservices DSDontWriteUSBStores bool true || ((failed++))
 
 ###############################################################################
@@ -173,6 +195,7 @@ write_default com.apple.desktopservices DSDontWriteUSBStores bool true || ((fail
 ###############################################################################
 
 # Skip DMG verification
+# Why: verification is redundant when the source is trusted; skips multi-second delays on large installers
 write_default com.apple.frameworks.diskimages skip-verify bool true || ((failed++))
 write_default com.apple.frameworks.diskimages skip-verify-locked bool true || ((failed++))
 write_default com.apple.frameworks.diskimages skip-verify-remote bool true || ((failed++))
@@ -182,6 +205,7 @@ write_default com.apple.frameworks.diskimages skip-verify-remote bool true || ((
 ###############################################################################
 
 # Don't prompt to use new disks for backup
+# Why: prevents Time Machine dialogs from interrupting when external drives are connected for other purposes
 write_default com.apple.TimeMachine DoNotOfferNewDisksForBackup bool true || ((failed++))
 
 ###############################################################################
@@ -189,6 +213,7 @@ write_default com.apple.TimeMachine DoNotOfferNewDisksForBackup bool true || ((f
 ###############################################################################
 
 # Auto-check for updates
+# Why: security patches are applied automatically without waiting for manual intervention
 write_default com.apple.SoftwareUpdate AutomaticCheckEnabled bool true || ((failed++))
 # Auto-download updates
 write_default com.apple.SoftwareUpdate AutomaticDownload bool true || ((failed++))
@@ -204,14 +229,18 @@ write_default com.apple.commerce AutoUpdate bool true || ((failed++))
 ###############################################################################
 
 # Show CPU usage in dock icon
+# Why: makes CPU pressure visible at a glance without switching windows
 write_default com.apple.ActivityMonitor IconType int 2 || ((failed++))
 # Show all processes
+# Why: the default "My Processes" view hides background processes that may be consuming resources
 write_default com.apple.ActivityMonitor ShowCategory int 100 || ((failed++))
 # Sort by CPU usage
+# Why: surfaces the highest-load process immediately on open
 write_default com.apple.ActivityMonitor SortColumn string CPUUsage || ((failed++))
 # Sort descending
 write_default com.apple.ActivityMonitor SortDirection int 0 || ((failed++))
 # Update every 1 second
+# Why: the 5s default misses short-lived spikes; 1s catches transient load
 write_default com.apple.ActivityMonitor UpdatePeriod int 1 || ((failed++))
 
 ###############################################################################
@@ -219,6 +248,7 @@ write_default com.apple.ActivityMonitor UpdatePeriod int 1 || ((failed++))
 ###############################################################################
 
 # Default to plain text
+# Why: RTF creates binary files that can't be read by other editors, diffed in git, or inspected as plain text
 write_default com.apple.TextEdit RichText int 0 || ((failed++))
 
 ###############################################################################
@@ -229,8 +259,10 @@ write_default com.apple.TextEdit RichText int 0 || ((failed++))
 write_default com.apple.Terminal "Default Window Settings" string Pro || ((failed++))
 write_default com.apple.Terminal "Startup Window Settings" string Pro || ((failed++))
 # Focus follows mouse
+# Why: avoids needing to click to focus a terminal window, reducing hand movement across panes
 write_default com.apple.Terminal FocusFollowsMouse bool true || ((failed++))
 # Secure keyboard entry
+# Why: prevents other processes from intercepting keystrokes, protecting passwords and private keys
 write_default com.apple.Terminal SecureKeyboardEntry bool true || ((failed++))
 # Don't show line marks
 write_default com.apple.Terminal ShowLineMarks bool false || ((failed++))
