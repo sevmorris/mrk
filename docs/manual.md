@@ -399,22 +399,38 @@ exec zsh
 
 `~/Makefile` is deployed automatically by `make setup` via `dotfiles/`. Running `make help` from `~/` shows all commands from both this file and `mrk/`.
 
+**Brewfile**
+
 | Command | Description |
 |---|---|
-| `make sync` | Sync installed Homebrew packages into the Brewfile |
-| `make sync ARGS=-c` | Sync and auto-commit the Brewfile |
-| `make sync ARGS=-n` | Dry run — preview additions without modifying the Brewfile |
-| `make sync ARGS=-p` | Prune — remove Brewfile entries for packages no longer installed |
+| `make sync` | Sync installed packages into Brewfile (`-c` commit · `-n` dry run · `-p` prune) |
 | `make sync-login-items` | Diff and sync system login items against post-install |
+
+**Preferences**
+
+| Command | Description |
+|---|---|
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
+
+**Build Tools**
+
+| Command | Description |
+|---|---|
 | `make picker` | Build the mrk-picker TUI binary |
 | `make bf` | Build the bf Brewfile manager TUI binary |
 | `make mrk-status` | Build the mrk-status TUI health dashboard binary |
 | `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status) |
+
+**General**
+
+| Command | Description |
+|---|---|
 | `make help` | Show all available commands from `~/` and `mrk/` |
 
 ## Commands from `~/mrk/`
+
+**Bootstrap**
 
 | Command | Description |
 |---|---|
@@ -422,22 +438,32 @@ exec zsh
 | `make setup` / `make install` | Phase 1: shell, dotfiles, macOS defaults |
 | `make brew` | Phase 2: Homebrew packages and casks |
 | `make post-install` | Phase 3: app configs and login items |
+
+**Partial Phases**
+
+| Command | Description |
+|---|---|
 | `make dotfiles` | Link dotfiles only |
-| `make tools` | Install CLI tools only |
+| `make tools` | Link scripts and bin into ~/bin only |
 | `make defaults` | Apply macOS defaults only |
 | `make trackpad` | Apply macOS defaults including trackpad settings |
 | `make harden` | Apply macOS security hardening |
+
+**Maintenance**
+
+| Command | Description |
+|---|---|
 | `make update` | Upgrade all packages (topgrade or brew upgrade) |
 | `make updates` | Run macOS software updates (`softwareupdate -ia`) |
 | `make uninstall` | Remove symlinks and undo setup |
-| `make status` | Show installation status |
+
+**Diagnostics**
+
+| Command | Description |
+|---|---|
+| `make status` | Open the mrk-status TUI health dashboard |
 | `make doctor` | Check `~/bin` is on PATH; `--fix` adds it to `.zshrc` |
 | `make fix-exec` | Make all scripts and bin files executable |
-| `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status) |
-| `make bf` | Build the bf Brewfile manager TUI binary |
-| `make mrk-status` | Build the mrk-status TUI health dashboard binary |
-| `make sync-login-items` | Sync system login items into post-install and docs |
-| `make help` | Show all available commands |
 
 ---
 

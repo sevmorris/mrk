@@ -379,6 +379,17 @@
       white-space: nowrap;
       font-weight: 500;
     }
+    .ref-table .tbl-cat td {
+      font-family: var(--font-family-mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--color-text-secondary);
+      background: var(--color-background-tertiary);
+      padding: 5px 14px;
+      border-bottom: 1px solid var(--color-border);
+    }
 
     /* ─── Footer ──────────────────────────────────────────────── */
     .doc-footer {
@@ -907,17 +918,18 @@ make doctor     # Run full diagnostics</code></pre>
         <caption>Table 5.1-1. Commands Available from Anywhere (~/Makefile)</caption>
         <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>make sync</td><td>Sync installed Homebrew packages into the Brewfile</td></tr>
-          <tr><td>make sync ARGS=-c</td><td>Sync and auto-commit the Brewfile</td></tr>
-          <tr><td>make sync ARGS=-n</td><td>Dry run — preview additions without modifying</td></tr>
-          <tr><td>make sync ARGS=-p</td><td>Prune — remove Brewfile entries for packages no longer installed</td></tr>
+          <tr class="tbl-cat"><td colspan="2">Brewfile</td></tr>
+          <tr><td>make sync</td><td>Sync installed packages into Brewfile (<code>-c</code> commit · <code>-n</code> dry run · <code>-p</code> prune)</td></tr>
           <tr><td>make sync-login-items</td><td>Diff and sync system login items against post-install</td></tr>
+          <tr class="tbl-cat"><td colspan="2">Preferences</td></tr>
           <tr><td>make snapshot-prefs</td><td>Export app preferences and push to mrk-prefs</td></tr>
           <tr><td>make pull-prefs</td><td>Clone or pull app preferences from mrk-prefs</td></tr>
+          <tr class="tbl-cat"><td colspan="2">Build Tools</td></tr>
           <tr><td>make picker</td><td>Build the mrk-picker TUI binary</td></tr>
           <tr><td>make bf</td><td>Build the bf Brewfile manager TUI binary</td></tr>
           <tr><td>make mrk-status</td><td>Build the mrk-status TUI health dashboard binary</td></tr>
           <tr><td>make build-tools</td><td>Build all Go TUI binaries (picker + bf + mrk-status)</td></tr>
+          <tr class="tbl-cat"><td colspan="2">General</td></tr>
           <tr><td>make help</td><td>Show all available commands</td></tr>
         </tbody>
       </table>
@@ -926,23 +938,25 @@ make doctor     # Run full diagnostics</code></pre>
         <caption>Table 5.1-2. Commands from ~/mrk/</caption>
         <thead><tr><th>Command</th><th>Description</th></tr></thead>
         <tbody>
+          <tr class="tbl-cat"><td colspan="2">Bootstrap</td></tr>
           <tr><td>make all</td><td>Full install: setup + brew + post-install + TUI binaries</td></tr>
           <tr><td>make setup / make install</td><td>Phase 1: shell, dotfiles, macOS defaults</td></tr>
           <tr><td>make brew</td><td>Phase 2: Homebrew packages and casks</td></tr>
           <tr><td>make post-install</td><td>Phase 3: app configs and login items</td></tr>
+          <tr class="tbl-cat"><td colspan="2">Partial Phases</td></tr>
           <tr><td>make dotfiles</td><td>Link dotfiles only</td></tr>
-          <tr><td>make tools</td><td>Install CLI tools only</td></tr>
+          <tr><td>make tools</td><td>Link scripts and bin into ~/bin only</td></tr>
           <tr><td>make defaults</td><td>Apply macOS defaults only</td></tr>
           <tr><td>make trackpad</td><td>Apply macOS defaults including trackpad settings</td></tr>
           <tr><td>make harden</td><td>Apply macOS security hardening</td></tr>
+          <tr class="tbl-cat"><td colspan="2">Maintenance</td></tr>
           <tr><td>make update</td><td>Upgrade all packages (topgrade or brew upgrade)</td></tr>
           <tr><td>make updates</td><td>Run macOS software updates (softwareupdate -ia)</td></tr>
           <tr><td>make uninstall</td><td>Remove symlinks and undo setup</td></tr>
-          <tr><td>make status</td><td>Run installation status check (bash fallback)</td></tr>
-          <tr><td>make mrk-status</td><td>Build the mrk-status TUI health dashboard</td></tr>
+          <tr class="tbl-cat"><td colspan="2">Diagnostics</td></tr>
+          <tr><td>make status</td><td>Open the mrk-status TUI health dashboard</td></tr>
           <tr><td>make doctor</td><td>Check ~/bin is on PATH; --fix adds it to .zshrc</td></tr>
           <tr><td>make fix-exec</td><td>Make all scripts and bin files executable</td></tr>
-          <tr><td>make help</td><td>Show all available commands</td></tr>
         </tbody>
       </table>
     </section>
