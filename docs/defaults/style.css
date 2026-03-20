@@ -438,11 +438,12 @@ body {
 
 /* Default Entry Styling */
 .default-entry {
-    border: 1px solid var(--color-border);
-    border-top: 2px solid var(--color-primary);
-    margin-bottom: var(--space-lg);
+    border: 1px solid #aaa;
+    border-top: 3px solid var(--color-primary);
+    margin-bottom: var(--space-xl);
     background-color: var(--color-background);
     overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .default-entry__header {
