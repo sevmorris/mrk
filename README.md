@@ -13,17 +13,17 @@ Personal, opinionated macOS bootstrap tailored to my workflow and toolset. Idemp
 ```bash
 git clone https://github.com/sevmorris/mrk.git ~/mrk
 cd ~/mrk
-make install
+make setup
+exec zsh        # Reload shell to pick up dotfiles and ~/bin
 make brew
 make post-install
-exec zsh
 ```
 
 ## Phases
 
 | Phase | Command | What it does |
 |-------|---------|--------------|
-| **1 — Setup** | `make install` | Xcode CLI tools, dotfile symlinks, tool linking, macOS defaults, login shell |
+| **1 — Setup** | `make setup` | Xcode CLI tools, dotfile symlinks, tool linking, macOS defaults, login shell |
 | **2 — Brew** | `make brew` | Installs Homebrew, then interactively selects formulae & casks from `Brewfile` |
 | **3 — Post-install** | `make post-install` | App preferences, browser policies, login items |
 
@@ -46,7 +46,7 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 | `make defaults` | Apply macOS defaults only |
 | `make trackpad` | Apply defaults including trackpad gestures |
 | `make harden` | Security hardening (Touch ID sudo, firewall) |
-| `make status` | Run installation status check (bash fallback) |
+| `make status` | Check installation status |
 | `make mrk-status` | Build mrk-status TUI health dashboard |
 | `make doctor` | Check `~/bin` is on PATH; `make doctor --fix` adds it to `.zshrc` |
 | `make update` | Update via topgrade (or brew) |
