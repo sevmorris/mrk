@@ -88,11 +88,16 @@ done < "$BREWFILE"
 
 log "Scanning installed Homebrew packages..."
 
-declare -A installed_formulae=()
+declare -A installed_formulae=()    # top-level only (for new-package detection)
+declare -A installed_formulae_all=() # all installed (for stale detection)
 declare -A installed_casks=()
 
 while IFS= read -r pkg; do
   [[ -n "$pkg" ]] && installed_formulae["$pkg"]=1
+done < <($HOMEBREW leaves 2>/dev/null)
+
+while IFS= read -r pkg; do
+  [[ -n "$pkg" ]] && installed_formulae_all["$pkg"]=1
 done < <($HOMEBREW list --formula 2>/dev/null)
 
 while IFS= read -r pkg; do
@@ -126,7 +131,7 @@ stale_formulae_arr=()
 stale_casks_arr=()
 
 for pkg in "${!brewfile_formulae[@]}"; do
-  [[ -z "${installed_formulae[$pkg]+x}" ]] && stale_formulae_arr+=("$pkg")
+  [[ -z "${installed_formulae_all[$pkg]+x}" ]] && stale_formulae_arr+=("$pkg")
 done
 
 for pkg in "${!brewfile_casks[@]}"; do
