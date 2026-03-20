@@ -12,9 +12,7 @@ Personal, opinionated macOS bootstrap tailored to my workflow and toolset. Idemp
 
 ```bash
 git clone https://github.com/sevmorris/mrk.git ~/mrk
-cd ~/mrk
-make setup
-exec zsh        # Reload shell to pick up dotfiles and ~/bin
+cd ~/mrk && make setup && exec zsh
 make brew
 make post-install
 ```

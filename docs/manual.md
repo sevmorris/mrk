@@ -328,9 +328,7 @@ Then generate and add your SSH key to GitHub before continuing, so mrk-prefs can
 ## Step 2 — Phase 1: Shell & Dotfiles
 
 ```bash
-cd ~/mrk
-make setup
-exec zsh        # Reload shell to pick up dotfiles and ~/bin
+cd ~/mrk && make setup && exec zsh
 ```
 
 After this step, the shell is configured, dotfiles are linked, and macOS system preferences are applied.
