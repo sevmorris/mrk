@@ -16,7 +16,7 @@ const DEFAULT_DESCRIPTIONS = {
         title: 'Show All File Extensions',
         description: 'Forces Finder to display file extensions for all files, including types macOS normally hides (.jpg, .txt, .mov). Improves security by preventing files from disguising themselves with misleading names. Also a CIS Benchmark recommendation for macOS hardening (control 6.2). Individual files can still override this with a per-file "Hide extension" attribute.',
         category: 'Security',
-        why: 'Hidden extensions can make malicious files appear harmless — a file named "invoice.pdf.exe" displays as "invoice.pdf" with extensions hidden.'
+        why: 'Hidden extensions can make malicious files appear harmless — a macOS app bundle named "invoice.pdf.app" displays as "invoice.pdf" with extensions hidden.'
     },
     'NSGlobalDomain.NSAutomaticWindowAnimationsEnabled': {
         title: 'Disable Window Open Animations',
@@ -497,10 +497,10 @@ class DefaultsDocGenerator {
                 continue;
             }
             
-            // Collect comments
+            // Collect comments (skip Why: lines — those are sourced from DEFAULT_DESCRIPTIONS)
             if (line.startsWith('#') && !line.match(/^#+\s*$/)) {
                 const comment = line.replace(/^#\s*/, '');
-                if (comment && !comment.match(/^-+$/)) {
+                if (comment && !comment.match(/^-+$/) && !comment.startsWith('Why:')) {
                     pendingComment = comment;
                 }
                 continue;

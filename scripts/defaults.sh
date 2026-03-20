@@ -72,7 +72,7 @@ write_default NSGlobalDomain AppleInterfaceStyle string Dark || ((failed++))
 # Why: overlay scrollbars appear/disappear and shift layout; always-visible scrollbars provide a consistent click target
 write_default NSGlobalDomain AppleShowScrollBars string Always || ((failed++))
 # Show all filename extensions
-# Why: hidden extensions can make malicious files appear harmless (e.g. "invoice.pdf.exe" shows as "invoice.pdf")
+# Why: hidden extensions can make malicious files appear harmless (e.g. "invoice.pdf.app" shows as "invoice.pdf")
 write_default NSGlobalDomain AppleShowAllExtensions bool true || ((failed++))
 # Disable window open/close animations
 # Why: eliminates visual delay when rapidly switching or tiling windows
