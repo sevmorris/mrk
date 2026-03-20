@@ -59,14 +59,17 @@ Sets up the foundational shell environment on a new or existing machine.
 **Options:**
 
 ```
-make setup --only dotfiles    # Link dotfiles only
-make setup --only tools       # Link scripts/bin only
-make setup --only defaults    # Apply macOS defaults only
-make setup --dry-run          # Preview changes without applying
-make dotfiles                 # Shorthand for --only dotfiles
-make tools                    # Shorthand for --only tools
-make defaults                 # Shorthand for --only defaults
-make trackpad                 # Apply defaults including trackpad settings
+make setup --only dotfiles      # Link dotfiles only
+make setup --only tools         # Link scripts/bin only
+make setup --only defaults      # Apply macOS defaults only
+make setup --only ext           # Run external dotfiles repo hooks only
+make setup --dry-run            # Preview changes without applying
+make setup --validate           # Check prerequisites before running
+make setup --continue-on-error  # Continue remaining phases if one fails
+make dotfiles                   # Shorthand for --only dotfiles
+make tools                      # Shorthand for --only tools
+make defaults                   # Shorthand for --only defaults
+make trackpad                   # Apply defaults including trackpad settings
 ```
 
 ## Phase 2 — Homebrew (`make brew`)
@@ -95,8 +98,9 @@ Configures installed apps. Must be run after Phase 2.
 - **App defaults:** Applies `defaults write` settings for Audio Hijack, Fission, AlDente, Rogue Amoeba update settings
 - **Preferences auto-pull:** If `~/.mrk/preferences/` is absent and SSH is authenticated to GitHub, automatically clones `mrk-prefs`
 - **Plist imports** (15 apps): Imports personal preference plists; skips any app that already has a preferences file (non-destructive)
+- **Barkeep:** Downloads and installs Barkeep from the latest GitHub release. Skipped if `/Applications/Barkeep.app` already exists — to update, use Barkeep itself or remove the app first
 - **App Support restore:** Restores Loopback and SoundSource configuration files (non-destructive)
-- **Login items:** Registers AlDente, BetterSnapTool, Bitwarden, Chrono Plus, Dropbox, Hammerspoon, Hot, Ice, NordPass, Raycast, SoundSource, Stats as login items
+- **Login items:** Registers AlDente,BetterSnapTool,Bitwarden,Chrono Plus,Dropbox,Hammerspoon,Ice,NordPass,Raycast,SoundSource,Stats as login items
 
 **Managed app preferences:**
 
@@ -133,11 +137,16 @@ exec zsh        # Reload shell after setup
 
 Two tools cover day-to-day Brewfile management:
 
-**`bf`** — interactive TUI for browsing, adding, deleting, and moving Brewfile entries:
+**`bf`** — interactive TUI for browsing, adding, deleting, moving, and pruning Brewfile entries:
 
 ```bash
 bf                    # Open the Brewfile manager TUI
+bf --help             # Show keys and options
 ```
+
+Key operations: **a** add · **d** delete · **m** move · **g** toggle greedy · **p** prune uninstalled · **/** search · **w** write · **c** commit
+
+**Prune mode** (`p`) — fetches `brew list`, shows all Brewfile entries not currently installed. Space to mark, `a` to toggle all, `enter` to delete marked entries.
 
 **`sync`** — scan installed packages, diff against the Brewfile, and add anything missing:
 
@@ -145,6 +154,7 @@ bf                    # Open the Brewfile manager TUI
 sync                  # Interactive — opens mrk-picker TUI to select packages
 sync -n               # Dry run — show what would be added, make no changes
 sync -c               # Auto-commit the Brewfile after updating
+sync -p               # Prune — remove Brewfile entries for packages no longer installed
 ```
 
 **How sync works:**
@@ -304,14 +314,12 @@ Write down any apps, license keys, or configurations not yet automated:
 **If SSH is already set up:**
 
 ```bash
-mkdir -p ~/Projects
 git clone git@github.com:sevmorris/mrk.git ~/mrk
 ```
 
 **If SSH is not yet configured** (fresh machine), clone over HTTPS first:
 
 ```bash
-mkdir -p ~/Projects
 git clone https://github.com/sevmorris/mrk.git ~/mrk
 ```
 
@@ -396,16 +404,21 @@ exec zsh
 | `make sync` | Sync installed Homebrew packages into the Brewfile |
 | `make sync ARGS=-c` | Sync and auto-commit the Brewfile |
 | `make sync ARGS=-n` | Dry run — preview additions without modifying the Brewfile |
+| `make sync ARGS=-p` | Prune — remove Brewfile entries for packages no longer installed |
+| `make sync-login-items` | Diff and sync system login items against post-install |
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
 | `make picker` | Build the mrk-picker TUI binary |
+| `make bf` | Build the bf Brewfile manager TUI binary |
+| `make mrk-status` | Build the mrk-status TUI health dashboard binary |
+| `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status) |
 | `make help` | Show all available commands from `~/` and `mrk/` |
 
 ## Commands from `~/mrk/`
 
 | Command | Description |
 |---|---|
-| `make all` | Full install: setup + brew + post-install |
+| `make all` | Full install: setup + brew + post-install + TUI binaries |
 | `make setup` / `make install` | Phase 1: shell, dotfiles, macOS defaults |
 | `make brew` | Phase 2: Homebrew packages and casks |
 | `make post-install` | Phase 3: app configs and login items |
