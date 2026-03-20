@@ -4,7 +4,8 @@ const DEFAULT_DESCRIPTIONS = {
     'NSGlobalDomain.AppleInterfaceStyle': {
         title: 'Dark Mode',
         description: 'Enables system-wide Dark Mode, affecting the menu bar, Dock, window frames, and most built-in apps. Introduced in macOS 10.14 Mojave (2018). The key accepts only the string "Dark" — there is no "Light" value. To revert to Light Mode you must delete the key entirely: defaults delete NSGlobalDomain AppleInterfaceStyle. A partial dark menu bar existed since Yosemite (10.10) but used a different mechanism.',
-        category: 'Appearance'
+        category: 'Appearance',
+        preference: true
     },
     'NSGlobalDomain.AppleShowScrollBars': {
         title: 'Always Show Scrollbars',
@@ -66,31 +67,36 @@ const DEFAULT_DESCRIPTIONS = {
     'NSGlobalDomain.QLPanelAnimationDuration': {
         title: 'Quick Look Animation Duration',
         description: 'Controls the Quick Look preview panel animation speed. Available since Quick Look debuted in Mac OS X 10.5 Leopard (2007). Setting 0 removes the animation — but only partially: since El Capitan (10.11) this key affects only the close (zoom-out) animation. The open (zoom-in) animation is unaffected. Community reports from 2016 confirmed this is intentional, not a bug.',
-        category: 'Performance'
+        category: 'Performance',
+        preference: true
     },
 
     // Sound
     'NSGlobalDomain.com.apple.sound.beep.volume': {
         title: 'System Alert Volume',
         description: 'Sets the system alert beep volume to 0 (silent). This key controls only the alert audio channel — error sounds, notification chimes, volume-limit feedback — without affecting media playback in apps like Spotify or Safari. The alert channel is routed separately from the main output volume at the Core Audio mixer layer.',
-        category: 'Audio'
+        category: 'Audio',
+        preference: true
     },
     'NSGlobalDomain.com.apple.sound.uiaudio.enabled': {
         title: 'UI Sound Effects',
         description: 'Disables interface sound effects: the drag-to-trash swoosh, empty trash rumble, and other UI interaction sounds. Corresponds to "Play user interface sound effects" in System Settings → Sound. Setting 0 is equivalent to unchecking that option.',
-        category: 'Audio'
+        category: 'Audio',
+        preference: true
     },
 
     // Keyboard & input
     'NSGlobalDomain.KeyRepeat': {
         title: 'Key Repeat Rate',
         description: 'Sets the interval between repeated characters when a key is held, in units of ~16.7 ms. Value 2 = ~33 ms (very fast). The System Settings slider exposes a limited range, but defaults write can set values below the UI minimum — value 1 (~16.7 ms) is faster than anything achievable through System Settings. Requires logout/restart to take effect.',
-        category: 'Keyboard'
+        category: 'Keyboard',
+        preference: true
     },
     'NSGlobalDomain.InitialKeyRepeat': {
         title: 'Key Repeat Delay',
         description: 'Sets the delay before key repeat begins when a key is held, in units of ~16.7 ms. Value 15 = ~250 ms, which is shorter than the System Settings UI minimum of 25 (~420 ms). Caution: do not set below 10 (~167 ms) — values that low risk accidental character repetition. Requires logout/restart to take effect.',
-        category: 'Keyboard'
+        category: 'Keyboard',
+        preference: true
     },
     'NSGlobalDomain.ApplePressAndHoldEnabled': {
         title: 'Disable Accent Picker, Restore Key Repeat',
@@ -139,17 +145,20 @@ const DEFAULT_DESCRIPTIONS = {
     'com.apple.dock.orientation': {
         title: 'Dock Position',
         description: 'Sets the Dock position on screen. Valid values: "left", "bottom" (default), "right". Requires killall Dock to take effect. On multi-display setups, the Dock appears on the display designated as primary in System Settings → Displays → Arrangement.',
-        category: 'Dock'
+        category: 'Dock',
+        preference: true
     },
     'com.apple.dock.tilesize': {
         title: 'Dock Icon Size',
         description: 'Sets Dock icon size in pixels. Valid range is approximately 16–128; the System Settings slider default is around 36–48 depending on display resolution. Requires killall Dock.',
-        category: 'Dock'
+        category: 'Dock',
+        preference: true
     },
     'com.apple.dock.mineffect': {
         title: 'Window Minimize Effect',
         description: 'Sets the window minimize animation. "genie" (default) uses the stretchy drain-into-Dock effect; "scale" shrinks the window in place. There is also a hidden third value "suck" — a vacuum-like animation that has existed since macOS 10.0 (reportedly even in pre-release builds) but has never appeared in System Preferences. The popular theory is Apple kept it hidden because of the name. All three values work on macOS 15.',
-        category: 'Dock'
+        category: 'Dock',
+        preference: true
     },
     'com.apple.dock.minimize-to-application': {
         title: 'Minimize Windows into App Icon',
@@ -166,12 +175,14 @@ const DEFAULT_DESCRIPTIONS = {
     'com.apple.dock.show-recents': {
         title: 'Hide Recent Apps in Dock',
         description: 'Hides the "Recent Applications" section — the area separated by a divider showing recently used apps not permanently pinned. This section was introduced in macOS 10.14 Mojave (2018) and is enabled by default. Power users with curated Dock layouts typically disable it.',
-        category: 'Dock'
+        category: 'Dock',
+        preference: true
     },
     'com.apple.dock.autohide-delay': {
         title: 'Dock Auto-Hide Delay',
         description: 'Sets the delay before a hidden Dock reappears when the cursor approaches the screen edge. Default is ~0.5 seconds; 0 makes it appear immediately on hover. This setting only has visible effect if Dock auto-hide is enabled — auto-hide is not enabled by this script, but the preference will apply if you enable it later.',
-        category: 'Dock'
+        category: 'Dock',
+        preference: true
     },
     // kept for compatibility — not in defaults.sh
     'com.apple.dock.autohide': { title: 'Auto-hide Dock', description: 'Automatically hides the Dock when not in use.', category: 'Dock' },
@@ -223,7 +234,8 @@ const DEFAULT_DESCRIPTIONS = {
     'com.apple.screencapture.location': {
         title: 'Screenshot Save Location',
         description: 'Sets the default save location for all screenshots. Before macOS 10.14 Mojave, this was only changeable via defaults write — no UI option existed. Mojave finally added the location picker to the Shift-Cmd-5 screenshot toolbar. If the specified directory does not exist, screenshots may fail silently. Requires killall SystemUIServer.',
-        category: 'Screenshots'
+        category: 'Screenshots',
+        preference: true
     },
     'com.apple.screencapture.type': { title: 'Screenshot File Format', description: 'Sets the default file format for screenshots (png, jpg, pdf, tiff).', category: 'Screenshots' },
 
@@ -350,29 +362,34 @@ const DEFAULT_DESCRIPTIONS = {
     'com.apple.Terminal.ShowLineMarks': {
         title: 'Hide Terminal Line Marks',
         description: 'Disables the line mark gutter — small arrow indicators in Terminal\'s left margin marking the start of each shell prompt, intended to help navigate between command outputs. Setting false removes them for a cleaner appearance.',
-        category: 'Terminal'
+        category: 'Terminal',
+        preference: true
     },
 
     // Menu bar clock
     'com.apple.menuextra.clock.IsAnalog': {
         title: 'Digital Clock (not Analog)',
         description: 'Sets the menu bar clock to digital (false) or analog circular face (true). Important: since macOS Big Sur (11.0), changes to com.apple.menuextra.clock require killall ControlCenter to take effect — killall SystemUIServer no longer works for clock settings. Using the wrong process will have no visible effect.',
-        category: 'Menu Bar'
+        category: 'Menu Bar',
+        preference: true
     },
     'com.apple.menuextra.clock.ShowAMPM': {
         title: 'Show AM/PM Indicator',
         description: 'Shows the AM/PM designator in the menu bar clock for 12-hour time. Requires killall ControlCenter (not SystemUIServer) on Big Sur and later to take effect.',
-        category: 'Menu Bar'
+        category: 'Menu Bar',
+        preference: true
     },
     'com.apple.menuextra.clock.ShowDayOfWeek': {
         title: 'Show Day of Week',
         description: 'Shows the abbreviated day of the week (e.g., "Thu") in the menu bar clock. Requires killall ControlCenter (not SystemUIServer) on Big Sur and later.',
-        category: 'Menu Bar'
+        category: 'Menu Bar',
+        preference: true
     },
     'com.apple.menuextra.clock.ShowDate': {
         title: 'Show Date in Menu Bar Clock',
         description: 'Controls date display in the menu bar clock. Values: 0 = never show date, 1 = always show, 2 = show when space allows. Introduced in macOS 12.4 Monterey as a replacement for the older boolean ShowDayOfMonth key, which lacked the "when space allows" middle option. Dotfiles using ShowDayOfMonth are using its deprecated predecessor.',
-        category: 'Menu Bar'
+        category: 'Menu Bar',
+        preference: true
     },
 
     // kept for compatibility — not in defaults.sh
@@ -595,6 +612,7 @@ class DefaultsDocGenerator {
             description: description ? description.description : this.generateGenericDescription(key, value, type),
             category: description ? description.category : 'System',
             why: description ? (description.why || null) : null,
+            preference: description ? (description.preference || false) : false,
             command: `defaults write ${domain} ${key} -${type} ${this.formatValueForCommand(value, type)}`
         };
     }
@@ -738,6 +756,7 @@ class DefaultsDocGenerator {
                 <div class="default-entry__main">
                     <p class="default-entry__description">${entry.description}</p>
                     ${entry.why ? `<div class="default-entry__why"><span class="why-label">Why this setting</span>${entry.why}</div>` : ''}
+                    ${entry.preference ? `<div class="default-entry__preference"><span class="preference-label">Personal preference</span>This reflects a specific workflow and may not suit everyone. Review before applying.</div>` : ''}
                 </div>
                 
                 <div class="default-entry__values">

@@ -531,6 +531,27 @@ body {
     margin-bottom: 0.2rem;
 }
 
+/* Personal Preference Callout */
+.default-entry__preference {
+    margin-top: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    background-color: #fffbeb;
+    border-left: 3px solid var(--color-warning);
+    font-size: 0.9rem;
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+.preference-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #92640a;
+    margin-bottom: 0.2rem;
+}
+
 /* Values Table */
 .default-entry__values {
     background-color: var(--color-background-secondary);
