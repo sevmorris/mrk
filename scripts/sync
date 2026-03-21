@@ -158,6 +158,9 @@ fi
 
 n_stale=$(( ${#stale_formulae_arr[@]} + ${#stale_casks_arr[@]} ))
 
+declare -A prune_formulae=()
+declare -A prune_casks=()
+
 if (( PRUNE && n_stale > 0 )); then
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -181,8 +184,6 @@ if (( PRUNE && n_stale > 0 )); then
   echo ""
 
   # Selection UI for pruning
-  declare -A prune_formulae=()
-  declare -A prune_casks=()
 
   if command -v gum >/dev/null 2>&1; then
     if (( ${#stale_formulae_arr[@]} > 0 )); then
