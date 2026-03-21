@@ -292,7 +292,6 @@ import_plist "/Applications/Audio Hijack.app"   "com.rogueamoeba.audiohijack"   
 import_plist "/Applications/Farrago.app"        "com.rogueamoeba.farrago"                   "$LOCAL_PREFS_DIR/Farrago.plist"           "Farrago"           || ((failed++))
 import_plist "/Applications/Piezo.app"          "com.rogueamoeba.Piezo"                     "$LOCAL_PREFS_DIR/Piezo.plist"             "Piezo"             || ((failed++))
 import_plist "/Applications/Typora.app"         "abnerworks.Typora"                         "$LOCAL_PREFS_DIR/Typora.plist"            "Typora"            || ((failed++))
-import_plist "/Applications/Hot.app"            "com.xs-labs.Hot"                           "$LOCAL_PREFS_DIR/Hot.plist"               "Hot"               || ((failed++))
 import_plist "/Applications/Keka.app"           "com.aone.keka"                             "$LOCAL_PREFS_DIR/Keka.plist"              "Keka"              || ((failed++))
 import_plist "/Applications/TimeMachineEditor.app" "com.tclementdev.timemachineeditor.application" "$LOCAL_PREFS_DIR/TimeMachineEditor.plist" "TimeMachineEditor" || ((failed++))
 import_plist "/Applications/MacWhisper.app"     "com.goodsnooze.MacWhisper"                 "$LOCAL_PREFS_DIR/MacWhisper.plist"        "MacWhisper"        || ((failed++))
