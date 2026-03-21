@@ -311,7 +311,7 @@ phase_link_tools() {
         ((failed++)) || true
       fi
     done
-    printf "\r" >&2 || true  # Clear progress line
+    printf "\r\033[K" >&2 || true  # Clear progress line
   fi
   
   if [[ -d "$BIN_DIR" ]]; then
@@ -354,7 +354,7 @@ phase_link_tools() {
         ((failed++)) || true
       fi
     done
-    printf "\r" >&2 || true  # Clear progress line
+    printf "\r\033[K" >&2 || true  # Clear progress line
 
     # Symlink lib/ directory so scripts sourcing lib/common.sh work from ~/bin
     if [[ -d "$BIN_DIR/lib" ]]; then
@@ -484,7 +484,7 @@ phase_dotfiles() {
       ((linked++)) || true
     fi
   done
-  printf "\r" >&2 || true  # Clear progress line
+  printf "\r\033[K" >&2 || true  # Clear progress line
   shopt -u dotglob nullglob
   
   if (( linked > 0 )); then
@@ -520,6 +520,7 @@ is_valid_git_url() {
 
 phase_ext_dotfiles() {
   if [[ -z "${MRK_DOTFILES_REPO:-}" ]]; then
+    logskip "ext dotfiles" "MRK_DOTFILES_REPO not set"
     return 0
   fi
   
