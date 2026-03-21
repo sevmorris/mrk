@@ -602,7 +602,7 @@ body {
 
 /* Command Display */
 .default-entry__command {
-    background-color: var(--color-background-tertiary);
+    background-color: var(--color-background-secondary);
     border-top: 1px solid var(--color-border);
     padding: var(--space-md) var(--space-lg);
     position: relative;
@@ -621,11 +621,12 @@ body {
 .command-display__command {
     font-family: var(--font-family-mono);
     font-size: 0.875rem;
-    color: var(--color-text);
+    color: #e2e8f0;
     margin: 0;
     padding: 0.75rem 1rem;
-    background: var(--color-background-tertiary);
-    border-left: 4px solid var(--color-primary);
+    background: #1e293b;
+    border: none;
+    border-radius: 4px;
     word-break: break-all;
     line-height: 1.5;
     user-select: all;
@@ -689,11 +690,12 @@ body {
 .revert-display__command {
     font-family: var(--font-family-mono);
     font-size: 0.875rem;
-    color: var(--color-text-secondary);
+    color: #cbd5e0;
     margin: 0;
     padding: 0.75rem 1rem;
-    background: var(--color-background-tertiary);
-    border-left: 4px solid var(--color-border);
+    background: #2d3748;
+    border: none;
+    border-radius: 4px;
     word-break: break-all;
     line-height: 1.5;
     user-select: all;
