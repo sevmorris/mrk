@@ -30,7 +30,11 @@ if ! printf '#!/usr/bin/env bash\n' > "$ROLLBACK" || ! chmod +x "$ROLLBACK"; the
 fi
 
 _self="${BASH_SOURCE[0]}"
-[[ -L "$_self" ]] && _self="$(readlink "$_self")"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
 SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 backup_line(){ echo "$1" >> "$ROLLBACK"; }
