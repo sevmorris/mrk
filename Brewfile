@@ -120,6 +120,7 @@ cask "screenflow", greedy: true
 cask "shutter-encoder", greedy: true
 cask "signal", greedy: true
 cask "slack", greedy: true
+cask "softraid"
 cask "soundsource", greedy: true
 cask "stats", greedy: true
 cask "steam", greedy: true
