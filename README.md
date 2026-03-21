@@ -1,7 +1,3 @@
-<div align="center">
-  <img src="docs/assets/mrk.png" alt="mrk" width="900">
-</div>
-
 # mrk — macOS bootstrap
 
 Personal, opinionated macOS bootstrap tailored to my workflow and toolset. Idempotent setup in three phases.
