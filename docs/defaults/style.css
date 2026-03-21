@@ -39,7 +39,7 @@ body {
     font-family: var(--font-family-base);
     line-height: 1.6;
     color: var(--color-text);
-    background-color: var(--color-background);
+    background-color: #e8ecf0;
     font-size: 16px;
     overflow-x: hidden;
 }
@@ -329,7 +329,7 @@ body {
     height: calc(100vh - 100px);
     overflow-y: auto;
     padding: var(--space-xl) var(--space-2xl);
-    background-color: var(--color-background);
+    background-color: #e8ecf0;
 }
 
 /* Loading State */
