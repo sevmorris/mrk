@@ -39,40 +39,15 @@ typeset -U path
 # --- Source Personal Aliases ---
 [[ -f "$HOME/.aliases" ]] && source "$HOME/.aliases"
 
-# --- NVM (lazy load, prefers Homebrew) ---
+# --- NVM (prefers Homebrew) ---
 export NVM_DIR="$HOME/.nvm"
 
-# Choose the cleanest available nvm.sh (Homebrew first)
-_nvm_source=""
 if [ -s "/opt/homebrew/opt/nvm/nvm.sh" ]; then
-  _nvm_source="/opt/homebrew/opt/nvm/nvm.sh"
+  . "/opt/homebrew/opt/nvm/nvm.sh"
+  [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && . "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
 elif [ -s "$NVM_DIR/nvm.sh" ]; then
-  _nvm_source="$NVM_DIR/nvm.sh"
-fi
-unset NVM_CD_FLAGS 2>/dev/null  # keep env tidy
-
-# Install lightweight shims that load NVM only on demand
-if ! typeset -f nvm >/dev/null; then
-  _nvm_lazy_load() {
-    if [ -z "$_nvm_source" ]; then
-      printf "%s\n" "nvm lazy-loader: no valid nvm.sh found. Check Homebrew or ~/.nvm." >&2
-      return 1
-    fi
-    # Load NVM once
-    . "$_nvm_source"
-    # Optional: completions (Homebrew path)
-    if command -v brew >/dev/null 2>&1; then
-      local _nvm_comp
-      _nvm_comp="$(brew --prefix)/opt/nvm/etc/bash_completion.d/nvm"
-      [ -s "$_nvm_comp" ] && . "$_nvm_comp"
-    fi
-    unset -f nvm node npm npx _nvm_lazy_load
-    "$@"
-  }
-  nvm()  { _nvm_lazy_load nvm "$@"; }
-  node() { _nvm_lazy_load node "$@"; }
-  npm()  { _nvm_lazy_load npm "$@"; }
-  npx()  { _nvm_lazy_load npx "$@"; }
+  . "$NVM_DIR/nvm.sh"
+  [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
 fi
 
 # --- mrk Update Check (weekly) ---
