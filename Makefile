@@ -26,6 +26,10 @@ all: fix-exec setup brew post-install build-tools ## Full install: setup + brew 
 	@printf '\033[1;32m  ✔  mrk installed successfully.\033[0m\n'
 	@printf '\n'
 	@printf '  Run \033[43;1;30m exec zsh \033[0m to reload your shell, or open a new terminal.\n'
+	@if [ ! -d "$(HOME)/.mrk/preferences" ]; then \
+		printf '\n'; \
+		printf '  Preferences not restored — add your SSH key, then run \033[43;1;30m make pull-prefs \033[0m\n'; \
+	fi
 	@printf '\n'
 	@printf '  \033[2mManual: \033[4mhttps://sevmorris.github.io/mrk\033[0m\n'
 	@printf '\n'
