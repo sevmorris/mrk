@@ -516,7 +516,16 @@ install_brewfile() {
   local _picker_bin
   _picker_bin=$(find_picker)
   if [[ -n "$_picker_bin" ]]; then
-    _run_mrk_picker "$_picker_bin"
+    # Check if anything actually needs installing before launching TUI
+    local _needs_install=0
+    for _item in "${formula_items[@]}" "${cask_items[@]}"; do
+      [[ "$_item" != *"|installed" ]] && { _needs_install=1; break; }
+    done
+    if (( _needs_install )); then
+      _run_mrk_picker "$_picker_bin"
+    else
+      log "All packages already installed — skipping selection"
+    fi
     _used_mrk_picker=1
   fi
 
