@@ -35,7 +35,7 @@ ok()      { printf '%s  ✓%s %s\n' "$_GRN" "$_R" "$*" >&2; }
 warn()    { printf '%s  ⚠%s %s\n' "$_YLW" "$_R" "$*" >&2; }
 err()     { printf '%s  ✗%s %s\n' "$_RED" "$_R" "$*" >&2; }
 dry()     { if (( DRY_RUN )); then printf '%s  · [dry] %s%s\n' "$_D" "$*" "$_R"; else log "$@"; fi; }
-logskip() { printf '%s  · %s (%s)%s\n' "$_D" "$1" "$2" "$_R" >&2; }
+logskip() { printf '%s  · %s (%s)%s\n' "$_YLW" "$1" "$2" "$_R" >&2; }
 section() { printf '\n%s%s══ %s%s\n\n' "$_B" "$_BLU" "$*" "$_R" >&2; }
 
 # Refresh sudo timestamp to prevent timeout during long-running installs.
