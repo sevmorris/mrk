@@ -43,7 +43,9 @@ if [[ -d "$BIN_DIR" ]]; then
   log "Removing mrk symlinks from $BIN_DIR..."
   while read -r link; do
     target=$(readlink "$link" 2>/dev/null || true)
-    if [[ "$target" == *"/mrk/"* || "$target" == "$MRK_DIR"/* ]]; then
+    if [[ "$target" == "$MRK_DIR"/dotfiles/* || \
+          "$target" == "$MRK_DIR"/bin/* || \
+          "$target" == "$MRK_DIR"/scripts/* ]]; then
       rm -f "$link"
       ok "$(basename "$link")"
     fi
@@ -55,7 +57,9 @@ log "Removing mrk dotfile symlinks from $HOME..."
 for f in "$HOME"/.* "$HOME"/*; do
   [[ -L "$f" ]] || continue
   target=$(readlink "$f" 2>/dev/null || true)
-  if [[ "$target" == *"/mrk/"* || "$target" == "$MRK_DIR"/* ]]; then
+  if [[ "$target" == "$MRK_DIR"/dotfiles/* || \
+        "$target" == "$MRK_DIR"/bin/* || \
+        "$target" == "$MRK_DIR"/scripts/* ]]; then
     rm -f "$f"
     ok "$(basename "$f")"
   fi
@@ -65,7 +69,7 @@ done
 topgrade_link="${XDG_CONFIG_HOME:-$HOME/.config}/topgrade.toml"
 if [[ -L "$topgrade_link" ]]; then
   target=$(readlink "$topgrade_link" 2>/dev/null || true)
-  if [[ "$target" == *"/mrk/"* ]]; then
+  if [[ "$target" == "$MRK_DIR"/* ]]; then
     rm -f "$topgrade_link"
     ok "topgrade.toml symlink"
   fi

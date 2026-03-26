@@ -31,7 +31,7 @@ fi
 # All output to stderr except ok() which goes to stdout
 
 ok() {
-  printf "%s✓ %s%s\n" "$_green" "$*" "$_reset"
+  printf "%s✓ %s%s\n" "$_green" "$*" "$_reset" >&2
 }
 
 warn() {
@@ -49,6 +49,9 @@ info() {
 debug() {
   [[ "${DEBUG:-0}" -eq 1 ]] && printf "%s[debug] %s%s\n" "$_cyan" "$*" "$_reset" >&2
 }
+
+# Default DEBUG to 0 if not set
+: "${DEBUG:=0}"
 
 # --- Interactive prompts ---
 
@@ -107,6 +110,10 @@ require_cmd() {
 # human_bytes BYTES — convert bytes to human-readable format
 human_bytes() {
   local bytes="${1:-0}"
+  if [[ ! "$bytes" =~ ^[0-9]+$ ]]; then
+    echo "invalid"
+    return 1
+  fi
   awk -v b="$bytes" 'BEGIN {
     s = "B K M G T P E Z Y"
     i = 0
@@ -167,7 +174,10 @@ safe_rm() {
   # Validate all paths first
   for p in "$@"; do
     # Skip unexpanded globs
-    [[ "$p" == *'*'* ]] && continue
+    if [[ "$p" == *'*'* ]]; then
+      warn "safe_rm: skipping unexpanded glob: $p"
+      continue
+    fi
 
     local real_path
     real_path=$(resolve_path "$p")

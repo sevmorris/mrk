@@ -51,10 +51,10 @@ elif [ -s "$NVM_DIR/nvm.sh" ]; then
 fi
 
 # --- mrk Update Check (weekly) ---
-[[ -x "$HOME/bin/check-updates" ]] && "$HOME/bin/check-updates"
+[[ -x "$HOME/bin/check-updates" ]] && "$HOME/bin/check-updates" || true
 
 # --- Shell Welcome ---
 command -v fastfetch >/dev/null 2>&1 && fastfetch
 
 # OpenClaw Completion
-source "$HOME/.openclaw/completions/openclaw.zsh"
+[[ -f "$HOME/.openclaw/completions/openclaw.zsh" ]] && source "$HOME/.openclaw/completions/openclaw.zsh"

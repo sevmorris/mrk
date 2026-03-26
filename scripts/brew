@@ -263,9 +263,9 @@ interactive_selection() {
     return 0
   fi
   
-  # Get item count via indirect expansion
-  local eval_total
-  eval "eval_total=\${#${items_var}[@]}"
+  # Get item count via nameref
+  declare -n _items_ref="$items_var"
+  local eval_total=${#_items_ref[@]}
   if (( eval_total == 0 )); then
     return 0
   fi
@@ -282,13 +282,14 @@ interactive_selection() {
   local -a not_installed_names=()
   local -a not_installed_labels=()
   local skipped=0
-  
+  declare -n _selected_ref="$selected_var"
+
   for (( i=0; i<eval_total; i++ )); do
-    eval "item_data=\${${items_var}[$i]}"
+    item_data="${_items_ref[$i]}"
     name="${item_data%%|*}"
-    
+
     # Default to unselected
-    eval "${selected_var}[\"\$name\"]=0"
+    _selected_ref["$name"]=0
     
     if [[ "$item_data" == *"|installed" ]]; then
       ((skipped++)) || true
@@ -328,6 +329,10 @@ interactive_selection() {
   printf "\033[2m  ↑/↓ navigate · space toggle · a toggle all · enter confirm\033[0m\n" > /dev/tty
   echo "" > /dev/tty
 
+  # Save terminal state before gum usage
+  local ORIG_STTY
+  ORIG_STTY=$(stty -g 2>/dev/null) || true
+
   # Run gum choose — pass items as positional args (not stdin, which conflicts with tty)
   local gum_output
   gum_output=$(gum choose --no-limit \
@@ -336,11 +341,18 @@ interactive_selection() {
     --header="${#not_installed_names[@]} available, ${skipped} already installed" \
     "${not_installed_labels[@]}" < /dev/tty 2>/dev/tty) || true
 
+  # Restore terminal state after gum
+  [[ -n "$ORIG_STTY" ]] && stty "$ORIG_STTY"
+
+  if [[ -z "$gum_output" ]]; then
+    warn "No packages selected (empty selection)"
+  fi
+
   # Parse selections — extract package name (before " — ")
   if [[ -n "$gum_output" ]]; then
     while IFS= read -r selected_line; do
       local selected_name="${selected_line%% — *}"
-      eval "${selected_var}[\"\$selected_name\"]=1"
+      _selected_ref["$selected_name"]=1
     done <<< "$gum_output"
   fi
   
@@ -411,7 +423,7 @@ install_brewfile() {
   fi
 
   # Parse Brewfile and collect items
-  TEMP_BREWFILE=$(mktemp /tmp/mrk-brewfile.XXXXXX)
+  TEMP_BREWFILE=$(mktemp -t mrk)
 
   local formulae_count=0
   local casks_count=0
@@ -594,6 +606,7 @@ main() {
   fi
 
   # Pre-flight: check network connectivity
+  # 5s timeout to avoid blocking on slow networks
   if ! curl -sf --max-time 5 https://brew.sh >/dev/null 2>&1; then
     err "No internet connection detected."
     exit 1
@@ -641,14 +654,14 @@ show_summary() {
   fi
   
   if (( FORMULAE_INSTALLED > 0 )); then
-    ok "Formulae installed: ~$FORMULAE_INSTALLED"
+    ok "Formulae installed: $FORMULAE_INSTALLED"
   fi
   if (( FORMULAE_SKIPPED > 0 )); then
     logskip "Formulae" "$FORMULAE_SKIPPED already installed"
   fi
   
   if (( CASKS_INSTALLED > 0 )); then
-    ok "Casks installed: ~$CASKS_INSTALLED"
+    ok "Casks installed: $CASKS_INSTALLED"
   fi
   if (( CASKS_SKIPPED > 0 )); then
     logskip "Casks" "$CASKS_SKIPPED already installed"

@@ -24,11 +24,11 @@ fix_bin() {
   # shellcheck disable=SC2016  # Intentionally looking for literal $HOME
   if ! grep -q '\$HOME/bin' "${HOME}/.zshrc" 2>/dev/null; then
     # shellcheck disable=SC2016
-    {
-      echo ''
-      echo '# Added by mrk doctor'
-      echo '[ -d "$HOME/bin" ] && case ":$PATH:" in *":$HOME/bin:"*) ;; *) export PATH="$HOME/bin:$PATH";; esac'
-    } >>"${HOME}/.zshrc"
+    cat >> "${HOME}/.zshrc" <<'EOF'
+
+# Added by mrk doctor
+[ -d "$HOME/bin" ] && case ":$PATH:" in *":$HOME/bin:"*) ;; *) export PATH="$HOME/bin:$PATH";; esac
+EOF
     ok "Added ~/bin to PATH in .zshrc"
   fi
 }

@@ -55,7 +55,7 @@ check_macos() {
 setup_logging() {
   mkdir -p "$STATE_DIR"
   if [[ -f "$LOGFILE" ]] && [[ $(stat -f%z "$LOGFILE" 2>/dev/null || echo 0) -gt $LOG_MAX_SIZE ]]; then
-    mv "$LOGFILE" "${LOGFILE}.old" 2>/dev/null || true
+    mv "$LOGFILE" "${LOGFILE}.$(date +%s).old" 2>/dev/null || true
     echo "[mrk] Rotated log file (exceeded $((LOG_MAX_SIZE / 1024 / 1024))MB)" >&2
   fi
 }

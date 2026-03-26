@@ -50,6 +50,10 @@ if [[ -z "$repo" || "$repo" == "$remote_url" ]]; then
   err "Could not parse GitHub repo from remote: $remote_url"
   exit 1
 fi
+if [[ ! "$repo" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
+  err "Parsed repo '$repo' does not match expected owner/name format"
+  exit 1
+fi
 
 echo ""
 log "Repo: $repo"
@@ -75,7 +79,10 @@ ok "Pushed to origin."
 echo ""
 log "Fetching deployments for $repo..."
 
-mapfile -t ids < <(gh api --paginate "/repos/$repo/deployments" --jq '.[].id' 2>/dev/null || true)
+if ! mapfile -t ids < <(gh api --paginate "/repos/$repo/deployments" --jq '.[].id' 2>/dev/null); then
+  err "Failed to fetch deployments for $repo"
+  exit 1
+fi
 
 if [[ ${#ids[@]} -eq 0 ]]; then
   warn "No deployments found."

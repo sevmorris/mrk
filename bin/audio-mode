@@ -178,7 +178,7 @@ cmd_on() {
   done
 
   echo "$(date +"%Y-%m-%d %H:%M:%S")  audio-mode ON icloud=$want_icloud gdrive=$want_gd" >> "$LOG"
-  : >| "$FLAG"
+  touch "$FLAG"
 
   # Snapshot BEFORE pausing/quitting anything
   local dbx0=0 gd0=0 ic0=0
@@ -191,7 +191,7 @@ cmd_on() {
     "dbx_was=$dbx0" "gdrive_was=$gd0" "icloud_was=$ic0"
 
   # Dropbox
-  if [[ $dbx0 -eq 1 ]]; then
+  if (( dbx0 == 1 )); then
     info "Dropbox: pausing..."
     dropbox_pause
   else
@@ -199,8 +199,8 @@ cmd_on() {
   fi
 
   # Google Drive
-  if [[ $want_gd -eq 1 ]]; then
-    if [[ $gd0 -eq 1 ]]; then
+  if (( want_gd == 1 )); then
+    if (( gd0 == 1 )); then
       info "Google Drive: quitting..."
       gdrive_pause
     else
@@ -209,7 +209,7 @@ cmd_on() {
   fi
 
   # iCloud Drive
-  if [[ $want_icloud -eq 1 ]]; then
+  if (( want_icloud == 1 )); then
     info "iCloud Drive: stopping bird/cloudd..."
     icloud_bootout
   fi
@@ -291,6 +291,11 @@ EOF
 }
 
 # --- Main ---
+
+if ! command -v jq >/dev/null 2>&1; then
+  err "jq is required but not found. Install with: brew install jq"
+  exit 1
+fi
 
 case "${1:-}" in
   on)

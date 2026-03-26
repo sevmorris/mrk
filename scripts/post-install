@@ -38,7 +38,7 @@ apply_defaults(){
 install_browser_policy(){
   local src="$1" dest_dir="$2" name="$3"
   local dest="$dest_dir/mrk-policy.json"
-  mkdir -p "$dest_dir"
+  mkdir -p "$dest_dir" || return 1
   if [[ -f "$dest" ]] && cmp -s "$src" "$dest"; then
     logskip "$name policy" "installed"
     return 0
@@ -172,25 +172,33 @@ install_github_app(){
   fi
   local dmg_url
   dmg_url=$(curl -sf "https://api.github.com/repos/${repo}/releases/latest" \
-    | grep '"browser_download_url"' | grep '\.dmg"' | head -1 | cut -d '"' -f 4)
+    | jq -r '.assets[] | select(.name | endswith(".dmg")) | .browser_download_url' | head -1)
   if [[ -z "$dmg_url" ]]; then
     log "Warning: could not find $name DMG in latest release"
     return 1
   fi
+  name="${name//[^[:alnum:]._-]/}"
   local tmp_dmg tmp_mount
-  tmp_dmg=$(mktemp "/tmp/${name}_XXXXXX.dmg")
-  tmp_mount="/tmp/${name}_mount_$$"
+  tmp_dmg=$(mktemp -t mrk)
+  tmp_mount=$(mktemp -t mrk -d)
   log "Downloading $name..."
   curl -L -sf -o "$tmp_dmg" "$dmg_url" || { log "Warning: failed to download $name"; rm -f "$tmp_dmg"; return 1; }
-  mkdir -p "$tmp_mount"
   hdiutil attach "$tmp_dmg" -mountpoint "$tmp_mount" -quiet -nobrowse \
-    || { log "Warning: failed to mount $name DMG"; rm -f "$tmp_dmg"; rmdir "$tmp_mount" 2>/dev/null; return 1; }
-  cp -R "$tmp_mount/"*.app /Applications/ \
+    || { log "Warning: failed to mount $name DMG"; rm -f "$tmp_dmg"; rm -rf "$tmp_mount" 2>/dev/null; return 1; }
+  local found_app
+  found_app=$(find "$tmp_mount" -maxdepth 2 -name "*.app" -type d | head -1)
+  if [[ -z "$found_app" ]]; then
+    log "Warning: no .app found in $name DMG"
+    hdiutil detach "$tmp_mount" -quiet; rm -f "$tmp_dmg"; return 1
+  fi
+  cp -R "$found_app" /Applications/ \
     || { log "Warning: failed to copy $name to /Applications"; hdiutil detach "$tmp_mount" -quiet; rm -f "$tmp_dmg"; return 1; }
   hdiutil detach "$tmp_mount" -quiet
   rm -f "$tmp_dmg"
-  rmdir "$tmp_mount" 2>/dev/null || true
-  xattr -cr "$app_path" 2>/dev/null || true
+  rm -rf "$tmp_mount" 2>/dev/null || true
+  if [[ -d "$app_path" ]]; then
+    xattr -cr "$app_path" 2>/dev/null || true
+  fi
   ok "$name → $app_path"
 }
 
@@ -236,7 +244,7 @@ LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
 PREFS_SCRIPT="$(dirname "$0")/pull-prefs"
 
 _ssh_ok=0
-if command -v git >/dev/null 2>&1 && ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+if command -v git >/dev/null 2>&1 && ssh -T -o ConnectTimeout=5 git@github.com 2>&1 | grep -q "successfully authenticated"; then
   _ssh_ok=1
 fi
 
@@ -246,8 +254,11 @@ if (( _ssh_ok )); then
   _current_url=$(git -C "$MRK_DIR" remote get-url origin 2>/dev/null || true)
   if [[ "$_current_url" == https://* ]]; then
     _ssh_url=$(echo "$_current_url" | sed 's|https://github.com/|git@github.com:|')
-    git -C "$MRK_DIR" remote set-url origin "$_ssh_url"
-    log "Switched mrk remote to SSH"
+    if git -C "$MRK_DIR" remote set-url origin "$_ssh_url"; then
+      log "Switched mrk remote to SSH"
+    else
+      warn "Failed to switch mrk remote to SSH"
+    fi
   fi
 fi
 

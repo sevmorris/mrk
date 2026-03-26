@@ -18,14 +18,11 @@ alias nano='nano --linenumbers'      # Always show line numbers in nano.
 
 # Optional smarter cat: use bat if available, else fallback to real cat.
 # Set NO_SMART_CAT=1 to disable this behavior.
+# Uses an alias instead of a function to avoid masking the cat builtin.
 if [[ -z "${NO_SMART_CAT:-}" ]]; then
-  cat() {
-    if command -v bat >/dev/null 2>&1; then
-      bat -pp "$@"
-    else
-      command cat "$@"
-    fi
-  }
+  if command -v bat >/dev/null 2>&1; then
+    alias cat='bat -pp'
+  fi
 fi
 
 command -v networkQuality >/dev/null 2>&1 && alias netcheck='networkQuality'
@@ -37,7 +34,10 @@ v() {
   while [[ "$d" != "/" ]]; do
     if [[ -f "$d/.venv/bin/activate" ]]; then
       # shellcheck disable=SC1091
-      source "$d/.venv/bin/activate"
+      if ! source "$d/.venv/bin/activate"; then
+        echo "Failed to activate virtualenv at $d/.venv" >&2
+        return 1
+      fi
       return
     fi
     d="${d:h}"
@@ -70,7 +70,8 @@ clean-ds() {
   echo "🧹 Starting .DS_Store cleanup (local-only; Desktop & Library excluded)…"
 
   local TMPFILE COUNT
-  TMPFILE=$(mktemp)
+  TMPFILE=$(mktemp -t mrk)
+  trap "rm -f '$TMPFILE'" EXIT
 
   # Build safe local dirs on the same device as $HOME
   local HOME_DEV SAFE_DIRS=() d base dev

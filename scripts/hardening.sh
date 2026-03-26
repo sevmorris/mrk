@@ -33,9 +33,12 @@ if $have_sudo; then
     log "Enabling Touch ID for sudo"
     if sudo cp /etc/pam.d/sudo /etc/pam.d/sudo.backup.mrk 2>/dev/null; then
       rollback "sudo mv /etc/pam.d/sudo.backup.mrk /etc/pam.d/sudo"
-      tmpfile="$(mktemp)"
+      tmpfile="$(mktemp -t mrk)"
       { echo 'auth       sufficient     pam_tid.so'; cat /etc/pam.d/sudo; } > "$tmpfile"
-      if sudo cp "$tmpfile" /etc/pam.d/sudo 2>/dev/null; then
+      if ! grep -q 'pam_tid.so' "$tmpfile"; then
+        warn "Generated PAM config does not contain pam_tid.so — aborting"
+        rm -f "$tmpfile"
+      elif sudo cp "$tmpfile" /etc/pam.d/sudo 2>/dev/null; then
         log "Touch ID for sudo enabled"
       else
         warn "Failed to write new sudo PAM config (may require password)"
@@ -67,8 +70,8 @@ if $have_sudo; then
   log "Enabling macOS firewall (global on, stealth on)"
   prev_raw=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>/dev/null || echo "")
   case "$prev_raw" in
-    *enabled*) prev="on" ;;
-    *)         prev="off" ;;
+    *abled*) prev="on" ;;
+    *)       prev="off" ;;
   esac
   rollback "/usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate $prev"
   if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on 2>/dev/null; then

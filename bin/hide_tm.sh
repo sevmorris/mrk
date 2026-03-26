@@ -7,9 +7,10 @@ VOLS="${TM_VOLUMES:-${1:-TimeMachine}}"
 IFS=',' read -ra NAMES <<<"$VOLS"
 
 for NAME in "${NAMES[@]}"; do
-  NAME="$(echo "$NAME" | sed 's/^ *//; s/ *$//')" # trim
+  NAME="${NAME#"${NAME%%[![:space:]]*}"}"  # trim leading whitespace
+  NAME="${NAME%"${NAME##*[![:space:]]}"}"  # trim trailing whitespace
   [ -n "$NAME" ] || continue
-  /usr/bin/osascript -e 'on run argv
+  if ! /usr/bin/osascript -e 'on run argv
     set volName to item 1 of argv
     tell application "System Events"
       try
@@ -26,5 +27,7 @@ for NAME in "${NAMES[@]}"; do
         return e as text
       end try
     end tell
-  end run' "$NAME" >/dev/null || true
+  end run' "$NAME" >/dev/null; then
+    printf "[hide_tm] warning: osascript failed for volume: %s\n" "$NAME" >&2
+  fi
 done

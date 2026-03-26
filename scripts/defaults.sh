@@ -8,7 +8,7 @@ set -euo pipefail
 #   defaults.sh --with-trackpad # also apply trackpad gesture settings
 
 ROLL_DIR="$HOME/.mrk"
-ROLLBACK="$ROLL_DIR/defaults-rollback.sh"
+ROLLBACK="${ROLLBACK:-$HOME/.mrk/defaults-rollback.sh}"
 
 WITH_TRACKPAD=false
 for arg in "$@"; do
@@ -24,8 +24,12 @@ if ! mkdir -p "$ROLL_DIR"; then
   exit 1
 fi
 
-if ! printf '#!/usr/bin/env bash\n' > "$ROLLBACK" || ! chmod +x "$ROLLBACK"; then
+if ! printf '#!/usr/bin/env bash\n' >> "$ROLLBACK"; then
   echo "Error: Failed to initialize rollback script: $ROLLBACK" >&2
+  exit 1
+fi
+if ! chmod +x "$ROLLBACK"; then
+  echo "Error: Failed to set executable on rollback script: $ROLLBACK" >&2
   exit 1
 fi
 
@@ -45,12 +49,15 @@ write_default(){
   local domain="$1" key="$2" type="$3" value="$4"
   local current
   if current=$(defaults read "$domain" "$key" 2>/dev/null); then
-    case "$current" in
-      true|false)    backup_line "defaults write $domain $key -bool $current" ;;
-      ''|*[!0-9.]*|*.*.*) backup_line "defaults write $domain $key -string \"$current\"" ;;
-      *.*)           backup_line "defaults write $domain $key -float $current" ;;
-      *)             backup_line "defaults write $domain $key -int $current" ;;
-    esac
+    if [[ "$current" =~ ^(true|false)$ ]]; then
+      backup_line "defaults write $domain $key -bool $current"
+    elif [[ "$current" =~ ^[0-9]+\.[0-9]+$ ]]; then
+      backup_line "defaults write $domain $key -float $current"
+    elif [[ "$current" =~ ^[0-9]+$ ]]; then
+      backup_line "defaults write $domain $key -int $current"
+    else
+      backup_line "defaults write $domain $key -string \"$current\""
+    fi
   else
     backup_line "defaults delete $domain $key >/dev/null 2>&1 || true"
   fi

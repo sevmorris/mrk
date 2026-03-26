@@ -57,9 +57,13 @@ if kill -0 "$fetch_pid" 2>/dev/null; then
 fi
 wait "$fetch_pid" 2>/dev/null || exit 0
 
+# Detect default branch name
+default_branch=$(git -C "$REPO_DIR" rev-parse --abbrev-ref origin/HEAD 2>/dev/null | cut -d'/' -f2)
+default_branch="${default_branch:-main}"
+
 # Compare local HEAD with remote
 local_head=$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null) || exit 0
-remote_head=$(git -C "$REPO_DIR" rev-parse origin/main 2>/dev/null) || exit 0
+remote_head=$(git -C "$REPO_DIR" rev-parse "origin/$default_branch" 2>/dev/null) || exit 0
 
 # Update timestamp after successful check
 date +%s > "$TIMESTAMP_FILE"
@@ -75,7 +79,8 @@ if ! git -C "$REPO_DIR" merge-base --is-ancestor "$local_head" "$remote_head" 2>
   exit 0
 fi
 
-# Prompt user for update
+# Prompt user for update (skip if no TTY)
+[[ -t 0 ]] || exit 0
 printf '\033[33mmrk updates available.\033[0m Update now? [y/N] '
 read -r response </dev/tty
 case "$response" in

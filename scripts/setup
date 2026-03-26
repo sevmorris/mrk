@@ -99,9 +99,17 @@ BACKUP_DIR="$STATE_DIR/backups/$(date +%Y%m%d-%H%M%S)"
 readonly BACKUP_DIR
 readonly ROLLBACK="$STATE_DIR/defaults-rollback.sh"
 
-# Create required directories with error checking
-if ! mkdir -p "$(dirname "$LOGFILE")" "$INSTALL_BIN" "$(dirname "$BACKUP_DIR")" "$STATE_DIR"; then
-  err "Failed to create required directories"
+# Create required directories with individual error checking
+if ! mkdir -p "$STATE_DIR"; then
+  err "Failed to create state directory: $STATE_DIR"
+  exit 1
+fi
+if ! mkdir -p "$INSTALL_BIN"; then
+  err "Failed to create bin directory: $INSTALL_BIN"
+  exit 1
+fi
+if ! mkdir -p "$(dirname "$BACKUP_DIR")"; then
+  err "Failed to create backup parent directory"
   exit 1
 fi
 
@@ -261,8 +269,8 @@ phase_link_tools() {
   if [[ -d "$SCRIPTS_DIR" ]]; then
     # Count total first for progress and collect files
     local files=()
-    while IFS= read -r -d '' f || [[ -n "$f" ]]; do
-      [[ -n "$f" ]] && [[ -f "$f" && -x "$f" ]] || continue
+    while IFS= read -r -d '' f; do
+      [[ -f "$f" && -x "$f" ]] || continue
       local base_name
       base_name="$(basename "$f")"
       # Skip excluded scripts
@@ -271,7 +279,7 @@ phase_link_tools() {
       fi
       files+=("$f")
       ((total++)) || true
-    done < <(find "$SCRIPTS_DIR" -maxdepth 1 -type f -print0 2>/dev/null || true)
+    done < <(find "$SCRIPTS_DIR" -maxdepth 1 -type f -print0 2>/dev/null)
     
     local current=0
     for f in "${files[@]}"; do
@@ -289,7 +297,7 @@ phase_link_tools() {
       fi
       
       if (( total > 0 )); then
-        printf "\r[%d/%d] Linking %s..." "$current" "$total" "$link_name" >&2 || true
+        printf "\r[%d/%d] Linking %s..." "$current" "$total" "$link_name" >&2
       fi
       
       # Skip if symlink already points to correct target
@@ -311,18 +319,18 @@ phase_link_tools() {
         ((failed++)) || true
       fi
     done
-    printf "\r\033[K" >&2 || true  # Clear progress line
+    printf "\r\033[K" >&2  # Clear progress line
   fi
   
   if [[ -d "$BIN_DIR" ]]; then
     local bin_total=0
     local bin_files=()
-    while IFS= read -r -d '' f || [[ -n "$f" ]]; do
-      [[ -n "$f" ]] && [[ -f "$f" && -x "$f" ]] && {
+    while IFS= read -r -d '' f; do
+      [[ -f "$f" && -x "$f" ]] && {
         bin_files+=("$f")
         ((bin_total++)) || true
       }
-    done < <(find "$BIN_DIR" -maxdepth 1 -type f -print0 2>/dev/null || true)
+    done < <(find "$BIN_DIR" -maxdepth 1 -type f -print0 2>/dev/null)
     
     local current=0
     for f in "${bin_files[@]}"; do
@@ -332,7 +340,7 @@ phase_link_tools() {
       base="$(basename "$f")"
       
       if (( bin_total > 0 )); then
-        printf "\r[%d/%d] Linking %s..." "$current" "$bin_total" "$base" >&2 || true
+        printf "\r[%d/%d] Linking %s..." "$current" "$bin_total" "$base" >&2
       fi
       
       # Skip if symlink already points to correct target
@@ -354,7 +362,7 @@ phase_link_tools() {
         ((failed++)) || true
       fi
     done
-    printf "\r\033[K" >&2 || true  # Clear progress line
+    printf "\r\033[K" >&2  # Clear progress line
 
     # Symlink lib/ directory so scripts sourcing lib/common.sh work from ~/bin
     if [[ -d "$BIN_DIR/lib" ]]; then
@@ -447,7 +455,7 @@ phase_dotfiles() {
     dst="$HOME/$(basename "$src")"
     
     if (( total > 0 )); then
-      printf "\r[%d/%d] Processing %s..." "$current" "$total" "$(basename "$src")" >&2 || true
+      printf "\r[%d/%d] Processing %s..." "$current" "$total" "$(basename "$src")" >&2
     fi
     
     # Skip if symlink already points to correct target
@@ -465,7 +473,7 @@ phase_dotfiles() {
         if ! mv "$dst" "$BACKUP_DIR/"; then
           err "Failed to backup $dst - aborting dotfile linking"
           shopt -u dotglob nullglob
-          printf "\r" >&2 || true
+          printf "\r" >&2
           return 1
         fi
         ((backed_up++)) || true
@@ -478,7 +486,7 @@ phase_dotfiles() {
     elif ! ln -sfn "$src" "$dst"; then
       err "Failed to create symlink: $dst -> $src"
       shopt -u dotglob nullglob
-      printf "\r" >&2 || true
+      printf "\r" >&2
       return 1
     else
       ((linked++)) || true

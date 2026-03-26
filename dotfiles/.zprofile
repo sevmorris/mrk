@@ -4,6 +4,8 @@
 # ==============================================================================
 
 # --- Homebrew Environment (Apple Silicon first, then Intel) ---
+# NOTE: This block is also present in scripts/brew and scripts/setup.
+# Keep them in sync if the Homebrew install paths change.
 if [ -x /opt/homebrew/bin/brew ]; then
   eval "$(/opt/homebrew/bin/brew shellenv)"
 elif [ -x /usr/local/bin/brew ]; then

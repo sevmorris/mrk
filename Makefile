@@ -12,7 +12,7 @@ define go-build
 		exit 1; \
 	fi
 	@printf '  \033[36m▸\033[0m Building $(1)…\n'
-	@cd "$(REPO_ROOT)/tools/$(2)" && go mod tidy -e && go build -o "$(BIN_DIR)/$(1)" .
+	@cd "$(REPO_ROOT)/tools/$(2)" && go mod tidy && go build -o "$(BIN_DIR)/$(1)" .
 	@chmod +x "$(BIN_DIR)/$(1)"
 endef
 
@@ -35,8 +35,12 @@ build-tools: ## Build all Go TUI binaries (requires Go)
 	@$(MAKE) --no-print-directory picker bf mrk-status
 
 fix-exec: ## Make scripts and bin files executable
-	@find $(SCRIPTS) -type f -maxdepth 1 -not -name "*.md" -exec chmod +x {} + 2>/dev/null || true
-	@find $(BIN_DIR) -type f -maxdepth 1 -not -name "*.md" -exec chmod +x {} + 2>/dev/null || true
+	@if find $(SCRIPTS) -type f -maxdepth 1 -not -name "*.md" -exec chmod +x {} + 2>/dev/null && \
+	    find $(BIN_DIR) -type f -maxdepth 1 -not -name "*.md" -exec chmod +x {} + 2>/dev/null; then \
+	  printf '  \033[32m✓\033[0m Made scripts executable\n'; \
+	else \
+	  printf '  \033[31m✗\033[0m Failed to make some scripts executable\n'; \
+	fi
 
 install: setup ## Run Phase 1 setup
 setup: ## Phase 1: shell, dotfiles, macOS defaults

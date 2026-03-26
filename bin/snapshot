@@ -51,6 +51,12 @@ export_plist() {
     log "Skipping $name (no preferences found)"
     return 0
   fi
+  local pref_file="$existing"
+  [[ ! -f "$pref_file" ]] && pref_file="$sandboxed"
+  if [[ ! -f "$pref_file" ]]; then
+    log "Skipping $name (preference file not found)"
+    return 0
+  fi
   defaults export "$bundle_id" "$dest_file"
   plutil -convert xml1 "$dest_file"
   log "Exported $name → assets/preferences/$(basename "$dest_file")"
@@ -96,6 +102,10 @@ if (( OPT_BREWFILE )); then
   printf "[snapshot] Proceed with Brewfile dump? [y/N]: "
   read -r answer </dev/tty
   if [[ "$answer" =~ ^[Yy]$ ]]; then
+    if [[ -f "$REPO_ROOT/Brewfile" ]]; then
+      cp "$REPO_ROOT/Brewfile" "$REPO_ROOT/Brewfile.bak"
+      log "Backed up Brewfile → Brewfile.bak"
+    fi
     brew bundle dump --force --file="$REPO_ROOT/Brewfile"
     log "Brewfile updated"
   else
@@ -112,13 +122,19 @@ cd "$REPO_ROOT"
 check_paths=("assets/preferences/")
 (( OPT_BREWFILE )) && check_paths+=("Brewfile")
 
-if [[ -z "$(git status --porcelain -- "${check_paths[@]}" 2>/dev/null)" ]]; then
+local _git_status
+if ! _git_status=$(git status --porcelain -- "${check_paths[@]}" 2>/dev/null); then
+  warn "git status failed"
+  exit 1
+fi
+
+if [[ -z "$_git_status" ]]; then
   log "No changes detected"
   exit 0
 fi
 
 log "Changes detected:"
-git status --short -- "${check_paths[@]}" 2>/dev/null || true
+git status --short -- "${check_paths[@]}"
 
 printf "[snapshot] Commit changes? [y/N]: "
 read -r answer </dev/tty

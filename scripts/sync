@@ -103,9 +103,14 @@ declare -A installed_formulae=()    # top-level only (for new-package detection)
 declare -A installed_formulae_all=() # all installed (for stale detection)
 declare -A installed_casks=()
 
+local _leaves_out
+if ! _leaves_out=$($HOMEBREW leaves 2>/dev/null); then
+  err "brew leaves failed — cannot determine installed formulae"
+  exit 1
+fi
 while IFS= read -r pkg; do
   [[ -n "$pkg" ]] && installed_formulae["$pkg"]=1
-done < <($HOMEBREW leaves 2>/dev/null)
+done <<< "$_leaves_out"
 
 while IFS= read -r pkg; do
   [[ -n "$pkg" ]] && installed_formulae_all["$pkg"]=1
@@ -225,11 +230,14 @@ if (( PRUNE && n_stale > 0 )); then
     else
       # Build sed patterns to remove matching lines
       local_sed_args=()
+      local escaped_pkg
       for pkg in "${!prune_formulae[@]}"; do
-        local_sed_args+=(-e "/^brew \"${pkg}\"/d")
+        escaped_pkg=$(printf '%s\n' "$pkg" | sed 's/[[\.*^$/]/\\&/g')
+        local_sed_args+=(-e "/^brew \"${escaped_pkg}\"/d")
       done
       for pkg in "${!prune_casks[@]}"; do
-        local_sed_args+=(-e "/^cask \"${pkg}\"/d")
+        escaped_pkg=$(printf '%s\n' "$pkg" | sed 's/[[\.*^$/]/\\&/g')
+        local_sed_args+=(-e "/^cask \"${escaped_pkg}\"/d")
       done
 
       sed -i '' "${local_sed_args[@]}" "$BREWFILE"
@@ -267,7 +275,7 @@ picker_bin=$(find_picker)
 
 if [[ -n "$picker_bin" ]]; then
   # Build a minimal temp Brewfile for mrk-picker
-  TEMP_BREWFILE=$(mktemp /tmp/mrk-sync.XXXXXX)
+  TEMP_BREWFILE=$(mktemp -t mrk)
 
   if (( ${#new_formulae_arr[@]} > 0 )); then
     printf '# New Formulae\n' >> "$TEMP_BREWFILE"
@@ -478,7 +486,7 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
-TEMP_INSERTIONS=$(mktemp /tmp/mrk-sync-ins.XXXXXX)
+TEMP_INSERTIONS=$(mktemp -t mrk)
 printf '%s' "$insertions_data" > "$TEMP_INSERTIONS"
 
 python3 - "$BREWFILE" "$TEMP_INSERTIONS" <<'PYEOF'

@@ -2,6 +2,11 @@
 set -euo pipefail
 
 # mrk uninstaller - conservative
+
+if [[ ! -t 0 ]]; then
+  echo "error: uninstall must be run interactively" >&2
+  exit 1
+fi
 # - Unlinks ~/bin symlinks pointing into this repo
 # - Optionally runs ~/.mrk/defaults-rollback.sh and hardening-rollback.sh
 # - Does not remove user data or dotfiles

@@ -10,6 +10,17 @@ while [[ -L "$_self" ]]; do
 done
 SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [[ -z "$REPO_ROOT" ]]; then
+  echo "error: could not determine REPO_ROOT" >&2
+  exit 1
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "error: python3 is required but not found" >&2
+  exit 1
+fi
+
 MANIFEST="$REPO_ROOT/.install-manifest"
 
 echo "🧾 Generating install manifest → $MANIFEST"

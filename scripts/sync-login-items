@@ -72,12 +72,17 @@ declare -A system_items=()
 
 raw_names=$(osascript -e "tell application \"System Events\" to get the name of every login item" 2>/dev/null || true)
 
+if [[ -z "$raw_names" ]]; then
+  warn "No login items returned from osascript (System Events may be unavailable)"
+fi
+
 if [[ -n "$raw_names" ]]; then
   while IFS= read -r name; do
     name="${name#"${name%%[![:space:]]*}"}"
     name="${name%"${name##*[![:space:]]}"}"
     if [[ -n "$name" ]]; then
-      app_path=$(osascript -e "tell application \"System Events\" to get the path of login item \"$name\"" 2>/dev/null || true)
+      local escaped_name="${name//\"/\\\"}"
+      app_path=$(osascript -e "tell application \"System Events\" to get the path of login item \"${escaped_name}\"" 2>/dev/null || true)
       [[ -z "$app_path" ]] && app_path="/Applications/${name}.app"
       system_items["$name"]="$app_path"
     fi
@@ -89,6 +94,7 @@ fi
 declare -A tracked_items=()  # name -> path
 
 while IFS= read -r line; do
+  # Regex matches lines of the form: add_login_item "/path/to/App.app"
   if [[ "$line" =~ ^add_login_item[[:space:]]+\"(/[^\"]+\.app)\" ]]; then
     app_path="${BASH_REMATCH[1]}"
     app_name="${app_path##*/}"
@@ -224,8 +230,8 @@ fi
 
 # ─── 7. Update post-install ──────────────────────────────────────────────────
 
-TEMP_ADD=$(mktemp /tmp/mrk-login-add.XXXXXX)
-TEMP_REMOVE=$(mktemp /tmp/mrk-login-rm.XXXXXX)
+TEMP_ADD=$(mktemp -t mrk)
+TEMP_REMOVE=$(mktemp -t mrk)
 
 for name in "${!add_items[@]}"; do
   printf '%s\t%s\n' "$name" "${system_items[$name]}" >> "$TEMP_ADD"
