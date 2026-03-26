@@ -20,6 +20,7 @@ readonly SCRIPT_DIR REPO_ROOT
 source "$SCRIPT_DIR/lib.sh"
 
 failed=0
+next_steps=()   # Collect deferred guidance to surface at the end
 
 section "Phase 3: Post-install"
 
@@ -293,7 +294,7 @@ import_plist(){
 }
 
 if [[ ! -d "$LOCAL_PREFS_DIR" ]]; then
-  logskip "App preferences (14 plists + app support)" "run: make pull-prefs once SSH key is set up"
+  next_steps+=("App preferences not restored — run: make pull-prefs after setting up your SSH key")
 else
   import_plist "/Applications/BetterSnapTool.app"  "com.hegenberg.BetterSnapTool"              "$LOCAL_PREFS_DIR/BetterSnapTool.plist"    "BetterSnapTool"    || ((failed++))
   import_plist "/Applications/Ice.app"            "com.jordanbaird.Ice"                       "$LOCAL_PREFS_DIR/Ice.plist"               "Ice"               || ((failed++))
@@ -392,6 +393,14 @@ if (( failed > 0 )); then
   log "Warning: $failed post-install step(s) failed"
 else
   log "Post-install complete"
+fi
+
+if (( ${#next_steps[@]} > 0 )); then
+  printf '\n%s%s  ── Next steps ──%s\n\n' "$_B" "$_BLU" "$_R" >&2
+  for _step in "${next_steps[@]}"; do
+    warn "$_step"
+  done
+  echo "" >&2
 fi
 
 echo ""
