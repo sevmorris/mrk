@@ -7,7 +7,7 @@
 #   zoom-mode status
 #
 # What it does:
-#   on  — pings 8.8.8.8 every 30s (AP idle timeout prevention), blocks sleep,
+#   on  — pings the default gateway (fallback: 8.8.8.8) every 30s (AP idle timeout prevention), blocks sleep,
 #          stops any active Time Machine backup, then calls audio-mode on --all
 #   off — kills the above, restores via audio-mode off
 
@@ -22,7 +22,7 @@ FLAG="$HOME/.zoom_mode_active"
 PIDS="$HOME/.zoom_mode_pids"
 LOG="$HOME/Library/Logs/zoom-mode.log"
 
-PING_TARGET="8.8.8.8"
+PING_FALLBACK="8.8.8.8"
 PING_INTERVAL=30
 
 # --- Helpers ---
@@ -50,9 +50,12 @@ cmd_on() {
     echo "$(date +"%Y-%m-%d %H:%M:%S")  zoom-mode ON" >> "$LOG"
     touch "$FLAG"
 
-    # WiFi keepalive
-    info "Starting WiFi keepalive (ping $PING_TARGET every ${PING_INTERVAL}s)..."
-    while true; do ping -c 1 "$PING_TARGET" > /dev/null 2>&1; sleep "$PING_INTERVAL"; done &
+    # WiFi keepalive — prefer gateway (one hop, works even if outbound ICMP is blocked)
+    local ping_target
+    ping_target=$(route -n get default 2>/dev/null | awk '/gateway/{print $2}')
+    [[ -z "$ping_target" ]] && ping_target="$PING_FALLBACK"
+    info "Starting WiFi keepalive (ping $ping_target every ${PING_INTERVAL}s)..."
+    while true; do ping -c 1 "$ping_target" > /dev/null 2>&1; sleep "$PING_INTERVAL"; done &
     track_pid $!
 
     # Prevent display + system sleep
