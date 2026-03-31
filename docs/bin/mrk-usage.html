@@ -439,8 +439,9 @@
   </div>
   <a class="section-head">Sect. 1 — Standalone</a>
   <a href="#audio-mode">1.1 audio-mode</a>
-  <a href="#nuke-mrk">1.2 nuke-mrk</a>
-  <a href="#snapshot">1.3 snapshot</a>
+  <a href="#zoom-mode">1.2 zoom-mode</a>
+  <a href="#nuke-mrk">1.3 nuke-mrk</a>
+  <a href="#snapshot">1.4 snapshot</a>
   <a class="section-head">Sect. 2 — mrk</a>
   <a href="#check-updates">2.1 check-updates</a>
   <a href="#doctor">2.2 doctor</a>
@@ -507,9 +508,29 @@ audio-mode status</code></pre>
         </div>
       </div>
 
-      <div class="proc" id="nuke-mrk">
+      <div class="proc" id="zoom-mode">
         <div class="proc-header">
           <span class="proc-num">1.2</span>
+          <h3>zoom-mode <span class="tag tag-standalone">standalone</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">Prepares the system for a Zoom recording session: keeps the WiFi AP alive, prevents sleep, stops active Time Machine backups, and delegates cloud sync pausing to <code>audio-mode</code>.</p>
+          <pre><code>zoom-mode on
+zoom-mode off
+zoom-mode status</code></pre>
+          <ul>
+            <li><strong>on</strong> — Pings 8.8.8.8 every 30s in the background (prevents AP idle-timeout drops), runs <code>caffeinate -d</code> to block display and system sleep, stops any active Time Machine backup, then calls <code>audio-mode on --all</code>.</li>
+            <li><strong>off</strong> — Kills the keepalive and caffeinate processes, then calls <code>audio-mode off</code> to restore sync services.</li>
+            <li><strong>status</strong> — Shows whether zoom-mode is active and delegates to <code>audio-mode status</code>.</li>
+            <li>Background PIDs tracked at <code>~/.zoom_mode_pids</code>.</li>
+            <li>Activity logged to <code>~/Library/Logs/zoom-mode.log</code>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="nuke-mrk">
+        <div class="proc-header">
+          <span class="proc-num">1.3</span>
           <h3>nuke-mrk <span class="tag tag-standalone">standalone</span></h3>
         </div>
         <div class="proc-body">
@@ -527,7 +548,7 @@ audio-mode status</code></pre>
 
       <div class="proc" id="snapshot">
         <div class="proc-header">
-          <span class="proc-num">1.3</span>
+          <span class="proc-num">1.4</span>
           <h3>snapshot <span class="tag tag-standalone">standalone</span></h3>
         </div>
         <div class="proc-body">
@@ -848,7 +869,9 @@ mrk-status --help</code></pre>
           <tr><th>Command</th><th>What it does</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>audio-mode on --all</code></td><td>Pause all sync services for recording</td></tr>
+          <tr><td><code>zoom-mode on</code></td><td>Enable Zoom recording mode (WiFi keepalive, no sleep, pause sync)</td></tr>
+          <tr><td><code>zoom-mode off</code></td><td>Disable Zoom recording mode and restore all services</td></tr>
+          <tr><td><code>audio-mode on --all</code></td><td>Pause all sync services for recording (without network/sleep tweaks)</td></tr>
           <tr><td><code>audio-mode off</code></td><td>Resume sync services</td></tr>
           <tr><td><code>snapshot</code></td><td>Export app prefs to mrk</td></tr>
           <tr><td><code>snapshot-prefs</code></td><td>Export + push prefs to private repo</td></tr>
