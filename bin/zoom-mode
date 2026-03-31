@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# zoom-mode — WiFi keepalive + system prep for Zoom recording sessions
+#
+# Usage:
+#   zoom-mode on
+#   zoom-mode off
+#   zoom-mode status
+#
+# What it does:
+#   on  — pings 8.8.8.8 every 30s (AP idle timeout prevention), blocks sleep,
+#          stops any active Time Machine backup, then calls audio-mode on --all
+#   off — kills the above, restores via audio-mode off
+
+set -euo pipefail
+
+_src="${BASH_SOURCE[0]}"
+while [[ -L "$_src" ]]; do _src="$(readlink "$_src")"; done
+SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
+
+FLAG="$HOME/.zoom_mode_active"
+PIDS="$HOME/.zoom_mode_pids"
+LOG="$HOME/Library/Logs/zoom-mode.log"
+
+PING_TARGET="8.8.8.8"
+PING_INTERVAL=30
+
+# --- Helpers ---
+
+track_pid() {
+    echo "$1" >> "$PIDS"
+}
+
+kill_tracked() {
+    [[ ! -f "$PIDS" ]] && return
+    while IFS= read -r pid; do
+        [[ -n "$pid" ]] && kill "$pid" 2>/dev/null || true
+    done < "$PIDS"
+    rm -f "$PIDS"
+}
+
+# --- Commands ---
+
+cmd_on() {
+    if [[ -f "$FLAG" ]]; then
+        warn "zoom-mode is already on"
+        exit 0
+    fi
+
+    echo "$(date +"%Y-%m-%d %H:%M:%S")  zoom-mode ON" >> "$LOG"
+    touch "$FLAG"
+
+    # WiFi keepalive
+    info "Starting WiFi keepalive (ping $PING_TARGET every ${PING_INTERVAL}s)..."
+    while true; do ping -c 1 "$PING_TARGET" > /dev/null 2>&1; sleep "$PING_INTERVAL"; done &
+    track_pid $!
+
+    # Prevent display + system sleep
+    info "Preventing sleep..."
+    caffeinate -d &
+    track_pid $!
+
+    # Stop any active Time Machine backup
+    if tmutil status 2>/dev/null | grep -q '"Running" = 1'; then
+        info "Stopping active Time Machine backup..."
+        tmutil stopbackup 2>/dev/null || true
+    fi
+
+    # Cloud sync via audio-mode
+    if command -v audio-mode &>/dev/null; then
+        audio-mode on --all
+    else
+        warn "audio-mode not found; skipping cloud sync pause"
+    fi
+
+    ok "zoom-mode is ON"
+}
+
+cmd_off() {
+    if [[ ! -f "$FLAG" ]]; then
+        warn "zoom-mode is already off"
+        exit 0
+    fi
+
+    echo "$(date +"%Y-%m-%d %H:%M:%S")  zoom-mode OFF" >> "$LOG"
+
+    info "Killing keepalive and caffeinate..."
+    kill_tracked
+
+    rm -f "$FLAG"
+
+    # Restore via audio-mode
+    if command -v audio-mode &>/dev/null; then
+        audio-mode off
+    fi
+
+    ok "zoom-mode is OFF"
+}
+
+cmd_status() {
+    if [[ -f "$FLAG" ]]; then
+        ok "zoom-mode: ON"
+        if [[ -f "$PIDS" ]]; then
+            info "Background PIDs: $(tr '\n' ' ' < "$PIDS")"
+        fi
+    else
+        info "zoom-mode: OFF"
+    fi
+    if command -v audio-mode &>/dev/null; then
+        audio-mode status
+    fi
+}
+
+cmd_usage() {
+    cat <<EOF
+Usage: zoom-mode on
+       zoom-mode off
+       zoom-mode status
+EOF
+}
+
+# --- Main ---
+
+case "${1:-}" in
+    on)  shift; cmd_on ;;
+    off) cmd_off ;;
+    status) cmd_status ;;
+    *) cmd_usage ;;
+esac

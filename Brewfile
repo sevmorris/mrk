@@ -115,7 +115,6 @@ cask "piezo", greedy: true
 cask "pulsar", greedy: true
 cask "raspberry-pi-imager", greedy: true
 cask "raycast", greedy: true
-cask "samsung-magician", greedy: true
 cask "screenflow", greedy: true
 cask "shutter-encoder", greedy: true
 cask "signal", greedy: true
