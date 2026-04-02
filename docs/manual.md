@@ -226,7 +226,7 @@ Two-pane TUI: checks on the left, details on the right. Press `f` to run the sug
 
 ## Barkeep
 
-**[Barkeep](https://github.com/sevmorris/Barkeep)** is a native macOS companion app for visually managing your Homebrew Brewfile. It now lives in its own repository — see the link above for build instructions and releases.
+**[Barkeep](https://github.com/sevmorris/Barkeep)** is a native macOS companion app for visually managing your Homebrew Brewfile. It is installed automatically by `make post-install`. It lives in its own repository — see the link above for releases.
 
 ## Updating the Manual
 
@@ -270,7 +270,7 @@ Captures any packages installed since the last sync and commits the updated Brew
 make snapshot-prefs
 ```
 
-Exports and pushes all 15 app preference plists plus Application Support files. Verify the push succeeded — you should see "Pushed to git@github.com:sevmorris/mrk-prefs.git" in the output.
+Exports and pushes all 14 app preference plists plus Application Support files. Verify the push succeeded — you should see "Pushed to git@github.com:sevmorris/mrk-prefs.git" in the output.
 
 **3. Push any pending mrk changes**
 
