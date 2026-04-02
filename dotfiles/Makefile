@@ -1,6 +1,6 @@
 MRK := $(HOME)/mrk
 
-.PHONY: sync snapshot-prefs pull-prefs picker manual help
+.PHONY: sync snapshot-prefs pull-prefs picker help
 
 help: ## Show available make commands
 	@echo ""
@@ -26,8 +26,3 @@ pull-prefs: ## Clone or pull app preferences from mrk-prefs
 picker: ## Build the mrk-picker TUI binary
 	@$(MAKE) -C $(MRK) picker
 
-barkeep: ## Build and install Barkeep.app to /Applications (requires xcodegen)
-	@$(MAKE) -C $(MRK) barkeep
-
-manual: ## Regenerate docs/index.html from docs/manual.md
-	@$(MAKE) -C $(MRK) manual

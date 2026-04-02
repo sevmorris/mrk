@@ -97,7 +97,7 @@ Configures installed apps. Must be run after Phase 2.
 - **Browsers:** Applies Safari defaults, Chrome/Brave managed policies, Helium defaults; opens extension install URLs on request
 - **App defaults:** Applies `defaults write` settings for Audio Hijack, Fission, AlDente, Rogue Amoeba update settings
 - **Preferences auto-pull:** If `~/.mrk/preferences/` is absent and SSH is authenticated to GitHub, automatically clones `mrk-prefs`
-- **Plist imports** (15 apps): Imports personal preference plists; skips any app that already has a preferences file (non-destructive)
+- **Plist imports** (14 apps): Imports personal preference plists; skips any app that already has a preferences file (non-destructive)
 - **Barkeep:** Downloads and installs Barkeep from the latest GitHub release. Skipped if `/Applications/Barkeep.app` already exists — to update, use Barkeep itself or remove the app first
 - **App Support restore:** Restores Loopback and SoundSource configuration files (non-destructive)
 - **Login items:** Registers AlDente,BetterSnapTool,Bitwarden,Chrono Plus,Dropbox,Hammerspoon,Ice,NordPass,Raycast,SoundSource,Stats as login items
@@ -117,7 +117,6 @@ Configures installed apps. Must be run after Phase 2.
 | Farrago | ✓ |
 | Piezo | ✓ |
 | Typora | ✓ |
-| Hot | ✓ |
 | Keka | ✓ |
 | TimeMachineEditor | ✓ |
 | MacWhisper | ✓ |
