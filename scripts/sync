@@ -103,7 +103,6 @@ declare -A installed_formulae=()    # top-level only (for new-package detection)
 declare -A installed_formulae_all=() # all installed (for stale detection)
 declare -A installed_casks=()
 
-local _leaves_out
 if ! _leaves_out=$($HOMEBREW leaves 2>/dev/null); then
   err "brew leaves failed — cannot determine installed formulae"
   exit 1
