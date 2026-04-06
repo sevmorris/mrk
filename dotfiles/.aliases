@@ -141,7 +141,13 @@ fixbrewperms() {
 }
 
 if command -v topgrade >/dev/null 2>&1; then
+  # Lightweight update: just run topgrade, no app closing or reboot prompt.
   update() {
+    topgrade
+  }
+
+  # Full update: closes running apps, runs topgrade, then offers a reboot.
+  update-full() {
     # Detect current terminal so we don't close it
     local current_term
     case "${TERM_PROGRAM:-}" in
