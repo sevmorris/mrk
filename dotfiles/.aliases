@@ -167,18 +167,18 @@ if command -v topgrade >/dev/null 2>&1; then
     # Split on ", " into array
     local -a procs=("${(@s:, :)raw}")
 
+    local bundle_path
     for app in "${procs[@]}"; do
-      # Skip protected apps
       (( ${keep[(Ie)$app]} )) && continue
-      # Only quit apps whose .app bundle exists in a standard app directory
-      # (filesystem check — no AppleScript path lookups, no dialogs)
-      local found=false
+      # Find bundle in standard app directories; skip if not found
+      bundle_path=""
       for dir in /Applications /System/Applications "$HOME/Applications"; do
-        [[ -d "$dir/$app.app" ]] && { found=true; break; }
+        [[ -d "$dir/$app.app" ]] && bundle_path="$dir/$app.app" && break
       done
-      $found || continue
-      osascript -e "tell application \"$app\" to quit saving yes" 2>/dev/null \
-        || osascript -e "tell application \"$app\" to quit" 2>/dev/null \
+      [[ -z "$bundle_path" ]] && continue
+      # Target by path, not name — can never trigger "Where is X?" dialog
+      osascript -e "tell application (POSIX file \"$bundle_path\" as text) to quit saving yes" 2>/dev/null \
+        || osascript -e "tell application (POSIX file \"$bundle_path\" as text) to quit" 2>/dev/null \
         || true
     done
 
