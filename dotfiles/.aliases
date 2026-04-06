@@ -164,6 +164,7 @@ on run argv
     set end of keepOpen to item 1 of argv
   end if
   set homeFolder to POSIX path of (path to home folder)
+  set appsToQuit to {}
   tell application "System Events"
     repeat with p in (get every process)
       set appName to name of p
@@ -171,18 +172,21 @@ on run argv
         try
           set appPath to POSIX path of (application file of p as alias)
           if appPath starts with "/Applications/" or appPath starts with "/System/Applications/" or appPath starts with homeFolder & "Applications/" then
-            try
-              tell application appName to quit saving yes
-            on error
-              try
-                tell application appName to quit
-              end try
-            end try
+            set end of appsToQuit to appName
           end if
         end try
       end if
     end repeat
   end tell
+  repeat with appName in appsToQuit
+    try
+      tell application appName to quit saving yes
+    on error
+      try
+        tell application appName to quit
+      end try
+    end try
+  end repeat
 end run
 OSAS
 
