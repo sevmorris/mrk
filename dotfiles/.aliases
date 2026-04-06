@@ -163,29 +163,28 @@ on run argv
   if (count of argv) > 0 and item 1 of argv is not "" then
     set end of keepOpen to item 1 of argv
   end if
-  set homeFolder to POSIX path of (path to home folder)
-  set appsToQuit to {}
+  -- Get just names from System Events and immediately release the connection
+  set procNames to {}
   tell application "System Events"
-    repeat with p in (get every process)
-      set appName to name of p
-      if appName is not in keepOpen then
-        try
-          set appPath to POSIX path of (application file of p as alias)
-          if appPath starts with "/Applications/" or appPath starts with "/System/Applications/" or appPath starts with homeFolder & "Applications/" then
-            set end of appsToQuit to appName
-          end if
-        end try
-      end if
-    end repeat
+    set procNames to name of every process
   end tell
-  repeat with appName in appsToQuit
-    try
-      tell application appName to quit saving yes
-    on error
+  set homeFolder to POSIX path of (path to home folder)
+  repeat with appName in procNames
+    if appName is not in keepOpen then
       try
-        tell application appName to quit
+        -- path to application errors for daemons/non-apps, caught by try
+        set appPath to POSIX path of (path to application appName)
+        if appPath starts with "/Applications/" or appPath starts with "/System/Applications/" or appPath starts with homeFolder & "Applications/" then
+          try
+            tell application appName to quit saving yes
+          on error
+            try
+              tell application appName to quit
+            end try
+          end try
+        end if
       end try
-    end try
+    end if
   end repeat
 end run
 OSAS
