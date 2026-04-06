@@ -163,28 +163,23 @@ on run argv
   if (count of argv) > 0 and item 1 of argv is not "" then
     set end of keepOpen to item 1 of argv
   end if
+  set homeFolder to POSIX path of (path to home folder)
   tell application "System Events"
     repeat with p in (get every process)
       set appName to name of p
       if appName is not in keepOpen then
-        set isApp to false
         try
           set appPath to POSIX path of (application file of p as alias)
-          if appPath contains ".app/" then set isApp to true
-        end try
-        if isApp then
-          try
-            tell application appName to quit saving yes
-          on error
+          if appPath starts with "/Applications/" or appPath starts with "/System/Applications/" or appPath starts with homeFolder & "Applications/" then
             try
-              tell application appName to quit
+              tell application appName to quit saving yes
+            on error
+              try
+                tell application appName to quit
+              end try
             end try
-          end try
-        else
-          try
-            tell p to quit
-          end try
-        end if
+          end if
+        end try
       end if
     end repeat
   end tell
