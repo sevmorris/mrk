@@ -163,28 +163,38 @@ on run argv
   if (count of argv) > 0 and item 1 of argv is not "" then
     set end of keepOpen to item 1 of argv
   end if
-  -- Get just names from System Events and immediately release the connection
-  set procNames to {}
-  tell application "System Events"
-    set procNames to name of every process
-  end tell
   set homeFolder to POSIX path of (path to home folder)
-  repeat with appName in procNames
-    if appName is not in keepOpen then
-      try
-        -- path to application errors for daemons/non-apps, caught by try
-        set appPath to POSIX path of (path to application appName)
-        if appPath starts with "/Applications/" or appPath starts with "/System/Applications/" or appPath starts with homeFolder & "Applications/" then
+  set bgApps to {}
+  -- First pass via System Events: quit regular apps, collect menu bar apps
+  tell application "System Events"
+    repeat with p in (get every process)
+      set appName to name of p
+      if appName is not in keepOpen then
+        if background only of p then
+          set end of bgApps to appName
+        else
           try
-            tell application appName to quit saving yes
+            tell p to quit saving yes
           on error
             try
-              tell application appName to quit
+              tell p to quit
             end try
           end try
         end if
-      end try
-    end if
+      end if
+    end repeat
+  end tell
+  -- Second pass: quit menu bar (background-only) apps directly
+  -- path to application errors for daemons, silently skipped by try
+  repeat with appName in bgApps
+    try
+      set appPath to POSIX path of (path to application appName)
+      if appPath starts with "/Applications/" or appPath starts with "/System/Applications/" or appPath starts with homeFolder & "Applications/" then
+        try
+          tell application appName to quit
+        end try
+      end if
+    end try
   end repeat
 end run
 OSAS
