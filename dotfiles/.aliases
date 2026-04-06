@@ -157,47 +157,30 @@ if command -v topgrade >/dev/null 2>&1; then
     [[ -z "$reply" || "$reply" =~ ^[Yy]$ ]] || return 0
 
     echo "Closing running applications..."
-    osascript - "$current_term" <<'OSAS'
-on run argv
-  set keepOpen to {"Finder", "Dock", "SystemUIServer", "loginwindow"}
-  if (count of argv) > 0 and item 1 of argv is not "" then
-    set end of keepOpen to item 1 of argv
-  end if
-  set homeFolder to POSIX path of (path to home folder)
-  set bgApps to {}
-  -- First pass via System Events: quit regular apps, collect menu bar apps
-  tell application "System Events"
-    repeat with p in (get every process)
-      set appName to name of p
-      if appName is not in keepOpen then
-        if background only of p then
-          set end of bgApps to appName
-        else
-          try
-            tell p to quit saving yes
-          on error
-            try
-              tell p to quit
-            end try
-          end try
-        end if
-      end if
-    end repeat
-  end tell
-  -- Second pass: quit menu bar (background-only) apps directly
-  -- path to application errors for daemons, silently skipped by try
-  repeat with appName in bgApps
-    try
-      set appPath to POSIX path of (path to application appName)
-      if appPath starts with "/Applications/" or appPath starts with "/System/Applications/" or appPath starts with homeFolder & "Applications/" then
-        try
-          tell application appName to quit
-        end try
-      end if
-    end try
-  end repeat
-end run
-OSAS
+    local -a keep=("Finder" "Dock" "SystemUIServer" "loginwindow")
+    [[ -n "$current_term" ]] && keep+=("$current_term")
+
+    # Get running process names (single, minimal System Events call)
+    local raw
+    raw=$(osascript -e 'tell application "System Events" to get name of every process' 2>/dev/null) || true
+
+    # Split on ", " into array
+    local -a procs=("${(@s:, :)raw}")
+
+    for app in "${procs[@]}"; do
+      # Skip protected apps
+      (( ${keep[(Ie)$app]} )) && continue
+      # Only quit apps whose .app bundle exists in a standard app directory
+      # (filesystem check — no AppleScript path lookups, no dialogs)
+      local found=false
+      for dir in /Applications /System/Applications "$HOME/Applications"; do
+        [[ -d "$dir/$app.app" ]] && { found=true; break; }
+      done
+      $found || continue
+      osascript -e "tell application \"$app\" to quit saving yes" 2>/dev/null \
+        || osascript -e "tell application \"$app\" to quit" 2>/dev/null \
+        || true
+    done
 
     sleep 2
     topgrade
