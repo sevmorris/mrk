@@ -164,18 +164,19 @@ on run argv
     set end of keepOpen to item 1 of argv
   end if
   tell application "System Events"
-    repeat with p in (get every process)
-      if name of p is not in keepOpen then
-        try
-          tell p to quit saving yes
-        on error
-          try
-            tell p to quit
-          end try
-        end try
-      end if
-    end repeat
+    set procs to name of every process
   end tell
+  repeat with appName in procs
+    if appName is not in keepOpen then
+      try
+        tell application appName to quit saving yes
+      on error
+        try
+          tell application appName to quit
+        end try
+      end try
+    end if
+  end repeat
 end run
 OSAS
 
