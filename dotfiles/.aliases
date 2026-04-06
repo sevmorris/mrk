@@ -140,7 +140,55 @@ fixbrewperms() {
   brew doctor
 }
 
-command -v topgrade >/dev/null 2>&1 && alias update='topgrade'
+if command -v topgrade >/dev/null 2>&1; then
+  update() {
+    # Detect current terminal so we don't close it
+    local current_term
+    case "${TERM_PROGRAM:-}" in
+      iTerm.app)      current_term="iTerm2" ;;
+      Apple_Terminal) current_term="Terminal" ;;
+      WarpTerminal)   current_term="Warp" ;;
+      Ghostty)        current_term="Ghostty" ;;
+      *)              current_term="" ;;
+    esac
+
+    echo "This will close running apps, run updates, then offer a reboot."
+    read -r "reply?Continue? [Y/n] "
+    [[ -z "$reply" || "$reply" =~ ^[Yy]$ ]] || return 0
+
+    echo "Closing running applications..."
+    osascript - "$current_term" <<'OSAS'
+on run argv
+  set keepOpen to {"Finder", "Dock", "SystemUIServer", "loginwindow"}
+  if (count of argv) > 0 and item 1 of argv is not "" then
+    set end of keepOpen to item 1 of argv
+  end if
+  tell application "System Events"
+    repeat with p in (get every process)
+      if name of p is not in keepOpen then
+        try
+          tell p to quit saving yes
+        on error
+          try
+            tell p to quit
+          end try
+        end try
+      end if
+    end repeat
+  end tell
+end run
+OSAS
+
+    sleep 2
+    topgrade
+
+    echo
+    read -r "reply?Reboot now? [y/N] "
+    if [[ "$reply" =~ ^[Yy]$ ]]; then
+      sudo shutdown -r now
+    fi
+  }
+fi
 
 # ==============================================================================
 #  Utility Functions
