@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # nuke-mrk — Remove all mrk artifacts for a fresh test install
-# Removes ~/mrk, ~/.mrk, ~/bin symlinks, and dotfile symlinks.
+# Moves ~/mrk and ~/.mrk to Trash; removes ~/bin and dotfile symlinks.
 # Does NOT uninstall Homebrew packages or undo macOS defaults.
 
 if [[ -t 1 ]]; then
@@ -17,14 +17,22 @@ ok()   { printf "${_GRN}  ✓${_R} %s\n" "$*"; }
 warn() { printf "${_YLW}  ⚠${_R} %s\n" "$*"; }
 dim()  { printf "${_D}  · %s${_R}\n" "$*"; }
 
+trash_item() {
+  local path="$1" name dest
+  name=$(basename "$path")
+  dest="$HOME/.Trash/$name"
+  [[ -e "$dest" || -L "$dest" ]] && dest="$HOME/.Trash/${name}-$(date +%s)"
+  mv "$path" "$dest"
+}
+
 MRK_DIR="$HOME/mrk"
 STATE_DIR="$HOME/.mrk"
 BIN_DIR="$HOME/bin"
 
 printf "\n${_B}${_RED}  ☢  nuke-mrk${_R}\n\n"
-printf "  This will remove:\n"
-printf "  ${_RED}•${_R} ${_B}$MRK_DIR${_R} ${_D}(cloned repo)${_R}\n"
-printf "  ${_RED}•${_R} ${_B}$STATE_DIR${_R} ${_D}(state/backups/rollback)${_R}\n"
+printf "  This will move to Trash and remove:\n"
+printf "  ${_RED}•${_R} ${_B}$MRK_DIR${_R} ${_D}(cloned repo → Trash)${_R}\n"
+printf "  ${_RED}•${_R} ${_B}$STATE_DIR${_R} ${_D}(state/backups/rollback → Trash)${_R}\n"
 printf "  ${_RED}•${_R} Symlinks in ${_B}$BIN_DIR${_R} ${_D}pointing to mrk${_R}\n"
 printf "  ${_RED}•${_R} Dotfile symlinks in ${_B}$HOME${_R} ${_D}pointing to mrk${_R}\n"
 echo ""
@@ -77,8 +85,8 @@ fi
 
 # Remove state directory
 if [[ -d "$STATE_DIR" ]]; then
-  log "Removing $STATE_DIR..."
-  rm -rf "$STATE_DIR"
+  log "Moving $STATE_DIR to Trash..."
+  trash_item "$STATE_DIR"
   ok "$STATE_DIR"
 else
   dim "$STATE_DIR (not found)"
@@ -86,8 +94,8 @@ fi
 
 # Remove cloned repo
 if [[ -d "$MRK_DIR" ]]; then
-  log "Removing $MRK_DIR..."
-  rm -rf "$MRK_DIR"
+  log "Moving $MRK_DIR to Trash..."
+  trash_item "$MRK_DIR"
   ok "$MRK_DIR"
 else
   dim "$MRK_DIR (not found)"
@@ -102,12 +110,12 @@ if [[ -d "/Applications/Barkeep.app" ]]; then
     log "Removing Barkeep.app..."
     if brew list --cask barkeep &>/dev/null; then
       brew uninstall --cask barkeep 2>/dev/null && ok "Uninstalled via brew" || {
-        rm -rf "/Applications/Barkeep.app"
-        ok "Removed /Applications/Barkeep.app"
+        trash_item "/Applications/Barkeep.app"
+        ok "Moved /Applications/Barkeep.app to Trash"
       }
     else
-      rm -rf "/Applications/Barkeep.app"
-      ok "Removed /Applications/Barkeep.app"
+      trash_item "/Applications/Barkeep.app"
+      ok "Moved /Applications/Barkeep.app to Trash"
     fi
   else
     dim "Keeping Barkeep.app"
@@ -117,7 +125,7 @@ fi
 # Clean up log files
 for f in "$HOME/mrk-install.log" "$HOME/mrk-install.log.old"; do
   if [[ -f "$f" ]]; then
-    rm -f "$f"
+    trash_item "$f"
     ok "$(basename "$f")"
   fi
 done
