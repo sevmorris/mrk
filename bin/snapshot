@@ -122,7 +122,7 @@ cd "$REPO_ROOT"
 check_paths=("assets/preferences/")
 (( OPT_BREWFILE )) && check_paths+=("Brewfile")
 
-local _git_status
+_git_status=""
 if ! _git_status=$(git status --porcelain -- "${check_paths[@]}" 2>/dev/null); then
   warn "git status failed"
   exit 1

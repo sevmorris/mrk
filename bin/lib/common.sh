@@ -28,7 +28,7 @@ else
 fi
 
 # --- Logging functions ---
-# All output to stderr except ok() which goes to stdout
+# All output to stderr except info() which goes to stdout
 
 ok() {
   printf "%s✓ %s%s\n" "$_green" "$*" "$_reset" >&2

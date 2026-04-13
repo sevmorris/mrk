@@ -253,7 +253,7 @@ if (( _ssh_ok )); then
   MRK_DIR="$(cd "$(dirname "$0")/.." && pwd)"
   _current_url=$(git -C "$MRK_DIR" remote get-url origin 2>/dev/null || true)
   if [[ "$_current_url" == https://* ]]; then
-    _ssh_url=$(echo "$_current_url" | sed 's|https://github.com/|git@github.com:|')
+    _ssh_url="${_current_url/https:\/\/github.com\//git@github.com:}"
     if git -C "$MRK_DIR" remote set-url origin "$_ssh_url"; then
       log "Switched mrk remote to SSH"
     else

@@ -34,13 +34,13 @@ LOG="$HOME/Library/Logs/audio-mode.log"
 # --- JSON state management (using jq) ---
 
 # state_write KEY=VALUE [KEY=VALUE...] — write key-value pairs to state file
+# Writes atomically via a temp file to prevent torn writes on concurrent calls.
 state_write() {
   require_cmd jq || return 1
 
   local json_obj="{}"
   if [[ -f "$STATE" ]]; then
     json_obj=$(cat "$STATE" 2>/dev/null) || json_obj="{}"
-    # Validate JSON
     if ! echo "$json_obj" | jq empty 2>/dev/null; then
       json_obj="{}"
     fi
@@ -52,7 +52,10 @@ state_write() {
     json_obj=$(echo "$json_obj" | jq --arg k "$key" --arg v "$val" '.[$k] = $v')
   done
 
-  echo "$json_obj" > "$STATE"
+  local tmp
+  tmp=$(mktemp "${STATE}.XXXXXX")
+  echo "$json_obj" > "$tmp"
+  mv "$tmp" "$STATE"
 }
 
 # state_read KEY [DEFAULT] — read a value from state file

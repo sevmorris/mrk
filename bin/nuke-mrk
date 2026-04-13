@@ -109,10 +109,12 @@ if [[ -d "/Applications/Barkeep.app" ]]; then
   if [[ "$remove_barkeep" =~ ^[Yy]$ ]]; then
     log "Removing Barkeep.app..."
     if brew list --cask barkeep &>/dev/null; then
-      brew uninstall --cask barkeep 2>/dev/null && ok "Uninstalled via brew" || {
+      if brew uninstall --cask barkeep 2>/dev/null; then
+        ok "Uninstalled via brew"
+      else
         trash_item "/Applications/Barkeep.app"
         ok "Moved /Applications/Barkeep.app to Trash"
-      }
+      fi
     else
       trash_item "/Applications/Barkeep.app"
       ok "Moved /Applications/Barkeep.app to Trash"
