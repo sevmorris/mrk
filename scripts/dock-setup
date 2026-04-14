@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# dock-setup — Populate the Dock with preferred apps
+# Run via: make dock
+# Requires dockutil (installed automatically if missing).
+#
+# Edit DOCK_APPS below to match your preferred layout.
+
+# Resolve symlinks so this works when called via ~/bin
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+section "Dock setup"
+
+if ! command -v dockutil >/dev/null 2>&1; then
+  log "dockutil not found — installing..."
+  brew install dockutil || { err "Failed to install dockutil"; exit 1; }
+fi
+
+DOCK_APPS=(
+  "/Applications/Safari.app"
+  "/Applications/iTerm.app"
+  "/Applications/Typora.app"
+  "/Applications/Barkeep.app"
+  "/Applications/Audio Hijack.app"
+  "/Applications/Loopback.app"
+  "/Applications/SoundSource.app"
+  "/Applications/WaxOnWaxOff.app"
+  "/Applications/ClipHack.app"
+  "/Applications/FilmStrip.app"
+  "/System/Applications/System Preferences.app"
+  "/System/Library/CoreServices/Finder.app"
+)
+
+log "Clearing current Dock..."
+dockutil --remove all --no-restart
+
+added=0
+skipped=0
+
+for app in "${DOCK_APPS[@]}"; do
+  name=$(basename "$app" .app)
+  if [[ -d "$app" ]]; then
+    dockutil --add "$app" --no-restart
+    ok "Added: $name"
+    (( added++ )) || true
+  else
+    warn "Skipped: $name (not installed)"
+    (( skipped++ )) || true
+  fi
+done
+
+# Applications folder
+dockutil --add /Applications --view grid --display folder --no-restart
+ok "Added: Applications folder"
+
+killall Dock
+log "$added app(s) added, $skipped skipped"

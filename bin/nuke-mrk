@@ -3,7 +3,8 @@ set -euo pipefail
 
 # nuke-mrk — Remove all mrk artifacts for a fresh test install
 # Moves ~/mrk and ~/.mrk to Trash; removes ~/bin and dotfile symlinks.
-# Does NOT uninstall Homebrew packages or undo macOS defaults.
+# Optionally runs defaults and hardening rollback scripts before cleanup.
+# Does NOT uninstall Homebrew packages.
 
 if [[ -t 1 ]]; then
   _B='\033[1m' _D='\033[2m' _R='\033[0m'
@@ -80,6 +81,34 @@ if [[ -L "$topgrade_link" ]]; then
   if [[ "$target" == "$MRK_DIR"/* ]]; then
     rm -f "$topgrade_link"
     ok "topgrade.toml symlink"
+  fi
+fi
+
+# Offer to run rollback scripts before trashing state dir
+DEFAULTS_ROLLBACK="$STATE_DIR/defaults-rollback.sh"
+HARDENING_ROLLBACK="$STATE_DIR/hardening-rollback.sh"
+has_rollbacks=0
+[[ -f "$DEFAULTS_ROLLBACK" || -f "$HARDENING_ROLLBACK" ]] && has_rollbacks=1
+
+if (( has_rollbacks )); then
+  echo ""
+  printf "  Rollback scripts found in ${_B}$STATE_DIR${_R}:\n"
+  [[ -f "$DEFAULTS_ROLLBACK" ]]  && printf "  ${_YLW}•${_R} defaults-rollback.sh\n"
+  [[ -f "$HARDENING_ROLLBACK" ]] && printf "  ${_YLW}•${_R} hardening-rollback.sh\n"
+  echo ""
+  printf "${_B}Run rollback scripts to undo macOS defaults and hardening? [y/N]:${_R} "
+  read -r run_rollbacks
+  if [[ "$run_rollbacks" =~ ^[Yy]$ ]]; then
+    if [[ -f "$DEFAULTS_ROLLBACK" ]]; then
+      log "Running defaults rollback..."
+      bash "$DEFAULTS_ROLLBACK" && ok "Defaults restored" || warn "defaults-rollback.sh exited with errors"
+    fi
+    if [[ -f "$HARDENING_ROLLBACK" ]]; then
+      log "Running hardening rollback..."
+      bash "$HARDENING_ROLLBACK" && ok "Hardening undone" || warn "hardening-rollback.sh exited with errors"
+    fi
+  else
+    dim "Skipping rollback scripts"
   fi
 fi
 

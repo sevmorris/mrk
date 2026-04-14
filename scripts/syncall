@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# syncall — Auto-commit and push all GitHub repos under $HOME
+
+# Resolve symlinks so this works when called via ~/bin
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+# Config (env-overridable)
+: "${SYNCALL_ROOT:="$HOME"}"
+: "${SYNCALL_MAX_DEPTH:=7}"
+: "${SYNCALL_ONLY_GITHUB:=1}"
+: "${SYNCALL_DRY_RUN:=0}"
+: "${SYNCALL_EXCLUDES:="$HOME/Library:$HOME/.Trash:$HOME/.venvs:$HOME/.cache:$HOME/.cargo:$HOME/.npm:_build:node_modules:.git/modules"}"
+: "${SYNCALL_DEFAULT_REMOTE:=origin}"
+: "${SYNCALL_SKIP_PATHS:="$HOME/mrk"}"
+
+# Parse arguments
+while (( "$#" )); do
+  case "$1" in
+    --dry-run|-n) SYNCALL_DRY_RUN=1 ;;
+    -h|--help)
+      cat <<'USAGE'
+syncall — Auto-commit and push all GitHub repos under $HOME
+
+Usage: syncall [options]
+  --dry-run, -n   Preview what would be committed/pushed
+  -h, --help      Show this help
+
+Environment variables:
+  SYNCALL_ROOT           Root directory to search (default: $HOME)
+  SYNCALL_MAX_DEPTH      Search depth (default: 7)
+  SYNCALL_ONLY_GITHUB    Only sync GitHub repos (default: 1)
+  SYNCALL_DRY_RUN        Dry-run mode (default: 0)
+  SYNCALL_EXCLUDES       Colon-separated paths to exclude
+  SYNCALL_DEFAULT_REMOTE Default remote name (default: origin)
+  SYNCALL_SKIP_PATHS     Colon-separated paths to skip entirely
+USAGE
+      exit 0
+      ;;
+    *) err "Unknown option: $1"; exit 1 ;;
+  esac
+  shift
+done
+
+# --- helpers ---------------------------------------------------------------
+
+rp() {
+  python3 - "$1" <<'PY' 2>/dev/null || readlink "$1" 2>/dev/null || printf '%s\n' "$1"
+import os, sys
+print(os.path.realpath(sys.argv[1]))
+PY
+}
+
+git_toplevel()      { git -C "$1" rev-parse --show-toplevel 2>/dev/null; }
+has_remote_github() { git -C "$1" remote -v | grep -q 'github\.com'; }
+current_branch()    { git -C "$1" rev-parse --abbrev-ref HEAD 2>/dev/null; }
+is_dirty()          { git -C "$1" status --porcelain 2>/dev/null | grep -q .; }
+
+auto_commit() {
+  local dir="$1" msg
+  msg="syncall: auto-commit $(date +%Y-%m-%dT%H:%M:%S)"
+  git -C "$dir" add -A
+  git -C "$dir" commit -m "$msg" >/dev/null 2>&1 || true
+}
+
+can_push() {
+  local dir="$1" remote="${2:-$SYNCALL_DEFAULT_REMOTE}" branch
+  branch="$(current_branch "$dir")" || return 1
+  GIT_TERMINAL_PROMPT=0 git -C "$dir" push --dry-run -q "$remote" "HEAD:$branch" &>/dev/null
+}
+
+push_repo() {
+  local dir="$1" remote="${2:-$SYNCALL_DEFAULT_REMOTE}" branch
+  branch="$(current_branch "$dir")" || return 1
+  if [[ "${SYNCALL_DRY_RUN}" == "1" ]]; then
+    log "DRY-RUN: would push $dir ($remote → $branch)"
+  else
+    git -C "$dir" push "$remote" "HEAD:$branch" && ok "pushed: $dir"
+  fi
+}
+
+build_prune_expr() {
+  local IFS=':'; read -r -a excl <<<"$SYNCALL_EXCLUDES"
+  local -a skip; read -r -a skip <<<"$SYNCALL_SKIP_PATHS"
+
+  PRUNE_EXPR=()
+  for p in "${excl[@]}"; do
+    [[ -z "$p" ]] && continue
+    PRUNE_EXPR+=(-path "$p" -o)
+  done
+  for s in "${skip[@]}"; do
+    [[ -z "$s" ]] && continue
+    PRUNE_EXPR+=(-path "$(rp "$s")" -o)
+  done
+  if ((${#PRUNE_EXPR[@]} >= 1)) && [[ "${PRUNE_EXPR[-1]}" == "-o" ]]; then
+    unset 'PRUNE_EXPR[-1]'
+  fi
+}
+
+should_skip_repo() {
+  local repo_real; repo_real="$(rp "$1")"
+  local IFS=':'; read -r -a skip <<<"$SYNCALL_SKIP_PATHS"
+  for s in "${skip[@]}"; do
+    [[ -z "$s" ]] && continue
+    [[ "$repo_real" == "$(rp "$s")" ]] && return 0
+  done
+  return 1
+}
+
+discover_repos() {
+  build_prune_expr
+  local have_maxdepth=0
+  find . -maxdepth 0 -print >/dev/null 2>&1 && have_maxdepth=1
+
+  local -a cmd=(find "$SYNCALL_ROOT" -xdev)
+  if [[ $have_maxdepth -eq 1 ]]; then cmd+=(-maxdepth "$SYNCALL_MAX_DEPTH"); fi
+  if ((${#PRUNE_EXPR[@]})); then cmd+=( \( "${PRUNE_EXPR[@]}" \) -prune -o ); fi
+  cmd+=( \( -type d -name .git -o -type f -name .git \) -print )
+
+  "${cmd[@]}" 2>/dev/null \
+    | while IFS= read -r git_marker; do
+      repo_dir="$(dirname "$git_marker")"
+      toplevel="$(git_toplevel "$repo_dir" || true)"
+      [[ -n "$toplevel" ]] && printf '%s\n' "$toplevel"
+    done | sort -u
+}
+
+# --- main ------------------------------------------------------------------
+
+main() {
+  section "syncall"
+  repos=()
+  while IFS= read -r r; do repos+=("$r"); done < <(discover_repos)
+
+  for r in "${repos[@]}"; do
+    [[ -d "$r/.git" ]] || continue
+
+    if should_skip_repo "$r"; then
+      warn "skip (configured): $r"
+      continue
+    fi
+
+    if [[ "$SYNCALL_ONLY_GITHUB" == "1" ]] && ! has_remote_github "$r"; then
+      warn "skip (non-GitHub): $r"
+      continue
+    fi
+
+    if is_dirty "$r"; then
+      warn "auto-commit: $r has local changes"
+      if (( SYNCALL_DRY_RUN )); then
+        log "DRY-RUN: would auto-commit $r"
+      else
+        if [[ -t 0 ]]; then
+          printf '%s  ▸%s Auto-commit and push %s? [y/N]: ' "$_CYN" "$_R" "$r"
+          read -r ans
+          [[ ! "$ans" =~ ^[Yy]$ ]] && { warn "Skipped: $r"; continue; }
+        fi
+        auto_commit "$r"
+      fi
+    fi
+
+    if can_push "$r"; then
+      push_repo "$r"
+    else
+      warn "no push access: $r"
+    fi
+  done
+
+  echo
+  ok "Sync complete"
+  mkdir -p "${HOME}/.mrk"
+  echo "syncall ran on $(date)" >> "${HOME}/.mrk/syncall.log"
+}
+
+main "$@"

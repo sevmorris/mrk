@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status build-tools sync sync-login-items snapshot-prefs pull-prefs help
+.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status build-tools sync sync-login-items snapshot-prefs pull-prefs syncall dock help
 
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
 define go-build
@@ -115,3 +115,9 @@ snapshot-prefs: ## Export app preferences to ~/.mrk/preferences/ and push to mrk
 
 pull-prefs: ## Clone or pull app preferences from mrk-prefs into ~/.mrk/preferences/
 	@"$(SCRIPTS)/pull-prefs"
+
+syncall: ## Auto-commit and push all GitHub repos under $HOME  (pass ARGS=-n for dry run)
+	@"$(SCRIPTS)/syncall" $(ARGS)
+
+dock: ## Populate the Dock with preferred apps (requires dockutil)
+	@"$(SCRIPTS)/dock-setup"
