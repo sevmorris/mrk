@@ -43,6 +43,7 @@ while (("$#")); do
     --skip-brew-install) SKIP_BREW_INSTALL=1 ;;
     --debug) DEBUG=1 ;;
     --dry-run) DRY_RUN=1 ;;
+    --yes|-y) NONINTERACTIVE=1 ;;
     -h|--help)
       cat <<'USAGE'
 mrk brew — Phase 2
@@ -92,12 +93,20 @@ log()  { printf '%s  ▸%s %s\n' "$_CYN" "$_R" "$*" | tee -a "$LOGFILE" >&2; }
 ok()   { printf '%s  ✓%s %s\n' "$_GRN" "$_R" "$*" | tee -a "$LOGFILE" >&2; }
 warn() { printf '%s  ⚠%s %s\n' "$_YLW" "$_R" "$*" | tee -a "$LOGFILE" >&2; }
 err()  { printf '%s  ✗%s %s\n' "$_RED" "$_R" "$*" | tee -a "$LOGFILE" >&2; }
-dry()  { if (( DRY_RUN )); then printf '%s  · [dry] %s%s\n' "$_D" "$*" "$_R" | tee -a "$LOGFILE" >&2; else log "$@"; fi; }
+dry()  { if (( DRY_RUN )); then printf '%s  ◦%s %s\n' "$_BLU" "$_R" "$*" | tee -a "$LOGFILE" >&2; else log "$@"; fi; }
 
-section "Phase 2: Homebrew"
+section "Phase 2 of 3: Homebrew"
+cat >&2 <<'INTRO'
+  Time to install your packages. You'll pick what you want from the list —
+  CLI tools first, then GUI apps. Anything already installed gets skipped.
+
+  This is usually the longest phase. Worth a coffee.
+INTRO
 if (( DRY_RUN )); then
-  log "DRY RUN MODE: No changes will be made"
+  printf '\n  %s⚠  DRY RUN — no changes will be made%s\n' "$_YLW" "$_R" >&2
 fi
+confirm "Ready to start Phase 2?" || { printf '\nAborted.\n' >&2; exit 0; }
+printf '\n' >&2
 
 # Track installation statistics
 BREW_INSTALLED=0

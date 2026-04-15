@@ -21,7 +21,13 @@ source "$SCRIPT_DIR/lib.sh"
 
 failed=0
 
-section "Phase 3: Post-install"
+section "Phase 3 of 3: Post-install"
+cat >&2 <<'INTRO'
+  Final stretch. We'll configure your installed apps, import your saved
+  preferences from mrk-prefs, and register your login items.
+INTRO
+confirm "Ready to start Phase 3?" || { printf '\nAborted.\n' >&2; exit 0; }
+printf '\n' >&2
 
 # Run a defaults script, log the result
 apply_defaults(){
