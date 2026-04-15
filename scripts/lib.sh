@@ -49,15 +49,14 @@ dry()     { if (( DRY_RUN )); then printf '%s  ◦%s %s\n' "$_BLU" "$_R" "$*" >&
 logskip() { printf '%s  · %s (%s)%s\n' "$_YLW" "$1" "$2" "$_R" >&2; }
 section() { printf '\n%s%s══ %s%s\n\n' "$_B" "$_BLU" "$*" "$_R" >&2; }
 
-# Prompt for confirmation. Returns 0 (yes) or 1 (no).
-# Skipped automatically if not a TTY or NONINTERACTIVE=1.
+# Prompt for confirmation using a classic text-adventure > prompt.
+# Returns 0 (yes/enter) or 1 (no). Skipped if not a TTY or NONINTERACTIVE=1.
 confirm() {
-  local prompt="${1:-Ready?}"
   if [[ ! -t 0 ]] || (( ${NONINTERACTIVE:-0} )); then return 0; fi
-  printf '\n  %s%s [Y/n]:%s ' "$_B" "$prompt" "$_R" >&2
+  printf '\n%s>%s ' "$_B" "$_R" >&2
   local _ans
   read -r _ans </dev/tty
-  [[ -z "$_ans" || "$_ans" =~ ^[Yy]$ ]]
+  [[ -z "$_ans" || "$_ans" =~ ^[Yy] ]]
 }
 
 # Refresh sudo timestamp to prevent timeout during long-running installs.

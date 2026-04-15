@@ -36,6 +36,7 @@ DEBUG=0
 DRY_RUN=0
 VALIDATE=0
 CONTINUE_ON_ERROR=0
+ADVENTURE=0
 
 while (("$#")); do
   case "$1" in
@@ -48,6 +49,7 @@ while (("$#")); do
     --validate) VALIDATE=1 ;;
     --continue-on-error) CONTINUE_ON_ERROR=1 ;;
     --yes|-y) NONINTERACTIVE=1 ;;
+    --adventure) ADVENTURE=1 ;;
     -h|--help)
       cat <<'USAGE'
 mrk setup — Phase 1
@@ -123,20 +125,31 @@ fi
 setup_logging
 exec > >(tee -a "$LOGFILE") 2>&1
 section "Phase 1 of 3: Setup"
-cat >&2 <<INTRO
-  We'll link your dotfiles into ~/, connect your scripts and tools into ~/bin,
-  apply your macOS preferences, and set zsh as your login shell.
+if (( ADVENTURE )); then
+  cat >&2 <<INTRO
+  You are standing at the entrance to a fresh Mac. The terminal glows
+  faintly in the dark. Somewhere, a dotfile waits to be linked.
 
-  Everything is idempotent — safe to re-run at any time. Anything displaced
-  by dotfile linking is backed up to ~/.mrk/backups/ before it's touched.
+  Your mission: link your config files into ~/, wire your scripts and tools
+  into ~/bin, apply your macOS preferences, and convince zsh to become your
+  login shell.
 
-  Log: $LOGFILE
+  Nothing here is permanent. Everything is idempotent and safe to re-run.
+  Any files displaced by dotfile linking are backed up to ~/.mrk/backups/ first.
+
+  Your journey will be recorded at: $LOGFILE
 INTRO
-if (( DRY_RUN )); then
-  printf '\n  %s⚠  DRY RUN — no changes will be made%s\n' "$_YLW" "$_R" >&2
+  if (( DRY_RUN )); then
+    printf '\n  %s[DRY RUN — no changes will be made]%s\n' "$_YLW" "$_R" >&2
+  fi
+  confirm || { printf '\nYou have quit.\n\n' >&2; exit 0; }
+  printf '\n' >&2
+else
+  log "Log: $LOGFILE"
+  if (( DRY_RUN )); then
+    printf '\n  %s⚠  DRY RUN — no changes will be made%s\n' "$_YLW" "$_R" >&2
+  fi
 fi
-confirm "Ready to start Phase 1?" || { printf '\nAborted.\n' >&2; exit 0; }
-printf '\n' >&2
 
 # Track installation statistics
 DOTFILES_LINKED=0
@@ -171,7 +184,7 @@ run_phase() {
   CURRENT_STEP="$name"
   sudo_refresh
   log "Phase: ${_B}$name${_R}"
-  if [[ -n "$desc" ]]; then
+  if [[ -n "$desc" ]] && (( ADVENTURE )); then
     printf '  %s%s%s\n\n' "$_D" "$desc" "$_R" >&2
   fi
   if (( CONTINUE_ON_ERROR )); then
@@ -676,22 +689,22 @@ fi
 
 # Run phases
 run_phase xcode \
-  "Checking for Xcode Command Line Tools — required for git and other dev utilities." \
+  "The Xcode Command Line Tools guard the path forward. Without them, git refuses to run and compilers will not compile." \
   phase_xcode
 run_phase tools \
-  "Connecting scripts and tools from mrk into ~/bin so they're available in your PATH." \
+  "You wire your scripts and tools from mrk into ~/bin. The inventory grows. Items become accessible throughout your PATH." \
   phase_link_tools
 run_phase dotfiles \
-  "Symlinking your config files from mrk/dotfiles/ into ~/. Existing files are backed up first." \
+  "One by one, your config files are carried from mrk/dotfiles/ and linked into ~/. Any existing files are relocated to ~/.mrk/backups/ first." \
   phase_dotfiles
 run_phase ext \
-  "Pulling in your external dotfiles repo, if MRK_DOTFILES_REPO is configured." \
+  "If MRK_DOTFILES_REPO is configured, you reach into the network and retrieve your external dotfiles. Otherwise, you continue onward." \
   phase_ext_dotfiles
 run_phase defaults \
-  "Writing your macOS preferences — Finder, Dock, keyboard, security. A rollback script lands in ~/.mrk/ if you ever want to undo." \
+  "You inscribe your macOS preferences — how the Finder behaves, how the Dock sits, how fast keys repeat. A rollback scroll is saved to ~/.mrk/ should you wish to undo this later." \
   phase_defaults
 run_phase shell \
-  "Setting zsh as your default login shell." \
+  "You persuade zsh to become your default login shell. It agrees, as it always does." \
   phase_shell
 
 # Installation summary
