@@ -279,6 +279,257 @@ boot_sequence() {
   sleep 0.3
 }
 
+# ── Text adventure game ─────────────────────────────────────────────────────
+# _adv_has uses dynamic scoping: AINV is local in run_adventure, visible here
+_adv_has() { [[ " ${AINV[*]:-} " == *" $1 "* ]]; }
+
+run_adventure() {
+  local AROOM="glade"
+  local ASCORE=0
+  local ALAMP=0 AKEY=0 AVAULT=0 AWIN=0
+  local -a AINV=()
+
+  _adv_look() {
+    blank
+    case "$AROOM" in
+      glade)
+        g "SUNLIT GLADE"
+        blank
+        g "You are standing in a sunlit glade at the edge of a dense forest."
+        g "A worn path leads east toward a dark hillside where the mouth of"
+        g "a cave is barely visible among the rocks."
+        blank; g "Exits: EAST" ;;
+      cave)
+        g "CAVE ENTRANCE"
+        blank
+        g "You are just inside the cave entrance. Stone walls, cool and damp."
+        g "A passage leads back west toward daylight; another descends steeply"
+        g "into darkness below."
+        blank
+        (( ALAMP == 0 )) && g "A brass oil lamp sits on a rocky ledge."
+        g "Exits: WEST, DOWN" ;;
+      dark)
+        if _adv_has "lamp"; then
+          g "DARK PASSAGE"
+          blank
+          g "A narrow passage winds through solid rock. By lamplight the walls"
+          g "glisten with moisture. The passage continues north; behind you,"
+          g "the way leads up."
+          blank; g "Exits: UP, NORTH"
+        else
+          g "DARK PASSAGE"
+          blank
+          dg "It is pitch dark. You are likely to be eaten by a grue."
+          blank; dg "(You cannot see any exits.)"
+        fi ;;
+      stream)
+        g "UNDERGROUND STREAM"
+        blank
+        g "An underground stream flows through a low cavern. The water runs"
+        g "clear and cold over smooth stones. A passage leads south; a wider"
+        g "tunnel opens to the east."
+        blank
+        (( AKEY == 0 )) && g "A brass key glints on a rock beside the stream."
+        g "Exits: SOUTH, EAST" ;;
+      hall)
+        g "GREAT HALL"
+        blank
+        g "A vast underground hall. Stone columns rise to a vaulted ceiling."
+        g "The silence is absolute. A passage leads west toward the stream;"
+        if (( AVAULT )); then g "to the east, a heavy stone door stands open."
+        else                  g "to the east, a heavy stone door is sealed with a brass lock."
+        fi
+        blank; g "Exits: WEST, EAST" ;;
+      vault)
+        g "TREASURE VAULT"
+        blank
+        g "A small stone chamber, absolutely still, undisturbed for centuries."
+        blank
+        (( AWIN == 0 )) && g "On a stone pedestal rests a brilliant diamond, the size of a fist."
+        blank; g "Exits: WEST" ;;
+    esac
+    blank
+  }
+
+  # ── Intro ──────────────────────────────────────────────────────────────────
+  printf '%s' "$_CLR"; draw_screen; tput cup "$SCREEN_HEIGHT" 0
+  blank
+  g "ADVENTURE"
+  dg "Colossal Cave  --  adapted for 4.3BSD  --  /usr/games/adventure"
+  blank
+  dg "Type HELP for commands, QUIT to return to the shell."
+  blank
+  _adv_look
+
+  # ── Game loop ──────────────────────────────────────────────────────────────
+  local adv_on=1
+  while (( adv_on )); do
+    printf '%s' "${_BG}> ${_R}${_G}"
+    local raw; IFS= read -r raw || { printf '%s\n' "$_R"; break; }
+    printf '%s' "$_R"
+
+    local cmd="${raw,,}"
+    cmd="${cmd#"${cmd%%[![:space:]]*}"}"; cmd="${cmd%"${cmd##*[![:space:]]}"}"
+    local verb="${cmd%% *}" noun="${cmd#* }"
+    [[ "$noun" == "$verb" ]] && noun=""
+    noun="${noun#the }"; noun="${noun#a }"; noun="${noun#an }"
+
+    case "$verb" in
+      n|north) verb="go"; noun="north" ;;
+      s|south) verb="go"; noun="south" ;;
+      e|east)  verb="go"; noun="east"  ;;
+      w|west)  verb="go"; noun="west"  ;;
+      u|up)    verb="go"; noun="up"    ;;
+      d|down)  verb="go"; noun="down"  ;;
+    esac
+    [[ "$verb" == "go" ]] && case "$noun" in
+      n|north) noun="north" ;; s|south) noun="south" ;;
+      e|east)  noun="east"  ;; w|west)  noun="west"  ;;
+      u|up)    noun="up"    ;; d|down)  noun="down"  ;;
+    esac
+
+    case "$verb" in
+
+      go)
+        local dest="" blocked=0
+        case "$AROOM" in
+          glade)  [[ "$noun" == "east"  ]] && dest="cave" ;;
+          cave)   [[ "$noun" == "west"  ]] && dest="glade"
+                  [[ "$noun" == "down"  ]] && dest="dark" ;;
+          dark)   [[ "$noun" == "up"    ]] && dest="cave"
+                  if [[ "$noun" == "north" ]]; then
+                    if _adv_has "lamp"; then dest="stream"
+                    else blank; dg "You stumble blindly. Something brushes past you."; dg "You scramble back the way you came."; blank; blocked=1; fi
+                  fi ;;
+          stream) [[ "$noun" == "south" ]] && dest="dark"
+                  [[ "$noun" == "east"  ]] && dest="hall" ;;
+          hall)   [[ "$noun" == "west"  ]] && dest="stream"
+                  if [[ "$noun" == "east" ]]; then
+                    if (( AVAULT )); then dest="vault"
+                    elif _adv_has "key"; then
+                      blank; g "You fit the brass key into the lock. The door grinds open."; blank
+                      AVAULT=1; (( ASCORE += 15 )); dest="vault"
+                    else blank; g "The door is sealed with a brass lock. It won't budge."; blank; blocked=1; fi
+                  fi ;;
+          vault)  [[ "$noun" == "west"  ]] && dest="hall" ;;
+        esac
+        if   [[ -n "$dest"  ]]; then AROOM="$dest"; _adv_look
+        elif (( !blocked   )); then blank; g "You can't go that way."; blank
+        fi ;;
+
+      look|l)    _adv_look ;;
+
+      examine|x|inspect)
+        blank
+        case "$noun" in
+          lamp|"oil lamp"|"brass lamp")
+            if   _adv_has "lamp";                             then g "A brass oil lamp, warm in your hand. Burns steadily."
+            elif [[ "$AROOM" == "cave" && "$ALAMP" -eq 0 ]]; then g "A well-made brass oil lamp. Still has fuel."
+            else g "You don't see that here."; fi ;;
+          key|"brass key")
+            if   _adv_has "key";                               then g "A small brass key. Old but solid."
+            elif [[ "$AROOM" == "stream" && "$AKEY" -eq 0 ]]; then g "A brass key on a flat rock. Looks recently placed."
+            else g "You don't see that here."; fi ;;
+          diamond|gem|jewel|"brilliant diamond")
+            if   _adv_has "diamond";                             then g "A brilliant diamond. Catches even the faintest light."
+            elif [[ "$AROOM" == "vault"  && "$AWIN" -eq 0 ]];   then g "An enormous diamond, perfectly clear. Ancient."
+            else g "You don't see that here."; fi ;;
+          door|lock)
+            if [[ "$AROOM" == "hall" ]]; then
+              if (( AVAULT )); then g "The door stands open."
+              else g "A heavy stone door with a brass lock. Very old."; fi
+            else g "You don't see that here."; fi ;;
+          stream|water)
+            if [[ "$AROOM" == "stream" ]]; then g "Clear and cold. You're not thirsty."
+            else g "There is no stream here."; fi ;;
+          *) g "Nothing of particular note." ;;
+        esac
+        blank ;;
+
+      take|get|grab|pick)
+        [[ "$verb" == "pick" && "${noun:0:3}" == "up " ]] && noun="${noun#up }"
+        blank
+        case "$noun" in
+          lamp|"oil lamp"|"brass lamp")
+            if   [[ "$AROOM" == "cave" && "$ALAMP" -eq 0 ]]; then AINV+=("lamp"); ALAMP=1; (( ASCORE+=10 )); g "Taken."
+            elif _adv_has "lamp";                             then g "You already have it."
+            else g "There is no lamp here."; fi ;;
+          key|"brass key")
+            if   [[ "$AROOM" == "stream" && "$AKEY" -eq 0 ]]; then AINV+=("key"); AKEY=1; (( ASCORE+=20 )); g "Taken."
+            elif _adv_has "key";                               then g "You already have it."
+            else g "There is no key here."; fi ;;
+          diamond|gem|jewel|"brilliant diamond")
+            if [[ "$AROOM" == "vault" && "$AWIN" -eq 0 ]]; then
+              AINV+=("diamond"); AWIN=1; (( ASCORE+=55 ))
+              g "You lift the diamond from its pedestal. It is heavier than"
+              g "expected, and warm to the touch."
+              blank
+              g "A low rumble moves through the cave."
+              blank
+              g "             * * *  YOUR SCORE: $ASCORE / 100  * * *"
+              blank
+              dg "(Type QUIT to return to the shell, or keep exploring.)"
+            elif _adv_has "diamond"; then g "You already have it."
+            else g "There is nothing to take here."; fi ;;
+          *) g "I don't see that here." ;;
+        esac
+        blank ;;
+
+      drop|leave|put)
+        local drop_tgt=""
+        case "$noun" in
+          lamp|"oil lamp")           drop_tgt="lamp"    ;;
+          key|"brass key")           drop_tgt="key"     ;;
+          diamond|gem|"brilliant"*)  drop_tgt="diamond" ;;
+        esac
+        blank
+        if [[ -n "$drop_tgt" ]] && _adv_has "$drop_tgt"; then
+          local -a _nd=()
+          local _di; for _di in "${AINV[@]:-}"; do [[ "$_di" != "$drop_tgt" ]] && _nd+=("$_di"); done
+          AINV=("${_nd[@]:-}")
+          g "Dropped."
+        else
+          g "You're not carrying that."
+        fi
+        blank ;;
+
+      inventory|i|inv)
+        blank
+        if (( ${#AINV[@]} == 0 )); then g "You are empty-handed."
+        else
+          g "You are carrying:"
+          local _it; for _it in "${AINV[@]}"; do g "  a ${_it}"; done
+        fi
+        blank ;;
+
+      score)  blank; g "Your score is $ASCORE out of 100."; blank ;;
+
+      help|"?")
+        blank
+        g "Movement:   NORTH  SOUTH  EAST  WEST  UP  DOWN   (or N S E W U D)"
+        g "Items:      TAKE <item>    DROP <item>"
+        g "Look:       LOOK  (or L)   EXAMINE <thing>  (or X <thing>)"
+        g "Other:      INVENTORY (I)  SCORE  QUIT"
+        blank ;;
+
+      quit|exit|q|bye)
+        blank; dg "You make your way back to the surface."; dg "Final score: $ASCORE / 100."; blank
+        adv_on=0 ;;
+
+      # ── Classic easter eggs ────────────────────────────────────────────────
+      xyzzy|plugh|plover)
+        blank; dg "A hollow voice says \"FOOL.\""; blank ;;
+      drink|eat)    blank; g "You're not hungry or thirsty."; blank ;;
+      kill|attack)  blank; g "There's nothing here to fight."; blank ;;
+      "")           ;;
+      *)            blank; g "I don't know how to do that."; blank ;;
+
+    esac
+  done
+
+  printf '%s' "$_CLR"; draw_screen; tput cup "$SCREEN_HEIGHT" 0; blank
+}
+
 # ── Shell prompt ─────────────────────────────────────────────────────────────
 prompt_str() {
   local p="$CWD"
@@ -668,7 +919,8 @@ unix_shell() {
               g "/usr/ucb/$remainder" ;;
             csh|sh)   g "/bin/$remainder" ;;
             bash)     g "/usr/local/bin/bash" ;;
-            vi|vim)   g "/usr/bin/$remainder" ;;
+            vi|vim)       g "/usr/bin/$remainder" ;;
+            adventure)    g "/usr/games/adventure" ;;
             bc)       g "/usr/bin/bc" ;;
             printenv) g "/usr/ucb/printenv" ;;
             *)        g "$remainder: Command not found." ;;
@@ -868,6 +1120,10 @@ unix_shell() {
       nano|emacs|pico|ed)
         blank; g "$verb: Command not found."; blank ;;
 
+      adventure|/usr/games/adventure)
+        run_adventure ;;
+
+
       # ── Help ─────────────────────────────────────────────────────────────────
       help|man)
         blank
@@ -877,7 +1133,7 @@ unix_shell() {
         g "                dmesg  env  whoami  hostname  id  finger  cal  history"
         g "  Lookup:       which  whereis"
         g "  Utilities:    echo  bc  clear  make  ping  su  passwd"
-        g "  Fun:          fortune  sl  vi  vim"
+        g "  Fun:          fortune  sl  vi  vim  adventure"
         g "  Session:      exit  logout"
         blank
         ;;
