@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all install fix-exec setup brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status build-tools sync sync-login-items snapshot-prefs pull-prefs syncall dock help
+.PHONY: all install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status build-tools sync sync-login-items snapshot-prefs pull-prefs syncall dock help
 
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
 define go-build
@@ -50,6 +50,9 @@ fix-exec: ## Make scripts and bin files executable
 install: setup ## Run Phase 1 setup
 setup: ## Phase 1: shell, dotfiles, macOS defaults
 	@"$(SCRIPTS)/setup"
+
+setup-dry: ## Preview Phase 1 changes without applying them
+	@"$(SCRIPTS)/setup" --dry-run
 
 brew: ## Phase 2: install Homebrew packages and casks
 	@"$(SCRIPTS)/brew"

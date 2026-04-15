@@ -2,6 +2,10 @@
 # lib.sh — shared helpers for mrk scripts
 # Source this file; do not execute directly.
 
+# Guard against multiple sourcing
+[[ -n "${_LIB_SH_LOADED:-}" ]] && return 0
+_LIB_SH_LOADED=1
+
 # Resolve the real path of a file, following symlinks.
 # Works on macOS (which may lack readlink -f on older versions).
 resolve_path() {
@@ -23,10 +27,16 @@ LOG_MAX_SIZE=10485760  # 10MB
 
 # Colors (disabled if not a terminal)
 if [[ -t 2 ]]; then
-  _B=$'\033[1m' _D=$'\033[2m' _R=$'\033[0m'
-  _RED=$'\033[31m' _GRN=$'\033[32m' _YLW=$'\033[33m' _BLU=$'\033[34m' _CYN=$'\033[36m'
+  _R=$'\033[0m'        # Reset
+  _B=$'\033[1m'        # Bold
+  _D=$'\033[2m'        # Dim
+  _RED=$'\033[31m'     # Red
+  _GRN=$'\033[32m'     # Green
+  _YLW=$'\033[33m'     # Yellow
+  _BLU=$'\033[34m'     # Blue
+  _CYN=$'\033[36m'     # Cyan
 else
-  _B='' _D='' _R='' _RED='' _GRN='' _YLW='' _BLU='' _CYN=''
+  _R='' _B='' _D='' _RED='' _GRN='' _YLW='' _BLU='' _CYN=''
 fi
 
 # Logging helpers
@@ -34,7 +44,8 @@ log()     { printf '%s  ▸%s %s\n' "$_CYN" "$_R" "$*" >&2; }
 ok()      { printf '%s  ✓%s %s\n' "$_GRN" "$_R" "$*" >&2; }
 warn()    { printf '%s  ⚠%s %s\n' "$_YLW" "$_R" "$*" >&2; }
 err()     { printf '%s  ✗%s %s\n' "$_RED" "$_R" "$*" >&2; }
-dry()     { if (( DRY_RUN )); then printf '%s  · [dry] %s%s\n' "$_D" "$*" "$_R"; else log "$@"; fi; }
+info()    { printf '    %s\n' "$*" >&2; }
+dry()     { if (( DRY_RUN )); then printf '%s  ◦%s %s\n' "$_BLU" "$_R" "$*" >&2; else log "$@"; fi; }
 logskip() { printf '%s  · %s (%s)%s\n' "$_YLW" "$1" "$2" "$_R" >&2; }
 section() { printf '\n%s%s══ %s%s\n\n' "$_B" "$_BLU" "$*" "$_R" >&2; }
 

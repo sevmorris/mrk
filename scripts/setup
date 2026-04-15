@@ -2,10 +2,9 @@
 
 # Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2)
 if (( BASH_VERSINFO[0] < 4 )); then
-  _brew_bash=/opt/homebrew/bin/bash
-  if [[ -x "$_brew_bash" ]]; then
-    exec "$_brew_bash" "$0" "$@"
-  fi
+  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
+  done
   echo "error: bash 4+ required (system bash is ${BASH_VERSION}; install via 'brew install bash')" >&2
   exit 1
 fi
@@ -123,6 +122,7 @@ fi
 setup_logging
 exec > >(tee -a "$LOGFILE") 2>&1
 section "Phase 1: Setup"
+log "Log: $LOGFILE"
 if (( DRY_RUN )); then
   log "DRY RUN MODE: No changes will be made"
 fi
@@ -246,21 +246,27 @@ phase_link_tools() {
   local failed=0
   local total=0
   
-  # Scripts that should NOT be linked at all:
-  local -A SKIP_LINK=(
-    ["lib.sh"]=1      # sourced helper, not executable
-  )
+  # Returns 0 if the script should NOT be linked at all
+  _skip_link() {
+    case "$1" in
+      lib.sh) return 0 ;;  # sourced helper, not executable
+      *) return 1 ;;
+    esac
+  }
 
-  # Scripts that should be linked with an "mrk-" prefix to avoid
-  # shadowing system commands or to clarify they are mrk phases:
-  local -A PREFIX_LINK=(
-    ["brew"]=1        # shadows /opt/homebrew/bin/brew
-    ["install"]=1     # shadows /usr/bin/install
-    ["setup"]=1       # generic name — prefix for clarity
-    ["post-install"]=1 # generic name — prefix for clarity
-    ["defaults.sh"]=1 # linked as mrk-defaults (drop .sh)
-    ["uninstall"]=1   # generic name — prefix for clarity
-  )
+  # Returns 0 if the script should be linked with an "mrk-" prefix
+  # (to avoid shadowing system commands or clarify they are mrk phases)
+  _prefix_link() {
+    case "$1" in
+      brew)         return 0 ;;  # shadows /opt/homebrew/bin/brew
+      install)      return 0 ;;  # shadows /usr/bin/install
+      setup)        return 0 ;;  # generic name — prefix for clarity
+      post-install) return 0 ;;  # generic name — prefix for clarity
+      defaults.sh)  return 0 ;;  # linked as mrk-defaults (drop .sh)
+      uninstall)    return 0 ;;  # generic name — prefix for clarity
+      *) return 1 ;;
+    esac
+  }
   
   if [[ ! -d "$SCRIPTS_DIR" ]]; then
     warn "Scripts directory not found: $SCRIPTS_DIR"
@@ -274,7 +280,7 @@ phase_link_tools() {
       local base_name
       base_name="$(basename "$f")"
       # Skip excluded scripts
-      if [[ -n "${SKIP_LINK[$base_name]+x}" ]]; then
+      if _skip_link "$base_name"; then
         continue
       fi
       files+=("$f")
@@ -289,7 +295,7 @@ phase_link_tools() {
       base="$(basename "$f")"
 
       # Determine link name: prefixed scripts get "mrk-" prefix
-      if [[ -n "${PREFIX_LINK[$base]+x}" ]]; then
+      if _prefix_link "$base"; then
         # Strip .sh extension for cleaner names (defaults.sh → mrk-defaults)
         link_name="mrk-${base%.sh}"
       else
@@ -297,7 +303,7 @@ phase_link_tools() {
       fi
       
       if (( total > 0 )); then
-        printf "\r[%d/%d] Linking %s..." "$current" "$total" "$link_name" >&2
+        printf "\r\033[K[%d/%d] Linking %s..." "$current" "$total" "$link_name" >&2
       fi
       
       # Skip if symlink already points to correct target
@@ -340,7 +346,7 @@ phase_link_tools() {
       base="$(basename "$f")"
       
       if (( bin_total > 0 )); then
-        printf "\r[%d/%d] Linking %s..." "$current" "$bin_total" "$base" >&2
+        printf "\r\033[K[%d/%d] Linking %s..." "$current" "$bin_total" "$base" >&2
       fi
       
       # Skip if symlink already points to correct target
@@ -455,7 +461,7 @@ phase_dotfiles() {
     dst="$HOME/$(basename "$src")"
     
     if (( total > 0 )); then
-      printf "\r[%d/%d] Processing %s..." "$current" "$total" "$(basename "$src")" >&2
+      printf "\r\033[K[%d/%d] Processing %s..." "$current" "$total" "$(basename "$src")" >&2
     fi
     
     # Skip if symlink already points to correct target
@@ -470,7 +476,7 @@ phase_dotfiles() {
         ((backed_up++)) || true
       else
         log "Backing up: $dst -> $BACKUP_DIR/$(basename "$dst")"
-        if ! mv "$dst" "$BACKUP_DIR/"; then
+        if ! mv "$dst" "$BACKUP_DIR/" || [[ ! -e "$BACKUP_DIR/$(basename "$dst")" ]]; then
           err "Failed to backup $dst - aborting dotfile linking"
           shopt -u dotglob nullglob
           printf "\r" >&2
