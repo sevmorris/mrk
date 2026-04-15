@@ -50,13 +50,14 @@ logskip() { printf '%s  · %s (%s)%s\n' "$_YLW" "$1" "$2" "$_R" >&2; }
 section() { printf '\n%s%s══ %s%s\n\n' "$_B" "$_BLU" "$*" "$_R" >&2; }
 
 # Prompt for confirmation using a classic text-adventure > prompt.
-# Returns 0 (yes/enter) or 1 (no). Skipped if not a TTY or NONINTERACTIVE=1.
+# Proceeds on anything except an explicit quit (quit/exit/q/n/no).
+# Skipped if not a TTY or NONINTERACTIVE=1.
 confirm() {
   if [[ ! -t 0 ]] || (( ${NONINTERACTIVE:-0} )); then return 0; fi
   printf '\n%s>%s ' "$_B" "$_R" >&2
   local _ans
   read -r _ans </dev/tty
-  [[ -z "$_ans" || "$_ans" =~ ^[Yy] ]]
+  [[ ! "${_ans,,}" =~ ^(quit|exit|q|n|no)$ ]]
 }
 
 # Refresh sudo timestamp to prevent timeout during long-running installs.
