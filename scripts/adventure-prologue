@@ -15,18 +15,21 @@ if [[ ! -t 0 ]] || [[ ! -t 1 ]]; then
 fi
 
 # ── Colors: phosphor green on black ─────────────────────────────────────────
-_G=$'\033[0;32m'     # green
-_BG=$'\033[1;32m'    # bright green
-_DG=$'\033[2;32m'    # dim green
-_AM=$'\033[0;33m'    # amber (drive light, warnings)
+_G=$'\033[0;32m'     # green     — terminal/system output
+_BG=$'\033[1;32m'    # bright green — prompts, headers
+_DG=$'\033[2;32m'    # dim green — hints, meta
+_AM=$'\033[0;33m'    # amber     — game narrative, room descriptions
+_BAM=$'\033[1;33m'   # bright amber — readable in-world text (signs, notes)
 _R=$'\033[0m'        # reset
 _CLR=$'\033[2J\033[H'
 
 # ── Output helpers ───────────────────────────────────────────────────────────
-g()    { printf '%s%s%s\n' "$_G"  "$*" "$_R"; }        # normal green
-bg()   { printf '%s%s%s\n' "$_BG" "$*" "$_R"; }        # bright green
-dg()   { printf '%s%s%s\n' "$_DG" "$*" "$_R"; }        # dim green
-am()   { printf '%s%s%s\n' "$_AM" "$*" "$_R"; }        # amber
+g()    { printf '%s%s%s\n' "$_G"  "$*" "$_R"; }   # terminal/system output
+bg()   { printf '%s%s%s\n' "$_BG" "$*" "$_R"; }   # prompts, headers
+dg()   { printf '%s%s%s\n' "$_DG" "$*" "$_R"; }   # hints, meta
+n()    { printf '%s%s%s\n' "$_AM" "$*" "$_R"; }   # narrative (amber)
+bn()   { printf '%s%s%s\n' "$_BAM" "$*" "$_R"; }  # bright narrative (signs, notes)
+am()   { printf '%s%s%s\n' "$_AM" "$*" "$_R"; }   # amber alias (drive light etc.)
 blank(){ printf '\n'; }
 
 # Print a line after a brief delay (boot-sequence pacing)
@@ -87,32 +90,43 @@ boot_sequence() {
 
 # ── Login banner ─────────────────────────────────────────────────────────────
 login_banner() {
-  ll "╔══════════════════════════════════════════════════════════════╗" 0.04
-  ll "║       MERIDIAN HEIGHTS MIDDLE SCHOOL  —  COMPUTER LAB       ║" 0.04
-  ll "║               Computer Services Dept., Rm. 14B              ║" 0.04
-  ll "║                                                              ║" 0.04
-  ll "║   Authorized users only. All activity is logged.            ║" 0.04
-  ll "║   Unauthorized use subject to disciplinary action.          ║" 0.04
-  ll "╚══════════════════════════════════════════════════════════════╝" 0.04
+  local inner=64
+  local border row
+  printf -v border '%*s' "$inner" ''; border="${border// /═}"
+
+  local -a rows=(
+    "   MERIDIAN HEIGHTS MIDDLE SCHOOL  --  COMPUTER LAB"
+    "   Computer Services Dept., Rm. 14B"
+    ""
+    "   Authorized users only. All activity is logged."
+    "   Unauthorized use subject to disciplinary action."
+  )
+
+  sleep 0.04; bg "╔${border}╗"
+  for row in "${rows[@]}"; do
+    printf -v row "%-${inner}s" "$row"
+    sleep 0.04; bg "║${row}║"
+  done
+  sleep 0.04; bg "╚${border}╝"
   blank
 }
 
 # ── Room and object descriptions ─────────────────────────────────────────────
 describe_room() {
   blank
-  g "You are in the Meridian Heights Middle School Computer Lab."
-  g "Rows of beige PCs stretch toward the back of the room."
-  g "A motivational poster reads: \"COMPUTERS: THE FUTURE IS NOW!\""
-  g "An Apple IIe sits in the corner, unplugged."
+  n "You are in the Meridian Heights Middle School Computer Lab."
+  n "Rows of beige PCs stretch toward the back of the room."
+  n "A motivational poster reads: \"COMPUTERS: THE FUTURE IS NOW!\""
+  n "An Apple IIe sits in the corner, unplugged."
   blank
-  g "You are seated at a workstation near the front."
+  n "You are seated at a workstation near the front."
   if (( FOUND_NOTE )); then
-    g "The monitor glows green. The sticky note is still on the bezel."
+    n "The monitor glows green. The sticky note is still on the bezel."
   else
-    g "The monitor glows green. A sticky note is taped to its bezel."
+    n "The monitor glows green. A sticky note is taped to its bezel."
   fi
   if (( ! HAS_FLOPPY )); then
-    g "A 3.5\" floppy disk sits on the desk beside the keyboard."
+    n "A 3.5\" floppy disk sits on the desk beside the keyboard."
   fi
   blank
 }
@@ -131,11 +145,11 @@ look_handler() {
 
     monitor|screen|crt|display)
       blank
-      g "A 14-inch VGA monitor, slightly yellowed with age."
+      n "A 14-inch VGA monitor, slightly yellowed with age."
       if (( FOUND_NOTE )); then
-        g "The sticky note reads: student / mustangs"
+        n "The sticky note reads: student / mustangs"
       else
-        g "A sticky note is taped to the upper-left corner of the bezel."
+        n "A sticky note is taped to the upper-left corner of the bezel."
         FOUND_NOTE=1
         blank
         dg "  (You notice the sticky note. READ NOTE for details.)"
@@ -146,32 +160,32 @@ look_handler() {
     "sticky note"|note|"sticky"|sticker|"yellow note")
       blank
       FOUND_NOTE=1
-      g "A yellow sticky note in ballpoint pen:"
+      n "A yellow sticky note in ballpoint pen:"
       blank
-      bg "    student"
-      bg "    mustangs"
+      bn "    student"
+      bn "    mustangs"
       blank
-      dg "    — don't share w/ 6th graders!! —"
+      dg "    -- don't share w/ 6th graders!! --"
       blank
       ;;
 
     keyboard|keys|"key board")
       blank
-      g "A clacky beige keyboard. The spacebar is slightly sticky."
-      g "Someone has scratched 'JASON WUZ HERE 93' into the side."
+      n "A clacky beige keyboard. The spacebar is slightly sticky."
+      n "Someone has scratched 'JASON WUZ HERE 93' into the side."
       blank
       ;;
 
     desk|surface|table|"work surface")
       blank
       VISITED_DESK=1
-      g "The desk has a worn laminate surface. A ring stain from someone's soda."
+      n "The desk has a worn laminate surface. A ring stain from someone's soda."
       if (( HAS_FLOPPY )); then
-        g "Other than that, the desk is clear."
+        n "Other than that, the desk is clear."
       else
-        g "A 3.5\" floppy disk sits here, labeled in black marker."
+        n "A 3.5\" floppy disk sits here, labeled in black marker."
         blank
-        dg "  (You could TAKE it.)"
+        dg "  (TAKE it, then INSERT it into Drive A.)"
       fi
       blank
       ;;
@@ -179,10 +193,10 @@ look_handler() {
     floppy|"floppy disk"|disk|diskette|"3.5"|"3.5 disk"|"setup disk"|"mrk setup"|"mrk disk")
       blank
       if (( HAS_FLOPPY )); then
-        g "You're already holding it."
+        n "You're already holding it."
       else
-        g "A 3.5\" high-density floppy disk."
-        g "Labeled in black marker: \"MRK SETUP v1.0\""
+        n "A 3.5\" high-density floppy disk."
+        n "Labeled in black marker: \"MRK SETUP v1.0\""
         blank
         dg "  (TAKE it, then INSERT it into Drive A.)"
       fi
@@ -191,63 +205,63 @@ look_handler() {
 
     "bulletin board"|bulletin|board|"dot matrix"|"dot-matrix"|printouts|printout)
       blank
-      g "Dot-matrix prints of ASCII art animals are tacked to the board."
-      g "A laminated copy of the Computer Lab Rules (No Food. No Games.)."
-      g "A signup sheet for the Oregon Trail tournament. All slots are full."
+      n "Dot-matrix prints of ASCII art animals are tacked to the board."
+      n "A laminated copy of the Computer Lab Rules (No Food. No Games.)."
+      n "A signup sheet for the Oregon Trail tournament. All slots are full."
       blank
       ;;
 
     "apple iie"|"apple ii"|iie|"apple"|"ii e"|"ii")
       blank
-      g "An Apple IIe. Unplugged. A faded 'Property of MHMS' sticker on the side."
-      g "You feel a strange fondness for it."
+      n "An Apple IIe. Unplugged. A faded 'Property of MHMS' sticker on the side."
+      n "You feel a strange fondness for it."
       blank
       ;;
 
     poster|posters|wall|sign|signs)
       blank
-      g "\"COMPUTERS: THE FUTURE IS NOW!\""
-      g "A clip-art robot gives a thumbs up with alarming enthusiasm."
+      bn "\"COMPUTERS: THE FUTURE IS NOW!\""
+      n "A clip-art robot gives a thumbs up with alarming enthusiasm."
       blank
       ;;
 
     "other computers"|"other pcs"|"other workstations"|pcs|computers|workstations)
       blank
-      g "The other workstations are locked or turned off."
-      g "A paper sign on one reads: \"OUT OF ORDER — MR. HENDRICKS\""
+      n "The other workstations are locked or turned off."
+      n "A paper sign on one reads: \"OUT OF ORDER -- MR. HENDRICKS\""
       blank
       ;;
 
     "mr. hendricks"|"mr hendricks"|hendricks|teacher|"lab monitor"|monitor)
       blank
-      g "Mr. Hendricks is not in the room right now."
-      g "A sign on his desk reads: \"Back in 10 min. Do NOT touch the printer.\""
+      n "Mr. Hendricks is not in the room right now."
+      n "A sign on his desk reads: \"Back in 10 min. Do NOT touch the printer.\""
       blank
       ;;
 
     chair|seat|yourself|me|self)
       blank
-      g "A standard-issue plastic chair. Approximately as comfortable as it looks."
+      n "A standard-issue plastic chair. Approximately as comfortable as it looks."
       blank
       ;;
 
     printer|"dot matrix printer"|"dot-matrix printer")
       blank
-      g "A dot-matrix printer sits on a stand in the corner."
-      am "Do NOT touch the printer. — Mr. Hendricks"
+      n "A dot-matrix printer sits on a stand in the corner."
+      bn "Do NOT touch the printer. -- Mr. Hendricks"
       blank
       ;;
 
     window|windows|outside)
       blank
-      g "The blinds are closed. You can hear the muffled sounds of the hallway."
-      g "Someone out there is definitely running in the hall."
+      n "The blinds are closed. You can hear the muffled sounds of the hallway."
+      n "Someone out there is definitely running in the hall."
       blank
       ;;
 
     *)
       blank
-      g "You don't see that here."
+      n "You don't see that here."
       blank
       ;;
   esac
@@ -257,10 +271,10 @@ look_handler() {
 inventory_cmd() {
   blank
   if (( HAS_FLOPPY )); then
-    g "You are carrying:"
-    g "  > 3.5\" floppy disk  [MRK SETUP v1.0]"
+    n "You are carrying:"
+    n "  > 3.5\" floppy disk  [MRK SETUP v1.0]"
   else
-    g "You are not carrying anything."
+    n "You are not carrying anything."
   fi
   blank
 }
@@ -273,21 +287,21 @@ take_cmd() {
     floppy|"floppy disk"|disk|diskette|"3.5 disk"|"setup disk"|"mrk setup"|"mrk disk"|it|that)
       blank
       if (( HAS_FLOPPY )); then
-        g "You're already holding it."
+        n "You're already holding it."
       else
         HAS_FLOPPY=1
-        g "You pick up the floppy disk."
-        g "The label reads: \"MRK SETUP v1.0\""
+        n "You pick up the floppy disk."
+        n "The label reads: \"MRK SETUP v1.0\""
         blank
         dg "  (Type INSERT FLOPPY to load it into Drive A.)"
       fi
       blank
       ;;
     "")
-      blank; g "Take what?"; blank
+      blank; n "Take what?"; blank
       ;;
     *)
-      blank; g "You can't take that."; blank
+      blank; n "You can't take that."; blank
       ;;
   esac
 }
@@ -302,15 +316,15 @@ insert_cmd() {
     floppy|"floppy disk"|disk|diskette|"a:"|it|that|"setup disk"|"mrk setup")
       blank
       if (( ! HAS_FLOPPY )); then
-        g "You don't have anything to insert."
+        n "You don't have anything to insert."
         dg "  (Find a disk first.)"
         blank
       else
-        g "You slide the floppy into Drive A."
+        n "You slide the floppy into Drive A."
         sleep 0.6
-        dg "The drive light blinks amber."
+        n "The drive light blinks amber."
         sleep 0.8
-        dg "A mechanical whirr fills the lab."
+        n "A mechanical whirr fills the lab."
         sleep 1.2
         blank
         sleep 0.3
@@ -318,7 +332,7 @@ insert_cmd() {
         sleep 0.6
         blank
         bg "──────────────────────────────────────────────────────────"
-        bg "  MRK SETUP v1.0 — Meridian Workstation Restoration Kit"
+        bg "  MRK SETUP v1.0 -- Meridian Workstation Restoration Kit"
         bg "──────────────────────────────────────────────────────────"
         blank
         dg "Initializing..."
@@ -328,10 +342,10 @@ insert_cmd() {
       fi
       ;;
     "")
-      blank; g "Insert what?"; blank
+      blank; n "Insert what?"; blank
       ;;
     *)
-      blank; g "That doesn't fit."; blank
+      blank; n "That doesn't fit."; blank
       ;;
   esac
 }
@@ -568,8 +582,8 @@ dos_shell() {
   sleep 0.3
 
   # Initial room description
-  g "You are in the Meridian Heights Middle School Computer Lab."
-  g "The monitor hums. A floppy disk labeled \"MRK SETUP v1.0\" sits on the desk."
+  n "You are in the Meridian Heights Middle School Computer Lab."
+  n "The monitor hums. A floppy disk labeled \"MRK SETUP v1.0\" sits on the desk."
   blank
 
   while true; do
@@ -668,14 +682,14 @@ dos_shell() {
         blank
         case "$dest" in
           games|"\\games"|"c:\\games"|"c:/games")
-            g "The lab monitor could walk in any minute. Better stay focused."
+            n "The lab monitor could walk in any minute. Better stay focused."
             ;;
           windows|"\\windows"|"c:\\windows"|"c:/windows")
             dg "Loading Windows 3.11..."
             sleep 2.2
             dg "..."
             sleep 1.0
-            g "You immediately close it."
+            n "You immediately close it."
             ;;
           "..")
             g "You are already at the root."
@@ -691,10 +705,10 @@ dos_shell() {
 
       # Easter eggs
       doom|"doom.exe")
-        blank; g "E1M1... just kidding. You have work to do."; blank
+        blank; n "E1M1... just kidding. You have work to do."; blank
         ;;
       oregon|"oregon trail"|"trail")
-        blank; g "You have died of dysentery."; blank
+        blank; n "You have died of dysentery."; blank
         ;;
       ping|ipconfig|net|telnet|ftp|ssh|curl|wget|ifconfig)
         blank; g "Bad command or file name."; blank
@@ -706,7 +720,7 @@ dos_shell() {
         local ans
         IFS= read -r ans < /dev/tty || true
         blank
-        g "Thought so."
+        n "Thought so."
         blank
         ;;
 
