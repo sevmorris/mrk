@@ -64,8 +64,11 @@ make setup --only tools         # Link scripts/bin only
 make setup --only defaults      # Apply macOS defaults only
 make setup --only ext           # Run external dotfiles repo hooks only
 make setup --dry-run            # Preview changes without applying
+make setup-dry                  # Shorthand for --dry-run
 make setup --validate           # Check prerequisites before running
 make setup --continue-on-error  # Continue remaining phases if one fails
+make setup --adventure          # Enable narrative (Zork-style) mode for this phase
+make setup --yes                # Skip all confirmation prompts
 make dotfiles                   # Shorthand for --only dotfiles
 make tools                      # Shorthand for --only tools
 make defaults                   # Shorthand for --only defaults
@@ -127,6 +130,14 @@ Configures installed apps. Must be run after Phase 2.
 make all        # Runs setup + brew + post-install in sequence
 exec zsh        # Reload shell after setup
 ```
+
+**Adventure mode** adds Zork-style room descriptions and `>` confirmation prompts at each phase. Same install, more personality:
+
+```bash
+make adventure  # Full install in narrative mode
+```
+
+Pass `--yes` (or `NONINTERACTIVE=1`) to skip all confirmation prompts even in adventure mode.
 
 ---
 
@@ -194,6 +205,28 @@ pull-prefs
 Clones `mrk-prefs` into `~/.mrk/preferences/` if it doesn't exist, or fast-forward pulls if it does.
 
 > **Note:** `make post-install` does this automatically if `~/.mrk/preferences/` is absent and your SSH key is authenticated with GitHub.
+
+## Syncing All Repos
+
+**`syncall`** — auto-commit and push all GitHub repos found under `$HOME`:
+
+```bash
+syncall         # Commit and push all repos (prompts before committing dirty ones)
+syncall -n      # Dry run — show what would be committed/pushed
+make syncall    # Same via make
+```
+
+Skips `~/mrk` by default (configurable via `SYNCALL_SKIP_PATHS`). Only syncs repos whose remotes point to GitHub. Logs runs to `~/.mrk/syncall.log`.
+
+## Configuring the Dock
+
+**`dock-setup`** populates the Dock from a predefined app list, clearing whatever was there first:
+
+```bash
+make dock
+```
+
+Edit `scripts/dock-setup` to change the app order and list. Requires `dockutil` (installed automatically if missing).
 
 ## Keeping Login Items Current
 
@@ -432,9 +465,13 @@ exec zsh
 | Command | Description |
 |---|---|
 | `make all` | Full install: setup + brew + post-install + TUI binaries |
+| `make adventure` | Full install in narrative (Zork-style) mode |
 | `make setup` / `make install` | Phase 1: shell, dotfiles, macOS defaults |
+| `make setup-dry` | Preview Phase 1 changes without applying |
 | `make brew` | Phase 2: Homebrew packages and casks |
 | `make post-install` | Phase 3: app configs and login items |
+
+Pass `ARGS=--adventure` to any phase target to enable narrative mode for that phase only. Pass `ARGS=--yes` to skip confirmation prompts.
 
 **Partial Phases**
 
@@ -445,11 +482,14 @@ exec zsh
 | `make defaults` | Apply macOS defaults only |
 | `make trackpad` | Apply macOS defaults including trackpad settings |
 | `make harden` | Apply macOS security hardening |
+| `make dock` | Populate the Dock with preferred apps |
 
 **Maintenance**
 
 | Command | Description |
 |---|---|
+| `make sync` | Sync installed packages into Brewfile |
+| `make syncall` | Auto-commit and push all GitHub repos under `$HOME` |
 | `make update` | Upgrade all packages (topgrade or brew upgrade) |
 | `make updates` | Run macOS software updates (`softwareupdate -ia`) |
 | `make uninstall` | Remove symlinks and undo setup |
@@ -490,6 +530,7 @@ mrk writes runtime state to `~/.mrk/` (gitignored):
 | `~/.mrk/backups/` | Timestamped backups of dotfiles that were replaced during setup |
 | `~/.mrk/defaults-rollback.sh` | Shell script to undo all `defaults write` changes |
 | `~/.mrk/hardening-rollback.sh` | Shell script to undo security hardening |
+| `~/.mrk/syncall.log` | Log of `syncall` runs |
 
 To undo macOS defaults applied by mrk:
 

@@ -1,16 +1,8 @@
 # Dotfiles
 
-This directory contains dotfiles that will be symlinked to your home directory.
+Files in this directory are symlinked into `$HOME` by `make setup`.
 
-## Usage
-
-1. Add your dotfiles to this directory (e.g., `.zshrc`, `.gitconfig`, `.vimrc`)
-2. Run `./scripts/install` or `make install`
-3. Existing files will be backed up automatically
-
-## Notes
-
-- Files starting with `.` will be linked as-is (e.g., `.zshrc` → `~/.zshrc`)
-- Backups are stored in `~/.mrk/backups/TIMESTAMP/`
-- The installer is idempotent - safe to run multiple times
-
+- Files are linked as-is (`.zshrc` → `~/.zshrc`, etc.)
+- Any existing file at the destination is backed up to `~/.mrk/backups/TIMESTAMP/` before being replaced
+- Safe to re-run — already-correct symlinks are skipped
+- `.example` and `README` files in this directory are not linked

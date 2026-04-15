@@ -24,29 +24,50 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 
 ## Make Targets
 
+**Install**
+
 | Target | Description |
 |--------|-------------|
-| `make install` / `make setup` | Phase 1 (setup) |
-| `make brew` | Phase 2 (Homebrew) |
-| `make post-install` | Phase 3 (app config) |
 | `make all` | All three phases + build TUI binaries |
-| `make sync` | Snapshot installed Homebrew packages into the Brewfile |
-| `make sync-login-items` | Sync system login items into post-install and docs |
-| `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
-| `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
-| `make tools` | Link scripts into `~/bin` only |
+| `make adventure` | Same as `make all` but with narrative (Zork-style) mode |
+| `make install` / `make setup` | Phase 1 only |
+| `make setup-dry` | Preview Phase 1 changes without applying |
+| `make brew` | Phase 2 only |
+| `make post-install` | Phase 3 only |
+
+**Partial phases**
+
+| Target | Description |
+|--------|-------------|
 | `make dotfiles` | Symlink dotfiles only |
+| `make tools` | Link scripts into `~/bin` only |
 | `make defaults` | Apply macOS defaults only |
 | `make trackpad` | Apply defaults including trackpad gestures |
 | `make harden` | Security hardening (Touch ID sudo, firewall) |
-| `make status` | Check installation status |
-| `make mrk-status` | Build mrk-status TUI health dashboard |
-| `make doctor` | Check `~/bin` is on PATH; `make doctor --fix` adds it to `.zshrc` |
+| `make dock` | Populate the Dock with preferred apps |
+
+**Maintenance**
+
+| Target | Description |
+|--------|-------------|
+| `make sync` | Snapshot installed Homebrew packages into the Brewfile |
+| `make sync-login-items` | Sync system login items into post-install and docs |
+| `make syncall` | Auto-commit and push all GitHub repos under `$HOME` |
+| `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
+| `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
 | `make update` | Update via topgrade (or brew) |
 | `make updates` | Install macOS software updates |
+
+**Diagnostics & tools**
+
+| Target | Description |
+|--------|-------------|
+| `make status` | Open the mrk-status TUI health dashboard |
+| `make doctor` | Check `~/bin` is on PATH; `make doctor --fix` adds it to `.zshrc` |
 | `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status) |
 | `make picker` | Build mrk-picker only |
 | `make bf` | Build bf Brewfile manager only |
+| `make mrk-status` | Build mrk-status TUI health dashboard |
 | `make uninstall` | Remove symlinks, optionally rollback defaults |
 | `make fix-exec` | Fix executable permissions on scripts |
 
