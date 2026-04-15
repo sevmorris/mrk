@@ -50,6 +50,7 @@ while (("$#")); do
     --continue-on-error) CONTINUE_ON_ERROR=1 ;;
     --yes|-y) NONINTERACTIVE=1 ;;
     --adventure) ADVENTURE=1 ;;
+    --adventure-*) ;;  # reserved for adventure mode variants — ignore
     -h|--help)
       cat <<'USAGE'
 mrk setup — Phase 1
