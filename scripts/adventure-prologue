@@ -411,7 +411,21 @@ type_cmd() {
   blank
 }
 
-# ── Help ─────────────────────────────────────────────────────────────────────
+# ── Help: pre-login ──────────────────────────────────────────────────────────
+pre_login_help() {
+  blank
+  g "  look [thing]      Look around, or examine something"
+  g "  examine <thing>   Examine an object"
+  g "  read <thing>      Read something"
+  g "  take <thing>      Pick up an object"
+  g "  inventory / i     Show what you're carrying"
+  g "  login             Authenticate at this terminal"
+  g "  help / ?          Show this list"
+  g "  quit              Give up"
+  blank
+}
+
+# ── Help: DOS shell ───────────────────────────────────────────────────────────
 help_cmd() {
   blank
   g "DOS commands:"
@@ -423,7 +437,7 @@ help_cmd() {
   blank
   g "Adventure commands:"
   blank
-  g "  look [thing]      Look at your surroundings, or examine something"
+  g "  look [thing]      Look around, or examine something"
   g "  examine <thing>   Examine an object"
   g "  read <thing>      Read something"
   g "  take <thing>      Pick up an object"
@@ -435,61 +449,92 @@ help_cmd() {
   blank
 }
 
-# ── Login sequence ───────────────────────────────────────────────────────────
-login_sequence() {
-  local username password login_fails=0 pass_fails=0
+# ── Pre-login shell: explore the room, then LOGIN to authenticate ─────────────
+pre_login_shell() {
+  describe_room
 
-  # Username loop
   while true; do
-    printf '%s' "${_BG}LOGIN: ${_R}${_G}"
-    IFS= read -r username || { printf '%s\n' "$_R"; exit 1; }
+    printf '%s' "${_BG}> ${_R}${_G}"
+    IFS= read -r raw_input || { printf '%s\n' "$_R"; exit 1; }
     printf '%s' "$_R"
-    username="$(printf '%s' "$username" | tr '[:upper:]' '[:lower:]' | xargs 2>/dev/null || printf '%s' "$username")"
 
-    case "$username" in
-      student)
-        break
+    local input verb remainder
+    input="${raw_input#"${raw_input%%[![:space:]]*}"}"
+    input="${input%"${input##*[![:space:]]}"}"
+    verb="${input%% *}"
+    remainder="${input#* }"
+    [[ "$remainder" == "$verb" ]] && remainder=""
+    verb="$(printf '%s' "$verb" | tr '[:upper:]' '[:lower:]')"
+
+    case "$verb" in
+      look|examine|inspect|check|describe)
+        look_handler "${remainder:-around}"
         ;;
-      # Allow look/examine at the login prompt — the terminal is in the room too
-      look|"look "*)
-        local noun="${username#look }"
-        [[ "$noun" == "look" ]] && noun="around"
-        look_handler "$noun"
+      read)
+        look_handler "${remainder:-note}"
         ;;
-      examine|"examine "*)
-        local noun="${username#examine }"
-        [[ "$noun" == "examine" ]] && noun="around"
-        look_handler "$noun"
+      take|get|grab|pick|pickup)
+        take_cmd "$remainder"
         ;;
-      read|"read "*)
-        local noun="${username#read }"
-        [[ "$noun" == "read" ]] && noun="note"
-        look_handler "$noun"
+      inventory|inv|i)
+        inventory_cmd
+        ;;
+      login|logon|"log in"|"log on"|signin|authenticate)
+        if login_sequence; then
+          return 0
+        fi
+        # login cancelled or failed — stay in pre-login shell
         ;;
       help|"?")
+        pre_login_help
+        ;;
+      quit|exit|bye)
         blank
-        g "Enter your login credentials to continue."
-        dg "  (Look around if you need a hint.)"
-        blank
+        printf '%s' "${_BG}Give up? [y/N] ${_R}${_G}"
+        local confirm
+        IFS= read -r confirm || true
+        printf '%s' "$_R"
+        case "$(printf '%s' "$confirm" | tr '[:upper:]' '[:lower:]')" in
+          y|yes) blank; dg "You have quit."; blank; exit 1 ;;
+          *)     blank; g "Wise choice."; blank ;;
+        esac
         ;;
       "")
         ;;
       *)
-        ((login_fails++)) || true
         blank
-        g "Unknown user."
-        if (( login_fails == 2 )); then
-          dg "  (Hint: look around the lab.)"
-        fi
+        g "The terminal is locked. Try LOOK to explore or LOGIN to authenticate."
         blank
         ;;
     esac
   done
+}
 
-  # Password loop
+# ── Login sequence: credentials only ─────────────────────────────────────────
+# Returns 0 on success, 1 if user cancels.
+login_sequence() {
+  local username password pass_fails=0
+
+  # Username
+  while true; do
+    printf '%s' "${_BG}USERNAME: ${_R}${_G}"
+    IFS= read -r username || { printf '%s\n' "$_R"; return 1; }
+    printf '%s' "$_R"
+    username="$(printf '%s' "$username" | tr '[:upper:]' '[:lower:]' | xargs 2>/dev/null || printf '%s' "$username")"
+
+    case "$username" in
+      student)  break ;;
+      ""|quit|exit|cancel|q)
+        blank; g "Login cancelled."; blank; return 1 ;;
+      *)
+        blank; g "Unknown user."; blank ;;
+    esac
+  done
+
+  # Password
   while true; do
     printf '%s' "${_BG}PASSWORD: ${_R}"
-    IFS= read -rs password || { printf '\n%s' "$_R"; exit 1; }
+    IFS= read -rs password || { printf '\n%s' "$_R"; return 1; }
     printf '\n'
 
     if [[ "$password" == "mustangs" ]]; then
@@ -511,6 +556,7 @@ login_sequence() {
   sleep 0.6
   blank
   LOGGED_IN=1
+  return 0
 }
 
 # ── DOS shell (main game loop) ───────────────────────────────────────────────
@@ -700,7 +746,7 @@ dos_shell() {
 main() {
   boot_sequence
   login_banner
-  login_sequence
+  pre_login_shell
   dos_shell
 }
 
