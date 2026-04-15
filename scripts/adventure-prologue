@@ -44,6 +44,8 @@ LOGGED_IN=0
 HAS_FLOPPY=0
 FOUND_NOTE=0
 VISITED_DESK=0
+HAS_PAPERCLIP=0
+HAS_TRASH_NOTE=0
 
 # ── Normalize noun: strip leading articles and prepositions ─────────────────
 # "at the monitor" → "monitor", "the floppy disk" → "floppy disk"
@@ -116,8 +118,8 @@ describe_room() {
   blank
   n "You are in the Meridian Heights Middle School Computer Lab."
   n "Rows of beige PCs stretch toward the back of the room."
-  n "A motivational poster reads: \"COMPUTERS: THE FUTURE IS NOW!\""
-  n "An Apple IIe sits in the corner, unplugged."
+  n "A whiteboard at the front lists today's agenda."
+  n "A bookshelf lines the far wall. An Apple IIe sits in the corner, unplugged."
   blank
   n "You are seated at a workstation near the front."
   if (( FOUND_NOTE )); then
@@ -126,7 +128,9 @@ describe_room() {
     n "The monitor glows green. A sticky note is taped to its bezel."
   fi
   if (( ! HAS_FLOPPY )); then
-    n "A 3.5\" floppy disk sits on the desk beside the keyboard."
+    n "A 3.5\" floppy disk and a floppy caddy sit on the desk."
+  else
+    n "A floppy disk caddy sits on the desk."
   fi
   blank
 }
@@ -252,10 +256,192 @@ look_handler() {
       blank
       ;;
 
-    window|windows|outside)
+    window|windows|outside|blinds)
       blank
       n "The blinds are closed. You can hear the muffled sounds of the hallway."
       n "Someone out there is definitely running in the hall."
+      blank
+      ;;
+
+    whiteboard|chalkboard|"white board"|"chalk board"|agenda)
+      blank
+      n "A whiteboard at the front of the room. Written in blue marker:"
+      blank
+      bn "  TODAY'S AGENDA"
+      bn "  1. No food or drinks."
+      bn "  2. Do not touch Mr. Hendricks's mug."
+      bn "  3. See rule 2."
+      blank
+      n "In smaller writing at the bottom, squeezed in later:"
+      bn "  printer is STILL broken -- please stop asking"
+      blank
+      ;;
+
+    clock|"wall clock"|time)
+      blank
+      n "The clock on the wall reads 3:47 PM."
+      n "School ended 17 minutes ago. The lab is quiet except for the fluorescent hum."
+      blank
+      ;;
+
+    ceiling|fluorescent|light|lights|"light fixture"|"light fixtures")
+      blank
+      n "Fluorescent tube lights run the length of the ceiling."
+      n "One of them is flickering slightly. It has been flickering since October."
+      blank
+      ;;
+
+    door|hallway|hall|exit|"fire exit"|"fire door")
+      blank
+      n "The door is closed. Through its narrow window you can see the empty hallway."
+      n "A red FIRE EXIT sign glows above it."
+      n "You could leave, but then who would set up the machine?"
+      blank
+      ;;
+
+    shelf|bookshelf|bookcase|books|"book shelf"|"book case")
+      blank
+      n "A metal bookshelf along the far wall. The spines read:"
+      blank
+      bn "  DOS For Dummies  (2nd Ed.)"
+      bn "  Windows 3.1 Bible"
+      bn "  The Internet for Complete Idiots"
+      bn "  Mastering Lotus 1-2-3"
+      bn "  How to Use Your Modem"
+      bn "  Networking for Dummies"
+      blank
+      n "None of them appear to have been opened recently. Or ever."
+      blank
+      ;;
+
+    mug|"coffee mug"|"mr. hendricks mug"|"hendricks mug"|"teacher's mug"|"teachers mug")
+      blank
+      n "A ceramic coffee mug on Mr. Hendricks's desk."
+      blank
+      bn "  World's Okayest Teacher"
+      blank
+      n "It's still warm. He can't have gone far."
+      blank
+      ;;
+
+    calendar)
+      blank
+      n "A wall calendar: September 1994."
+      n "The 9th is circled in red: \"NETWORK DOWN -- CALL DISTRICT\""
+      n "The 23rd says: \"Report cards due!!!\""
+      n "Most of the remaining days are blank. A few have doodles."
+      blank
+      ;;
+
+    caddy|"floppy caddy"|"disk caddy"|"floppy case"|"disk case"|"disk box"|"disk holder"|"floppy box"|"floppy holder"|"disk rack"|"floppy rack")
+      blank
+      n "A plastic floppy disk caddy on the desk. Labeled disks in neat rows:"
+      blank
+      bn "  MS-DOS 6.22 Setup         (Disk 1 of 3)"
+      bn "  MS-DOS 6.22 Setup         (Disk 2 of 3)"
+      bn "  MS-DOS 6.22 Setup         (Disk 3 of 3)"
+      bn "  Windows 3.11              (Disk 4 of 8)"
+      bn "  Oregon Trail"
+      bn "  Math Blaster"
+      bn "  Where in the World is Carmen Sandiego?"
+      blank
+      dg "  (You could INSERT any of these by name, or INSERT FLOPPY for the setup disk.)"
+      blank
+      ;;
+
+    "pencil cup"|"pencil holder"|pencils|pens|"cup"|"pencil")
+      blank
+      n "A faded plastic cup holding pencils, a red pen, and a paperclip."
+      if (( ! HAS_PAPERCLIP )); then
+        dg "  (You could TAKE the paperclip.)"
+      fi
+      blank
+      ;;
+
+    paperclip|"paper clip")
+      blank
+      if (( HAS_PAPERCLIP )); then
+        n "You're already carrying it."
+      else
+        n "A standard metal paperclip. Surely it has some future use."
+        dg "  (TAKE PAPERCLIP)"
+      fi
+      blank
+      ;;
+
+    trash|"trash can"|bin|"waste basket"|wastebasket|garbage|"trash bin")
+      blank
+      n "A plastic trash can under the desk."
+      if (( HAS_TRASH_NOTE )); then
+        n "You've already retrieved the crumpled note."
+      else
+        n "Something crumpled is visible at the top."
+        dg "  (TAKE NOTE to fish it out.)"
+      fi
+      blank
+      ;;
+
+    "crumpled note"|"trash note"|"crumpled paper"|"scrap"|"scrap paper")
+      blank
+      if (( HAS_TRASH_NOTE )); then
+        n "A crumpled scrap of paper. You've already read it."
+        blank
+        bn "  PASSWORDS TO TRY:"
+        bn "  [x] password"
+        bn "  [x] 12345"
+        bn "  [x] computer"
+        bn "  [x] school"
+        bn "  [x] hendricks"
+        bn "  [x] letmein"
+        bn "  [ ] ??? ask Casey in 7th period"
+        blank
+      else
+        n "There's something crumpled in the trash."
+        dg "  (TAKE NOTE)"
+      fi
+      blank
+      ;;
+
+    mouse|"computer mouse")
+      blank
+      n "A beige ball mouse. The ball compartment is slightly sticky."
+      n "The mouse pad has a faded picture of the Space Shuttle on it."
+      blank
+      ;;
+
+    "space shuttle"|"mouse pad"|mousepad)
+      blank
+      n "A foam mouse pad with a photo of the Space Shuttle Endeavour."
+      n "The edges are starting to curl up."
+      blank
+      ;;
+
+    "grade book"|gradebook|grades|"mr. hendricks desk"|"hendricks desk"|"teacher desk"|"teacher's desk")
+      blank
+      n "A green grade book on Mr. Hendricks's desk."
+      n "You probably shouldn't look at that."
+      blank
+      ;;
+
+    "hall pass"|hallpass|pass)
+      blank
+      n "A laminated hall pass hanging on a hook by Mr. Hendricks's desk."
+      bn "  HALL PASS -- MR. HENDRICKS -- ROOM 14B"
+      n "You don't need it. School ended 17 minutes ago."
+      blank
+      ;;
+
+    yourself|me|self|hands|"my hands")
+      blank
+      n "You look at yourself. You look like someone who has work to do."
+      blank
+      ;;
+
+    chair|seat)
+      blank
+      n "A standard-issue plastic chair on wheels."
+      n "There are initials scratched into the armrest."
+      dg "  (SPIN to take it for a spin.)"
       blank
       ;;
 
@@ -270,9 +456,15 @@ look_handler() {
 # ── Inventory ────────────────────────────────────────────────────────────────
 inventory_cmd() {
   blank
-  if (( HAS_FLOPPY )); then
+  local carrying=0
+  (( HAS_FLOPPY ))      && carrying=1
+  (( HAS_PAPERCLIP ))   && carrying=1
+  (( HAS_TRASH_NOTE ))  && carrying=1
+  if (( carrying )); then
     n "You are carrying:"
-    n "  > 3.5\" floppy disk  [MRK SETUP v1.0]"
+    (( HAS_FLOPPY ))     && n "  > 3.5\" floppy disk  [MRK SETUP v1.0]"
+    (( HAS_PAPERCLIP ))  && n "  > paperclip"
+    (( HAS_TRASH_NOTE )) && n "  > crumpled note"
   else
     n "You are not carrying anything."
   fi
@@ -296,6 +488,59 @@ take_cmd() {
         dg "  (Type INSERT FLOPPY to load it into Drive A.)"
       fi
       blank
+      ;;
+    paperclip|"paper clip")
+      blank
+      if (( HAS_PAPERCLIP )); then
+        n "You're already carrying it."
+      else
+        HAS_PAPERCLIP=1
+        n "You pocket the paperclip."
+        n "It might be useful for something. Probably not."
+      fi
+      blank
+      ;;
+    note|"crumpled note"|"trash note"|"crumpled paper"|paper|scrap)
+      blank
+      if [[ "$target" == "note" ]] && (( ! HAS_TRASH_NOTE )); then
+        # "take note" is ambiguous — clarify
+        n "Which note? The sticky note is taped to the monitor."
+        n "There's also something crumpled in the trash."
+        dg "  (TAKE CRUMPLED NOTE to get that one.)"
+      elif (( HAS_TRASH_NOTE )); then
+        n "You already have it."
+      else
+        HAS_TRASH_NOTE=1
+        n "You fish the crumpled note out of the trash."
+        n "You smooth it out. It reads:"
+        blank
+        bn "  PASSWORDS TO TRY:"
+        bn "  [x] password"
+        bn "  [x] 12345"
+        bn "  [x] computer"
+        bn "  [x] school"
+        bn "  [x] hendricks"
+        bn "  [x] letmein"
+        bn "  [ ] ??? ask Casey in 7th period"
+        blank
+        n "Casey was not consulted. You found the answer on the sticky note."
+      fi
+      blank
+      ;;
+    "sticky note"|sticker)
+      blank; n "It's taped to the monitor. You leave it there."; blank
+      ;;
+    mug|"coffee mug"|"mr. hendricks mug")
+      blank; n "That belongs to Mr. Hendricks. You value your grade."; blank
+      ;;
+    book|books|"dos for dummies"|"windows bible"|"dummies")
+      blank; n "Those belong to the school. Also, you already know this stuff."; blank
+      ;;
+    pencil|pen|pens)
+      blank; n "You take a pencil, then put it back. You won't need it."; blank
+      ;;
+    chair|seat)
+      blank; n "You're already sitting in it."; blank
       ;;
     "")
       blank; n "Take what?"; blank
@@ -340,6 +585,71 @@ insert_cmd() {
         blank
         exit 0
       fi
+      ;;
+    "oregon trail"|"oregon"|trail)
+      blank
+      n "You load Oregon Trail into Drive A."
+      sleep 0.5
+      g "A:\\> OREGON.EXE"
+      sleep 0.8
+      blank
+      g "How many oxen will you bring? (1-9)"
+      sleep 1.0
+      blank
+      n "You stare at the cursor for a long moment."
+      n "You have work to do. You eject the disk."
+      blank
+      ;;
+    "math blaster"|"math"|mathblaster|blaster)
+      blank
+      n "You load Math Blaster."
+      sleep 0.5
+      g "A:\\> MATHBLST.EXE"
+      sleep 0.8
+      g "ERROR: Insufficient motivation to launch."
+      blank
+      ;;
+    "carmen sandiego"|carmen|"where in the world"|sandiego)
+      blank
+      n "You insert the Carmen Sandiego disk."
+      sleep 0.5
+      g "A:\\> CARMEN.EXE"
+      sleep 0.8
+      blank
+      g "Carmen Sandiego was last seen in Istanbul."
+      g "Your mission: find Carmen Sandiego."
+      sleep 0.6
+      blank
+      n "You don't have time for this. You eject the disk."
+      blank
+      ;;
+    "windows"|"windows 3.11"|"win"|"win 3.11"|"windows for workgroups")
+      blank
+      n "You insert the Windows disk."
+      dg "Loading Windows 3.11 for Workgroups..."
+      sleep 2.0
+      dg "..."
+      sleep 1.5
+      g "General Protection Fault in module KRNL386.EXE at 0028:00003A7F"
+      sleep 0.5
+      blank
+      n "You eject the disk."
+      blank
+      ;;
+    "dos"|"ms-dos"|"ms dos"|"dos 6.22"|"ms-dos 6.22"|"dos setup")
+      blank
+      g "This machine is already running MS-DOS 6.22."
+      blank
+      ;;
+    paperclip|"paper clip")
+      blank
+      if (( HAS_PAPERCLIP )); then
+        n "You attempt to repair the floppy drive with a paperclip."
+        n "Surprisingly, this doesn't work."
+      else
+        n "You don't have a paperclip."
+      fi
+      blank
       ;;
     "")
       blank; n "Insert what?"; blank
@@ -703,6 +1013,45 @@ dos_shell() {
         blank
         ;;
 
+      # Physical actions
+      spin|twirl|swivel|"spin chair"|"spin around")
+        blank; n "You spin in the chair. Nothing improves. You feel slightly better anyway."; blank
+        ;;
+      smell|sniff)
+        blank; n "The room smells like carpet cleaner, old plastic, and mild anxiety."; blank
+        ;;
+      wait|z|"wait around"|"do nothing")
+        blank; n "Time passes. The fluorescent light continues to flicker."; blank
+        ;;
+      scream|yell|shout|cry)
+        blank; n "You let out a quiet internal scream. You feel marginally better."; blank
+        ;;
+      drink|eat|"eat something"|"drink something")
+        blank; g "Rule 1: No food or drinks in the computer lab."; blank
+        ;;
+      sleep|nap|rest)
+        blank; n "You can't sleep. There's work to do."; blank
+        ;;
+      north|south|east|west|"go north"|"go south"|"go east"|"go west"|"go"|up|down)
+        blank; n "This isn't that kind of adventure. The terminal is right here."; blank
+        ;;
+      leave|"go outside"|"go home"|"walk out"|"walk away")
+        blank; n "You could leave. But then who would set up the machine?"; blank
+        ;;
+      "turn off"|"power off"|"shut down"|"shut off"|"turn off monitor"|"turn off computer")
+        blank
+        n "You reach for the power switch."
+        sleep 0.5
+        n "You think better of it."
+        blank
+        ;;
+      print|"print something"|"use printer")
+        blank; g "The printer is out of order. -- Mr. Hendricks"; blank
+        ;;
+      read)
+        local rtarget="${remainder:-note}"
+        look_handler "$rtarget"
+        ;;
       # Easter eggs
       doom|"doom.exe")
         blank; n "E1M1... just kidding. You have work to do."; blank
