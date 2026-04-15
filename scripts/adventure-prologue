@@ -1,0 +1,707 @@
+#!/usr/bin/env bash
+# adventure-prologue — interactive fiction prelude for mrk adventure mode
+#
+# A school computer lab, circa 1994. A floppy disk waits on the desk.
+# Insert it to begin setup.
+#
+# Exits 0 on success (floppy inserted), 1 if the user quits.
+# Skips silently if stdin or stdout is not a terminal.
+
+set -uo pipefail
+
+# ── Skip if not interactive ──────────────────────────────────────────────────
+if [[ ! -t 0 ]] || [[ ! -t 1 ]]; then
+  exit 0
+fi
+
+# ── Colors: phosphor green on black ─────────────────────────────────────────
+_G=$'\033[0;32m'     # green
+_BG=$'\033[1;32m'    # bright green
+_DG=$'\033[2;32m'    # dim green
+_AM=$'\033[0;33m'    # amber (drive light, warnings)
+_R=$'\033[0m'        # reset
+_CLR=$'\033[2J\033[H'
+
+# ── Output helpers ───────────────────────────────────────────────────────────
+g()    { printf '%s%s%s\n' "$_G"  "$*" "$_R"; }        # normal green
+bg()   { printf '%s%s%s\n' "$_BG" "$*" "$_R"; }        # bright green
+dg()   { printf '%s%s%s\n' "$_DG" "$*" "$_R"; }        # dim green
+am()   { printf '%s%s%s\n' "$_AM" "$*" "$_R"; }        # amber
+blank(){ printf '\n'; }
+
+# Print a line after a brief delay (boot-sequence pacing)
+ll() { sleep "${2:-0.08}"; g "$1"; }
+lld(){ sleep "${2:-0.08}"; dg "$1"; }
+
+# ── SIGINT: clean exit ───────────────────────────────────────────────────────
+trap 'blank; dg "Connection terminated."; blank; exit 1' INT TERM
+
+# ── World state ──────────────────────────────────────────────────────────────
+LOGGED_IN=0
+HAS_FLOPPY=0
+FOUND_NOTE=0
+VISITED_DESK=0
+
+# ── Normalize noun: strip leading articles and prepositions ─────────────────
+# "at the monitor" → "monitor", "the floppy disk" → "floppy disk"
+norm_noun() {
+  local s="$*"
+  # strip leading: at, the, a, an, around, up, in, into, on
+  s="${s#at }"
+  s="${s#the }"
+  s="${s#a }"
+  s="${s#an }"
+  printf '%s' "$s"
+}
+
+# ── Boot sequence ────────────────────────────────────────────────────────────
+boot_sequence() {
+  printf '%s' "$_CLR"
+  sleep 0.4
+
+  ll "MERIDIAN HEIGHTS SCHOOL DISTRICT" 0.05
+  ll "PHOENIX BIOS v4.0  Copyright 1993 Phoenix Technologies Ltd." 0.05
+  blank
+  ll "CPU: Intel 486DX2/66MHz" 0.1
+  ll "Memory Test: 640K OK" 0.15
+  sleep 0.2
+  ll "Extended Memory: 8192K OK" 0.1
+  sleep 0.4
+  blank
+  ll "Detecting drives..." 0.2
+  sleep 0.5
+  ll "Drive A:  Not Ready" 0.1
+  sleep 0.2
+  ll "Drive C:  ST3144A  124MB  OK" 0.1
+  blank
+  ll "Initializing system..." 0.3
+  sleep 0.7
+  blank
+  lld "Starting MS-DOS version 6.22..." 0.1
+  sleep 1.2
+  blank
+  sleep 0.4
+  printf '%s' "$_CLR"
+  sleep 0.3
+}
+
+# ── Login banner ─────────────────────────────────────────────────────────────
+login_banner() {
+  ll "╔══════════════════════════════════════════════════════════════╗" 0.04
+  ll "║       MERIDIAN HEIGHTS MIDDLE SCHOOL  —  COMPUTER LAB       ║" 0.04
+  ll "║               Computer Services Dept., Rm. 14B              ║" 0.04
+  ll "║                                                              ║" 0.04
+  ll "║   Authorized users only. All activity is logged.            ║" 0.04
+  ll "║   Unauthorized use subject to disciplinary action.          ║" 0.04
+  ll "╚══════════════════════════════════════════════════════════════╝" 0.04
+  blank
+}
+
+# ── Room and object descriptions ─────────────────────────────────────────────
+describe_room() {
+  blank
+  g "You are in the Meridian Heights Middle School Computer Lab."
+  g "Rows of beige PCs stretch toward the back of the room."
+  g "A motivational poster reads: \"COMPUTERS: THE FUTURE IS NOW!\""
+  g "An Apple IIe sits in the corner, unplugged."
+  blank
+  g "You are seated at a workstation near the front."
+  if (( FOUND_NOTE )); then
+    g "The monitor glows green. The sticky note is still on the bezel."
+  else
+    g "The monitor glows green. A sticky note is taped to its bezel."
+  fi
+  if (( ! HAS_FLOPPY )); then
+    g "A 3.5\" floppy disk sits on the desk beside the keyboard."
+  fi
+  blank
+}
+
+look_handler() {
+  local raw="$*"
+  local target
+  target="$(norm_noun "$raw")"
+  [[ -z "$target" ]] && target="around"
+
+  case "$target" in
+
+    around|room|lab|"computer lab"|here)
+      describe_room
+      ;;
+
+    monitor|screen|crt|display)
+      blank
+      g "A 14-inch VGA monitor, slightly yellowed with age."
+      if (( FOUND_NOTE )); then
+        g "The sticky note reads: student / mustangs"
+      else
+        g "A sticky note is taped to the upper-left corner of the bezel."
+        FOUND_NOTE=1
+        blank
+        dg "  (You notice the sticky note. READ NOTE for details.)"
+      fi
+      blank
+      ;;
+
+    "sticky note"|note|"sticky"|sticker|"yellow note")
+      blank
+      FOUND_NOTE=1
+      g "A yellow sticky note in ballpoint pen:"
+      blank
+      bg "    student"
+      bg "    mustangs"
+      blank
+      dg "    — don't share w/ 6th graders!! —"
+      blank
+      ;;
+
+    keyboard|keys|"key board")
+      blank
+      g "A clacky beige keyboard. The spacebar is slightly sticky."
+      g "Someone has scratched 'JASON WUZ HERE 93' into the side."
+      blank
+      ;;
+
+    desk|surface|table|"work surface")
+      blank
+      VISITED_DESK=1
+      g "The desk has a worn laminate surface. A ring stain from someone's soda."
+      if (( HAS_FLOPPY )); then
+        g "Other than that, the desk is clear."
+      else
+        g "A 3.5\" floppy disk sits here, labeled in black marker."
+        blank
+        dg "  (You could TAKE it.)"
+      fi
+      blank
+      ;;
+
+    floppy|"floppy disk"|disk|diskette|"3.5"|"3.5 disk"|"setup disk"|"mrk setup"|"mrk disk")
+      blank
+      if (( HAS_FLOPPY )); then
+        g "You're already holding it."
+      else
+        g "A 3.5\" high-density floppy disk."
+        g "Labeled in black marker: \"MRK SETUP v1.0\""
+        blank
+        dg "  (TAKE it, then INSERT it into Drive A.)"
+      fi
+      blank
+      ;;
+
+    "bulletin board"|bulletin|board|"dot matrix"|"dot-matrix"|printouts|printout)
+      blank
+      g "Dot-matrix prints of ASCII art animals are tacked to the board."
+      g "A laminated copy of the Computer Lab Rules (No Food. No Games.)."
+      g "A signup sheet for the Oregon Trail tournament. All slots are full."
+      blank
+      ;;
+
+    "apple iie"|"apple ii"|iie|"apple"|"ii e"|"ii")
+      blank
+      g "An Apple IIe. Unplugged. A faded 'Property of MHMS' sticker on the side."
+      g "You feel a strange fondness for it."
+      blank
+      ;;
+
+    poster|posters|wall|sign|signs)
+      blank
+      g "\"COMPUTERS: THE FUTURE IS NOW!\""
+      g "A clip-art robot gives a thumbs up with alarming enthusiasm."
+      blank
+      ;;
+
+    "other computers"|"other pcs"|"other workstations"|pcs|computers|workstations)
+      blank
+      g "The other workstations are locked or turned off."
+      g "A paper sign on one reads: \"OUT OF ORDER — MR. HENDRICKS\""
+      blank
+      ;;
+
+    "mr. hendricks"|"mr hendricks"|hendricks|teacher|"lab monitor"|monitor)
+      blank
+      g "Mr. Hendricks is not in the room right now."
+      g "A sign on his desk reads: \"Back in 10 min. Do NOT touch the printer.\""
+      blank
+      ;;
+
+    chair|seat|yourself|me|self)
+      blank
+      g "A standard-issue plastic chair. Approximately as comfortable as it looks."
+      blank
+      ;;
+
+    printer|"dot matrix printer"|"dot-matrix printer")
+      blank
+      g "A dot-matrix printer sits on a stand in the corner."
+      am "Do NOT touch the printer. — Mr. Hendricks"
+      blank
+      ;;
+
+    window|windows|outside)
+      blank
+      g "The blinds are closed. You can hear the muffled sounds of the hallway."
+      g "Someone out there is definitely running in the hall."
+      blank
+      ;;
+
+    *)
+      blank
+      g "You don't see that here."
+      blank
+      ;;
+  esac
+}
+
+# ── Inventory ────────────────────────────────────────────────────────────────
+inventory_cmd() {
+  blank
+  if (( HAS_FLOPPY )); then
+    g "You are carrying:"
+    g "  > 3.5\" floppy disk  [MRK SETUP v1.0]"
+  else
+    g "You are not carrying anything."
+  fi
+  blank
+}
+
+# ── Take ─────────────────────────────────────────────────────────────────────
+take_cmd() {
+  local target
+  target="$(norm_noun "$*")"
+  case "$target" in
+    floppy|"floppy disk"|disk|diskette|"3.5 disk"|"setup disk"|"mrk setup"|"mrk disk"|it|that)
+      blank
+      if (( HAS_FLOPPY )); then
+        g "You're already holding it."
+      else
+        HAS_FLOPPY=1
+        g "You pick up the floppy disk."
+        g "The label reads: \"MRK SETUP v1.0\""
+        blank
+        dg "  (Type INSERT FLOPPY to load it into Drive A.)"
+      fi
+      blank
+      ;;
+    "")
+      blank; g "Take what?"; blank
+      ;;
+    *)
+      blank; g "You can't take that."; blank
+      ;;
+  esac
+}
+
+# ── Insert (win condition) ───────────────────────────────────────────────────
+insert_cmd() {
+  local target
+  target="$(norm_noun "$*")"
+  [[ -z "$target" ]] && target="floppy"
+
+  case "$target" in
+    floppy|"floppy disk"|disk|diskette|"a:"|it|that|"setup disk"|"mrk setup")
+      blank
+      if (( ! HAS_FLOPPY )); then
+        g "You don't have anything to insert."
+        dg "  (Find a disk first.)"
+        blank
+      else
+        g "You slide the floppy into Drive A."
+        sleep 0.6
+        dg "The drive light blinks amber."
+        sleep 0.8
+        dg "A mechanical whirr fills the lab."
+        sleep 1.2
+        blank
+        sleep 0.3
+        g "A:\\> SETUP.EXE"
+        sleep 0.6
+        blank
+        bg "──────────────────────────────────────────────────────────"
+        bg "  MRK SETUP v1.0 — Meridian Workstation Restoration Kit"
+        bg "──────────────────────────────────────────────────────────"
+        blank
+        dg "Initializing..."
+        sleep 1.0
+        blank
+        exit 0
+      fi
+      ;;
+    "")
+      blank; g "Insert what?"; blank
+      ;;
+    *)
+      blank; g "That doesn't fit."; blank
+      ;;
+  esac
+}
+
+# ── Fake DIR listing ─────────────────────────────────────────────────────────
+dir_cmd() {
+  local target="${1:-c:}"
+  blank
+  case "$(printf '%s' "$target" | tr '[:upper:]' '[:lower:]')" in
+    "a:"|"a:\\"|"a:/"|"a")
+      if (( HAS_FLOPPY )); then
+        g " Volume in drive A is MRK_SETUP"
+        g " Directory of A:\\"
+        blank
+        g " SETUP    EXE   142,336  10-03-94  12:00p"
+        g " README   TXT     1,024  10-03-94  12:00p"
+        g "          2 file(s)    143,360 bytes"
+      else
+        am " Not ready reading drive A:"
+        am " Abort, Retry, Fail?"
+        blank
+        dg "  (You need to insert a disk first.)"
+      fi
+      ;;
+    *)
+      g " Volume in drive C has no label"
+      g " Directory of C:\\"
+      blank
+      g " COMMAND  COM    54,645  06-14-94   6:22a"
+      g " AUTOEXEC BAT       256  09-01-94   8:14a"
+      g " CONFIG   SYS       128  09-01-94   8:14a"
+      g " WINDOWS      <DIR>       09-01-94   8:13a"
+      g " GAMES        <DIR>       09-01-94   8:13a"
+      g " README   TXT     1,024  09-01-94   8:14a"
+      g "          6 file(s)     56,053 bytes"
+      g "    Free space: 91,234,304 bytes"
+      ;;
+  esac
+  blank
+}
+
+# ── TYPE / READ files ────────────────────────────────────────────────────────
+type_cmd() {
+  local file
+  file="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')"
+  blank
+  case "$file" in
+    "readme.txt"|"readme")
+      g "This computer is the property of Meridian Heights Middle School."
+      g "Unauthorized use is strictly prohibited and may be reported to"
+      g "school administration and, where applicable, law enforcement."
+      blank
+      dg "For technical support, contact Mr. Hendricks in Room 14B."
+      ;;
+    "autoexec.bat"|"autoexec")
+      g "@ECHO OFF"
+      g "PROMPT \$P\$G"
+      g "PATH C:\\DOS;C:\\WINDOWS;C:\\UTILS"
+      g "SET TEMP=C:\\TEMP"
+      dg "REM  DO NOT MODIFY  —  MR. HENDRICKS"
+      ;;
+    "config.sys"|"config")
+      g "DEVICE=C:\\DOS\\HIMEM.SYS"
+      g "DEVICE=C:\\DOS\\EMM386.EXE NOEMS"
+      g "BUFFERS=15,0"
+      g "FILES=30"
+      g "DOS=UMB"
+      g "LASTDRIVE=Z"
+      ;;
+    "")
+      g "Required parameter missing."
+      ;;
+    *)
+      g "File not found: $1"
+      ;;
+  esac
+  blank
+}
+
+# ── Help ─────────────────────────────────────────────────────────────────────
+help_cmd() {
+  blank
+  g "DOS commands:"
+  blank
+  g "  dir [a:]          List files"
+  g "  type <file>       Display a text file"
+  g "  ver               Show OS version"
+  g "  cls               Clear screen"
+  blank
+  g "Adventure commands:"
+  blank
+  g "  look [thing]      Look at your surroundings, or examine something"
+  g "  examine <thing>   Examine an object"
+  g "  read <thing>      Read something"
+  g "  take <thing>      Pick up an object"
+  g "  inventory / i     Show what you're carrying"
+  g "  insert <thing>    Insert a disk into Drive A:"
+  blank
+  g "  help / ?          Show this list"
+  g "  exit              Quit"
+  blank
+}
+
+# ── Login sequence ───────────────────────────────────────────────────────────
+login_sequence() {
+  local username password login_fails=0 pass_fails=0
+
+  # Username loop
+  while true; do
+    printf '%s' "${_BG}LOGIN: ${_R}${_G}"
+    IFS= read -r username || { printf '%s\n' "$_R"; exit 1; }
+    printf '%s' "$_R"
+    username="$(printf '%s' "$username" | tr '[:upper:]' '[:lower:]' | xargs 2>/dev/null || printf '%s' "$username")"
+
+    case "$username" in
+      student)
+        break
+        ;;
+      # Allow look/examine at the login prompt — the terminal is in the room too
+      look|"look "*)
+        local noun="${username#look }"
+        [[ "$noun" == "look" ]] && noun="around"
+        look_handler "$noun"
+        ;;
+      examine|"examine "*)
+        local noun="${username#examine }"
+        [[ "$noun" == "examine" ]] && noun="around"
+        look_handler "$noun"
+        ;;
+      read|"read "*)
+        local noun="${username#read }"
+        [[ "$noun" == "read" ]] && noun="note"
+        look_handler "$noun"
+        ;;
+      help|"?")
+        blank
+        g "Enter your login credentials to continue."
+        dg "  (Look around if you need a hint.)"
+        blank
+        ;;
+      "")
+        ;;
+      *)
+        ((login_fails++)) || true
+        blank
+        g "Unknown user."
+        if (( login_fails == 2 )); then
+          dg "  (Hint: look around the lab.)"
+        fi
+        blank
+        ;;
+    esac
+  done
+
+  # Password loop
+  while true; do
+    printf '%s' "${_BG}PASSWORD: ${_R}"
+    IFS= read -rs password || { printf '\n%s' "$_R"; exit 1; }
+    printf '\n'
+
+    if [[ "$password" == "mustangs" ]]; then
+      break
+    fi
+
+    ((pass_fails++)) || true
+    blank
+    g "Incorrect password."
+    if (( pass_fails >= 2 )); then
+      dg "  (Hint: something on the monitor might help.)"
+    fi
+    blank
+  done
+
+  blank
+  sleep 0.2
+  g "Access granted."
+  sleep 0.6
+  blank
+  LOGGED_IN=1
+}
+
+# ── DOS shell (main game loop) ───────────────────────────────────────────────
+dos_shell() {
+  sleep 0.2
+  g "MS-DOS Version 6.22"
+  g "(C)Copyright Microsoft Corp 1981-1994."
+  blank
+  sleep 0.3
+
+  # Initial room description
+  g "You are in the Meridian Heights Middle School Computer Lab."
+  g "The monitor hums. A floppy disk labeled \"MRK SETUP v1.0\" sits on the desk."
+  blank
+
+  while true; do
+    printf '%s' "${_BG}C:\\>${_R} ${_G}"
+    IFS= read -r raw_input || { printf '%s\n' "$_R"; exit 1; }
+    printf '%s' "$_R"
+
+    # Trim whitespace
+    local input
+    input="${raw_input#"${raw_input%%[![:space:]]*}"}"
+    input="${input%"${input##*[![:space:]]}"}"
+
+    # Split into verb and remainder
+    local verb remainder
+    verb="${input%% *}"
+    remainder="${input#* }"
+    [[ "$remainder" == "$verb" ]] && remainder=""
+    verb="$(printf '%s' "$verb" | tr '[:upper:]' '[:lower:]')"
+
+    case "$verb" in
+
+      dir)
+        dir_cmd "$remainder"
+        ;;
+
+      type)
+        type_cmd "$remainder"
+        ;;
+
+      ver|version)
+        blank; g "MS-DOS Version 6.22"; blank
+        ;;
+
+      cls|clear)
+        printf '%s' "$_CLR"
+        ;;
+
+      look|examine|inspect|check|describe)
+        local noun="${remainder:-around}"
+        look_handler "$noun"
+        ;;
+
+      read)
+        local noun="${remainder:-note}"
+        look_handler "$noun"
+        ;;
+
+      take|get|grab|pick|pickup|"pick up")
+        take_cmd "$remainder"
+        ;;
+
+      insert|use|load|"put in"|"put into"|"slot in")
+        insert_cmd "$remainder"
+        ;;
+
+      # Typing "a:" to switch to Drive A is a classic DOS move
+      "a:")
+        insert_cmd "floppy"
+        ;;
+
+      # Typing the setup executable directly
+      "setup.exe"|"setup"|"a:\\setup.exe"|"a:/setup.exe"|"a:\\setup"|"a:/setup")
+        blank
+        if (( HAS_FLOPPY )); then
+          g "Drive A: not loaded. INSERT the floppy first."
+        else
+          g "Bad command or file name."
+        fi
+        blank
+        ;;
+
+      run|execute|start|launch|open)
+        blank
+        local target
+        target="$(printf '%s' "$remainder" | tr '[:upper:]' '[:lower:]')"
+        case "$target" in
+          "setup.exe"|"setup"|"a:setup.exe"|"a:\\setup.exe")
+            if (( HAS_FLOPPY )); then
+              g "Drive A: not loaded. INSERT the floppy first."
+            else
+              g "Bad command or file name."
+            fi
+            ;;
+          *) g "Bad command or file name." ;;
+        esac
+        blank
+        ;;
+
+      inventory|inv|i)
+        inventory_cmd
+        ;;
+
+      cd)
+        local dest
+        dest="$(printf '%s' "$remainder" | tr '[:upper:]' '[:lower:]')"
+        blank
+        case "$dest" in
+          games|"\\games"|"c:\\games"|"c:/games")
+            g "The lab monitor could walk in any minute. Better stay focused."
+            ;;
+          windows|"\\windows"|"c:\\windows"|"c:/windows")
+            dg "Loading Windows 3.11..."
+            sleep 2.2
+            dg "..."
+            sleep 1.0
+            g "You immediately close it."
+            ;;
+          "..")
+            g "You are already at the root."
+            ;;
+          ""|"c:"|"c:\\"|"c:/")
+            ;; # silently succeed
+          *)
+            g "Invalid directory."
+            ;;
+        esac
+        blank
+        ;;
+
+      # Easter eggs
+      doom|"doom.exe")
+        blank; g "E1M1... just kidding. You have work to do."; blank
+        ;;
+      oregon|"oregon trail"|"trail")
+        blank; g "You have died of dysentery."; blank
+        ;;
+      ping|ipconfig|net|telnet|ftp|ssh|curl|wget|ifconfig)
+        blank; g "Bad command or file name."; blank
+        ;;
+      "format"|"format c:"|"format c:\\")
+        blank
+        am "WARNING: All data on drive C will be lost!"
+        am "Are you SURE? [y/N]: "
+        local ans
+        IFS= read -r ans < /dev/tty || true
+        blank
+        g "Thought so."
+        blank
+        ;;
+
+      help|"?")
+        help_cmd
+        ;;
+
+      quit|exit|logout|logoff|bye)
+        blank
+        printf '%s' "${_BG}Log off? [y/N] ${_R}${_G}"
+        local confirm
+        IFS= read -r confirm || true
+        printf '%s' "$_R"
+        case "$(printf '%s' "$confirm" | tr '[:upper:]' '[:lower:]')" in
+          y|yes)
+            blank; dg "You have logged off."; blank
+            exit 1
+            ;;
+          *)
+            blank; g "Wise choice."; blank
+            ;;
+        esac
+        ;;
+
+      "")
+        ;; # blank line — do nothing
+
+      *)
+        blank; g "Bad command or file name."; blank
+        ;;
+
+    esac
+  done
+}
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+main() {
+  boot_sequence
+  login_banner
+  login_sequence
+  dos_shell
+}
+
+main "$@"
