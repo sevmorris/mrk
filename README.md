@@ -12,6 +12,16 @@ make -C ~/mrk all
 exec zsh
 ```
 
+## Quick Start (fun version)
+
+```bash
+git clone https://github.com/sevmorris/mrk.git ~/mrk
+make -C ~/mrk adventure
+exec zsh
+```
+
+Boots a fictional 4.3BSD Unix workstation at UC Berkeley, 1989. Find the floppy, run the setup script, and the real install begins.
+
 ## Phases
 
 | Phase | Command | What it does |
@@ -29,7 +39,7 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 | Target | Description |
 |--------|-------------|
 | `make all` | All three phases + build TUI binaries |
-| `make adventure` | Same as `make all` but with narrative (Zork-style) mode |
+| `make adventure` | Same as `make all` but with a fictional 4.3BSD terminal prelude |
 | `make install` / `make setup` | Phase 1 only |
 | `make setup-dry` | Preview Phase 1 changes without applying |
 | `make brew` | Phase 2 only |
