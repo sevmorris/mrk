@@ -46,6 +46,7 @@ while (("$#")); do
     --dry-run) DRY_RUN=1 ;;
     --yes|-y) NONINTERACTIVE=1 ;;
     --adventure) ADVENTURE=1 ;;
+    --adventure-*) ;;  # reserved for adventure mode variants — ignore
     -h|--help)
       cat <<'USAGE'
 mrk brew — Phase 2

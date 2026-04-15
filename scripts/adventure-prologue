@@ -1,0 +1,916 @@
+#!/usr/bin/env bash
+# adventure-prologue — interactive fiction prelude for mrk adventure mode
+#
+# A SunOS workstation at UC Berkeley, circa 1989.
+# A floppy disk is already mounted at /mnt/floppy.
+# Find the setup script and run it.
+#
+# Exits 0 on success (setup run), 1 if the user quits.
+# Skips silently if stdin or stdout is not a terminal.
+
+set -uo pipefail
+
+# ── Skip if not interactive ──────────────────────────────────────────────────
+if [[ ! -t 0 ]] || [[ ! -t 1 ]]; then
+  exit 0
+fi
+
+# ── Colors: phosphor amber on black ─────────────────────────────────────────
+_G=$'\033[38;5;214m'    # amber        — terminal output
+_BG=$'\033[1;38;5;214m' # bright amber — prompts, borders
+_DG=$'\033[2;38;5;214m' # dim amber    — system messages, hints
+_R=$'\033[0m'           # reset
+_CLR=$'\033[2J\033[H'
+
+g()    { printf '%s%s%s\n' "$_G"  "$*" "$_R"; }
+dg()   { printf '%s%s%s\n' "$_DG" "$*" "$_R"; }
+blank(){ printf '\n'; }
+ll()   { sleep "${2:-0.08}";  g  "$1"; }
+lld()  { sleep "${2:-0.08}"; dg  "$1"; }
+
+# ── TUI: fixed screen panel ──────────────────────────────────────────────────
+SCREEN_HEIGHT=20
+
+tui_init() {
+  local lines cols
+  lines=$(tput lines)
+  cols=$(tput cols)
+  tput csr "$SCREEN_HEIGHT" "$((lines - 1))"
+  draw_screen
+  tput cup "$SCREEN_HEIGHT" 0
+}
+
+tui_cleanup() {
+  tput csr 0 "$(($(tput lines) - 1))"
+  tput cnorm
+  printf '%s' "$_CLR"
+}
+
+tui_resize() {
+  local lines
+  lines=$(tput lines)
+  tput csr "$SCREEN_HEIGHT" "$((lines - 1))"
+  draw_screen
+}
+
+draw_screen() {
+  local cols inner
+  cols=$(tput cols)
+  (( cols < 60 )) && return
+  inner=$((cols - 2))
+
+  local N=$((inner - 6))
+  local C=$((inner - 8))
+  (( C < 10 )) && return
+
+  local R=$((cols - 1))
+
+  # ── Panel content ────────────────────────────────────────────────────────
+  local cwd_display="$CWD"
+  [[ "$cwd_display" == "/home/mrk" ]] && cwd_display="~"
+
+  local h1 h2 h3
+  printf -v h1 "%-${inner}s" "  UNIVERSITY OF CALIFORNIA, BERKELEY  --  CSUA"
+  h1="${h1:0:$inner}"
+
+  local hn="  soda.csua.berkeley.edu" sh_str="csh"
+  local hgap=$(( inner - ${#hn} - ${#sh_str} ))
+  (( hgap < 1 )) && hgap=1
+  printf -v h2 "%-${inner}s" "$(printf '%s%*s%s' "$hn" "$hgap" "" "$sh_str")"
+  h2="${h2:0:$inner}"
+
+  local pw="  [o PWR]" rm_id="SODA HALL"
+  local pgap=$(( inner - ${#pw} - ${#rm_id} ))
+  (( pgap < 1 )) && pgap=1
+  printf -v h3 "%-${inner}s" "$(printf '%s%*s%s' "$pw" "$pgap" "" "$rm_id")"
+  h3="${h3:0:$inner}"
+
+  local sblank sdist sver sstatus sinv
+  printf -v sblank  "%-${C}s" ""
+  printf -v sdist   "%-${C}s" " soda.csua.berkeley.edu  --  4.3BSD"
+  printf -v sver    "%-${C}s" " CSUA  --  Univ. of California, Berkeley"
+
+  local ul=" USER: mrk" dr="DISK: /mnt/floppy [mounted]"
+  local ugap=$(( C - ${#ul} - ${#dr} ))
+  (( ugap < 1 )) && ugap=1
+  printf -v sstatus "%-${C}s" "$(printf '%s%*s%s' "$ul" "$ugap" "" "$dr")"
+  sstatus="${sstatus:0:$C}"
+
+  printf -v sinv "%-${C}s" " PATH: $cwd_display"
+  sinv="${sinv:0:$C}"
+
+  local obrd nbrd
+  printf -v obrd '%*s' "$inner" ''; obrd="${obrd// /─}"
+  printf -v nbrd '%*s' "$N"     ''; nbrd="${nbrd// /─}"
+
+  # ── Draw ─────────────────────────────────────────────────────────────────
+  tput sc
+  tput civis
+
+  tput cup  0 0;  printf '%s┌%s'            "$_BG" "$obrd"
+  tput cup  0 $R; printf '%s┐%s'            "$_BG" "$_R"
+
+  tput cup  1 0;  printf '%s│%s%s'          "$_BG" "$_G"  "$h1"
+  tput cup  1 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup  2 0;  printf '%s│%s%s'          "$_BG" "$_DG" "$h2"
+  tput cup  2 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup  3 0;  printf '%s├%s'            "$_BG" "$obrd"
+  tput cup  3 $R; printf '%s┤%s'            "$_BG" "$_R"
+
+  tput cup  4 0;  printf '%s│%s  ┌%s┐  '   "$_BG" "$_G"  "$nbrd"
+  tput cup  4 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup  5 0;  printf '%s│%s  │ %s │  ' "$_BG" "$_G"  "$sblank"
+  tput cup  5 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup  6 0;  printf '%s│%s  │ %s │  ' "$_BG" "$_G"  "$sdist"
+  tput cup  6 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup  7 0;  printf '%s│%s  │ %s │  ' "$_BG" "$_G"  "$sver"
+  tput cup  7 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup  8 0;  printf '%s│%s  │ %s │  ' "$_BG" "$_G"  "$sblank"
+  tput cup  8 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup  9 0;  printf '%s│%s  │ %s │  ' "$_BG" "$_G"  "$sblank"
+  tput cup  9 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup 10 0;  printf '%s│%s  │ %s │  ' "$_BG" "$_G"  "$sstatus"
+  tput cup 10 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup 11 0;  printf '%s│%s  │ %s │  ' "$_BG" "$_G"  "$sinv"
+  tput cup 11 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup 12 0;  printf '%s│%s  │ %s │  ' "$_BG" "$_G"  "$sblank"
+  tput cup 12 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup 13 0;  printf '%s│%s  │ %s │  ' "$_BG" "$_G"  "$sblank"
+  tput cup 13 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup 14 0;  printf '%s│%s  │ %s │  ' "$_BG" "$_G"  "$sblank"
+  tput cup 14 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup 15 0;  printf '%s│%s  │ %s │  ' "$_BG" "$_G"  "$sblank"
+  tput cup 15 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup 16 0;  printf '%s│%s  └%s┘  '   "$_BG" "$_G"  "$nbrd"
+  tput cup 16 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup 17 0;  printf '%s├%s'            "$_BG" "$obrd"
+  tput cup 17 $R; printf '%s┤%s'            "$_BG" "$_R"
+
+  tput cup 18 0;  printf '%s│%s%s'          "$_BG" "$_DG" "$h3"
+  tput cup 18 $R; printf '%s│%s'            "$_BG" "$_R"
+
+  tput cup 19 0;  printf '%s└%s'            "$_BG" "$obrd"
+  tput cup 19 $R; printf '%s┘%s'            "$_BG" "$_R"
+
+  tput cnorm
+  tput rc
+}
+
+# ── SIGINT: clean exit ───────────────────────────────────────────────────────
+trap 'blank; dg "Connection closed."; blank; tui_cleanup; exit 1' INT TERM
+
+# ── World state ──────────────────────────────────────────────────────────────
+CWD="/home/mrk"
+
+# ── Resolve a path relative to CWD ──────────────────────────────────────────
+resolve_path() {
+  local arg="${1:-}"
+  [[ -z "$arg" || "$arg" == "." ]] && { printf '%s' "$CWD"; return; }
+  [[ "$arg" == "~" ]]              && { printf '%s' "/home/mrk"; return; }
+  [[ "$arg" == /* ]]               && { printf '%s' "$arg"; return; }
+  if [[ "$arg" == ".." ]]; then
+    case "$CWD" in
+      /home/mrk)   printf '%s' "/home"  ;;
+      /home)       printf '%s' "/"      ;;
+      /mnt/floppy) printf '%s' "/mnt"   ;;
+      /mnt)        printf '%s' "/"      ;;
+      *)           printf '%s' "/"      ;;
+    esac
+    return
+  fi
+  printf '%s' "$CWD/$arg"
+}
+
+# ── Virtual filesystem ───────────────────────────────────────────────────────
+list_dir() {
+  local path="${1%/}"
+  [[ -z "$path" ]] && path="/"
+  case "$path" in
+    /)
+      g "total 8"
+      g "drwxr-xr-x   5 root     wheel        160 Sep 28 12:00 ."
+      g "drwxr-xr-x   5 root     wheel        160 Sep 28 12:00 .."
+      g "drwxr-xr-x   3 root     wheel         60 Sep 28 12:00 home"
+      g "drwxr-xr-x   3 root     wheel         60 Oct  5 09:12 mnt"
+      g "drwxrwxrwt   2 root     wheel         40 Oct  5 09:14 tmp"
+      ;;
+    /home)
+      g "total 0"
+      g "drwxr-xr-x   3 root     wheel         60 Sep 28 12:00 ."
+      g "drwxr-xr-x   5 root     wheel        160 Sep 28 12:00 .."
+      g "drwxr-xr-x   2 mrk      staff         64 Oct  5 09:14 mrk"
+      ;;
+    /home/mrk)
+      g "total 0"
+      g "drwxr-xr-x   2 mrk      staff         64 Oct  5 09:14 ."
+      g "drwxr-xr-x   3 root     wheel         60 Sep 28 12:00 .."
+      ;;
+    /mnt)
+      g "total 0"
+      g "drwxr-xr-x   3 root     wheel         60 Oct  5 09:12 ."
+      g "drwxr-xr-x   5 root     wheel        160 Sep 28 12:00 .."
+      g "drwxr-xr-x   2 root     wheel         64 Oct  5 09:12 floppy"
+      ;;
+    /mnt/floppy)
+      g "total 8"
+      g "drwxr-xr-x   2 root     wheel         64 Oct  5 09:12 ."
+      g "drwxr-xr-x   3 root     wheel         60 Oct  5 09:12 .."
+      g "-rw-r--r--   1 root     wheel        512 Oct  5 09:12 README"
+      g "-rwxr-xr-x   1 root     wheel       2048 Oct  5 09:12 setup.sh"
+      ;;
+    *)
+      g "ls: $path: No such file or directory"
+      ;;
+  esac
+}
+
+# ── Boot sequence ────────────────────────────────────────────────────────────
+boot_sequence() {
+  printf '%s' "$_CLR"
+  sleep 0.3
+
+  ll  ">> VAX Bootstrap, Revision 5.2" 0.04
+  blank
+  ll  "Booting from [RA00]:" 0.2
+  blank
+  sleep 0.5
+  ll  "ra(0,0,0)/vmunix" 0.1
+  sleep 0.4
+  ll  "62836+8284+90616 start 0x10b4" 0.06
+  blank
+  sleep 0.5
+  ll  "Berkeley Software Distribution  Version 4.3  (soda.csua.berkeley.edu) #1: Mon Jan  9 08:12:03 PST 1989" 0.05
+  blank
+  ll  "real mem  = 8388608" 0.03
+  ll  "avail mem = 7163904" 0.03
+  ll  "using 100 buffers containing 819200 bytes of memory" 0.03
+  ll  "cpu: VAX 11/780" 0.04
+  ll  "ra0 at uba0 csr 0154400 vec 0154, ipl 21" 0.03
+  ll  "ra0: RD53, size 138720 sectors" 0.03
+  ll  "ry0 at uba0 csr 017720 vec 0260, ipl 14" 0.03
+  ll  "ry0: RX50/RX33  (3.5\" HD)  disk present" 0.05
+  blank
+  sleep 0.3
+  lld "/dev/ry0a: Mounting /mnt/floppy ... done." 0.2
+  sleep 0.3
+  blank
+  lld "CSUA  soda.csua.berkeley.edu  (Thu Oct  5 09:13:01 PDT 1989)" 0.15
+  sleep 0.5
+  blank
+  lld "soda login: mrk (auto)" 0.3
+  sleep 0.6
+  blank
+  printf '%s' "$_CLR"
+  sleep 0.3
+}
+
+# ── Shell prompt ─────────────────────────────────────────────────────────────
+prompt_str() {
+  local p="$CWD"
+  [[ "$p" == "/home/mrk" ]] && p="~"
+  printf '%s' "mrk@soda:${p}% "
+}
+
+# ── Unix shell ───────────────────────────────────────────────────────────────
+unix_shell() {
+  sleep 0.2
+  g "Last login: Wed Oct  4 18:03:41 1989 on console"
+  blank
+
+  while true; do
+    printf '%s' "${_BG}$(prompt_str)${_R}${_G}"
+    IFS= read -r raw_input || { printf '%s\n' "$_R"; tui_cleanup; exit 1; }
+    printf '%s' "$_R"
+
+    local input verb remainder
+    input="${raw_input#"${raw_input%%[![:space:]]*}"}"
+    input="${input%"${input##*[![:space:]]}"}"
+    verb="${input%% *}"
+    remainder="${input#* }"
+    [[ "$remainder" == "$verb" ]] && remainder=""
+
+    case "$verb" in
+
+      # ── Navigation ──────────────────────────────────────────────────────────
+      ls)
+        blank
+        local ls_path="$CWD"
+        if [[ -n "$remainder" ]]; then
+          local ls_arg="${remainder##-[^ ]* }"
+          [[ "$ls_arg" == -* ]] && ls_arg=""
+          [[ -n "$ls_arg" ]] && ls_path=$(resolve_path "$ls_arg")
+        fi
+        list_dir "$ls_path"
+        blank
+        ;;
+
+      cd)
+        if [[ -z "$remainder" ]]; then
+          CWD="/home/mrk"
+          draw_screen
+        else
+          local new_cwd
+          new_cwd=$(resolve_path "$remainder")
+          case "$new_cwd" in
+            /|/home|/home/mrk|/mnt|/mnt/floppy|/tmp)
+              CWD="$new_cwd"; draw_screen ;;
+            *)
+              blank; g "soda: $remainder: No such file or directory"; blank ;;
+          esac
+        fi
+        ;;
+
+      pwd)
+        blank; g "$CWD"; blank
+        ;;
+
+      # ── File operations ──────────────────────────────────────────────────────
+      cat)
+        blank
+        local cat_path
+        cat_path=$(resolve_path "${remainder:-}")
+        case "$cat_path" in
+          /mnt/floppy/README)
+            g "MRK Setup Disk  v1.0"
+            g "CSUA -- Computer Science Undergraduate Association"
+            g "University of California, Berkeley"
+            blank
+            g "Run ./setup.sh to configure your workstation."
+            ;;
+          /mnt/floppy/setup.sh)
+            g "#!/bin/sh"
+            g "# mrk workstation setup"
+            g "exec /usr/local/bin/mrk-install"
+            ;;
+          "$(resolve_path '')")
+            g "cat: missing operand" ;;
+          *)
+            g "cat: $remainder: No such file or directory" ;;
+        esac
+        blank
+        ;;
+
+      more|less)
+        blank
+        if [[ -z "$remainder" ]]; then
+          g "Usage: $verb <filename>"
+        else
+          local page_path
+          page_path=$(resolve_path "$remainder")
+          case "$page_path" in
+            /mnt/floppy/README)
+              g "MRK Setup Disk  v1.0"
+              g "CSUA -- Computer Science Undergraduate Association"
+              g "University of California, Berkeley"
+              blank
+              g "Run ./setup.sh to configure your workstation."
+              blank
+              dg "(END)"
+              ;;
+            /mnt/floppy/setup.sh)
+              g "#!/bin/sh"
+              g "exec /usr/local/bin/mrk-install"
+              blank
+              dg "(END)"
+              ;;
+            *)
+              g "$verb: $remainder: No such file or directory" ;;
+          esac
+        fi
+        blank
+        ;;
+
+      file)
+        blank
+        if [[ -z "$remainder" ]]; then
+          g "Usage: file <filename>"
+        else
+          local file_path
+          file_path=$(resolve_path "$remainder")
+          case "$file_path" in
+            /mnt/floppy/README)   g "$remainder: ascii text" ;;
+            /mnt/floppy/setup.sh) g "$remainder: commands text" ;;
+            /home/mrk)            g "$remainder: directory" ;;
+            /mnt/floppy)          g "$remainder: directory" ;;
+            *)                    g "file: $remainder: No such file or directory" ;;
+          esac
+        fi
+        blank
+        ;;
+
+      find)
+        blank
+        local find_root="$CWD"
+        if [[ -n "$remainder" ]]; then
+          local fa="${remainder%% -*}"
+          fa="${fa%"${fa##*[![:space:]]}"}"
+          [[ -n "$fa" ]] && find_root=$(resolve_path "$fa")
+        fi
+        case "$find_root" in
+          /)
+            g "."; g "./home"; g "./home/mrk"
+            g "./mnt"; g "./mnt/floppy"
+            g "./mnt/floppy/README"; g "./mnt/floppy/setup.sh"
+            g "./tmp"
+            ;;
+          /home)       g "."; g "./mrk" ;;
+          /home/mrk)   g "." ;;
+          /mnt)        g "."; g "./floppy" ;;
+          /mnt/floppy) g "."; g "./README"; g "./setup.sh" ;;
+          *)           g "find: $find_root: No such file or directory" ;;
+        esac
+        blank
+        ;;
+
+      rm)
+        blank
+        if [[ -z "$remainder" ]]; then
+          g "rm: missing operand"
+        else
+          local rm_tgt="${remainder##-* }"
+          local rm_path; rm_path=$(resolve_path "$rm_tgt")
+          case "$rm_path" in
+            /mnt/floppy/*) g "rm: $rm_tgt: Read-only file system" ;;
+            *)             g "rm: $rm_tgt: No such file or directory" ;;
+          esac
+        fi
+        blank
+        ;;
+
+      cp|mv)
+        blank; g "$verb: cannot create: Permission denied"; blank ;;
+
+      mkdir|touch)
+        blank; g "$verb: cannot create: Permission denied"; blank ;;
+
+      chmod|chown)
+        blank; g "$verb: $remainder: Operation not permitted"; blank ;;
+
+      # ── Win condition: run the setup script ───────────────────────────────
+      ./setup.sh|setup.sh)
+        blank
+        if [[ "$CWD" == "/mnt/floppy" ]]; then
+          g "Running /mnt/floppy/setup.sh..."
+          sleep 0.5; blank; tui_cleanup; exit 0
+        else
+          g "soda: $verb: Command not found."
+          blank
+        fi
+        ;;
+
+      sh|csh|tcsh)
+        blank
+        local run_path; run_path=$(resolve_path "$remainder")
+        if [[ "$run_path" == "/mnt/floppy/setup.sh" ]]; then
+          g "Running /mnt/floppy/setup.sh..."
+          sleep 0.5; blank; tui_cleanup; exit 0
+        else
+          g "soda: $remainder: Command not found."
+          blank
+        fi
+        ;;
+
+      bash)
+        blank
+        local run_path; run_path=$(resolve_path "$remainder")
+        if [[ "$run_path" == "/mnt/floppy/setup.sh" ]]; then
+          g "Running /mnt/floppy/setup.sh..."
+          sleep 0.5; blank; tui_cleanup; exit 0
+        else
+          g "bash: $remainder: No such file or directory"
+          blank
+        fi
+        ;;
+
+      /mnt/floppy/setup.sh)
+        blank; g "Running /mnt/floppy/setup.sh..."
+        sleep 0.5; blank; tui_cleanup; exit 0
+        ;;
+
+      # ── System info ──────────────────────────────────────────────────────────
+      whoami)   blank; g "mrk";  blank ;;
+      hostname) blank; g "soda"; blank ;;
+
+      id)
+        blank
+        g "uid=1042(mrk) gid=20(staff) groups=20(staff)"
+        blank
+        ;;
+
+      uname)
+        blank
+        case "$remainder" in
+          -a|-a\ *) g "4.3BSD soda 4.3 1 vax" ;;
+          *)        g "4.3BSD" ;;
+        esac
+        blank
+        ;;
+
+      date)
+        blank; g "Thu Oct  5 11:24:37 PDT 1989"; blank ;;
+
+      uptime)
+        blank
+        g "11:24am  up 2:09,  1 user,  load average: 0.04, 0.07, 0.05"
+        blank
+        ;;
+
+      df)
+        blank
+        g "Filesystem            kbytes    used   avail capacity  Mounted on"
+        g "/dev/ra0a              98304   71420   17068    81%    /"
+        g "/dev/ry0a               1440     512     928    36%    /mnt/floppy"
+        blank
+        ;;
+
+      free)
+        blank
+        g "             total       used       free"
+        g "Mem:         16384      13102       3282"
+        g "Swap:        32768       1024      31744"
+        blank
+        ;;
+
+      mount)
+        blank
+        g "/dev/ra0a on / type ufs (rw)"
+        g "/dev/ry0a on /mnt/floppy type ufs (ro)"
+        blank
+        ;;
+
+      ps)
+        blank
+        case "$remainder" in
+          aux|aux\ *|-aux|-aux\ *)
+            g "USER       PID %CPU %MEM   SZ  RSS TT  STAT START    TIME COMMAND"
+            g "root         1  0.0  1.2   40  104 ?   IW    9:14   0:00 /etc/init"
+            g "root        14  0.0  1.3   52  108 ?   IW    9:14   0:00 /etc/inetd"
+            g "mrk        147  0.0  2.9  152  248 co  S     9:14   0:02 -csh (csh)"
+            g "mrk        193  0.0  1.4  120  192 co  R    11:24   0:00 ps aux"
+            ;;
+          *)
+            g "  PID TT STAT  TIME COMMAND"
+            g "  147 co S     0:02 -csh (csh)"
+            g "  193 co R     0:00 ps"
+            ;;
+        esac
+        blank
+        ;;
+
+      who)
+        blank; g "mrk      console      Oct  5 09:14"; blank ;;
+
+      w)
+        blank
+        g "11:24am  up 2:09,  1 user,  load average: 0.04, 0.07, 0.05"
+        g "User     tty      login@   idle   JCPU   PCPU  what"
+        g "mrk      console  9:14am          0.10s  0.02s  w"
+        blank
+        ;;
+
+      last)
+        blank
+        g "mrk      console                       Thu Oct  5 09:14   still logged in"
+        g "mrk      console                       Wed Oct  4 14:32 - 18:03  (03:30)"
+        g "mrk      console                       Tue Oct  3 10:11 - 12:45  (02:33)"
+        blank
+        g "wtmp begins Tue Oct  3 10:11:22 1989"
+        blank
+        ;;
+
+      dmesg)
+        blank
+        lld "Berkeley Software Distribution  Version 4.3  (soda.csua.berkeley.edu) #1: Mon Jan  9 08:12:03 PST 1989" 0.03
+        lld "real mem  = 8388608" 0.02
+        lld "avail mem = 7163904" 0.02
+        lld "cpu: VAX 11/780" 0.02
+        lld "ra0 at uba0 csr 0154400 vec 0154, ipl 21" 0.02
+        lld "ra0: RD53, size 138720 sectors" 0.02
+        lld "ry0: RX50/RX33  (3.5\" HD)  disk present" 0.03
+        lld "/dev/ry0a: Mounting /mnt/floppy ... done." 0.08
+        blank
+        ;;
+
+      env|printenv)
+        blank
+        g "HOME=/home/mrk"
+        g "USER=mrk"
+        g "SHELL=/bin/csh"
+        g "TERM=vt100"
+        g "PATH=/usr/ucb:/usr/bin:/bin:/usr/local/bin:."
+        g "PWD=$CWD"
+        g "LOGNAME=mrk"
+        g "HOST=soda"
+        g "DISPLAY=:0.0"
+        blank
+        ;;
+
+      history)
+        blank
+        g "    1  ls"
+        g "    2  cd /mnt/floppy"
+        g "    3  ls"
+        g "    4  cat README"
+        g "    5  cd"
+        g "    6  logout"
+        blank
+        ;;
+
+      finger)
+        blank
+        g "Login name: mrk                         In real life: mrk"
+        g "Directory: /home/mrk                    Shell: /bin/csh"
+        g "On since Oct  5 09:14:22 on console"
+        g "No unread mail."
+        g "No Plan."
+        blank
+        ;;
+
+      cal)
+        blank
+        g "   October 1989      "
+        g "Su Mo Tu We Th Fr Sa "
+        g " 1  2  3  4  5  6  7 "
+        g " 8  9 10 11 12 13 14 "
+        g "15 16 17 18 19 20 21 "
+        g "22 23 24 25 26 27 28 "
+        g "29 30 31              "
+        blank
+        ;;
+
+      which)
+        blank
+        if [[ -z "$remainder" ]]; then
+          g "Usage: which <command>"
+        else
+          case "$remainder" in
+            ls|cat|more|less|find|file|date|df|mount|ps|who|w|\
+            last|finger|cal|which|whereis|fortune|sl|make|ping|\
+            sudo|su|passwd|rm|cp|mv|mkdir|touch|chmod|chown|\
+            whoami|hostname|id|uname|echo|clear)
+              g "/usr/bin/$remainder" ;;
+            uptime|free|dmesg|env|history|w)
+              g "/usr/ucb/$remainder" ;;
+            csh|sh)   g "/bin/$remainder" ;;
+            bash)     g "/usr/local/bin/bash" ;;
+            vi|vim)   g "/usr/bin/$remainder" ;;
+            bc)       g "/usr/bin/bc" ;;
+            printenv) g "/usr/ucb/printenv" ;;
+            *)        g "$remainder: Command not found." ;;
+          esac
+        fi
+        blank
+        ;;
+
+      whereis)
+        blank
+        if [[ -z "$remainder" ]]; then
+          g "Usage: whereis <command>"
+        else
+          case "$remainder" in
+            csh)  g "csh: /bin/csh /usr/man/man1/csh.1" ;;
+            vi)   g "vi: /usr/bin/vi /usr/man/man1/vi.1" ;;
+            ls|cat|cp|mv|rm|mkdir|chmod)
+                  g "$remainder: /usr/bin/$remainder /usr/man/man1/${remainder}.1" ;;
+            *)    g "$remainder:" ;;
+          esac
+        fi
+        blank
+        ;;
+
+      # ── Utilities ────────────────────────────────────────────────────────────
+      echo)
+        blank; g "$remainder"; blank ;;
+
+      bc)
+        blank
+        if [[ -z "$remainder" ]]; then
+          dg "bc 1.01 -- arbitrary-precision arithmetic"
+          blank
+          while true; do
+            printf '%s' "${_BG}bc> ${_R}${_G}"
+            local bc_in
+            IFS= read -r bc_in || break
+            printf '%s' "$_R"
+            bc_in="${bc_in#"${bc_in%%[![:space:]]*}"}"
+            if [[ "$bc_in" == "quit" || "$bc_in" == "exit" ]]; then break; fi
+            [[ -z "$bc_in" ]] && continue
+            local bc_out
+            bc_out=$(printf '%s\n' "$bc_in" | bc 2>&1) && g "$bc_out" || g "Parse error"
+          done
+        else
+          local bc_out
+          bc_out=$(printf '%s\n' "$remainder" | bc 2>&1) && g "$bc_out" || g "Parse error"
+        fi
+        blank
+        ;;
+
+      make)
+        blank
+        g "make: No targets specified and no makefile found.  Stop."
+        blank
+        ;;
+
+      ping)
+        blank; g "ping: connect: Network is unreachable"; blank ;;
+
+      sudo)
+        blank
+        g "sudo: Command not found."
+        blank
+        ;;
+
+      su)
+        blank
+        printf '%s' "${_BG}Password: ${_R}${_G}"
+        local su_pw; IFS= read -rs su_pw || true
+        printf '\n%s' "$_R"
+        blank; g "Sorry."; blank
+        ;;
+
+      passwd)
+        blank
+        dg "Changing password for mrk."
+        printf '%s' "${_BG}Old password: ${_R}${_G}"
+        local _p1; IFS= read -rs _p1 || true; printf '\n%s' "$_R"
+        printf '%s' "${_BG}New password: ${_R}${_G}"
+        local _p2; IFS= read -rs _p2 || true; printf '\n%s' "$_R"
+        printf '%s' "${_BG}Retype new password: ${_R}${_G}"
+        local _p3; IFS= read -rs _p3 || true; printf '\n%s' "$_R"
+        blank
+        g "passwd: Permission denied."
+        blank
+        ;;
+
+      clear|cls)
+        printf '%s' "$_CLR"
+        draw_screen
+        tput cup "$SCREEN_HEIGHT" 0
+        ;;
+
+      # ── Easter eggs ──────────────────────────────────────────────────────────
+      fortune)
+        blank
+        local -a F=(
+          "Unix is user friendly. It's just picky about who its friends are."
+          "To err is human; to really foul things up requires a computer."
+          "There is no place like 127.0.0.1"
+          "Unix was not designed to stop you from doing stupid things, because\nthat would also stop you from doing clever things.  -- Doug Gwyn"
+          "640K ought to be enough for anybody."
+          "Real programmers don't comment their code.\nIf it was hard to write, it should be hard to understand."
+          "Have you tried turning it off and on again?"
+        )
+        local idx=$(( RANDOM % ${#F[@]} ))
+        printf '%s%b%s\n' "$_G" "${F[$idx]}" "$_R"
+        blank
+        ;;
+
+      sl)
+        tput civis
+        local cols; cols=$(tput cols)
+        local -a L=(
+          "        ====        ________                ___________  "
+          "    _D _|  |_______/        \\__I_I_____===__|___________|"
+          "     |(_)---  |   H\\________/ |   |        =|___ ___|   "
+          "     /     |  |   H  |  |     |   |         ||_| |_||   "
+          "    |      |  |   H  |__--------------------| [___] |   "
+          "    | ________|___H__/__|_____/[][]~\\_______|       |   "
+          "    |/ |   |-----------I_____I [][] []  D   |=======|__ "
+          " __/ =| o |=-~~\\  /~~\\  /~~\\  /~~\\ ____Y___________|__ "
+          "  |/-=|___|=    ||    ||    ||    |_____/~\\___/          "
+          "   \\_/      \\_O=====O=====O=====O_/      \\_/            "
+        )
+        local lh=${#L[@]} lw=58
+        for (( i=0; i<lh; i++ )); do printf '\n'; done
+        printf '\033[%dA' "$lh"
+        for (( x=cols; x>=-lw; x-=3 )); do
+          printf '\033[s'
+          for (( r=0; r<lh; r++ )); do
+            printf '\033[2K\r'
+            if (( x >= 0 && x < cols )); then
+              printf '%*s%s%s%s' "$x" '' "$_G" "${L[$r]}" "$_R"
+            elif (( x < 0 && x > -lw )); then
+              printf '%s%s%s' "$_G" "${L[$r]:$(( -x ))}" "$_R"
+            fi
+            printf '\n'
+          done
+          printf '\033[u'
+          sleep 0.04
+        done
+        tput cnorm
+        printf '\033[%dB' "$lh"
+        blank
+        ;;
+
+      vi|vim)
+        local vi_path=""
+        [[ -n "$remainder" ]] && vi_path=$(resolve_path "$remainder")
+        printf '%s' "$_CLR"; draw_screen; tput cup "$SCREEN_HEIGHT" 0
+        blank
+        if [[ -z "$remainder" ]]; then
+          for (( i=0; i<8; i++ )); do dg "~"; done
+          blank
+          dg "\"[No Name]\"  -- Vi 3.7  (SunOS)"
+        else
+          case "$vi_path" in
+            /mnt/floppy/README)
+              g "MRK Setup Disk  v1.0"
+              g "CSUA -- Computer Science Undergraduate Association"
+              g "University of California, Berkeley"
+              blank
+              g "Run ./setup.sh to configure your workstation."
+              for (( i=0; i<3; i++ )); do dg "~"; done
+              dg "\"README\" [Read only] 5 lines, 131 characters"
+              ;;
+            /mnt/floppy/setup.sh)
+              g "#!/bin/sh"
+              g "exec /usr/local/bin/mrk-install"
+              for (( i=0; i<6; i++ )); do dg "~"; done
+              dg "\"setup.sh\" [Read only] 2 lines, 42 characters"
+              ;;
+            *)
+              for (( i=0; i<8; i++ )); do dg "~"; done
+              dg "\"$remainder\" [New file]"
+              ;;
+          esac
+        fi
+        blank; dg "-- NORMAL --"; blank
+        while true; do
+          printf '%s:%s' "$_BG" "$_G"
+          local vi_cmd; IFS= read -r vi_cmd || { printf '%s\n' "$_R"; tui_cleanup; exit 1; }
+          printf '%s' "$_R"
+          case "$vi_cmd" in
+            q|q!|wq|wq!|x|Q) break ;;
+            w|w\ *) dg "\"${remainder:-[No Name]}\" File is read only." ;;
+            "")     ;;
+            *)      dg "Unknown command: $vi_cmd" ;;
+          esac
+        done
+        printf '%s' "$_CLR"; draw_screen; tput cup "$SCREEN_HEIGHT" 0
+        blank
+        ;;
+
+      nano|emacs|pico|ed)
+        blank; g "$verb: Command not found."; blank ;;
+
+      # ── Help ─────────────────────────────────────────────────────────────────
+      help|man)
+        blank
+        g "  Navigation:   ls  cd  pwd  find"
+        g "  Files:        cat  more  less  file  rm  cp  mv  mkdir  touch  chmod"
+        g "  System:       uname  date  uptime  df  free  mount  ps  who  w  last"
+        g "                dmesg  env  whoami  hostname  id  finger  cal  history"
+        g "  Lookup:       which  whereis"
+        g "  Utilities:    echo  bc  clear  make  ping  su  passwd"
+        g "  Fun:          fortune  sl  vi  vim"
+        g "  Session:      exit  logout"
+        blank
+        ;;
+
+      exit|logout|quit)
+        blank
+        printf '%s' "${_BG}Really logout? [y/N] ${_R}${_G}"
+        local confirm; IFS= read -r confirm || true
+        printf '%s' "$_R"
+        case "$(printf '%s' "$confirm" | tr '[:upper:]' '[:lower:]')" in
+          y|yes) blank; dg "logout"; blank; tui_cleanup; exit 1 ;;
+          *)     blank; g "logout cancelled"; blank ;;
+        esac
+        ;;
+
+      "")
+        ;;
+
+      *)
+        blank; g "soda: $verb: Command not found."; blank
+        ;;
+
+    esac
+  done
+}
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+main() {
+  boot_sequence
+  tui_init
+  trap 'tui_resize' WINCH
+  blank
+  unix_shell
+}
+
+main "$@"
