@@ -219,9 +219,16 @@ list_dir() {
       g "drwxr-xr-x   2 mrk      staff         64 Oct  5 09:14 mrk"
       ;;
     /home/mrk)
-      g "total 0"
-      g "drwxr-xr-x   2 mrk      staff         64 Oct  5 09:14 ."
-      g "drwxr-xr-x   3 root     wheel         60 Sep 28 12:00 .."
+      local _show_hidden="${2:-0}"
+      g "total 22"
+      if (( _show_hidden )); then
+        g "drwxr-xr-x   2 mrk      staff        512 Oct  5 09:14 ."
+        g "drwxr-xr-x   3 root     wheel         60 Sep 28 12:00 .."
+        g "-rw-r--r--   1 mrk      staff        743 Oct  3 22:17 .cshrc"
+        g "-rw-r--r--   1 mrk      staff         89 Oct  4 18:30 .plan"
+      fi
+      g "-rw-r--r--   1 mrk      staff       1847 Sep 30 14:22 notes.txt"
+      g "-rw-r--r--   1 mrk      staff        312 Oct  5 08:55 todo"
       ;;
     /mnt)
       g "total 0"
@@ -1127,13 +1134,14 @@ unix_shell() {
       # ── Navigation ──────────────────────────────────────────────────────────
       ls)
         blank
-        local ls_path="$CWD"
+        local ls_path="$CWD" ls_show_hidden=0
         if [[ -n "$remainder" ]]; then
+          [[ "$remainder" == *-a* || "$remainder" == *-A* ]] && ls_show_hidden=1
           local ls_arg="${remainder##-[^ ]* }"
           [[ "$ls_arg" == -* ]] && ls_arg=""
           [[ -n "$ls_arg" ]] && ls_path=$(resolve_path "$ls_arg")
         fi
-        list_dir "$ls_path"
+        list_dir "$ls_path" "$ls_show_hidden"
         blank
         ;;
 
@@ -1163,6 +1171,61 @@ unix_shell() {
         local cat_path
         cat_path=$(resolve_path "${remainder:-}")
         case "$cat_path" in
+          /home/mrk/todo|~/todo)
+            g "[ ] CS 252 problem set 3  -- due friday"
+            g "[ ] return overdue books to Moffitt (UNIX Systems vol II, Knuth vol 3)"
+            g "[ ] ask Paxson about the project deadline"
+            g "[ ] pick up mail from Evans Hall"
+            g "[ ] email home (use pine)"
+            g "[ ] fix the segfault in bsearch.c"
+            g "[x] get floppy from sysadmin"
+            ;;
+          /home/mrk/notes.txt|~/notes.txt)
+            g "CS 252 -- Computer Architecture"
+            g "Lecture notes, Oct 3 1989"
+            blank
+            g "RISC philosophy:"
+            g "  - load/store architecture (no mem-to-mem ops)"
+            g "  - fixed instruction length"
+            g "  - large register file, compiler does the work"
+            g "  - branch delay slots (ugh)"
+            blank
+            g "MIPS R3000 pipeline:  IF  ID  EX  MEM  WB"
+            g "  5 stages, 1 cycle each (ideally)"
+            g "  branch delay slot: next instr after branch always executes"
+            blank
+            g "Compare with VAX (this machine):"
+            g "  CISC, variable-length instructions"
+            g "  orthogonal ISA -- any operand mode in any instruction"
+            g "  hardware does a LOT more work"
+            g "  slower per-clock but denser code, easier to program in asm"
+            blank
+            g "SPARC: Berkeley RISC-II derivative"
+            g "  register windows -- save/restore on context switch overhead?"
+            g "  see: Patterson & Hennessy (new book, should be in Moffitt)"
+            blank
+            g "TODO: read ch. 4 before thursday"
+            ;;
+          /home/mrk/.plan|~/.plan)
+            g "Working on CS 252 architecture project (RISC pipeline simulator)."
+            g "Looking for a roommate -- Hillside apt, $325/mo, avail Nov 1."
+            g "Ask me about RISC vs CISC.  I have opinions."
+            ;;
+          /home/mrk/.cshrc|~/.cshrc)
+            g "# .cshrc -- mrk@soda"
+            g "set path = (/usr/ucb /usr/bin /bin /usr/local/bin .)"
+            g "set prompt = \"mrk@soda% \""
+            g "set history = 100"
+            g "set savehist = 50"
+            g "set filec"
+            blank
+            g "alias ll    'ls -l'"
+            g "alias la    'ls -la'"
+            g "alias h     'history'"
+            g "alias j     'jobs -l'"
+            g "alias rm    'rm -i'"
+            g "alias bye   'logout'"
+            ;;
           /mnt/floppy/README)
             g "MRK Setup Disk  v1.0"
             g "CSUA -- Computer Science Undergraduate Association"
@@ -1191,6 +1254,61 @@ unix_shell() {
           local page_path
           page_path=$(resolve_path "$remainder")
           case "$page_path" in
+            /home/mrk/todo|~/todo)
+              g "[ ] CS 252 problem set 3  -- due friday"
+              g "[ ] return overdue books to Moffitt (UNIX Systems vol II, Knuth vol 3)"
+              g "[ ] ask Paxson about the project deadline"
+              g "[ ] pick up mail from Evans Hall"
+              g "[ ] email home (use pine)"
+              g "[ ] fix the segfault in bsearch.c"
+              g "[x] get floppy from sysadmin"
+              blank; dg "(END)" ;;
+            /home/mrk/notes.txt|~/notes.txt)
+              g "CS 252 -- Computer Architecture"
+              g "Lecture notes, Oct 3 1989"
+              blank
+              g "RISC philosophy:"
+              g "  - load/store architecture (no mem-to-mem ops)"
+              g "  - fixed instruction length"
+              g "  - large register file, compiler does the work"
+              g "  - branch delay slots (ugh)"
+              blank
+              g "MIPS R3000 pipeline:  IF  ID  EX  MEM  WB"
+              g "  5 stages, 1 cycle each (ideally)"
+              g "  branch delay slot: next instr after branch always executes"
+              blank
+              g "Compare with VAX (this machine):"
+              g "  CISC, variable-length instructions"
+              g "  orthogonal ISA -- any operand mode in any instruction"
+              g "  hardware does a LOT more work"
+              g "  slower per-clock but denser code, easier to program in asm"
+              blank
+              g "SPARC: Berkeley RISC-II derivative"
+              g "  register windows -- save/restore on context switch overhead?"
+              g "  see: Patterson & Hennessy (new book, should be in Moffitt)"
+              blank
+              g "TODO: read ch. 4 before thursday"
+              blank; dg "(END)" ;;
+            /home/mrk/.plan|~/.plan)
+              g "Working on CS 252 architecture project (RISC pipeline simulator)."
+              g "Looking for a roommate -- Hillside apt, $325/mo, avail Nov 1."
+              g "Ask me about RISC vs CISC.  I have opinions."
+              blank; dg "(END)" ;;
+            /home/mrk/.cshrc|~/.cshrc)
+              g "# .cshrc -- mrk@soda"
+              g "set path = (/usr/ucb /usr/bin /bin /usr/local/bin .)"
+              g "set prompt = \"mrk@soda% \""
+              g "set history = 100"
+              g "set savehist = 50"
+              g "set filec"
+              blank
+              g "alias ll    'ls -l'"
+              g "alias la    'ls -la'"
+              g "alias h     'history'"
+              g "alias j     'jobs -l'"
+              g "alias rm    'rm -i'"
+              g "alias bye   'logout'"
+              blank; dg "(END)" ;;
             /mnt/floppy/README)
               g "MRK Setup Disk  v1.0"
               g "CSUA -- Computer Science Undergraduate Association"
@@ -1221,11 +1339,15 @@ unix_shell() {
           local file_path
           file_path=$(resolve_path "$remainder")
           case "$file_path" in
-            /mnt/floppy/README)   g "$remainder: ascii text" ;;
-            /mnt/floppy/setup.sh) g "$remainder: commands text" ;;
-            /home/mrk)            g "$remainder: directory" ;;
-            /mnt/floppy)          g "$remainder: directory" ;;
-            *)                    g "file: $remainder: No such file or directory" ;;
+            /home/mrk/todo|~/todo)       g "$remainder: ascii text" ;;
+            /home/mrk/notes.txt|~/notes.txt) g "$remainder: ascii text" ;;
+            /home/mrk/.plan|~/.plan)     g "$remainder: ascii text" ;;
+            /home/mrk/.cshrc|~/.cshrc)   g "$remainder: ascii text" ;;
+            /mnt/floppy/README)          g "$remainder: ascii text" ;;
+            /mnt/floppy/setup.sh)        g "$remainder: commands text" ;;
+            /home/mrk)                   g "$remainder: directory" ;;
+            /mnt/floppy)                 g "$remainder: directory" ;;
+            *)                           g "file: $remainder: No such file or directory" ;;
           esac
         fi
         blank
@@ -1644,9 +1766,63 @@ unix_shell() {
         if [[ -z "$remainder" ]]; then
           for (( i=0; i<8; i++ )); do dg "~"; done
           blank
-          dg "\"[No Name]\"  -- Vi 3.7  (SunOS)"
+          dg "\"[No Name]\"  -- Vi 3.7  (4.3BSD)"
         else
           case "$vi_path" in
+            /home/mrk/todo|~/todo)
+              g "[ ] CS 252 problem set 3  -- due friday"
+              g "[ ] return overdue books to Moffitt (UNIX Systems vol II, Knuth vol 3)"
+              g "[ ] ask Paxson about the project deadline"
+              g "[ ] pick up mail from Evans Hall"
+              g "[ ] email home (use pine)"
+              g "[ ] fix the segfault in bsearch.c"
+              g "[x] get floppy from sysadmin"
+              dg "~"
+              dg "\"todo\" 7 lines, 247 characters"
+              ;;
+            /home/mrk/notes.txt|~/notes.txt)
+              g "CS 252 -- Computer Architecture"
+              g "Lecture notes, Oct 3 1989"
+              g ""
+              g "RISC philosophy:"
+              g "  - load/store architecture (no mem-to-mem ops)"
+              g "  - fixed instruction length"
+              g "  - large register file, compiler does the work"
+              g "  - branch delay slots (ugh)"
+              g ""
+              g "MIPS R3000 pipeline:  IF  ID  EX  MEM  WB"
+              g "  5 stages, 1 cycle each (ideally)"
+              g ""
+              g "Compare with VAX (this machine):"
+              g "  CISC, variable-length instructions"
+              g "  orthogonal ISA -- any operand mode in any instruction"
+              dg "~"
+              dg "\"notes.txt\" 16 lines, 502 characters"
+              ;;
+            /home/mrk/.plan|~/.plan)
+              g "Working on CS 252 architecture project (RISC pipeline simulator)."
+              g "Looking for a roommate -- Hillside apt, \$325/mo, avail Nov 1."
+              g "Ask me about RISC vs CISC.  I have opinions."
+              dg "~"
+              dg "\".plan\" 3 lines, 167 characters"
+              ;;
+            /home/mrk/.cshrc|~/.cshrc)
+              g "# .cshrc -- mrk@soda"
+              g "set path = (/usr/ucb /usr/bin /bin /usr/local/bin .)"
+              g "set prompt = \"mrk@soda% \""
+              g "set history = 100"
+              g "set savehist = 50"
+              g "set filec"
+              g ""
+              g "alias ll    'ls -l'"
+              g "alias la    'ls -la'"
+              g "alias h     'history'"
+              g "alias j     'jobs -l'"
+              g "alias rm    'rm -i'"
+              g "alias bye   'logout'"
+              dg "~"
+              dg "\".cshrc\" 13 lines, 271 characters"
+              ;;
             /mnt/floppy/README)
               g "MRK Setup Disk  v1.0"
               g "CSUA -- Computer Science Undergraduate Association"
