@@ -24,7 +24,7 @@ if ! mkdir -p "$ROLL_DIR"; then
   exit 1
 fi
 
-if ! printf '#!/usr/bin/env bash\n' >> "$ROLLBACK"; then
+if ! printf '#!/usr/bin/env bash\n' > "$ROLLBACK"; then
   echo "Error: Failed to initialize rollback script: $ROLLBACK" >&2
   exit 1
 fi

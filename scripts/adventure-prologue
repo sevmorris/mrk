@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # adventure-prologue — interactive fiction prelude for mrk adventure mode
 #
-# A SunOS workstation at UC Berkeley, circa 1989.
+# A 4.3BSD workstation at UC Berkeley, circa 1989.
 # A floppy disk is already mounted at /mnt/floppy.
 # Find the setup script and run it.
 #
@@ -1168,10 +1168,13 @@ unix_shell() {
       # ── File operations ──────────────────────────────────────────────────────
       cat)
         blank
+        if [[ -z "$remainder" ]]; then
+          g "cat: missing operand"; blank; continue
+        fi
         local cat_path
-        cat_path=$(resolve_path "${remainder:-}")
+        cat_path=$(resolve_path "$remainder")
         case "$cat_path" in
-          /home/mrk/todo|~/todo)
+          /home/mrk/todo)
             g "[ ] CS 252 problem set 3  -- due friday"
             g "[ ] return overdue books to Moffitt (UNIX Systems vol II, Knuth vol 3)"
             g "[ ] ask Paxson about the project deadline"
@@ -1180,7 +1183,7 @@ unix_shell() {
             g "[ ] fix the segfault in bsearch.c"
             g "[x] get floppy from sysadmin"
             ;;
-          /home/mrk/notes.txt|~/notes.txt)
+          /home/mrk/notes.txt)
             g "mrk -- workstation bootstrap"
             g "design notes, Sep 1989"
             blank
@@ -1203,12 +1206,12 @@ unix_shell() {
             blank
             g "Next: write phase 1.  Get the dotfiles off this disk first."
             ;;
-          /home/mrk/.plan|~/.plan)
+          /home/mrk/.plan)
             g "Working on CS 252 architecture project (RISC pipeline simulator)."
             g "Looking for a roommate -- Hillside apt, $325/mo, avail Nov 1."
             g "Ask me about RISC vs CISC.  I have opinions."
             ;;
-          /home/mrk/.cshrc|~/.cshrc)
+          /home/mrk/.cshrc)
             g "# .cshrc -- mrk@soda"
             g "set path = (/usr/ucb /usr/bin /bin /usr/local/bin .)"
             g "set prompt = \"mrk@soda% \""
@@ -1235,8 +1238,6 @@ unix_shell() {
             g "# mrk workstation setup"
             g "exec /usr/local/bin/mrk-install"
             ;;
-          "$(resolve_path '')")
-            g "cat: missing operand" ;;
           *)
             g "cat: $remainder: No such file or directory" ;;
         esac
@@ -1251,7 +1252,7 @@ unix_shell() {
           local page_path
           page_path=$(resolve_path "$remainder")
           case "$page_path" in
-            /home/mrk/todo|~/todo)
+            /home/mrk/todo)
               g "[ ] CS 252 problem set 3  -- due friday"
               g "[ ] return overdue books to Moffitt (UNIX Systems vol II, Knuth vol 3)"
               g "[ ] ask Paxson about the project deadline"
@@ -1260,7 +1261,7 @@ unix_shell() {
               g "[ ] fix the segfault in bsearch.c"
               g "[x] get floppy from sysadmin"
               blank; dg "(END)" ;;
-            /home/mrk/notes.txt|~/notes.txt)
+            /home/mrk/notes.txt)
               g "mrk -- workstation bootstrap"
               g "design notes, Sep 1989"
               blank
@@ -1283,12 +1284,12 @@ unix_shell() {
               blank
               g "Next: write phase 1.  Get the dotfiles off this disk first."
               blank; dg "(END)" ;;
-            /home/mrk/.plan|~/.plan)
+            /home/mrk/.plan)
               g "Working on CS 252 architecture project (RISC pipeline simulator)."
               g "Looking for a roommate -- Hillside apt, $325/mo, avail Nov 1."
               g "Ask me about RISC vs CISC.  I have opinions."
               blank; dg "(END)" ;;
-            /home/mrk/.cshrc|~/.cshrc)
+            /home/mrk/.cshrc)
               g "# .cshrc -- mrk@soda"
               g "set path = (/usr/ucb /usr/bin /bin /usr/local/bin .)"
               g "set prompt = \"mrk@soda% \""
@@ -1333,10 +1334,10 @@ unix_shell() {
           local file_path
           file_path=$(resolve_path "$remainder")
           case "$file_path" in
-            /home/mrk/todo|~/todo)       g "$remainder: ascii text" ;;
-            /home/mrk/notes.txt|~/notes.txt) g "$remainder: ascii text" ;;
-            /home/mrk/.plan|~/.plan)     g "$remainder: ascii text" ;;
-            /home/mrk/.cshrc|~/.cshrc)   g "$remainder: ascii text" ;;
+            /home/mrk/todo)       g "$remainder: ascii text" ;;
+            /home/mrk/notes.txt) g "$remainder: ascii text" ;;
+            /home/mrk/.plan)     g "$remainder: ascii text" ;;
+            /home/mrk/.cshrc)   g "$remainder: ascii text" ;;
             /mnt/floppy/README)          g "$remainder: ascii text" ;;
             /mnt/floppy/setup.sh)        g "$remainder: commands text" ;;
             /home/mrk)                   g "$remainder: directory" ;;
@@ -1763,7 +1764,7 @@ unix_shell() {
           dg "\"[No Name]\"  -- Vi 3.7  (4.3BSD)"
         else
           case "$vi_path" in
-            /home/mrk/todo|~/todo)
+            /home/mrk/todo)
               g "[ ] CS 252 problem set 3  -- due friday"
               g "[ ] return overdue books to Moffitt (UNIX Systems vol II, Knuth vol 3)"
               g "[ ] ask Paxson about the project deadline"
@@ -1774,7 +1775,7 @@ unix_shell() {
               dg "~"
               dg "\"todo\" 7 lines, 247 characters"
               ;;
-            /home/mrk/notes.txt|~/notes.txt)
+            /home/mrk/notes.txt)
               g "mrk -- workstation bootstrap"
               g "design notes, Sep 1989"
               g ""
@@ -1794,14 +1795,14 @@ unix_shell() {
               dg "~"
               dg "\"notes.txt\" 16 lines, 498 characters"
               ;;
-            /home/mrk/.plan|~/.plan)
+            /home/mrk/.plan)
               g "Working on CS 252 architecture project (RISC pipeline simulator)."
               g "Looking for a roommate -- Hillside apt, \$325/mo, avail Nov 1."
               g "Ask me about RISC vs CISC.  I have opinions."
               dg "~"
               dg "\".plan\" 3 lines, 167 characters"
               ;;
-            /home/mrk/.cshrc|~/.cshrc)
+            /home/mrk/.cshrc)
               g "# .cshrc -- mrk@soda"
               g "set path = (/usr/ucb /usr/bin /bin /usr/local/bin .)"
               g "set prompt = \"mrk@soda% \""
