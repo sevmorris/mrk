@@ -27,6 +27,9 @@ dg()   { printf '%s%s%s\n' "$_DG" "$*" "$_R"; }
 blank(){ printf '\n'; }
 ll()   { sleep "${2:-0.08}";  g  "$1"; }
 lld()  { sleep "${2:-0.08}"; dg  "$1"; }
+say()  { local w; w=$(( $(tput cols) - 2 )); (( w < 20 )) && w=20
+         while IFS= read -r _l; do printf '%s%s%s\n' "$_G" "$_l" "$_R"
+         done < <(printf '%s\n' "$*" | fold -s -w "$w"); }
 
 # ── TUI: fixed screen panel ──────────────────────────────────────────────────
 SCREEN_HEIGHT=20
@@ -356,8 +359,7 @@ run_adventure() {
     done
     (( !has_t || RANDOM % 18 != 0 )) && return
     blank
-    g "Out from the shadows lunges a bearded pirate!  \"Har har!\" he cries,"
-    g "snatching your treasure.  He vanishes into the dark."
+    say "Out from the shadows lunges a bearded pirate!  \"Har har!\" he cries, snatching your treasure.  He vanishes into the dark."
     blank
     for t in GOLD DIAMONDS SILVER JEWELRY COINS VASE RUG EGGS TRIDENT EMERALD PYRAMID PEARL CHAIN; do
       _has "$t" && _put "$t" "pirate_lair"
@@ -369,13 +371,10 @@ run_adventure() {
     blank; g "${1:-You are dead.}"; blank; sleep 0.5
     (( DEATHS++ ))
     if (( DEATHS >= 3 )); then
-      g "It appears that it is taking you an inordinately long time to"
-      g "get out of the cave.  I'm afraid you're completely dead."
+      say "It appears that it is taking you an inordinately long time to get out of the cave.  I'm afraid you're completely dead."
       blank; g "Your score: $SCORE."; blank; ADV_ON=0; return
     fi
-    g "There is a loud explosion, and you find yourself sitting next to"
-    g "the road at the start, your clothes in tatters."
-    g "Your possessions have been scattered hereabouts."
+    say "There is a loud explosion, and you find yourself sitting next to the road at the start, your clothes in tatters.  Your possessions have been scattered hereabouts."
     blank
     local _it; for _it in "${INV[@]:-}"; do ITEMS[$_it]="road"; done; INV=()
     ROOM="road"; _adv_look
@@ -391,26 +390,21 @@ run_adventure() {
       road)
         g "AT END OF ROAD"
         blank
-        g "You are standing at the end of a road before a small brick building."
-        g "Around you is a forest.  A small stream flows out of the building"
-        g "and down a gully." ;;
+        say "You are standing at the end of a road before a small brick building.  Around you is a forest.  A small stream flows out of the building and down a gully." ;;
       hill)
         g "ON HILL IN ROAD"
         blank
-        g "You have walked up a hill, still in the forest.  The road slopes"
-        g "back down the other side.  There is a building in the distance." ;;
+        say "You have walked up a hill, still in the forest.  The road slopes back down the other side.  There is a building in the distance." ;;
       building)
         g "INSIDE BUILDING"
         blank
-        g "You are inside a building, a well house for a large spring.  The"
-        g "stream flows out through a pair of 1 foot diameter sewer pipes."
+        say "You are inside a building, a well house for a large spring.  The stream flows out through a pair of 1 foot diameter sewer pipes."
         blank
         dg "(Deposit treasures here to score.)" ;;
       valley)
         g "IN VALLEY"
         blank
-        g "You are in a valley in the forest beside a stream tumbling along"
-        g "a rocky bed." ;;
+        say "You are in a valley in the forest beside a stream tumbling along a rocky bed." ;;
       forest)
         g "IN FOREST"
         blank
@@ -418,32 +412,24 @@ run_adventure() {
       slit)
         g "AT SLIT IN STREAMBED"
         blank
-        g "At your feet all the water of the stream splashes into a 2-inch"
-        g "slit in the rock.  Downstream the streambed is bare rock." ;;
+        say "At your feet all the water of the stream splashes into a 2-inch slit in the rock.  Downstream the streambed is bare rock." ;;
       outside_grate)
         g "OUTSIDE GRATE"
         blank
-        g "You are in a 20-foot depression floored with bare dirt.  Set into"
-        g "the dirt is a strong steel grate mounted in concrete.  A dry"
-        g "streambed leads into the depression from the north."
+        say "You are in a 20-foot depression floored with bare dirt.  Set into the dirt is a strong steel grate mounted in concrete.  A dry streambed leads into the depression from the north."
         (( GRATE_LOCKED )) && g "The grate is locked." || g "The grate is open." ;;
       below_grate)
         g "BELOW THE GRATE"
         blank
-        g "You are in a small chamber beneath a 3x3 steel grate to the surface."
-        g "A low crawl over cobbles leads inward to the west." ;;
+        say "You are in a small chamber beneath a 3x3 steel grate to the surface.  A low crawl over cobbles leads inward to the west." ;;
       cobble)
         g "IN COBBLE CRAWL"
         blank
-        g "You are crawling over cobbles in a low passage.  There is a dim"
-        g "light at the east end of the passage." ;;
+        say "You are crawling over cobbles in a low passage.  There is a dim light at the east end of the passage." ;;
       debris)
         g "DEBRIS ROOM"
         blank
-        g "You are in a debris room filled with stuff washed in from the surface."
-        g "A low wide passage with cobbles becomes plugged with mud and debris"
-        g "here, but an awkward canyon leads upward and west.  A note on the"
-        g "wall says:  \"MAGIC WORD XYZZY\"" ;;
+        say "You are in a debris room filled with stuff washed in from the surface.  A low wide passage with cobbles becomes plugged with mud and debris here, but an awkward canyon leads upward and west.  A note on the wall says:  \"MAGIC WORD XYZZY\"" ;;
       awkward)
         g "AWKWARD SLOPING E/W CANYON"
         blank
@@ -451,29 +437,20 @@ run_adventure() {
       bird_chamber)
         g "BIRD CHAMBER"
         blank
-        g "You are in a splendid chamber thirty feet high.  The walls are"
-        g "frozen rivers of orange stone.  An awkward canyon and a good"
-        g "passage exit from east and west sides of the chamber."
+        say "You are in a splendid chamber thirty feet high.  The walls are frozen rivers of orange stone.  An awkward canyon and a good passage exit from east and west sides of the chamber."
         [[ "$BIRD_LOC" == "bird_chamber" ]] && g "A cheerful little bird is sitting here singing." ;;
       small_pit)
         g "AT TOP OF SMALL PIT"
         blank
-        g "At your feet is a small pit breathing traces of white mist.  An"
-        g "east passage ends here except for a small crack leading on."
-        g "Rough stone steps lead down the pit." ;;
+        say "At your feet is a small pit breathing traces of white mist.  An east passage ends here except for a small crack leading on.  Rough stone steps lead down the pit." ;;
       hall_mists)
         g "IN HALL OF MISTS"
         blank
-        g "You are at one end of a vast hall stretching forward out of sight"
-        g "to the west.  There are openings to either side.  Nearby, a wide"
-        g "stone staircase leads downward.  The hall is filled with wisps of"
-        g "white mist swaying to and fro almost as if alive.  A hollow voice"
-        g "reverberates, \"PLUGH\"." ;;
+        say "You are at one end of a vast hall stretching forward out of sight to the west.  There are openings to either side.  Nearby, a wide stone staircase leads downward.  The hall is filled with wisps of white mist swaying to and fro almost as if alive.  A hollow voice reverberates, \"PLUGH\"." ;;
       east_fissure)
         g "ON EAST BANK OF FISSURE"
         blank
-        g "You are on the east bank of a fissure slicing clear across the hall."
-        g "The mist is quite thick here, and the fissure is too wide to jump."
+        say "You are on the east bank of a fissure slicing clear across the hall.  The mist is quite thick here, and the fissure is too wide to jump."
         (( BRIDGE )) && g "A crystal bridge now spans the fissure." ;;
       west_fissure)
         g "ON WEST BANK OF FISSURE"
@@ -483,8 +460,7 @@ run_adventure() {
       low_ns)
         g "LOW N/S PASSAGE"
         blank
-        g "You are in a low north/south passage at a hole in the floor.  The"
-        g "hole goes down to an east/west passage." ;;
+        say "You are in a low north/south passage at a hole in the floor.  The hole goes down to an east/west passage." ;;
       south_side)
         g "SOUTH SIDE CHAMBER"
         blank
@@ -492,25 +468,20 @@ run_adventure() {
       west_side)
         g "WEST SIDE CHAMBER"
         blank
-        g "You are in the west side chamber of the Hall of Mists.  An eerie"
-        g "sound can be heard in the distance." ;;
+        say "You are in the west side chamber of the Hall of Mists.  An eerie sound can be heard in the distance." ;;
       hall_mt_king)
         g "HALL OF THE MOUNTAIN KING"
         blank
-        g "You are in the Hall of the Mountain King, with passages off in"
-        g "all directions."
+        say "You are in the Hall of the Mountain King, with passages off in all directions."
         (( SNAKE_HERE )) && g "A huge green fierce snake bars the way!" ;;
       low_passage)
         g "LOW PASSAGE"
         blank
-        g "You are in a low passage parallel to and north of the Hall of"
-        g "the Mountain King." ;;
+        say "You are in a low passage parallel to and north of the Hall of the Mountain King." ;;
       y2)
         g "AT \"Y2\""
         blank
-        g "You are in a large room, with a passage to the south, a passage"
-        g "to the west, and a wall of broken rock to the east.  There is a"
-        g "large \"Y2\" on a rock in the room's center." ;;
+        say "You are in a large room, with a passage to the south, a passage to the west, and a wall of broken rock to the east.  There is a large \"Y2\" on a rock in the room's center." ;;
       jumble)
         g "JUMBLE OF ROCK"
         blank
@@ -518,20 +489,15 @@ run_adventure() {
       dirty)
         g "DIRTY PASSAGE"
         blank
-        g "You are in a dirty broken passage.  To the east is a crawl."
-        g "To the west is a large passage.  Above you is a hole to a passage." ;;
+        say "You are in a dirty broken passage.  To the east is a crawl.  To the west is a large passage.  Above you is a hole to a passage." ;;
       dusty)
         g "DUSTY ROCK ROOM"
         blank
-        g "You are in a large room full of dusty rocks.  There is a big hole"
-        g "in the floor.  There are cracks everywhere, and a passage leading east." ;;
+        say "You are in a large room full of dusty rocks.  There is a big hole in the floor.  There are cracks everywhere, and a passage leading east." ;;
       complex)
         g "COMPLEX JUNCTION"
         blank
-        g "You are at a complex junction.  A low hands-and-knees passage from"
-        g "the north joins a higher crawl from the east to make a walking"
-        g "passage going west.  There is also a large room above (climb up)"
-        g "and a hole going down." ;;
+        say "You are at a complex junction.  A low hands-and-knees passage from the north joins a higher crawl from the east to make a walking passage going west.  There is also a large room above (climb up) and a hole going down." ;;
       bedquilt)
         g "IN BEDQUILT"
         blank
@@ -539,13 +505,11 @@ run_adventure() {
       twopit)
         g "IN TWOPIT ROOM"
         blank
-        g "You are in a large low circular chamber whose floor is an interlocking"
-        g "arrangement of huge honeycombed rocks.  Empty pits are everywhere." ;;
+        say "You are in a large low circular chamber whose floor is an interlocking arrangement of huge honeycombed rocks.  Empty pits are everywhere." ;;
       plover_room)
         g "IN PLOVER ROOM"
         blank
-        g "You are in a small chamber lit by an eerie green light.  An extremely"
-        g "narrow tunnel exits to the west.  A dark corridor leads northeast." ;;
+        say "You are in a small chamber lit by an eerie green light.  An extremely narrow tunnel exits to the west.  A dark corridor leads northeast." ;;
       dark_room)
         g "IN DARK ROOM"
         blank
@@ -553,20 +517,15 @@ run_adventure() {
       alcove)
         g "IN ALCOVE"
         blank
-        g "You are in an alcove.  A small northwest passage seems to widen"
-        g "after a short distance.  An extremely tight tunnel leads east." ;;
+        say "You are in an alcove.  A small northwest passage seems to widen after a short distance.  An extremely tight tunnel leads east." ;;
       oriental)
         g "IN ORIENTAL ROOM"
         blank
-        g "This is the oriental room.  Ancient oriental cave drawings cover"
-        g "the walls.  A gently sloping passage leads upward to the north,"
-        g "another goes east, and a rough inhospitable one to the south." ;;
+        say "This is the oriental room.  Ancient oriental cave drawings cover the walls.  A gently sloping passage leads upward to the north, another goes east, and a rough inhospitable one to the south." ;;
       misty)
         g "IN MISTY CAVERN"
         blank
-        g "You are following a wide path around the outer edge of a large"
-        g "cavern.  Far below, through a heavy white mist, strange lights can"
-        g "be seen.  Footing is difficult here." ;;
+        say "You are following a wide path around the outer edge of a large cavern.  Far below, through a heavy white mist, strange lights can be seen.  Footing is difficult here." ;;
       slab)
         g "IN SLAB ROOM"
         blank
@@ -574,14 +533,11 @@ run_adventure() {
       giant_room)
         g "GIANT ROOM"
         blank
-        g "You are in the Giant Room.  The ceiling here is too high up for"
-        g "your lamp to illuminate it.  Cavernous passages lead east, north,"
-        g "and south.  On the wall is scrawled:  \"FEE FIE FOE FOO\"" ;;
+        say "You are in the Giant Room.  The ceiling here is too high up for your lamp to illuminate it.  Cavernous passages lead east, north, and south.  On the wall is scrawled:  \"FEE FIE FOE FOO\"" ;;
       nugget_room)
         g "LARGE LOW ROOM"
         blank
-        g "You are in a large low room.  The walls are mostly crumbling rock"
-        g "except for a rough stone passage to the east." ;;
+        say "You are in a large low room.  The walls are mostly crumbling rock except for a rough stone passage to the east." ;;
       bear_room)
         g "SECRET N/E CANYON"
         blank
@@ -592,23 +548,19 @@ run_adventure() {
         g "SECRET CANYON"
         blank
         if (( DRAGON_ALIVE )); then
-          g "You are in a secret canyon.  A huge green fierce dragon bars the"
-          g "passage from east to west.  Its eyes gleam with fierce hunger."
+          say "You are in a secret canyon.  A huge green fierce dragon bars the passage from east to west.  Its eyes gleam with fierce hunger."
         else
-          g "You are in a secret canyon.  The body of a huge dead dragon"
-          g "is lying off to one side of the passage."
+          say "You are in a secret canyon.  The body of a huge dead dragon is lying off to one side of the passage."
         fi ;;
       troll_bridge)
         g "BRIDGE OVER CHASM"
         blank
-        g "A rickety wooden bridge extends across the chasm, vanishing into"
-        g "the mist.  A sign posted by the chasm reads:  \"STOP! PAY TROLL!\""
+        say "A rickety wooden bridge extends across the chasm, vanishing into the mist.  A sign posted by the chasm reads:  \"STOP! PAY TROLL!\""
         (( TROLL_HERE )) && g "A burly troll stands by the bridge demanding a treasure." ;;
       reservoir)
         g "AT RESERVOIR"
         blank
-        g "You are at the edge of a large underground reservoir.  An opaque"
-        g "cloud of white mist fills the room and rises rapidly." ;;
+        say "You are at the edge of a large underground reservoir.  An opaque cloud of white mist fills the room and rises rapidly." ;;
       maze1|maze2|maze3|maze4|maze5)
         g "MAZE OF TWISTY LITTLE PASSAGES"
         blank
@@ -795,10 +747,7 @@ run_adventure() {
   g "ADVENTURE"
   dg "Colossal Cave  --  Crowther & Woods, 1976  --  4.3BSD port"
   blank
-  g "Somewhere nearby is Colossal Cave, where others have found fortunes"
-  g "in treasure and gold, though it is rumored that some who enter are"
-  g "never seen again.  Magic is said to work in the cave.  I will be"
-  g "your eyes and hands.  Direct me with commands of 1 or 2 words."
+  say "Somewhere nearby is Colossal Cave, where others have found fortunes in treasure and gold, though it is rumored that some who enter are never seen again.  Magic is said to work in the cave.  I will be your eyes and hands.  Direct me with commands of 1 or 2 words."
   blank
   dg "Type HELP for commands."
   blank
