@@ -588,7 +588,6 @@
 make setup --only dotfiles      # Link dotfiles only
 make setup --only tools         # Link scripts/bin only
 make setup --only defaults      # Apply macOS defaults only
-make setup --only ext           # Run external dotfiles repo hooks only
 make setup --dry-run            # Preview changes without applying
 make setup --validate           # Check prerequisites before running
 make setup --continue-on-error  # Continue remaining phases if one fails</code></pre>
@@ -596,7 +595,6 @@ make setup --continue-on-error  # Continue remaining phases if one fails</code><
           <div class="callout">
             <span class="callout-label">Environment Variables</span>
             <div class="callout-body">
-              <code>MRK_DOTFILES_REPO=&lt;git-url&gt;</code> — if set, clones the repo to <code>~/.dotfiles</code> and runs <code>script/setup</code> and <code>script/strap-after-setup</code> from it (enables modular external dotfile hooks).<br><br>
               <code>MRK_LOGIN_MSG=&lt;message&gt;</code> — if set, writes a login window message (requires sudo). The change is included in the defaults rollback script.
             </div>
           </div>

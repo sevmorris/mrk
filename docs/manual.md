@@ -62,7 +62,6 @@ Sets up the foundational shell environment on a new or existing machine.
 make setup --only dotfiles      # Link dotfiles only
 make setup --only tools         # Link scripts/bin only
 make setup --only defaults      # Apply macOS defaults only
-make setup --only ext           # Run external dotfiles repo hooks only
 make setup --dry-run            # Preview changes without applying
 make setup-dry                  # Shorthand for --dry-run
 make setup --validate           # Check prerequisites before running
