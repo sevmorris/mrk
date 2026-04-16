@@ -279,91 +279,533 @@ boot_sequence() {
   sleep 0.3
 }
 
-# ── Text adventure game ─────────────────────────────────────────────────────
-# _adv_has uses dynamic scoping: AINV is local in run_adventure, visible here
-_adv_has() { [[ " ${AINV[*]:-} " == *" $1 "* ]]; }
-
+# ── Colossal Cave Adventure ──────────────────────────────────────────────────
 run_adventure() {
-  local AROOM="glade"
-  local ASCORE=0
-  local ALAMP=0 AKEY=0 AVAULT=0 AWIN=0
-  local -a AINV=()
+  # Item locations: room name | "inv" | "gone"
+  local -A ITEMS=(
+    [LAMP]="building"    [CAGE]="building"     [ROD]="debris"
+    [KEYS]="building"    [FOOD]="building"      [BOTTLE]="building"
+    [GOLD]="nugget_room" [DIAMONDS]="west_fissure" [SILVER]="south_side"
+    [JEWELRY]="south_side" [COINS]="west_side"  [CHEST]="gone"
+    [VASE]="oriental"    [RUG]="oriental"       [EGGS]="giant_room"
+    [TRIDENT]="south_side" [EMERALD]="plover_room" [PYRAMID]="dark_room"
+    [PEARL]="reservoir"  [CHAIN]="bear_room"    [AXE]="gone"
+  )
+  local -a INV=() DEPOSITED=()
+  local ROOM="road" MOVES=0 SCORE=0 DEATHS=0
+  local LAMP_LIFE=400 LAMP_LIT=1 BATTERY_LOW=0
+  local GRATE_LOCKED=1 BRIDGE=0
+  local SNAKE_HERE=1 DRAGON_ALIVE=1 TROLL_HERE=1
+  local BEAR_CHAINED=1 BEAR_TAME=0 PIRATE_ACTIVE=1 VASE_BROKEN=0
+  local BIRD_LOC="bird_chamber"
+  local ADV_ON=1
 
+  # ── Helpers ────────────────────────────────────────────────────────────────
+  _has()  { local i; for i in "${INV[@]:-}"; do [[ "$i" == "$1" ]] && return 0; done; return 1; }
+  _here() { [[ "${ITEMS[$1]:-}" == "$ROOM" ]]; }
+  _take() { ITEMS[$1]="inv"; INV+=("$1"); }
+  _put()  {
+    ITEMS[$1]="${2:-$ROOM}"
+    local -a _n=(); local _i
+    for _i in "${INV[@]:-}"; do [[ "$_i" != "$1" ]] && _n+=("$_i"); done
+    INV=("${_n[@]:-}")
+  }
+  _treasure() {
+    case "$1" in
+      GOLD|DIAMONDS|SILVER|JEWELRY|COINS|CHEST|VASE|RUG|EGGS|TRIDENT|EMERALD|PYRAMID|PEARL|CHAIN)
+        return 0 ;;
+    esac; return 1
+  }
+  _dark() {
+    case "$ROOM" in road|hill|building|valley|forest|slit|outside_grate) return 1;; esac
+    [[ "${ITEMS[LAMP]:-}" == "inv" ]] && (( LAMP_LIT )) && return 1
+    return 0
+  }
+  _lamp_check() {
+    [[ "${ITEMS[LAMP]:-}" != "inv" ]] && return
+    (( LAMP_LIFE-- ))
+    if (( LAMP_LIFE == 50 && !BATTERY_LOW )); then
+      blank; dg "Your lamp is getting dim.  You'll need more oil soon."; blank; BATTERY_LOW=1
+    elif (( LAMP_LIFE <= 0 )); then
+      LAMP_LIT=0; blank; dg "Your lamp has run out of oil!"; blank
+    fi
+  }
+  _dwarves() {
+    (( MOVES < 30 )) && return
+    case "$ROOM" in road|hill|building|valley|forest|slit|outside_grate|below_grate|cobble) return;; esac
+    if (( RANDOM % 10 == 0 )); then
+      blank
+      if _has "AXE"; then
+        g "A dwarf attacks!  You throw your axe and it flees."
+        _put "AXE" "$ROOM"
+      else
+        g "A little dwarf with a big knife blocks your path!"
+        _adv_die "The dwarf stabs you."
+      fi
+      blank
+    elif (( RANDOM % 16 == 0 )); then
+      blank; g "A dwarf threw an axe at you and missed!"; ITEMS[AXE]="$ROOM"; blank
+    fi
+  }
+  _pirate() {
+    (( !PIRATE_ACTIVE || MOVES < 40 )) && return
+    [[ "$ROOM" == "pirate_lair" ]] && return
+    local has_t=0 t
+    for t in GOLD DIAMONDS SILVER JEWELRY COINS VASE RUG EGGS TRIDENT EMERALD PYRAMID PEARL CHAIN; do
+      _has "$t" && { has_t=1; break; }
+    done
+    (( !has_t || RANDOM % 18 != 0 )) && return
+    blank
+    g "Out from the shadows lunges a bearded pirate!  \"Har har!\" he cries,"
+    g "snatching your treasure.  He vanishes into the dark."
+    blank
+    for t in GOLD DIAMONDS SILVER JEWELRY COINS VASE RUG EGGS TRIDENT EMERALD PYRAMID PEARL CHAIN; do
+      _has "$t" && _put "$t" "pirate_lair"
+    done
+    [[ "${ITEMS[CHEST]:-}" == "gone" ]] && ITEMS[CHEST]="pirate_lair"
+    PIRATE_ACTIVE=0
+  }
+  _adv_die() {
+    blank; g "${1:-You are dead.}"; blank; sleep 0.5
+    (( DEATHS++ ))
+    if (( DEATHS >= 3 )); then
+      g "It appears that it is taking you an inordinately long time to"
+      g "get out of the cave.  I'm afraid you're completely dead."
+      blank; g "Your score: $SCORE."; blank; ADV_ON=0; return
+    fi
+    g "There is a loud explosion, and you find yourself sitting next to"
+    g "the road at the start, your clothes in tatters."
+    g "Your possessions have been scattered hereabouts."
+    blank
+    local _it; for _it in "${INV[@]:-}"; do ITEMS[$_it]="road"; done; INV=()
+    ROOM="road"; _adv_look
+  }
+
+  # ── Room descriptions ───────────────────────────────────────────────────────
   _adv_look() {
     blank
-    case "$AROOM" in
-      glade)
-        g "SUNLIT GLADE"
+    if _dark; then
+      dg "It is pitch dark.  You are likely to be eaten by a grue."; blank; return
+    fi
+    case "$ROOM" in
+      road)
+        g "AT END OF ROAD"
         blank
-        g "You are standing in a sunlit glade at the edge of a dense forest."
-        g "A worn path leads east toward a dark hillside where the mouth of"
-        g "a cave is barely visible among the rocks."
-        blank; g "Exits: EAST" ;;
-      cave)
-        g "CAVE ENTRANCE"
+        g "You are standing at the end of a road before a small brick building."
+        g "Around you is a forest.  A small stream flows out of the building"
+        g "and down a gully." ;;
+      hill)
+        g "ON HILL IN ROAD"
         blank
-        g "You are just inside the cave entrance. Stone walls, cool and damp."
-        g "A passage leads back west toward daylight; another descends steeply"
-        g "into darkness below."
+        g "You have walked up a hill, still in the forest.  The road slopes"
+        g "back down the other side.  There is a building in the distance." ;;
+      building)
+        g "INSIDE BUILDING"
         blank
-        (( ALAMP == 0 )) && g "A brass oil lamp sits on a rocky ledge."
-        g "Exits: WEST, DOWN" ;;
-      dark)
-        if _adv_has "lamp"; then
-          g "DARK PASSAGE"
-          blank
-          g "A narrow passage winds through solid rock. By lamplight the walls"
-          g "glisten with moisture. The passage continues north; behind you,"
-          g "the way leads up."
-          blank; g "Exits: UP, NORTH"
+        g "You are inside a building, a well house for a large spring.  The"
+        g "stream flows out through a pair of 1 foot diameter sewer pipes."
+        blank
+        dg "(Deposit treasures here to score.)" ;;
+      valley)
+        g "IN VALLEY"
+        blank
+        g "You are in a valley in the forest beside a stream tumbling along"
+        g "a rocky bed." ;;
+      forest)
+        g "IN FOREST"
+        blank
+        g "You are in open forest, with a deep valley to one side." ;;
+      slit)
+        g "AT SLIT IN STREAMBED"
+        blank
+        g "At your feet all the water of the stream splashes into a 2-inch"
+        g "slit in the rock.  Downstream the streambed is bare rock." ;;
+      outside_grate)
+        g "OUTSIDE GRATE"
+        blank
+        g "You are in a 20-foot depression floored with bare dirt.  Set into"
+        g "the dirt is a strong steel grate mounted in concrete.  A dry"
+        g "streambed leads into the depression from the north."
+        (( GRATE_LOCKED )) && g "The grate is locked." || g "The grate is open." ;;
+      below_grate)
+        g "BELOW THE GRATE"
+        blank
+        g "You are in a small chamber beneath a 3x3 steel grate to the surface."
+        g "A low crawl over cobbles leads inward to the west." ;;
+      cobble)
+        g "IN COBBLE CRAWL"
+        blank
+        g "You are crawling over cobbles in a low passage.  There is a dim"
+        g "light at the east end of the passage." ;;
+      debris)
+        g "DEBRIS ROOM"
+        blank
+        g "You are in a debris room filled with stuff washed in from the surface."
+        g "A low wide passage with cobbles becomes plugged with mud and debris"
+        g "here, but an awkward canyon leads upward and west.  A note on the"
+        g "wall says:  \"MAGIC WORD XYZZY\"" ;;
+      awkward)
+        g "AWKWARD SLOPING E/W CANYON"
+        blank
+        g "You are in an awkward sloping east/west canyon." ;;
+      bird_chamber)
+        g "BIRD CHAMBER"
+        blank
+        g "You are in a splendid chamber thirty feet high.  The walls are"
+        g "frozen rivers of orange stone.  An awkward canyon and a good"
+        g "passage exit from east and west sides of the chamber."
+        [[ "$BIRD_LOC" == "bird_chamber" ]] && g "A cheerful little bird is sitting here singing." ;;
+      small_pit)
+        g "AT TOP OF SMALL PIT"
+        blank
+        g "At your feet is a small pit breathing traces of white mist.  An"
+        g "east passage ends here except for a small crack leading on."
+        g "Rough stone steps lead down the pit." ;;
+      hall_mists)
+        g "IN HALL OF MISTS"
+        blank
+        g "You are at one end of a vast hall stretching forward out of sight"
+        g "to the west.  There are openings to either side.  Nearby, a wide"
+        g "stone staircase leads downward.  The hall is filled with wisps of"
+        g "white mist swaying to and fro almost as if alive.  A hollow voice"
+        g "reverberates, \"PLUGH\"." ;;
+      east_fissure)
+        g "ON EAST BANK OF FISSURE"
+        blank
+        g "You are on the east bank of a fissure slicing clear across the hall."
+        g "The mist is quite thick here, and the fissure is too wide to jump."
+        (( BRIDGE )) && g "A crystal bridge now spans the fissure." ;;
+      west_fissure)
+        g "ON WEST BANK OF FISSURE"
+        blank
+        g "You are on the west side of the fissure in the Hall of Mists."
+        (( BRIDGE )) && g "A crystal bridge spans the fissure." ;;
+      low_ns)
+        g "LOW N/S PASSAGE"
+        blank
+        g "You are in a low north/south passage at a hole in the floor.  The"
+        g "hole goes down to an east/west passage." ;;
+      south_side)
+        g "SOUTH SIDE CHAMBER"
+        blank
+        g "You are in the south side chamber." ;;
+      west_side)
+        g "WEST SIDE CHAMBER"
+        blank
+        g "You are in the west side chamber of the Hall of Mists.  An eerie"
+        g "sound can be heard in the distance." ;;
+      hall_mt_king)
+        g "HALL OF THE MOUNTAIN KING"
+        blank
+        g "You are in the Hall of the Mountain King, with passages off in"
+        g "all directions."
+        (( SNAKE_HERE )) && g "A huge green fierce snake bars the way!" ;;
+      low_passage)
+        g "LOW PASSAGE"
+        blank
+        g "You are in a low passage parallel to and north of the Hall of"
+        g "the Mountain King." ;;
+      y2)
+        g "AT \"Y2\""
+        blank
+        g "You are in a large room, with a passage to the south, a passage"
+        g "to the west, and a wall of broken rock to the east.  There is a"
+        g "large \"Y2\" on a rock in the room's center." ;;
+      jumble)
+        g "JUMBLE OF ROCK"
+        blank
+        g "You are in a jumble of rock, with cracks everywhere." ;;
+      dirty)
+        g "DIRTY PASSAGE"
+        blank
+        g "You are in a dirty broken passage.  To the east is a crawl."
+        g "To the west is a large passage.  Above you is a hole to a passage." ;;
+      dusty)
+        g "DUSTY ROCK ROOM"
+        blank
+        g "You are in a large room full of dusty rocks.  There is a big hole"
+        g "in the floor.  There are cracks everywhere, and a passage leading east." ;;
+      complex)
+        g "COMPLEX JUNCTION"
+        blank
+        g "You are at a complex junction.  A low hands-and-knees passage from"
+        g "the north joins a higher crawl from the east to make a walking"
+        g "passage going west.  There is also a large room above (climb up)"
+        g "and a hole going down." ;;
+      bedquilt)
+        g "IN BEDQUILT"
+        blank
+        g "You are in bedquilt, a long east/west passage with holes everywhere." ;;
+      twopit)
+        g "IN TWOPIT ROOM"
+        blank
+        g "You are in a large low circular chamber whose floor is an interlocking"
+        g "arrangement of huge honeycombed rocks.  Empty pits are everywhere." ;;
+      plover_room)
+        g "IN PLOVER ROOM"
+        blank
+        g "You are in a small chamber lit by an eerie green light.  An extremely"
+        g "narrow tunnel exits to the west.  A dark corridor leads northeast." ;;
+      dark_room)
+        g "IN DARK ROOM"
+        blank
+        g "You are in the Dark Room.  A corridor leads southwest." ;;
+      alcove)
+        g "IN ALCOVE"
+        blank
+        g "You are in an alcove.  A small northwest passage seems to widen"
+        g "after a short distance.  An extremely tight tunnel leads east." ;;
+      oriental)
+        g "IN ORIENTAL ROOM"
+        blank
+        g "This is the oriental room.  Ancient oriental cave drawings cover"
+        g "the walls.  A gently sloping passage leads upward to the north,"
+        g "another goes east, and a rough inhospitable one to the south." ;;
+      misty)
+        g "IN MISTY CAVERN"
+        blank
+        g "You are following a wide path around the outer edge of a large"
+        g "cavern.  Far below, through a heavy white mist, strange lights can"
+        g "be seen.  Footing is difficult here." ;;
+      slab)
+        g "IN SLAB ROOM"
+        blank
+        g "You are in a large low room.  Rough slabs of rock support the ceiling." ;;
+      giant_room)
+        g "GIANT ROOM"
+        blank
+        g "You are in the Giant Room.  The ceiling here is too high up for"
+        g "your lamp to illuminate it.  Cavernous passages lead east, north,"
+        g "and south.  On the wall is scrawled:  \"FEE FIE FOE FOO\"" ;;
+      nugget_room)
+        g "LARGE LOW ROOM"
+        blank
+        g "You are in a large low room.  The walls are mostly crumbling rock"
+        g "except for a rough stone passage to the east." ;;
+      bear_room)
+        g "SECRET N/E CANYON"
+        blank
+        g "You are in a secret canyon which exits to the north and east."
+        (( BEAR_CHAINED )) && g "A menacing bear is chained to the wall here."
+        (( BEAR_TAME && !BEAR_CHAINED )) && g "There is a contented bear here." ;;
+      secret_canyon)
+        g "SECRET CANYON"
+        blank
+        if (( DRAGON_ALIVE )); then
+          g "You are in a secret canyon.  A huge green fierce dragon bars the"
+          g "passage from east to west.  Its eyes gleam with fierce hunger."
         else
-          g "DARK PASSAGE"
-          blank
-          dg "It is pitch dark. You are likely to be eaten by a grue."
-          blank; dg "(You cannot see any exits.)"
+          g "You are in a secret canyon.  The body of a huge dead dragon"
+          g "is lying off to one side of the passage."
         fi ;;
-      stream)
-        g "UNDERGROUND STREAM"
+      troll_bridge)
+        g "BRIDGE OVER CHASM"
         blank
-        g "An underground stream flows through a low cavern. The water runs"
-        g "clear and cold over smooth stones. A passage leads south; a wider"
-        g "tunnel opens to the east."
+        g "A rickety wooden bridge extends across the chasm, vanishing into"
+        g "the mist.  A sign posted by the chasm reads:  \"STOP! PAY TROLL!\""
+        (( TROLL_HERE )) && g "A burly troll stands by the bridge demanding a treasure." ;;
+      reservoir)
+        g "AT RESERVOIR"
         blank
-        (( AKEY == 0 )) && g "A brass key glints on a rock beside the stream."
-        g "Exits: SOUTH, EAST" ;;
-      hall)
-        g "GREAT HALL"
+        g "You are at the edge of a large underground reservoir.  An opaque"
+        g "cloud of white mist fills the room and rises rapidly." ;;
+      maze1|maze2|maze3|maze4|maze5)
+        g "MAZE OF TWISTY LITTLE PASSAGES"
         blank
-        g "A vast underground hall. Stone columns rise to a vaulted ceiling."
-        g "The silence is absolute. A passage leads west toward the stream;"
-        if (( AVAULT )); then g "to the east, a heavy stone door stands open."
-        else                  g "to the east, a heavy stone door is sealed with a brass lock."
-        fi
-        blank; g "Exits: WEST, EAST" ;;
-      vault)
-        g "TREASURE VAULT"
+        g "You are in a maze of twisty little passages, all alike." ;;
+      dead_end)
+        g "DEAD END"
         blank
-        g "A small stone chamber, absolutely still, undisturbed for centuries."
+        g "Dead end." ;;
+      pirate_lair)
+        g "PIRATE'S LAIR"
         blank
-        (( AWIN == 0 )) && g "On a stone pedestal rests a brilliant diamond, the size of a fist."
-        blank; g "Exits: WEST" ;;
+        g "Dead end.  You have found the pirate's secret hideout!" ;;
     esac
+    blank
+    # List items in room
+    local _it
+    for _it in LAMP CAGE ROD KEYS FOOD BOTTLE GOLD DIAMONDS SILVER JEWELRY \
+               COINS CHEST VASE RUG EGGS TRIDENT EMERALD PYRAMID PEARL CHAIN AXE; do
+      [[ "${ITEMS[$_it]:-}" != "$ROOM" ]] && continue
+      case "$_it" in
+        LAMP)     g "There is a shiny brass lamp here." ;;
+        CAGE)     [[ "$BIRD_LOC" == "inv" ]] && g "There is a small cage (with bird) here." \
+                                              || g "There is a small wicker cage here." ;;
+        ROD)      g "There is a black rod with a rusty star on the end here." ;;
+        KEYS)     g "There is a set of keys here." ;;
+        FOOD)     g "There is food here." ;;
+        BOTTLE)   g "There is an empty bottle here." ;;
+        GOLD)     g "There is a large sparkling nugget of gold here!" ;;
+        DIAMONDS) g "There are diamonds here!" ;;
+        SILVER)   g "There are bars of silver here!" ;;
+        JEWELRY)  g "There is precious jewelry here!" ;;
+        COINS)    g "There are many coins here!" ;;
+        CHEST)    g "There is a treasure chest here!" ;;
+        VASE)     (( VASE_BROKEN )) && g "There are some worthless shards of pottery here." \
+                                    || g "There is a Ming vase here!" ;;
+        RUG)      g "There is a Persian rug spread out on the floor here!" ;;
+        EGGS)     g "There is a large nest here, full of golden eggs!" ;;
+        TRIDENT)  g "There is a jewel-encrusted trident here!" ;;
+        EMERALD)  g "There is an emerald the size of a plover's egg here!" ;;
+        PYRAMID)  g "There is a platinum pyramid here, 8 inches on a side!" ;;
+        PEARL)    g "There is a glistening pearl here!" ;;
+        CHAIN)    g "There is a golden chain lying here!" ;;
+        AXE)      g "There is a dwarf's axe lying here." ;;
+      esac
+    done
+    [[ "$BIRD_LOC" == "$ROOM" ]] && g "There is a little bird here, singing."
     blank
   }
 
-  # ── Intro ──────────────────────────────────────────────────────────────────
+  # ── Movement ────────────────────────────────────────────────────────────────
+  _adv_go() {
+    local dir="$1" dest="" ok=1
+    case "$ROOM:$dir" in
+      road:w|road:u|road:hill)                   dest="hill" ;;
+      road:e|road:in|road:building)              dest="building" ;;
+      road:s|road:d|road:valley)                 dest="valley" ;;
+      road:n|road:forest)                        dest="forest" ;;
+      hill:e|hill:d|hill:road)                   dest="road" ;;
+      hill:w|hill:forest)                        dest="forest" ;;
+      building:w|building:out)                   dest="road" ;;
+      valley:n|valley:u|valley:road)             dest="road" ;;
+      valley:s|valley:d)                         dest="slit" ;;
+      valley:w|valley:forest)                    dest="forest" ;;
+      forest:e|forest:valley)                    dest="valley" ;;
+      forest:w|forest:road)                      dest="road" ;;
+      forest:n|forest:s)                         dest="forest" ;;
+      slit:n|slit:u|slit:valley)                 dest="valley" ;;
+      slit:s|slit:d)                             dest="outside_grate" ;;
+      outside_grate:n|outside_grate:slit)        dest="slit" ;;
+      outside_grate:d|outside_grate:in)
+        (( !GRATE_LOCKED )) && dest="below_grate" || { blank; g "The grate is locked."; blank; ok=0; } ;;
+      below_grate:u|below_grate:out)
+        (( !GRATE_LOCKED )) && dest="outside_grate" || { blank; g "The grate is locked from below."; blank; ok=0; } ;;
+      below_grate:w)                             dest="cobble" ;;
+      cobble:e)                                  dest="below_grate" ;;
+      cobble:w)                                  dest="debris" ;;
+      debris:e)                                  dest="cobble" ;;
+      debris:w|debris:u|debris:canyon)           dest="awkward" ;;
+      awkward:e|awkward:d)                       dest="debris" ;;
+      awkward:w)                                 dest="bird_chamber" ;;
+      bird_chamber:e)                            dest="awkward" ;;
+      bird_chamber:w|bird_chamber:pit)           dest="small_pit" ;;
+      small_pit:e)                               dest="bird_chamber" ;;
+      small_pit:d)                               dest="hall_mists" ;;
+      hall_mists:u|hall_mists:stairs)            dest="small_pit" ;;
+      hall_mists:n|hall_mists:low)               dest="low_ns" ;;
+      hall_mists:s|hall_mists:hall)              dest="hall_mt_king" ;;
+      hall_mists:w|hall_mists:fissure)           dest="east_fissure" ;;
+      east_fissure:e|east_fissure:hall)          dest="hall_mists" ;;
+      east_fissure:w|east_fissure:jump|east_fissure:cross)
+        (( BRIDGE )) && dest="west_fissure" || { blank; g "The fissure is too wide to jump."; blank; ok=0; } ;;
+      west_fissure:e)
+        (( BRIDGE )) && dest="east_fissure" || { blank; g "There is no way across."; blank; ok=0; } ;;
+      west_fissure:w)                            dest="west_side" ;;
+      low_ns:s|low_ns:hall)                      dest="hall_mists" ;;
+      low_ns:n)                                  dest="low_passage" ;;
+      low_ns:w|low_ns:d)                         dest="south_side" ;;
+      south_side:e|south_side:u)                 dest="low_ns" ;;
+      west_side:e)                               dest="west_fissure" ;;
+      hall_mt_king:n)                            dest="low_passage" ;;
+      hall_mt_king:s|hall_mt_king:w|hall_mt_king:e)
+        if (( SNAKE_HERE )); then blank; g "You can't get past the snake!"; blank; ok=0
+        else case "$dir" in s) dest="misty";; w) dest="west_side";; e) dest="low_ns";; esac; fi ;;
+      low_passage:s|low_passage:hall)            dest="hall_mt_king" ;;
+      low_passage:n)                             dest="y2" ;;
+      y2:s|y2:hall)                              dest="low_passage" ;;
+      y2:w)                                      dest="jumble" ;;
+      y2:n)                                      dest="dirty" ;;
+      jumble:e|jumble:y2)                        dest="y2" ;;
+      jumble:u)                                  dest="hall_mists" ;;
+      dirty:s|dirty:y2)                          dest="y2" ;;
+      dirty:e)                                   dest="dusty" ;;
+      dirty:w)                                   dest="complex" ;;
+      dirty:n|dirty:u)                           dest="maze1" ;;
+      dusty:w)                                   dest="dirty" ;;
+      dusty:e)                                   dest="bedquilt" ;;
+      complex:e)                                 dest="dusty" ;;
+      complex:n)                                 dest="bedquilt" ;;
+      complex:u)                                 dest="giant_room" ;;
+      complex:d)                                 dest="low_passage" ;;
+      bedquilt:w)                                dest="complex" ;;
+      bedquilt:n)                                dest="twopit" ;;
+      bedquilt:e)                                dest="slab" ;;
+      slab:w)                                    dest="bedquilt" ;;
+      slab:u)                                    dest="giant_room" ;;
+      slab:s|slab:oriental)                      dest="oriental" ;;
+      twopit:s|twopit:bedquilt)                  dest="bedquilt" ;;
+      twopit:w)                                  dest="plover_room" ;;
+      giant_room:w|giant_room:d)                 dest="complex" ;;
+      giant_room:e)                              dest="nugget_room" ;;
+      giant_room:n)                              dest="misty" ;;
+      giant_room:s)                              dest="slab" ;;
+      nugget_room:w|nugget_room:giant)           dest="giant_room" ;;
+      plover_room:e|plover_room:twopit)          dest="twopit" ;;
+      plover_room:ne)                            dest="dark_room" ;;
+      plover_room:w|plover_room:alcove)          dest="alcove" ;;
+      dark_room:sw|dark_room:plover)             dest="plover_room" ;;
+      alcove:e)                                  dest="plover_room" ;;
+      alcove:nw)                                 dest="oriental" ;;
+      oriental:s|oriental:d)                     dest="slab" ;;
+      oriental:n|oriental:u)                     dest="misty" ;;
+      oriental:e)                                dest="alcove" ;;
+      misty:n|misty:oriental)                    dest="oriental" ;;
+      misty:s|misty:giant)                       dest="giant_room" ;;
+      misty:e|misty:hall)                        dest="hall_mt_king" ;;
+      misty:w|misty:chasm)                       dest="troll_bridge" ;;
+      troll_bridge:e|troll_bridge:misty)         dest="misty" ;;
+      troll_bridge:w|troll_bridge:cross)
+        (( !TROLL_HERE )) && dest="bear_room" || { blank; g "The troll refuses to let you pass."; blank; ok=0; } ;;
+      bear_room:e|bear_room:troll)               dest="troll_bridge" ;;
+      bear_room:n)
+        (( BEAR_CHAINED && !BEAR_TAME )) && { blank; g "The bear won't let you by."; blank; ok=0; } || dest="secret_canyon" ;;
+      secret_canyon:s|secret_canyon:bear)        dest="bear_room" ;;
+      secret_canyon:n|secret_canyon:e)
+        (( DRAGON_ALIVE )) && { blank; g "The dragon blocks the way!"; blank; ok=0; } || dest="reservoir" ;;
+      reservoir:s|reservoir:canyon)              dest="secret_canyon" ;;
+      maze1:n)  dest="maze2" ;; maze1:e)         dest="maze3" ;;
+      maze1:s|maze1:w|maze1:u|maze1:d)           dest="dead_end" ;;
+      maze2:s)  dest="maze1" ;; maze2:n|maze2:e) dest="maze3" ;;
+      maze2:w|maze2:u|maze2:d)                   dest="dead_end" ;;
+      maze3:w)  dest="maze1" ;; maze3:s)         dest="maze2" ;; maze3:n) dest="maze4" ;;
+      maze3:e|maze3:u|maze3:d)                   dest="dead_end" ;;
+      maze4:s)  dest="maze3" ;; maze4:n)         dest="maze5" ;;
+      maze4:e|maze4:w|maze4:u|maze4:d)           dest="dead_end" ;;
+      maze5:s)  dest="maze4" ;; maze5:w)         dest="pirate_lair" ;;
+      maze5:n|maze5:e|maze5:u|maze5:d)           dest="dead_end" ;;
+      dead_end:*)                                dest="maze1" ;;
+      pirate_lair:e)                             dest="maze5" ;;
+      pirate_lair:*)                             dest="dead_end" ;;
+      *)  blank; g "I can't go that way."; blank; ok=0 ;;
+    esac
+    if (( ok )) && [[ -n "$dest" ]]; then
+      ROOM="$dest"; (( MOVES++ ))
+      if _dark && (( RANDOM % 6 == 0 )); then
+        _adv_die "You stumbled in the dark and fell into a pit."; return
+      fi
+      _lamp_check; _dwarves; _pirate; _adv_look
+    fi
+  }
+
+  # ── Intro ────────────────────────────────────────────────────────────────────
   printf '%s' "$_CLR"; draw_screen; tput cup "$SCREEN_HEIGHT" 0
   blank
   g "ADVENTURE"
-  dg "Colossal Cave  --  adapted for 4.3BSD  --  /usr/games/adventure"
+  dg "Colossal Cave  --  Crowther & Woods, 1976  --  4.3BSD port"
   blank
-  dg "Type HELP for commands, QUIT to return to the shell."
+  g "Somewhere nearby is Colossal Cave, where others have found fortunes"
+  g "in treasure and gold, though it is rumored that some who enter are"
+  g "never seen again.  Magic is said to work in the cave.  I will be"
+  g "your eyes and hands.  Direct me with commands of 1 or 2 words."
+  blank
+  dg "Type HELP for commands."
   blank
   _adv_look
 
-  # ── Game loop ──────────────────────────────────────────────────────────────
-  local adv_on=1
-  while (( adv_on )); do
+  # ── Game loop ────────────────────────────────────────────────────────────────
+  while (( ADV_ON )); do
     printf '%s' "${_BG}> ${_R}${_G}"
     local raw; IFS= read -r raw || { printf '%s\n' "$_R"; break; }
     printf '%s' "$_R"
@@ -374,159 +816,335 @@ run_adventure() {
     [[ "$noun" == "$verb" ]] && noun=""
     noun="${noun#the }"; noun="${noun#a }"; noun="${noun#an }"
 
+    # Direction shortcuts
+    local _dir=""
     case "$verb" in
-      n|north) verb="go"; noun="north" ;;
-      s|south) verb="go"; noun="south" ;;
-      e|east)  verb="go"; noun="east"  ;;
-      w|west)  verb="go"; noun="west"  ;;
-      u|up)    verb="go"; noun="up"    ;;
-      d|down)  verb="go"; noun="down"  ;;
+      n|north) _dir="n" ;; s|south) _dir="s" ;; e|east)  _dir="e" ;; w|west) _dir="w" ;;
+      u|up)    _dir="u" ;; d|down)  _dir="d" ;; ne)      _dir="ne" ;; nw)    _dir="nw" ;;
+      se)      _dir="se";; sw)      _dir="sw";; in|enter) _dir="in" ;;
     esac
-    [[ "$verb" == "go" ]] && case "$noun" in
-      n|north) noun="north" ;; s|south) noun="south" ;;
-      e|east)  noun="east"  ;; w|west)  noun="west"  ;;
-      u|up)    noun="up"    ;; d|down)  noun="down"  ;;
-    esac
+    if [[ -n "$_dir" ]]; then _adv_go "$_dir"; continue; fi
+    if [[ "$verb" == "go" ]]; then
+      local _d2=""
+      case "$noun" in
+        n|north) _d2="n";; s|south) _d2="s";; e|east) _d2="e";; w|west) _d2="w";;
+        u|up) _d2="u";; d|down) _d2="d";; ne) _d2="ne";; nw) _d2="nw";;
+        se) _d2="se";; sw) _d2="sw";; in|enter|inside|cave|grate) _d2="in";;
+        building|house) _d2="building";; valley) _d2="valley";; hill) _d2="hill";;
+        *) blank; g "Go where?"; blank ;;
+      esac
+      [[ -n "$_d2" ]] && _adv_go "$_d2"; continue
+    fi
 
     case "$verb" in
 
-      go)
-        local dest="" blocked=0
-        case "$AROOM" in
-          glade)  [[ "$noun" == "east"  ]] && dest="cave" ;;
-          cave)   [[ "$noun" == "west"  ]] && dest="glade"
-                  [[ "$noun" == "down"  ]] && dest="dark" ;;
-          dark)   [[ "$noun" == "up"    ]] && dest="cave"
-                  if [[ "$noun" == "north" ]]; then
-                    if _adv_has "lamp"; then dest="stream"
-                    else blank; dg "You stumble blindly. Something brushes past you."; dg "You scramble back the way you came."; blank; blocked=1; fi
-                  fi ;;
-          stream) [[ "$noun" == "south" ]] && dest="dark"
-                  [[ "$noun" == "east"  ]] && dest="hall" ;;
-          hall)   [[ "$noun" == "west"  ]] && dest="stream"
-                  if [[ "$noun" == "east" ]]; then
-                    if (( AVAULT )); then dest="vault"
-                    elif _adv_has "key"; then
-                      blank; g "You fit the brass key into the lock. The door grinds open."; blank
-                      AVAULT=1; (( ASCORE += 15 )); dest="vault"
-                    else blank; g "The door is sealed with a brass lock. It won't budge."; blank; blocked=1; fi
-                  fi ;;
-          vault)  [[ "$noun" == "west"  ]] && dest="hall" ;;
-        esac
-        if   [[ -n "$dest"  ]]; then AROOM="$dest"; _adv_look
-        elif (( !blocked   )); then blank; g "You can't go that way."; blank
-        fi ;;
+      look|l)  _adv_look ;;
 
-      look|l)    _adv_look ;;
-
-      examine|x|inspect)
-        blank
-        case "$noun" in
-          lamp|"oil lamp"|"brass lamp")
-            if   _adv_has "lamp";                             then g "A brass oil lamp, warm in your hand. Burns steadily."
-            elif [[ "$AROOM" == "cave" && "$ALAMP" -eq 0 ]]; then g "A well-made brass oil lamp. Still has fuel."
-            else g "You don't see that here."; fi ;;
-          key|"brass key")
-            if   _adv_has "key";                               then g "A small brass key. Old but solid."
-            elif [[ "$AROOM" == "stream" && "$AKEY" -eq 0 ]]; then g "A brass key on a flat rock. Looks recently placed."
-            else g "You don't see that here."; fi ;;
-          diamond|gem|jewel|"brilliant diamond")
-            if   _adv_has "diamond";                             then g "A brilliant diamond. Catches even the faintest light."
-            elif [[ "$AROOM" == "vault"  && "$AWIN" -eq 0 ]];   then g "An enormous diamond, perfectly clear. Ancient."
-            else g "You don't see that here."; fi ;;
-          door|lock)
-            if [[ "$AROOM" == "hall" ]]; then
-              if (( AVAULT )); then g "The door stands open."
-              else g "A heavy stone door with a brass lock. Very old."; fi
-            else g "You don't see that here."; fi ;;
-          stream|water)
-            if [[ "$AROOM" == "stream" ]]; then g "Clear and cold. You're not thirsty."
-            else g "There is no stream here."; fi ;;
-          *) g "Nothing of particular note." ;;
-        esac
-        blank ;;
-
-      take|get|grab|pick)
+      take|get|pick|grab)
         [[ "$verb" == "pick" && "${noun:0:3}" == "up " ]] && noun="${noun#up }"
-        blank
+        local _ti=""
         case "$noun" in
-          lamp|"oil lamp"|"brass lamp")
-            if   [[ "$AROOM" == "cave" && "$ALAMP" -eq 0 ]]; then AINV+=("lamp"); ALAMP=1; (( ASCORE+=10 )); g "Taken."
-            elif _adv_has "lamp";                             then g "You already have it."
-            else g "There is no lamp here."; fi ;;
-          key|"brass key")
-            if   [[ "$AROOM" == "stream" && "$AKEY" -eq 0 ]]; then AINV+=("key"); AKEY=1; (( ASCORE+=20 )); g "Taken."
-            elif _adv_has "key";                               then g "You already have it."
-            else g "There is no key here."; fi ;;
-          diamond|gem|jewel|"brilliant diamond")
-            if [[ "$AROOM" == "vault" && "$AWIN" -eq 0 ]]; then
-              AINV+=("diamond"); AWIN=1; (( ASCORE+=55 ))
-              g "You lift the diamond from its pedestal. It is heavier than"
-              g "expected, and warm to the touch."
-              blank
-              g "A low rumble moves through the cave."
-              blank
-              g "             * * *  YOUR SCORE: $ASCORE / 100  * * *"
-              blank
-              dg "(Type QUIT to return to the shell, or keep exploring.)"
-            elif _adv_has "diamond"; then g "You already have it."
-            else g "There is nothing to take here."; fi ;;
-          *) g "I don't see that here." ;;
+          lamp|lantern|"brass lamp")           _ti="LAMP"     ;;
+          cage|"wicker cage"|"small cage")     _ti="CAGE"     ;;
+          rod|"black rod"|"rusty rod")         _ti="ROD"      ;;
+          keys|key|"set of keys")              _ti="KEYS"     ;;
+          food|rations|"tasty food")           _ti="FOOD"     ;;
+          bottle|"empty bottle")               _ti="BOTTLE"   ;;
+          gold|nugget|"gold nugget")           _ti="GOLD"     ;;
+          diamonds|diamond)                    _ti="DIAMONDS" ;;
+          silver|bars|"silver bars")           _ti="SILVER"   ;;
+          jewelry|jewels|"precious jewelry")   _ti="JEWELRY"  ;;
+          coins|"old coins")                   _ti="COINS"    ;;
+          chest|"treasure chest")              _ti="CHEST"    ;;
+          vase|"ming vase")                    _ti="VASE"     ;;
+          rug|"persian rug")                   _ti="RUG"      ;;
+          eggs|egg|"golden eggs")              _ti="EGGS"     ;;
+          trident|"jeweled trident")           _ti="TRIDENT"  ;;
+          emerald)                             _ti="EMERALD"  ;;
+          pyramid|"platinum pyramid")          _ti="PYRAMID"  ;;
+          pearl|"glistening pearl")            _ti="PEARL"    ;;
+          chain|"golden chain")                _ti="CHAIN"    ;;
+          axe|"dwarf's axe"|"dwarfs axe")     _ti="AXE"      ;;
+          bird)
+            if [[ "$BIRD_LOC" == "$ROOM" ]]; then
+              if _has "CAGE"; then
+                if _has "ROD"; then blank; g "The bird is frightened by the rod and won't let you near."; blank
+                else blank; g "You catch the bird in the cage."; blank; BIRD_LOC="inv"; fi
+              else blank; g "You have nothing to carry the bird in."; blank; fi
+            elif [[ "$BIRD_LOC" == "inv" ]]; then blank; g "The bird is already caged."; blank
+            else blank; g "You see no bird here."; blank; fi
+            continue ;;
+          *) blank; g "I don't see that here."; blank; continue ;;
         esac
+        blank
+        if [[ "${ITEMS[$_ti]:-}" == "$ROOM" ]]; then
+          [[ "$_ti" == "CHAIN" ]] && (( BEAR_CHAINED )) && { g "The chain is secured to the bear."; blank; continue; }
+          _take "$_ti"; g "OK."; _treasure "$_ti" && (( SCORE += 2 ))
+        elif _has "$_ti"; then g "You're already carrying it!"
+        else g "I don't see that here."; fi
         blank ;;
 
-      drop|leave|put)
-        local drop_tgt=""
+      drop|leave|put|throw)
+        local _di=""
         case "$noun" in
-          lamp|"oil lamp")           drop_tgt="lamp"    ;;
-          key|"brass key")           drop_tgt="key"     ;;
-          diamond|gem|"brilliant"*)  drop_tgt="diamond" ;;
+          lamp|lantern)           _di="LAMP"    ;; cage)               _di="CAGE"    ;;
+          rod|"black rod")        _di="ROD"     ;; keys|key)           _di="KEYS"    ;;
+          food)                   _di="FOOD"    ;; bottle)             _di="BOTTLE"  ;;
+          gold|nugget)            _di="GOLD"    ;; diamonds|diamond)   _di="DIAMONDS";;
+          silver|bars)            _di="SILVER"  ;; jewelry|jewels)     _di="JEWELRY" ;;
+          coins)                  _di="COINS"   ;; chest)              _di="CHEST"   ;;
+          vase)                   _di="VASE"    ;; rug)                _di="RUG"     ;;
+          eggs|egg)               _di="EGGS"    ;; trident)            _di="TRIDENT" ;;
+          emerald)                _di="EMERALD" ;; pyramid)            _di="PYRAMID" ;;
+          pearl)                  _di="PEARL"   ;; chain|"golden chain") _di="CHAIN" ;;
+          axe)                    _di="AXE"     ;;
+          bird)
+            if [[ "$BIRD_LOC" == "inv" ]]; then
+              blank
+              if [[ "$ROOM" == "hall_mt_king" ]] && (( SNAKE_HERE )); then
+                g "The bird attacks the snake's eyes!  The snake flees into the dark."
+                BIRD_LOC="gone"; SNAKE_HERE=0; (( SCORE += 15 ))
+              elif [[ "$ROOM" == "troll_bridge" ]] && (( TROLL_HERE )); then
+                g "The troll swats your bird away.  It is dead."; BIRD_LOC="gone"
+              else
+                g "You release the bird.  It flies away."; BIRD_LOC="$ROOM"
+              fi
+              blank
+            else blank; g "You aren't carrying the bird."; blank; fi
+            continue ;;
+          *) blank; g "You aren't carrying that."; blank; continue ;;
         esac
         blank
-        if [[ -n "$drop_tgt" ]] && _adv_has "$drop_tgt"; then
-          local -a _nd=()
-          local _di; for _di in "${AINV[@]:-}"; do [[ "$_di" != "$drop_tgt" ]] && _nd+=("$_di"); done
-          AINV=("${_nd[@]:-}")
-          g "Dropped."
-        else
-          g "You're not carrying that."
-        fi
+        if [[ -n "$_di" ]] && _has "$_di"; then
+          # Throw treasure at troll
+          if [[ "$verb" == "throw" && "$ROOM" == "troll_bridge" ]] && (( TROLL_HERE )) && _treasure "$_di"; then
+            g "The troll snatches your treasure and sinks out of sight."
+            _put "$_di" "gone"; TROLL_HERE=0; blank; continue
+          fi
+          # Drop vase without rug
+          if [[ "$_di" == "VASE" ]] && ! _has "RUG"; then
+            g "The vase drops with a delicate crash."; VASE_BROKEN=1; _put "$_di"; blank; continue
+          fi
+          _put "$_di"; g "OK."
+          # Deposit treasure in building
+          if [[ "$ROOM" == "building" ]] && _treasure "$_di" && ! (( VASE_BROKEN && "$_di" == "VASE" )); then
+            local _already=0 _dep
+            for _dep in "${DEPOSITED[@]:-}"; do [[ "$_dep" == "$_di" ]] && { _already=1; break; }; done
+            if (( !_already )); then
+              DEPOSITED+=("$_di"); (( SCORE += 15 )); blank; g "Thank you."
+              if (( ${#DEPOSITED[@]} >= 14 )); then
+                blank
+                g "You have recovered all the treasure from the cave."
+                blank
+                g "Your total score is $SCORE points."
+                blank
+                dg "(Type QUIT to return to the shell.)"
+              fi
+            fi
+          fi
+        else g "You aren't carrying that."; fi
         blank ;;
 
       inventory|i|inv)
         blank
-        if (( ${#AINV[@]} == 0 )); then g "You are empty-handed."
+        if (( ${#INV[@]} == 0 )) && [[ "$BIRD_LOC" != "inv" ]]; then
+          g "You are carrying nothing."
         else
           g "You are carrying:"
-          local _it; for _it in "${AINV[@]}"; do g "  a ${_it}"; done
+          local _it; for _it in "${INV[@]:-}"; do
+            case "$_it" in
+              LAMP)     g "  a shiny brass lamp"     ;; CAGE)     [[ "$BIRD_LOC" == "inv" ]] && g "  a wicker cage (with bird)" || g "  a wicker cage" ;;
+              ROD)      g "  a black rod with a rusty star" ;; KEYS)     g "  a set of keys"         ;;
+              FOOD)     g "  food"                   ;; BOTTLE)   g "  an empty bottle"         ;;
+              GOLD)     g "  a gold nugget"           ;; DIAMONDS) g "  diamonds"                ;;
+              SILVER)   g "  silver bars"             ;; JEWELRY)  g "  precious jewelry"        ;;
+              COINS)    g "  coins"                   ;; CHEST)    g "  a treasure chest"        ;;
+              VASE)     g "  a Ming vase"             ;; RUG)      g "  a Persian rug"           ;;
+              EGGS)     g "  golden eggs"             ;; TRIDENT)  g "  a jeweled trident"       ;;
+              EMERALD)  g "  an emerald"              ;; PYRAMID)  g "  a platinum pyramid"      ;;
+              PEARL)    g "  a glistening pearl"      ;; CHAIN)    g "  a golden chain"          ;;
+              AXE)      g "  a dwarf's axe"           ;;
+            esac
+          done
         fi
         blank ;;
 
-      score)  blank; g "Your score is $ASCORE out of 100."; blank ;;
+      examine|x|inspect)
+        blank
+        case "$noun" in
+          lamp|lantern)
+            { _has "LAMP" || _here "LAMP"; } && g "A shiny brass lamp.  It is burning." || g "You don't see that." ;;
+          rod|"black rod")
+            { _has "ROD" || _here "ROD"; } && g "A jet-black rod with a rusty yellow star on the end." || g "You don't see that." ;;
+          cage)
+            { _has "CAGE" || _here "CAGE"; } && { [[ "$BIRD_LOC" == "inv" ]] && g "A small cage with a cheerful bird inside." || g "A small wicker cage."; } || g "You don't see that." ;;
+          bird)
+            if [[ "$BIRD_LOC" == "inv" ]]; then g "A cheerful little bird, now captive."
+            elif [[ "$BIRD_LOC" == "$ROOM" ]]; then g "A cheerful little bird, sitting and singing."
+            else g "There is no bird here."; fi ;;
+          snake)
+            [[ "$ROOM" == "hall_mt_king" ]] && (( SNAKE_HERE )) && g "A huge green fierce snake.  Very unhappy." || g "You don't see a snake." ;;
+          dragon)
+            [[ "$ROOM" == "secret_canyon" ]] && { (( DRAGON_ALIVE )) && g "An enormous dragon.  Very much alive." || g "A large dead dragon."; } || g "You don't see a dragon." ;;
+          troll)
+            [[ "$ROOM" == "troll_bridge" ]] && (( TROLL_HERE )) && g "A squat ugly troll demanding a treasure to pass." || g "You don't see a troll." ;;
+          bear)
+            [[ "$ROOM" == "bear_room" ]] && { (( BEAR_CHAINED )) && g "A large brown bear, chained to the wall." || g "A bear, no longer chained.  It seems friendly."; } || g "You don't see a bear." ;;
+          grate)
+            { [[ "$ROOM" == "outside_grate" ]] || [[ "$ROOM" == "below_grate" ]]; } && { (( GRATE_LOCKED )) && g "A heavy steel grate, firmly locked." || g "A steel grate, currently open."; } || g "You don't see a grate." ;;
+          fissure)
+            { [[ "$ROOM" == "east_fissure" ]] || [[ "$ROOM" == "west_fissure" ]]; } && { (( BRIDGE )) && g "A crystal bridge spans the fissure." || g "A deep fissure.  Far too wide to jump."; } || g "You don't see a fissure." ;;
+          *) g "Nothing special about it." ;;
+        esac
+        blank ;;
+
+      open|unlock)
+        blank
+        if { [[ "$ROOM" == "outside_grate" ]] || [[ "$ROOM" == "below_grate" ]]; }; then
+          _has "KEYS" && { GRATE_LOCKED=0; g "The grate is now unlocked."; } || g "You have nothing to unlock it with."
+        else g "I don't know how to open that here."; fi
+        blank ;;
+
+      lock|close)
+        blank
+        if { [[ "$ROOM" == "outside_grate" ]] || [[ "$ROOM" == "below_grate" ]]; } && _has "KEYS"; then
+          GRATE_LOCKED=1; g "The grate is now locked."
+        else g "I don't know how to do that."; fi
+        blank ;;
+
+      wave|swing)
+        blank
+        if { [[ "$noun" == "rod" ]] || [[ "$noun" == "black rod" ]]; } && _has "ROD"; then
+          if [[ "$ROOM" == "east_fissure" ]] || [[ "$ROOM" == "west_fissure" ]]; then
+            (( !BRIDGE )) && { BRIDGE=1; g "A crystal bridge now spans the fissure!"; (( SCORE += 10 )); } \
+                          || { BRIDGE=0; g "The crystal bridge vanishes!"; }
+          else g "Nothing happens."; fi
+        else g "Nothing happens."; fi
+        blank ;;
+
+      light|"turn on")
+        blank; _has "LAMP" && { LAMP_LIT=1; g "Your lamp is now on."; } || g "You have nothing to light."; blank ;;
+
+      extinguish|"turn off"|douse|off)
+        blank; _has "LAMP" && { LAMP_LIT=0; g "Your lamp is now off."; } || g "You have nothing to extinguish."; blank ;;
+
+      feed)
+        blank
+        if [[ "$noun" == "bear" ]] && [[ "$ROOM" == "bear_room" ]]; then
+          _has "FOOD" && {
+            g "The bear takes the food and seems tamer now."; BEAR_TAME=1
+            ITEMS[FOOD]="gone"
+            local -a _fb=(); local _di; for _di in "${INV[@]:-}"; do [[ "$_di" != "FOOD" ]] && _fb+=("$_di"); done; INV=("${_fb[@]:-}")
+          } || g "You have nothing to feed the bear."
+        elif [[ "$noun" == "troll" ]]; then g "Trolls aren't interested in food."
+        else g "There's nothing here to feed."; fi
+        blank ;;
+
+      free|unchain)
+        blank
+        [[ "$ROOM" == "bear_room" ]] && (( BEAR_TAME && BEAR_CHAINED )) && {
+          _has "KEYS" && { g "You free the bear.  It wanders off happily."; BEAR_CHAINED=0; ITEMS[CHAIN]="bear_room"; } \
+                      || g "You need the keys to undo the lock."
+        } || g "Nothing to free here."
+        blank ;;
+
+      drink)
+        blank
+        case "$ROOM" in
+          building|valley|reservoir|slit) g "You drink from the stream.  Refreshing." ;;
+          *) g "There is nothing to drink here." ;;
+        esac
+        blank ;;
+
+      eat)
+        blank
+        _has "FOOD" && {
+          g "Thank you, it was delicious!"
+          ITEMS[FOOD]="gone"
+          local -a _ef=(); local _di; for _di in "${INV[@]:-}"; do [[ "$_di" != "FOOD" ]] && _ef+=("$_di"); done; INV=("${_ef[@]:-}")
+        } || g "You have nothing to eat."
+        blank ;;
+
+      kill|attack|hit|fight)
+        blank
+        case "$noun" in
+          snake)
+            [[ "$ROOM" == "hall_mt_king" ]] && (( SNAKE_HERE )) && _adv_die "Attacking the snake proves fatal." || g "There's no snake here." ;;
+          dragon)
+            [[ "$ROOM" == "secret_canyon" ]] && (( DRAGON_ALIVE )) && g "With what, your bare hands?  (Say YES to try.)" || g "There's no dragon here." ;;
+          troll)
+            [[ "$ROOM" == "troll_bridge" ]] && (( TROLL_HERE )) && g "Trolls are hard to kill.  Throw it a treasure instead." || g "There's no troll here." ;;
+          dwarf)
+            _has "AXE" && {
+              g "You throw the axe.  It misses.  The dwarf scurries away."
+              _put "AXE" "$ROOM"
+            } || g "You have nothing to throw at it." ;;
+          *) g "There's nothing here to attack." ;;
+        esac
+        blank ;;
+
+      yes)
+        blank
+        if [[ "$ROOM" == "secret_canyon" ]] && (( DRAGON_ALIVE )); then
+          g "Congratulations!  You have just vanquished a dragon with your"
+          g "bare hands!  (Unbelievable, isn't it?)"
+          DRAGON_ALIVE=0; (( SCORE += 25 ))
+        else g "OK."; fi
+        blank ;;
+
+      no) blank; g "OK."; blank ;;
+
+      score)
+        blank; g "Your score so far: $SCORE.  Moves: $MOVES.  Treasures deposited: ${#DEPOSITED[@]}/14."; blank ;;
 
       help|"?")
         blank
-        g "Movement:   NORTH  SOUTH  EAST  WEST  UP  DOWN   (or N S E W U D)"
-        g "Items:      TAKE <item>    DROP <item>"
-        g "Look:       LOOK  (or L)   EXAMINE <thing>  (or X <thing>)"
-        g "Other:      INVENTORY (I)  SCORE  QUIT"
+        g "Commands:"
+        g "  Movement:  N S E W U D NE NW SE SW  IN  OUT"
+        g "  Items:     TAKE <item>   DROP <item>   THROW <item>"
+        g "  Actions:   OPEN/UNLOCK   WAVE <rod>    LIGHT/EXTINGUISH LAMP"
+        g "             FEED <beast>  FREE <beast>  ATTACK <creature>"
+        g "             DRINK  EAT    YES"
+        g "  Info:      LOOK (L)      INVENTORY (I)   SCORE"
+        g "             EXAMINE <thing>  (X <thing>)"
+        g "  Magic:     XYZZY  PLUGH  PLOVER"
+        g "  Session:   QUIT"
         blank ;;
 
-      quit|exit|q|bye)
-        blank; dg "You make your way back to the surface."; dg "Final score: $ASCORE / 100."; blank
-        adv_on=0 ;;
+      xyzzy)
+        blank
+        if [[ "$ROOM" == "debris" || "$ROOM" == "building" ]]; then
+          g ">>Swoosh!<<"
+          blank; [[ "$ROOM" == "debris" ]] && ROOM="building" || ROOM="debris"; _adv_look
+        else dg "Nothing happens."; blank; fi ;;
 
-      # ── Classic easter eggs ────────────────────────────────────────────────
-      xyzzy|plugh|plover)
-        blank; dg "A hollow voice says \"FOOL.\""; blank ;;
-      drink|eat)    blank; g "You're not hungry or thirsty."; blank ;;
-      kill|attack)  blank; g "There's nothing here to fight."; blank ;;
-      "")           ;;
-      *)            blank; g "I don't know how to do that."; blank ;;
+      plugh)
+        blank
+        if [[ "$ROOM" == "y2" || "$ROOM" == "building" ]]; then
+          g ">>Swoosh!<<"
+          blank; [[ "$ROOM" == "y2" ]] && ROOM="building" || ROOM="y2"; _adv_look
+        else dg "A hollow voice says \"PLUGH\"."; blank; fi ;;
+
+      plover)
+        blank
+        if [[ "$ROOM" == "plover_room" ]]; then
+          g ">>Swoosh!<<"; blank; ROOM="outside_grate"; _adv_look
+        elif [[ "$ROOM" == "twopit" || "$ROOM" == "outside_grate" ]]; then
+          g ">>Swoosh!<<"; blank; ROOM="plover_room"; _adv_look
+        else dg "A hollow voice says \"PLOVER\"."; blank; fi ;;
+
+      fee|fie|foe|foo)
+        blank; dg "Nothing happens."; blank ;;
+
+      quit|q|bye)
+        blank; g "Your final score is $SCORE, in $MOVES moves."; blank; ADV_ON=0 ;;
+
+      save|restore) blank; g "Save/restore not implemented in this port."; blank ;;
+      "")   ;;
+      *)    blank; g "I don't understand that."; blank ;;
 
     esac
   done
-
   printf '%s' "$_CLR"; draw_screen; tput cup "$SCREEN_HEIGHT" 0; blank
 }
 
@@ -1122,7 +1740,6 @@ unix_shell() {
 
       adventure|/usr/games/adventure)
         run_adventure ;;
-
 
       # ── Help ─────────────────────────────────────────────────────────────────
       help|man)
