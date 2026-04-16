@@ -56,7 +56,7 @@ while (("$#")); do
 mrk setup — Phase 1
 
 Usage: scripts/setup [options]
-  --only <phase>        Run a single phase: xcode|dotfiles|tools|ext|defaults|shell
+  --only <phase>        Run a single phase: xcode|dotfiles|tools|defaults|shell
   --no-dotfiles         Skip dotfiles linking
   --no-defaults        Skip macOS defaults
   --no-link-tools       Skip linking scripts/bin into ~/bin
@@ -65,7 +65,6 @@ Usage: scripts/setup [options]
   --continue-on-error   Continue with remaining phases if one fails
   --debug               Enable bash tracing (set -x)
 Env:
-  MRK_DOTFILES_REPO    If set, clones repo to ~/.dotfiles and runs script/setup and script/strap-after-setup if present
   MRK_LOGIN_MSG        If set, writes login window message (requires sudo), rollback added to ~/.mrk/defaults-rollback.sh
 USAGE
       exit 0
@@ -163,7 +162,7 @@ DOTFILES_SKIPPED=0
 TOOLS_SKIPPED=0
 
 # Validate phase name
-valid_phases="xcode tools dotfiles ext defaults shell"
+valid_phases="xcode tools dotfiles defaults shell"
 validate_phase() {
   local phase="$1"
   case " $valid_phases " in
@@ -217,13 +216,6 @@ validate_setup() {
   if [[ ! -d "$BIN_DIR" ]] && (( ! NO_LINK_TOOLS )); then
     warn "bin directory not found: $BIN_DIR"
     ((issues++))
-  fi
-  
-  if [[ -n "${MRK_DOTFILES_REPO:-}" ]]; then
-    if ! is_valid_git_url "$MRK_DOTFILES_REPO"; then
-      err "Invalid MRK_DOTFILES_REPO URL: $MRK_DOTFILES_REPO"
-      ((issues++))
-    fi
   fi
   
   if (( issues == 0 )); then
@@ -550,86 +542,6 @@ phase_dotfiles() {
 }
 
 # Validate git URL format (basic check)
-is_valid_git_url() {
-  local url="$1"
-  # Allow http://, https://, git@, or file:// URLs
-  if [[ "$url" =~ ^(https?://|git@|file://|ssh://).+\.git$ ]] || \
-     [[ "$url" =~ ^(https?://|git@|file://|ssh://)[^[:space:]]+$ ]]; then
-    return 0
-  fi
-  return 1
-}
-
-phase_ext_dotfiles() {
-  if [[ -z "${MRK_DOTFILES_REPO:-}" ]]; then
-    logskip "ext dotfiles" "MRK_DOTFILES_REPO not set"
-    return 0
-  fi
-  
-  local DOTDIR="$HOME/.dotfiles"
-  
-  # Validate URL format
-  if ! is_valid_git_url "$MRK_DOTFILES_REPO"; then
-    err "Invalid git URL format: $MRK_DOTFILES_REPO"
-    warn "URL should be in format: https://github.com/user/repo.git or git@github.com:user/repo.git"
-    return 1
-  fi
-  
-  if [[ ! -d "$DOTDIR/.git" ]]; then
-    if (( DRY_RUN )); then
-      dry "Would clone external dotfiles repo: $MRK_DOTFILES_REPO to $DOTDIR"
-      return 0
-    fi
-    
-    log "Cloning external dotfiles repo: $MRK_DOTFILES_REPO"
-    if ! git clone --depth 1 "$MRK_DOTFILES_REPO" "$DOTDIR"; then
-      err "Failed to clone dotfiles repo"
-      return 1
-    fi
-  else
-    log "External dotfiles repo present at $DOTDIR"
-  fi
-  
-  # Execute external scripts with explicit confirmation
-  if [[ -x "$DOTDIR/script/setup" ]]; then
-    if (( ! DRY_RUN )); then
-      if [[ -t 0 ]]; then
-        read -r -p "Run external setup script from $DOTDIR? [y/N] " ans
-        if [[ ! "$ans" =~ ^[Yy]$ ]]; then
-          log "Skipping external setup script"
-          return 0
-        fi
-      fi
-      log "Running external setup script: $DOTDIR/script/setup"
-      if ! "$DOTDIR/script/setup"; then
-        warn "External setup script returned non-zero"
-        ((WARNINGS++))
-      fi
-    else
-      dry "Would run external setup script: $DOTDIR/script/setup"
-    fi
-  fi
-  
-  if [[ -x "$DOTDIR/script/strap-after-setup" ]]; then
-    if (( ! DRY_RUN )); then
-      if [[ -t 0 ]]; then
-        read -r -p "Run external strap-after-setup script from $DOTDIR? [y/N] " ans
-        if [[ ! "$ans" =~ ^[Yy]$ ]]; then
-          log "Skipping external strap-after-setup script"
-          return 0
-        fi
-      fi
-      log "Running external strap-after-setup script: $DOTDIR/script/strap-after-setup"
-      if ! "$DOTDIR/script/strap-after-setup"; then
-        warn "External strap-after-setup script returned non-zero"
-        ((WARNINGS++))
-      fi
-    else
-      dry "Would run external strap-after-setup script: $DOTDIR/script/strap-after-setup"
-    fi
-  fi
-}
-
 phase_defaults() {
   if (( NO_DEFAULTS )); then logskip "defaults" "disabled by flag"; return; fi
   
@@ -698,9 +610,6 @@ run_phase tools \
 run_phase dotfiles \
   "One by one, your config files are carried from mrk/dotfiles/ and linked into ~/. Any existing files are relocated to ~/.mrk/backups/ first." \
   phase_dotfiles
-run_phase ext \
-  "If MRK_DOTFILES_REPO is configured, you reach into the network and retrieve your external dotfiles. Otherwise, you continue onward." \
-  phase_ext_dotfiles
 run_phase defaults \
   "You inscribe your macOS preferences — how the Finder behaves, how the Dock sits, how fast keys repeat. A rollback scroll is saved to ~/.mrk/ should you wish to undo this later." \
   phase_defaults
