@@ -46,6 +46,28 @@ if [[ ! "$answer" =~ ^[Yy]$ ]]; then
   exit 0
 fi
 
+# ── Pre-nuke snapshot ─────────────────────────────────────────────────────────
+echo ""
+printf "  ${_B}Pre-nuke snapshot${_R}\n\n"
+printf "  Sync the Brewfile and snapshot app preferences before wiping.\n"
+echo ""
+printf "${_B}Run make sync + snapshot-prefs now? [Y/n]:${_R} "
+read -r do_snapshot
+if [[ ! "$do_snapshot" =~ ^[Nn]$ ]]; then
+  if [[ -f "$MRK_DIR/Makefile" ]]; then
+    echo ""
+    log "Running make sync..."
+    make -C "$MRK_DIR" sync ARGS=-c && ok "Brewfile synced and committed" || warn "make sync exited with errors"
+    echo ""
+    log "Running make snapshot-prefs..."
+    make -C "$MRK_DIR" snapshot-prefs && ok "Preferences snapshotted" || warn "make snapshot-prefs exited with errors"
+  else
+    warn "Makefile not found at $MRK_DIR — skipping"
+  fi
+else
+  dim "Skipping pre-nuke snapshot"
+fi
+
 echo ""
 # Remove ~/bin symlinks that point into mrk
 if [[ -d "$BIN_DIR" ]]; then
