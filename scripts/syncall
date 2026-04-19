@@ -161,6 +161,8 @@ main() {
         log "DRY-RUN: would auto-commit $r"
       else
         if [[ -t 0 ]]; then
+          git -C "$r" diff --stat
+          git -C "$r" status --short
           printf '%s  ▸%s Auto-commit and push %s? [y/N]: ' "$_CYN" "$_R" "$r"
           read -r ans
           [[ ! "$ans" =~ ^[Yy]$ ]] && { warn "Skipped: $r"; continue; }

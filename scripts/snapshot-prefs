@@ -4,7 +4,7 @@ set -euo pipefail
 # mrk snapshot-prefs — export current app preferences to ~/.mrk/preferences/
 # and push to the private mrk-prefs repo.
 
-PREFS_REPO="git@github.com:sevmorris/mrk-prefs.git"
+: "${PREFS_REPO:=git@github.com:sevmorris/mrk-prefs.git}"
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
 APP_SUPPORT="$HOME/Library/Application Support"
 

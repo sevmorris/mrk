@@ -35,8 +35,8 @@ if $have_sudo; then
       rollback "sudo mv /etc/pam.d/sudo.backup.mrk /etc/pam.d/sudo"
       tmpfile="$(mktemp -t mrk)"
       { echo 'auth       sufficient     pam_tid.so'; cat /etc/pam.d/sudo; } > "$tmpfile"
-      if [[ ! -s "$tmpfile" ]] || ! grep -q 'pam_tid.so' "$tmpfile" || \
-         ! grep -q 'pam_smartcard.so\|pam_opendirectory.so' "$tmpfile"; then
+      if [[ ! -s "$tmpfile" ]] || ! grep -q 'pam_tid\.so' "$tmpfile" || \
+         ! grep -qE 'pam_smartcard\.so|pam_opendirectory\.so' "$tmpfile"; then
         warn "Generated PAM config appears invalid — aborting Touch ID setup"
         rm -f "$tmpfile"
         sudo mv /etc/pam.d/sudo.backup.mrk /etc/pam.d/sudo 2>/dev/null || true
@@ -69,18 +69,22 @@ defaults write com.apple.screensaver askForPasswordDelay -int 0
 
 # 3) Enable firewall (global + stealth)
 if $have_sudo; then
-  log "Enabling macOS firewall (global on, stealth on)"
   prev=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>/dev/null | awk '{print $3}' || echo "off")
   : "${prev:=off}"
   rollback "/usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate $prev"
-  if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on 2>/dev/null; then
-    if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on 2>/dev/null; then
-      log "Firewall enabled with stealth mode"
-    else
-      warn "Failed to enable firewall stealth mode"
-    fi
+  if [[ "$prev" == "on" ]]; then
+    log "Firewall already enabled"
   else
-    warn "Failed to enable firewall (may require password)"
+    log "Enabling macOS firewall (global on, stealth on)"
+    if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on 2>/dev/null; then
+      if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on 2>/dev/null; then
+        log "Firewall enabled with stealth mode"
+      else
+        warn "Failed to enable firewall stealth mode"
+      fi
+    else
+      warn "Failed to enable firewall (may require password)"
+    fi
   fi
 else
   log "Skipping firewall changes (sudo unavailable)"

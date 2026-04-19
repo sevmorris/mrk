@@ -326,8 +326,10 @@ phase_link_tools() {
         printf "\r\033[K[%d/%d] Linking %s..." "$current" "$total" "$link_name" >&2
       fi
       
-      # Skip if symlink already points to correct target
-      if [[ -L "$INSTALL_BIN/$link_name" ]] && [[ "$(readlink "$INSTALL_BIN/$link_name")" == "$f" ]]; then
+      # Skip if symlink already points to correct target (resolve both paths to handle relative targets)
+      if [[ -L "$INSTALL_BIN/$link_name" ]] && \
+         [[ "$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$INSTALL_BIN/$link_name" 2>/dev/null)" == \
+            "$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$f" 2>/dev/null)" ]]; then
         ((skipped++)) || true
         continue
       fi
@@ -335,14 +337,15 @@ phase_link_tools() {
       if (( DRY_RUN )); then
         dry "Would link: $INSTALL_BIN/$link_name -> $f"
         ((linked++)) || true
-      elif ln -sf "$f" "$INSTALL_BIN/$link_name" 2>/dev/null; then
-        ((linked++)) || true
       else
         local ln_error
-        ln_error="$(ln -sf "$f" "$INSTALL_BIN/$link_name" 2>&1 || true)"
-        err "Failed to link: $INSTALL_BIN/$link_name -> $f"
-        [[ -n "$ln_error" ]] && err "  Error: $ln_error"
-        ((failed++)) || true
+        if ln_error=$(ln -sf "$f" "$INSTALL_BIN/$link_name" 2>&1); then
+          ((linked++)) || true
+        else
+          err "Failed to link: $INSTALL_BIN/$link_name -> $f"
+          [[ -n "$ln_error" ]] && err "  Error: $ln_error"
+          ((failed++)) || true
+        fi
       fi
     done
     printf "\r\033[K" >&2  # Clear progress line
@@ -369,8 +372,10 @@ phase_link_tools() {
         printf "\r\033[K[%d/%d] Linking %s..." "$current" "$bin_total" "$base" >&2
       fi
       
-      # Skip if symlink already points to correct target
-      if [[ -L "$INSTALL_BIN/$base" ]] && [[ "$(readlink "$INSTALL_BIN/$base")" == "$f" ]]; then
+      # Skip if symlink already points to correct target (resolve both paths to handle relative targets)
+      if [[ -L "$INSTALL_BIN/$base" ]] && \
+         [[ "$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$INSTALL_BIN/$base" 2>/dev/null)" == \
+            "$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$f" 2>/dev/null)" ]]; then
         ((skipped++)) || true
         continue
       fi
@@ -378,14 +383,15 @@ phase_link_tools() {
       if (( DRY_RUN )); then
         dry "Would link: $INSTALL_BIN/$base -> $f"
         ((linked++)) || true
-      elif ln -sf "$f" "$INSTALL_BIN/$base" 2>/dev/null; then
-        ((linked++)) || true
       else
         local ln_error
-        ln_error="$(ln -sf "$f" "$INSTALL_BIN/$base" 2>&1 || true)"
-        err "Failed to link: $INSTALL_BIN/$base -> $f"
-        [[ -n "$ln_error" ]] && err "  Error: $ln_error"
-        ((failed++)) || true
+        if ln_error=$(ln -sf "$f" "$INSTALL_BIN/$base" 2>&1); then
+          ((linked++)) || true
+        else
+          err "Failed to link: $INSTALL_BIN/$base -> $f"
+          [[ -n "$ln_error" ]] && err "  Error: $ln_error"
+          ((failed++)) || true
+        fi
       fi
     done
     printf "\r\033[K" >&2  # Clear progress line

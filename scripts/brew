@@ -427,6 +427,11 @@ _run_mrk_picker() {
 
 # Install packages from Brewfile
 install_brewfile() {
+  local ORIG_STTY
+  ORIG_STTY=$(stty -g 2>/dev/null || true)
+  # Restore terminal on any exit from this function (error, early return, or normal)
+  trap '[[ -n "$ORIG_STTY" ]] && stty "$ORIG_STTY" 2>/dev/null || true; trap - RETURN' RETURN
+
   if [[ ! -f "$BREWFILE" ]]; then
     err "Brewfile not found: $BREWFILE"
     return 1
@@ -611,8 +616,8 @@ install_brewfile() {
   fi
 
   # Install from temporary Brewfile
-  # Restore terminal to normal state before running brew bundle
-  stty echo icanon < /dev/tty 2>/dev/null || true
+  # Restore terminal state before running brew bundle
+  [[ -n "$ORIG_STTY" ]] && stty "$ORIG_STTY" 2>/dev/null || true
 
   log "Installing selected packages..."
 

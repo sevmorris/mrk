@@ -43,24 +43,57 @@ SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 backup_line(){ echo "$1" >> "$ROLLBACK"; }
 
-# Helper: capture current value (if any) and append the inverse to rollback
+# Helper: capture current value (if any) and append the inverse to rollback.
+# Skips the write if the current value already matches the target (idempotent).
+# Uses `defaults read-type` for authoritative type detection.
 # Usage: write_default <domain> <key> <type> <value>
 write_default(){
   local domain="$1" key="$2" type="$3" value="$4"
-  local current
+  local current current_type
+
   if current=$(defaults read "$domain" "$key" 2>/dev/null); then
-    if [[ "$current" =~ ^(true|false)$ ]]; then
-      backup_line "defaults write $domain $key -bool $current"
-    elif [[ "$current" =~ ^[0-9]+\.[0-9]+$ ]]; then
-      backup_line "defaults write $domain $key -float $current"
-    elif [[ "$current" =~ ^[0-9]+$ ]]; then
-      backup_line "defaults write $domain $key -int $current"
-    else
-      backup_line "defaults write $domain $key -string \"$current\""
+    # Authoritative type detection
+    current_type=$(defaults read-type "$domain" "$key" 2>/dev/null | awk '{print $NF}' || echo "string")
+
+    # Idempotency: skip write if already at target value and type
+    local already_set=0
+    case "$type" in
+      bool)
+        local norm_val norm_cur
+        [[ "$value" == "true" ]] && norm_val="1" || norm_val="0"
+        # defaults read returns 1/0 for booleans
+        [[ "$current" == "1" ]] && norm_cur="1" || norm_cur="0"
+        [[ "$norm_val" == "$norm_cur" && "$current_type" == "boolean" ]] && already_set=1
+        ;;
+      int)
+        [[ "$current" == "$value" && "$current_type" == "integer" ]] && already_set=1
+        ;;
+      float)
+        if [[ "$current_type" == "float" ]]; then
+          local eq; eq=$(awk "BEGIN{print ($current == $value) ? 1 : 0}" 2>/dev/null || echo "0")
+          [[ "$eq" == "1" ]] && already_set=1
+        fi
+        ;;
+      string)
+        [[ "$current" == "$value" && "$current_type" == "string" ]] && already_set=1
+        ;;
+    esac
+
+    if (( already_set )); then
+      return 0
     fi
+
+    # Save rollback using authoritative type
+    case "$current_type" in
+      boolean) backup_line "defaults write $domain $key -bool $([[ "$current" == "1" ]] && echo "true" || echo "false")" ;;
+      integer) backup_line "defaults write $domain $key -int $current" ;;
+      float)   backup_line "defaults write $domain $key -float $current" ;;
+      *)       backup_line "defaults write $domain $key -string \"$current\"" ;;
+    esac
   else
     backup_line "defaults delete $domain $key >/dev/null 2>&1 || true"
   fi
+
   case "$type" in
     bool)   defaults write "$domain" "$key" -bool "$value" || return 1 ;;
     int)    defaults write "$domain" "$key" -int "$value" || return 1 ;;

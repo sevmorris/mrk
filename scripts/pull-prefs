@@ -4,7 +4,7 @@ set -euo pipefail
 # mrk pull-prefs — clone or pull personal app preferences from mrk-prefs.
 # Called automatically by post-install when ~/.mrk/preferences/ is absent.
 
-PREFS_REPO="git@github.com:sevmorris/mrk-prefs.git"
+: "${PREFS_REPO:=git@github.com:sevmorris/mrk-prefs.git}"
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
 
 log(){ printf "[pull-prefs] %s\n" "$*"; }

@@ -81,8 +81,11 @@ if [[ -n "$raw_names" ]]; then
     name="${name#"${name%%[![:space:]]*}"}"
     name="${name%"${name##*[![:space:]]}"}"
     if [[ -n "$name" ]]; then
-      escaped_name="${name//\"/\\\"}"
-      app_path=$(osascript -e "tell application \"System Events\" to get the path of login item \"${escaped_name}\"" 2>/dev/null || true)
+      app_path=$(osascript - "$name" <<'OSASCRIPT' 2>/dev/null || true)
+on run argv
+  tell application "System Events" to get the path of login item (item 1 of argv)
+end run
+OSASCRIPT
       [[ -z "$app_path" ]] && app_path="/Applications/${name}.app"
       system_items["$name"]="$app_path"
     fi
