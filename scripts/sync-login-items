@@ -58,9 +58,13 @@ readonly INDEX_HTML="$REPO_ROOT/docs/index.html"
 # Temp files
 TEMP_ADD=""
 TEMP_REMOVE=""
+TMP_PI=""
+TMP_MD=""
+TMP_HTML=""
 cleanup() {
-  [[ -n "$TEMP_ADD"    && -f "$TEMP_ADD"    ]] && rm -f "$TEMP_ADD"    || true
-  [[ -n "$TEMP_REMOVE" && -f "$TEMP_REMOVE" ]] && rm -f "$TEMP_REMOVE" || true
+  for _f in "$TEMP_ADD" "$TEMP_REMOVE" "$TMP_PI" "$TMP_MD" "$TMP_HTML"; do
+    [[ -n "$_f" && -f "$_f" ]] && rm -f "$_f" || true
+  done
 }
 trap cleanup EXIT INT TERM
 
@@ -235,6 +239,9 @@ fi
 
 TEMP_ADD=$(mktemp -t mrk)
 TEMP_REMOVE=$(mktemp -t mrk)
+TMP_PI=$(mktemp -t mrk)
+TMP_MD=$(mktemp -t mrk)
+TMP_HTML=$(mktemp -t mrk)
 
 for name in "${!add_items[@]}"; do
   printf '%s\t%s\n' "$name" "${system_items[$name]}" >> "$TEMP_ADD"
@@ -244,12 +251,13 @@ for name in "${!remove_items[@]}"; do
   printf '%s\n' "$name" >> "$TEMP_REMOVE"
 done
 
-python3 - "$POST_INSTALL" "$TEMP_ADD" "$TEMP_REMOVE" <<'PYEOF'
+python3 - "$POST_INSTALL" "$TEMP_ADD" "$TEMP_REMOVE" "$TMP_PI" <<'PYEOF'
 import sys, re
 
 post_install = sys.argv[1]
 add_file     = sys.argv[2]
 remove_file  = sys.argv[3]
+out_path     = sys.argv[4]
 
 to_add    = {}
 to_remove = set()
@@ -307,15 +315,13 @@ new_lines = [make_line(final[name]) for name in sorted(final.keys())]
 
 if first_idx is not None:
     lines[first_idx:last_idx + 1] = new_lines
-    with open(post_install, 'w') as f:
+    with open(out_path, 'w') as f:
         f.writelines(lines)
     print(f'Updated post-install: {len(to_add)} added, {len(to_remove)} removed, {len(final)} total.')
 else:
     print('Warning: could not locate add_login_item block in post-install.', file=sys.stderr)
     sys.exit(1)
 PYEOF
-
-log "post-install updated."
 
 # ─── 8. Build final items list for docs ──────────────────────────────────────
 
@@ -332,9 +338,9 @@ items_list=$(IFS=', '; echo "${sorted_names[*]}")
 
 # ─── 9. Update docs ──────────────────────────────────────────────────────────
 
-python3 - "$MANUAL_MD" "$items_list" <<'PYEOF'
+python3 - "$MANUAL_MD" "$items_list" "$TMP_MD" <<'PYEOF'
 import sys, re
-path, items = sys.argv[1], sys.argv[2]
+path, items, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(path) as f:
     content = f.read()
 new_content = re.sub(
@@ -342,13 +348,13 @@ new_content = re.sub(
     lambda m: m.group(1) + items + m.group(3),
     content
 )
-with open(path, 'w') as f:
+with open(out_path, 'w') as f:
     f.write(new_content)
 PYEOF
 
-python3 - "$INDEX_HTML" "$items_list" <<'PYEOF'
+python3 - "$INDEX_HTML" "$items_list" "$TMP_HTML" <<'PYEOF'
 import sys, re
-path, items = sys.argv[1], sys.argv[2]
+path, items, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(path) as f:
     content = f.read()
 new_content = re.sub(
@@ -356,11 +362,16 @@ new_content = re.sub(
     lambda m: m.group(1) + items + m.group(3),
     content
 )
-with open(path, 'w') as f:
+with open(out_path, 'w') as f:
     f.write(new_content)
 PYEOF
 
-log "Docs updated."
+# All three outputs succeeded — atomically replace the real files
+mv "$TMP_PI"   "$POST_INSTALL"
+mv "$TMP_MD"   "$MANUAL_MD"
+mv "$TMP_HTML" "$INDEX_HTML"
+
+log "post-install and docs updated."
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
