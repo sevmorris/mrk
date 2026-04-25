@@ -39,16 +39,10 @@ typeset -U path
 # --- Source Personal Aliases ---
 [[ -f "$HOME/.aliases" ]] && source "$HOME/.aliases"
 
-# --- NVM (prefers Homebrew) ---
+# --- NVM ---
 export NVM_DIR="$HOME/.nvm"
-
-if [ -s "/opt/homebrew/opt/nvm/nvm.sh" ]; then
-  . "/opt/homebrew/opt/nvm/nvm.sh"
-  [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && . "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
-elif [ -s "$NVM_DIR/nvm.sh" ]; then
-  . "$NVM_DIR/nvm.sh"
-  [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
-fi
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
 # --- mrk Update Check (weekly) ---
 [[ -x "$HOME/bin/check-updates" ]] && "$HOME/bin/check-updates" || true
