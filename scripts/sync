@@ -228,7 +228,7 @@ if (( PRUNE && n_stale > 0 )); then
     else
       # Build sed patterns to remove matching lines
       local_sed_args=()
-      local escaped_pkg
+      escaped_pkg=
       for pkg in "${!prune_formulae[@]}"; do
         escaped_pkg=$(printf '%s\n' "$pkg" | sed 's/[[\.*^$&/]/\\&/g')
         local_sed_args+=(-e "/^brew \"${escaped_pkg}\"/d")
