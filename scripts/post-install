@@ -180,6 +180,28 @@ else
 fi
 
 ###############################################################################
+# openjdk system symlink                                                      #
+###############################################################################
+
+# Homebrew's openjdk is keg-only; system Java tools (java_home, Maven, Gradle)
+# won't find it without this symlink into the canonical JVM directory.
+if [[ -d /opt/homebrew/opt/openjdk ]] && \
+   [[ ! -e /Library/Java/JavaVirtualMachines/openjdk.jdk ]]; then
+  log "Linking openjdk into /Library/Java/JavaVirtualMachines/"
+  if sudo ln -sfn /opt/homebrew/opt/openjdk/libexec/openjdk.jdk \
+       /Library/Java/JavaVirtualMachines/openjdk.jdk; then
+    ok "openjdk → /Library/Java/JavaVirtualMachines/openjdk.jdk"
+  else
+    log "Warning: failed to link openjdk (may require password)"
+    ((++failed))
+  fi
+elif [[ -e /Library/Java/JavaVirtualMachines/openjdk.jdk ]]; then
+  logskip "openjdk symlink" "already present"
+else
+  logskip "openjdk symlink" "openjdk not installed"
+fi
+
+###############################################################################
 # Companion apps (installed from GitHub releases)                             #
 ###############################################################################
 

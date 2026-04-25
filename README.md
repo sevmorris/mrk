@@ -30,7 +30,7 @@ Boots a fictional 4.3BSD Unix workstation at UC Berkeley, 1989. Find the floppy,
 | **2 — Brew** | `make brew` | Installs Homebrew, then interactively selects formulae & casks from `Brewfile` |
 | **3 — Post-install** | `make post-install` | App preferences, browser policies, login items |
 
-Run `make all` to execute all three phases at once. Phases are independent — run any subset, in any order, as many times as you want.
+Run `make all` to execute all three phases at once. On a fresh machine, run Phase 1 first — it installs Xcode CLI tools and the login shell that later phases depend on. After that, Phases 2 and 3 can run in either order or together. On an already-configured machine all phases can be re-run freely in any order.
 
 ## Make Targets
 
@@ -72,7 +72,7 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 | Target | Description |
 |--------|-------------|
 | `make status` | Open the mrk-status TUI health dashboard |
-| `make doctor` | Check `~/bin` is on PATH; `make doctor --fix` adds it to `.zshrc` |
+| `make doctor` | Check `~/bin` is on PATH; `make doctor ARGS=--fix` adds it to `.zshrc` |
 | `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status) |
 | `make picker` | Build mrk-picker only |
 | `make bf` | Build bf Brewfile manager only |
@@ -86,9 +86,9 @@ Setup is split into phases so you can:
 
 - Run Phase 1 on a fresh Mac before Homebrew is even available
 - Selectively install only the Homebrew packages you want (Phase 2 is interactive)
-- Re-run any phase independently without side effects
+- Re-run any phase independently — `make defaults` restarts Finder, Dock, and SystemUIServer to apply changes, which is visible but harmless
 
-State lives in `~/.mrk`. Rollback scripts are generated automatically for defaults changes.
+mrk's bookkeeping (rollback scripts, backups) lives in `~/.mrk`. Configuration changes are written to their canonical macOS locations — system preferences via `defaults`, app symlinks in `~/bin`, and so on. Rollback scripts are generated automatically for defaults and hardening changes.
 
 ## Barkeep
 
