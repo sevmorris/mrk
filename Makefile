@@ -97,7 +97,7 @@ status: ## Show installation status
 	@"$(SCRIPTS)/status"
 
 doctor: ## Run diagnostics
-	@"$(SCRIPTS)/doctor"
+	@"$(SCRIPTS)/doctor" $(ARGS)
 
 bf: ## Build the bf Brewfile manager TUI binary
 	$(call go-build,bf,bf)
