@@ -2,7 +2,6 @@
 
 # CLI Tools - General Utilities & Power User Tools
 brew "bash"
-brew "bash-completion@2"
 brew "bat"
 brew "coreutils"
 brew "fastfetch"
@@ -47,7 +46,7 @@ brew "xcodegen"
 # Languages / runtimes
 brew "deno"
 brew "go"
-brew "nvm"
+brew "nvm"  # TODO: requires .zshrc init lines or migration to official install script (audit B3)
 brew "python@3.12"
 brew "pipx"
 brew "pyenv"
@@ -69,6 +68,7 @@ cask "arctic", greedy: true
 cask "audio-hijack", greedy: true
 cask "auto-claude", greedy: true
 cask "balenaetcher", greedy: true
+cask "bitwarden", greedy: true
 cask "brave-browser", greedy: true
 cask "calibre", greedy: true
 cask "claude-code", greedy: true
@@ -87,6 +87,7 @@ cask "google-chrome", greedy: true
 cask "google-chrome@canary", greedy: true
 cask "google-drive", greedy: true
 cask "gpg-suite-no-mail", greedy: true
+cask "hammerspoon", greedy: true
 cask "handbrake-app", greedy: true
 cask "helium-browser", greedy: true
 cask "ilok-license-manager", greedy: true
