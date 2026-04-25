@@ -34,7 +34,6 @@ brew "tree"
 brew "watch"
 brew "wget"
 brew "zsh"
-cask "claudebar"
 
 # Repo essentials
 brew "gum"
