@@ -12,14 +12,19 @@ if ! mkdir -p "$ROLL_DIR"; then
   exit 1
 fi
 
-if ! printf '#!/usr/bin/env bash\n' > "$ROLL" || ! chmod +x "$ROLL"; then
-  echo "Error: Failed to initialize rollback script: $ROLL" >&2
-  exit 1
+if [[ -f "$ROLL" ]] && grep -q '^#!/usr/bin/env bash$' "$ROLL" 2>/dev/null; then
+  # Rollback file already exists and has a valid shebang — preserve prior entries
+  chmod +x "$ROLL" 2>/dev/null || true
+else
+  if ! printf '#!/usr/bin/env bash\n' > "$ROLL" || ! chmod +x "$ROLL"; then
+    echo "Error: Failed to initialize rollback script: $ROLL" >&2
+    exit 1
+  fi
 fi
 
 log(){ printf "[hardening] %s\n" "$*"; }
 warn(){ printf "[hardening] warning: %s\n" "$*" >&2; }
-rollback(){ echo "$*" >> "$ROLL"; }
+rollback(){ grep -qFx "$*" "$ROLL" 2>/dev/null && return 0; echo "$*" >> "$ROLL"; }
 
 have_sudo=false
 if command -v sudo >/dev/null 2>&1; then
@@ -62,8 +67,11 @@ fi
 log "Requiring password immediately on wake"
 prev1=$(defaults read com.apple.screensaver askForPassword 2>/dev/null || echo "0")
 prev2=$(defaults read com.apple.screensaver askForPasswordDelay 2>/dev/null || echo "0")
-rollback "defaults write com.apple.screensaver askForPassword -int ${prev1:-0}"
-rollback "defaults write com.apple.screensaver askForPasswordDelay -int ${prev2:-0}"
+# Guard: only record if no entry for this key exists — first-run originals win on re-runs
+grep -qF "askForPassword -" "$ROLL" 2>/dev/null || \
+  rollback "defaults write com.apple.screensaver askForPassword -int ${prev1:-0}"
+grep -qF "askForPasswordDelay -" "$ROLL" 2>/dev/null || \
+  rollback "defaults write com.apple.screensaver askForPasswordDelay -int ${prev2:-0}"
 defaults write com.apple.screensaver askForPassword -int 1
 defaults write com.apple.screensaver askForPasswordDelay -int 0
 
@@ -71,10 +79,18 @@ defaults write com.apple.screensaver askForPasswordDelay -int 0
 if $have_sudo; then
   prev=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>/dev/null | awk '{print $3}' || echo "off")
   : "${prev:=off}"
-  rollback "/usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate $prev"
+  # Guard: only record globalstate rollback on first run
+  grep -qF "setglobalstate" "$ROLL" 2>/dev/null || \
+    rollback "/usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate $prev"
   if [[ "$prev" == "on" ]]; then
     log "Firewall already enabled"
   else
+    # Capture current stealth mode state before enabling — first-run original wins
+    prev_stealth="off"
+    /usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode 2>/dev/null | \
+      grep -qi "enabled" && prev_stealth="on" || true
+    grep -qF "setstealthmode" "$ROLL" 2>/dev/null || \
+      rollback "/usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode $prev_stealth"
     log "Enabling macOS firewall (global on, stealth on)"
     if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on 2>/dev/null; then
       if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on 2>/dev/null; then
