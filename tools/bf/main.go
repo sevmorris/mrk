@@ -164,7 +164,20 @@ func (bf *brewfile) reload() {
 
 func (bf *brewfile) save() error {
 	out := strings.Join(bf.lines, "\n") + "\n"
-	return os.WriteFile(bf.path, []byte(out), 0644)
+	tmp, err := os.CreateTemp(filepath.Dir(bf.path), ".bf-*.tmp")
+	if err != nil {
+		return err
+	}
+	if _, err := tmp.WriteString(out); err != nil {
+		tmp.Close()
+		os.Remove(tmp.Name())
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmp.Name())
+		return err
+	}
+	return os.Rename(tmp.Name(), bf.path)
 }
 
 func (bf *brewfile) deleteEntry(e *entry) {

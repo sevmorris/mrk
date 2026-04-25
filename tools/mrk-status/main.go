@@ -382,17 +382,18 @@ func runChecks(repoRoot, home, binDir string) tea.Cmd {
 // ── Model ─────────────────────────────────────────────────────────────────
 
 type model struct {
-	groups      []group
-	groupIdx    int
+	groups       []group
+	groupIdx     int
 	detailScroll int
-	leftFocus   bool
-	width       int
-	height      int
-	loading     bool
-	flash       string
-	repoRoot    string
-	home        string
-	binDir      string
+	leftFocus    bool
+	width        int
+	height       int
+	loading      bool
+	flash        string
+	pendingFix   bool
+	repoRoot     string
+	home         string
+	binDir       string
 }
 
 func newModel(repoRoot, home, binDir string) model {
@@ -437,7 +438,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) handleKey(msg tea.KeyMsg) (model, tea.Cmd) {
 	key := msg.String()
 
-	if key == "ctrl+c" || key == "q" || key == "esc" {
+	if key == "ctrl+c" {
+		return m, tea.Quit
+	}
+
+	if m.pendingFix {
+		switch key {
+		case "enter":
+			m.pendingFix = false
+			m.flash = ""
+			if g := m.currentGroup(); g != nil && g.fix != "" {
+				shell := os.Getenv("SHELL")
+				if shell == "" {
+					shell = "/bin/zsh"
+				}
+				cmd := exec.Command(shell, "-c",
+					"cd "+shellQuote(m.repoRoot)+" && "+g.fix)
+				return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+					return fixDoneMsg{err: err}
+				})
+			}
+		default:
+			m.pendingFix = false
+			m.flash = ""
+		}
+		return m, nil
+	}
+
+	if key == "q" || key == "esc" {
 		return m, tea.Quit
 	}
 	if m.loading {
@@ -496,15 +524,9 @@ func (m model) handleKey(msg tea.KeyMsg) (model, tea.Cmd) {
 
 	case "f":
 		if g := m.currentGroup(); g != nil && g.fix != "" {
-			shell := os.Getenv("SHELL")
-			if shell == "" {
-				shell = "/bin/zsh"
-			}
-			cmd := exec.Command(shell, "-c",
-				"cd "+shellQuote(m.repoRoot)+" && "+g.fix)
-			return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
-				return fixDoneMsg{err: err}
-			})
+			m.pendingFix = true
+			m.flash = "Run \"" + g.fix + "\"? [enter] confirm  [esc] cancel"
+			return m, nil
 		}
 		m.flash = "no fix available for this check"
 	}
@@ -629,7 +651,7 @@ func (m model) viewFooter() string {
 		return hints
 	}
 	var flashStr string
-	if strings.Contains(m.flash, "fail") || strings.Contains(m.flash, "no fix") {
+	if m.pendingFix || strings.Contains(m.flash, "fail") || strings.Contains(m.flash, "no fix") {
 		flashStr = "  " + styleFlashWarn.Render(m.flash)
 	} else {
 		flashStr = "  " + styleFlash.Render(m.flash)
