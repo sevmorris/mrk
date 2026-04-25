@@ -13,7 +13,7 @@ Active `.shellcheckrc` suppressions: SC1090 (external source), SC1091 (missing s
 
 | Severity | Count | Files |
 |----------|-------|-------|
-| HIGH     | 3     | `scripts/sync`, `scripts/post-install`, `scripts/syncall` |
+| HIGH     | 3     | `scripts/sync`, `scripts/post-install`, ~~`scripts/syncall`~~ (removed `ba29d0c`) |
 | MEDIUM   | 5     | `scripts/setup`, `scripts/defaults.sh`, `scripts/check-updates`, `scripts/hardening.sh`, `scripts/sync-login-items` |
 | LOW      | 6     | `scripts/adventure-prologue` (×3), `scripts/fix-exec`, `scripts/check-updates`, `scripts/nuke-mrk` |
 
@@ -80,6 +80,8 @@ For defense-in-depth, add a script-level `trap '...' INT TERM` in `post-install`
 
 ### H3 — `syncall` bypasses all confirmation when stdin is not a TTY
 **File:** `scripts/syncall:155-185` | **ShellCheck:** no rule covers this
+
+> **Removed** in commit `ba29d0c` (branch `audit/static-pass`). Finding retained for audit history.
 
 ```bash
 if is_dirty "$r"; then

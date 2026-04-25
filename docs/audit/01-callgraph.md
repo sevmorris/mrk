@@ -670,6 +670,8 @@ pull-prefs
 
 ## Target: `syncall`
 
+> **Removed** in commit `ba29d0c` (branch `audit/static-pass`). Section retained for audit history.
+
 ```
 syncall
   scripts/syncall
@@ -726,7 +728,7 @@ dock
 
 Sourced by: scripts/setup, scripts/brew, scripts/post-install, scripts/defaults.sh,
 scripts/sync, scripts/sync-login-items, scripts/status (inline helpers only),
-scripts/dock-setup, scripts/syncall, and all assets/browsers/*.sh,
+scripts/dock-setup, and all assets/browsers/*.sh,
 assets/preferences/*.sh.
 
 Provides: logging helpers (log, ok, warn, err, info, dry, logskip, section),
@@ -949,7 +951,7 @@ that transitively invoke it. "Linked only" means `make setup` creates a
 | `scripts/generate-install-manifest` | **none** |
 | `scripts/hardening.sh` | `harden` |
 | `scripts/install` | linked only as `mrk-install` (`setup`, `all`) |
-| `scripts/lib.sh` | sourced by most scripts; transitively: `setup`, `brew`, `post-install`, `defaults`, `trackpad`, `sync`, `sync-login-items`, `dock`, `syncall`, `all`, and all assets/*.sh via `post-install` |
+| `scripts/lib.sh` | sourced by most scripts; transitively: `setup`, `brew`, `post-install`, `defaults`, `trackpad`, `sync`, `sync-login-items`, `dock`, `all`, and all assets/*.sh via `post-install` |
 | `scripts/post-install` | `post-install`, `all` |
 | `scripts/pull-prefs` | `pull-prefs`; also `post-install`→`all` (conditional) |
 | `scripts/setup` | `setup`, `install`, `tools`, `dotfiles`, `setup-dry`, `all` |
@@ -957,7 +959,7 @@ that transitively invoke it. "Linked only" means `make setup` creates a
 | `scripts/status` | `status` |
 | `scripts/sync` | `sync`; also `bin/nuke-mrk` (not a make target) |
 | `scripts/sync-login-items` | `sync-login-items` |
-| `scripts/syncall` | `syncall` |
+| `scripts/syncall` | ~~`syncall`~~ — **removed** commit `ba29d0c` |
 | `scripts/uninstall` | `uninstall` |
 
 ### DEAD CODE CANDIDATES

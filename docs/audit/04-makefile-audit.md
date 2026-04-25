@@ -88,7 +88,6 @@ Or at minimum, log the exit code rather than suppressing it entirely.
 @"$(SCRIPTS)/post-install" $(ARGS)
 @"$(SCRIPTS)/sync" $(ARGS)
 @"$(SCRIPTS)/sync-login-items" $(ARGS)
-@"$(SCRIPTS)/syncall" $(ARGS)
 ```
 
 `$(ARGS)` is expanded and word-split by Make before the shell receives it. For the

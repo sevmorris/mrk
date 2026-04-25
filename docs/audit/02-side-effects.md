@@ -16,7 +16,7 @@ Side effects are grouped by category. For each entry:
 
 | Operation | Script:line | Make targets | Reversible | Idempotent |
 |---|---|---|---|---|
-| `mkdir -p ~/.mrk` | scripts/setup:105, scripts/defaults.sh:22, scripts/hardening.sh:11, scripts/syncall:183 | setup, defaults, trackpad, harden, syncall, all | Yes — `rm -rf ~/.mrk` | I (mkdir -p) |
+| `mkdir -p ~/.mrk` | scripts/setup:105, scripts/defaults.sh:22, scripts/hardening.sh:11 ~~, scripts/syncall:183~~ | setup, defaults, trackpad, harden, all | Yes — `rm -rf ~/.mrk` | I (mkdir -p) |
 | `mkdir -p ~/.mrk/backups/<timestamp>` | scripts/setup:451 | setup, install, dotfiles, all | Yes — `rm -rf ~/.mrk/backups/<timestamp>` | NI (timestamp changes each run) |
 | `exec > >(tee -a ~/.mrk/install.log)` (creates/appends log) | scripts/setup:126 | setup, install, tools, dotfiles, setup-dry, all | Yes — delete file | NI (appends) |
 | `mv ~/.mrk/install.log → ~/.mrk/install.log.<epoch>.old` (log rotation if >10MB) | scripts/lib.sh:80 | any target sourcing lib.sh that calls setup_logging | Yes — `mv` back | COND (only if >10MB) |
@@ -25,7 +25,7 @@ Side effects are grouped by category. For each entry:
 | `echo "<rollback-cmd>" >> ~/.mrk/defaults-rollback.sh` (many appends) | scripts/defaults.sh:44,88-94 | defaults, trackpad, setup, all | Yes — delete file | NI (appends) |
 | `printf '#!/usr/bin/env bash\n' > ~/.mrk/hardening-rollback.sh` | scripts/hardening.sh:15 | harden | NO ROLLBACK FOUND | NI (truncates) |
 | `echo "<rollback-cmd>" >> ~/.mrk/hardening-rollback.sh` | scripts/hardening.sh:35,66,74 | harden | Yes — delete file | NI (appends) |
-| `echo "syncall ran on <date>" >> ~/.mrk/syncall.log` | scripts/syncall:184 | syncall | Yes — delete file | NI (appends each run) |
+| ~~`echo "syncall ran on <date>" >> ~/.mrk/syncall.log`~~ | ~~scripts/syncall:184~~ | ~~syncall~~ | — | — | <!-- syncall removed commit ba29d0c -->
 | `mkdir -p ~/.cache/mrk` | scripts/check-updates:29 | none (invoked from .zshrc) | Yes — `rm -rf ~/.cache/mrk` | I |
 | `date +%s > ~/.cache/mrk/last-update-check` | scripts/check-updates:69 | none | Yes — delete file | NI (overwrites timestamp) |
 
@@ -440,7 +440,7 @@ If validation fails, it restores the backup and aborts. This is a meaningful saf
 | `git clone git@github.com:sevmorris/mrk-prefs.git ~/.mrk/preferences` | scripts/pull-prefs:18, scripts/snapshot-prefs:21 | pull-prefs; snapshot-prefs; post-install (conditional) | Clones private preferences repo |
 | `git -C ~/.mrk/preferences pull --ff-only` | scripts/pull-prefs:14 | pull-prefs; post-install (if prefs already cloned) | Pulls latest from mrk-prefs |
 | `git -C ~/.mrk/preferences push` | scripts/snapshot-prefs:99 | snapshot-prefs | Pushes preference exports to mrk-prefs |
-| `git -C <repo> push origin HEAD:<branch>` | scripts/syncall:88 | syncall | Pushes each discovered GitHub repo |
+| ~~`git -C <repo> push origin HEAD:<branch>`~~ | ~~scripts/syncall:88~~ | ~~syncall~~ | Pushes each discovered GitHub repo | <!-- syncall removed commit ba29d0c -->
 | `git -C <repo> fetch --quiet &` | scripts/check-updates:47 | none (shell startup) | Background fetch to check for mrk updates |
 | `topgrade` | Makefile:88 | update | If installed: upgrades all package managers including brew, pip, npm, etc. |
 | `brew update && brew upgrade` | Makefile:88 | update | If topgrade absent |
@@ -527,19 +527,20 @@ If validation fails, it restores the backup and aborts. This is a meaningful saf
 
 | Operation | Script:line | Make targets | Notes | Reversible |
 |---|---|---|---|---|
-| `git -C <repo> push origin HEAD:<branch>` | scripts/syncall:88 | syncall | Pushes every discovered GitHub repo under $HOME with local changes. Finds repos up to 7 levels deep. Auto-commits with message `"syncall: auto-commit <timestamp>"` before pushing. | Partially — cannot un-push; `git revert` per repo |
+| ~~`git -C <repo> push origin HEAD:<branch>`~~ | ~~scripts/syncall:88~~ | ~~syncall~~ | Pushes every discovered GitHub repo under $HOME with local changes. Finds repos up to 7 levels deep. Auto-commits with message `"syncall: auto-commit <timestamp>"` before pushing. | Partially — cannot un-push; `git revert` per repo | <!-- syncall removed commit ba29d0c -->
 | `git -C ~/.mrk/preferences push` | scripts/snapshot-prefs:99 | snapshot-prefs | Pushes to `git@github.com:sevmorris/mrk-prefs.git` | Partially |
 | `git add Brewfile && git commit` | scripts/sync:620-621 | sync (with -c flag) | Commits Brewfile update to mrk repo | Yes — `git revert HEAD` |
 | `git add ... && git commit` | scripts/sync-login-items:397-398 | sync-login-items (with -c flag) | Commits post-install + docs updates | Yes — `git revert HEAD` |
 | `git -C <mrk-dir> remote set-url origin <ssh-url>` | scripts/post-install:277 | post-install, all | Mutates git remote URL in mrk repo (HTTPS→SSH) | Yes — re-set to HTTPS URL |
 | `git add -A && git commit && git push` | bin/mrk-push (not a make target) | none | Commits and pushes current repo; also prunes GitHub Deployments via API | Partially |
 | `git add -- assets/preferences/ && git commit` | bin/snapshot (not a make target) | none | Commits pref exports to mrk repo | Yes |
-| `git -C <repo> add -A && git commit` | scripts/syncall:72-73 | syncall | Auto-commit in each dirty repo (interactive confirmation in TTY mode) | Yes — `git revert HEAD` in each repo |
+| ~~`git -C <repo> add -A && git commit`~~ | ~~scripts/syncall:72-73~~ | ~~syncall~~ | Auto-commit in each dirty repo (interactive confirmation in TTY mode) | Yes — `git revert HEAD` in each repo | <!-- syncall removed commit ba29d0c -->
 
-**syncall detail:** By default searches `$HOME` at depth ≤7, skipping:
+~~**syncall detail:** By default searches `$HOME` at depth ≤7, skipping:
 `$HOME/Library`, `$HOME/.Trash`, `$HOME/.venvs`, `$HOME/.cache`, `$HOME/.cargo`,
 `$HOME/.npm`, `_build`, `node_modules`, `.git/modules`, `$HOME/mrk` (the mrk repo itself).
-Only syncs repos with a `github.com` remote. Confirm prompt shown when terminal is a TTY.
+Only syncs repos with a `github.com` remote. Confirm prompt shown when terminal is a TTY.~~
+<!-- syncall removed commit ba29d0c -->
 
 ---
 
@@ -574,6 +575,8 @@ Ranked by blast radius: irreversible, privileged, touches user data outside mrk'
 or pushes to a remote.
 
 ### 1. `make syncall` — Auto-commit and push ALL GitHub repos under $HOME
+
+> **Removed** in commit `ba29d0c` (branch `audit/static-pass`). Section retained for audit history.
 
 **Blast radius: CRITICAL.**
 Searches up to 7 directory levels deep under `$HOME` for any git repo with a
