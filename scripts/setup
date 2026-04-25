@@ -447,15 +447,6 @@ phase_dotfiles() {
   fi
   
   local src dst
-  if (( ! DRY_RUN )); then
-    if ! mkdir -p "$BACKUP_DIR"; then
-      err "Failed to create backup directory: $BACKUP_DIR"
-      return 1
-    fi
-  else
-    dry "Would create backup directory: $BACKUP_DIR"
-  fi
-  
   shopt -s dotglob nullglob
   local found=0
   local linked=0
@@ -502,6 +493,7 @@ phase_dotfiles() {
         ((backed_up++)) || true
       else
         log "Backing up: $dst -> $BACKUP_DIR/$(basename "$dst")"
+        mkdir -p "$BACKUP_DIR" || { err "Failed to create backup directory: $BACKUP_DIR"; shopt -u dotglob nullglob; printf "\r" >&2; return 1; }
         if ! mv "$dst" "$BACKUP_DIR/" || [[ ! -e "$BACKUP_DIR/$(basename "$dst")" ]]; then
           err "Failed to backup $dst - aborting dotfile linking"
           shopt -u dotglob nullglob
