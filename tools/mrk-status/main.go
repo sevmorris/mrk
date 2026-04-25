@@ -812,6 +812,9 @@ func main() {
 	}
 
 	repoRoot := filepath.Join(home, "mrk")
+	if r := os.Getenv("MRK_ROOT"); r != "" {
+		repoRoot = r
+	}
 	binDir := filepath.Join(home, "bin")
 
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
