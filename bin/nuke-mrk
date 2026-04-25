@@ -57,10 +57,18 @@ if [[ ! "$do_snapshot" =~ ^[Nn]$ ]]; then
   if [[ -f "$MRK_DIR/Makefile" ]]; then
     echo ""
     log "Running make sync..."
-    make -C "$MRK_DIR" sync ARGS=-c && ok "Brewfile synced and committed" || warn "make sync exited with errors"
+    if make -C "$MRK_DIR" sync ARGS=-c; then
+      ok "Brewfile synced and committed"
+    else
+      warn "make sync exited with errors"
+    fi
     echo ""
     log "Running make snapshot-prefs..."
-    make -C "$MRK_DIR" snapshot-prefs && ok "Preferences snapshotted" || warn "make snapshot-prefs exited with errors"
+    if make -C "$MRK_DIR" snapshot-prefs; then
+      ok "Preferences snapshotted"
+    else
+      warn "make snapshot-prefs exited with errors"
+    fi
   else
     warn "Makefile not found at $MRK_DIR — skipping"
   fi
@@ -123,11 +131,19 @@ if (( has_rollbacks )); then
   if [[ "$run_rollbacks" =~ ^[Yy]$ ]]; then
     if [[ -f "$DEFAULTS_ROLLBACK" ]]; then
       log "Running defaults rollback..."
-      bash "$DEFAULTS_ROLLBACK" && ok "Defaults restored" || warn "defaults-rollback.sh exited with errors"
+      if bash "$DEFAULTS_ROLLBACK"; then
+        ok "Defaults restored"
+      else
+        warn "defaults-rollback.sh exited with errors"
+      fi
     fi
     if [[ -f "$HARDENING_ROLLBACK" ]]; then
       log "Running hardening rollback..."
-      bash "$HARDENING_ROLLBACK" && ok "Hardening undone" || warn "hardening-rollback.sh exited with errors"
+      if bash "$HARDENING_ROLLBACK"; then
+        ok "Hardening undone"
+      else
+        warn "hardening-rollback.sh exited with errors"
+      fi
     fi
   else
     dim "Skipping rollback scripts"

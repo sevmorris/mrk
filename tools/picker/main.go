@@ -512,11 +512,8 @@ func (m model) viewLeft(inner, height int) string {
 		if nameW < 1 {
 			nameW = 1
 		}
-		name := cat.name
-		if len(name) > nameW {
-			name = name[:nameW-1] + "…"
-		}
-		pad := nameW - len(name)
+		name := theme.Truncate(cat.name, nameW)
+		pad := nameW - len([]rune(name))
 		if pad < 0 {
 			pad = 0
 		}
@@ -590,18 +587,15 @@ func (m model) viewRight(inner, height int) string {
 
 		isCursor := i == m.pkgIdx && !m.leftFocus
 
-		name := p.name
-		if len(name) > nameW {
-			name = name[:nameW-1] + "…"
-		}
-		pad := nameW - len(name)
+		name := theme.Truncate(p.name, nameW)
+		pad := nameW - len([]rune(name))
 		if pad < 0 {
 			pad = 0
 		}
 
 		desc := p.desc
-		if descW > 0 && len(desc) > descW {
-			desc = desc[:descW-1] + "…"
+		if descW > 0 {
+			desc = theme.Truncate(desc, descW)
 		}
 
 		var line string
@@ -699,3 +693,4 @@ func main() {
 		}
 	}
 }
+

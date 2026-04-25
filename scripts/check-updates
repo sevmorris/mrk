@@ -43,13 +43,11 @@ if [[ ! -d "$REPO_DIR/.git" ]]; then
   exit 0
 fi
 
-# Fetch updates quietly with a timeout so slow networks don't block shell startup
+# Fetch updates in background; wait at most 1 second so slow/offline networks
+# don't block shell startup for more than a brief moment.
 git -C "$REPO_DIR" fetch --quiet 2>/dev/null &
 fetch_pid=$!
-for _ in 1 2 3 4 5; do
-  kill -0 "$fetch_pid" 2>/dev/null || break
-  sleep 1
-done
+sleep 1
 if kill -0 "$fetch_pid" 2>/dev/null; then
   kill "$fetch_pid" 2>/dev/null
   wait "$fetch_pid" 2>/dev/null

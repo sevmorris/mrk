@@ -555,7 +555,7 @@ func (m model) detailViewH() int {
 
 func (m *model) clampCursor() {
 	if m.groupIdx >= len(m.groups) {
-		m.groupIdx = maxInt(0, len(m.groups)-1)
+		m.groupIdx = max(0, len(m.groups)-1)
 	}
 }
 
@@ -689,8 +689,8 @@ func (m model) viewLeft(inner, height int) string {
 	for i, g := range m.groups {
 		icon := sevStyle(g.sev).Render(g.sev.icon())
 		nameW := inner - 5 // "▸ " or "  " (2) + icon(1) + " " (1) + padding(1)
-		name := truncate(g.name, nameW)
-		pad := strings.Repeat(" ", maxInt(0, nameW-lipgloss.Width(name)))
+		name := theme.Truncate(g.name, nameW)
+		pad := strings.Repeat(" ", max(0, nameW-lipgloss.Width(name)))
 
 		var line string
 		if i == m.groupIdx {
@@ -742,7 +742,7 @@ func (m model) viewRight(inner, height int) string {
 	sb.WriteString(header + "\n")
 	for _, l := range g.lines[start:end] {
 		icon := sevStyle(l.sev).Render(l.sev.icon())
-		text := truncate(l.text, inner-3)
+		text := theme.Truncate(l.text, inner-3)
 		sb.WriteString(icon + " " + styleNorm.Render(text) + "\n")
 	}
 
@@ -766,7 +766,7 @@ func (m model) viewRight(inner, height int) string {
 		sb2.WriteString(header + strings.Repeat(" ", gap) + scrollInfo + "\n")
 		for _, l := range g.lines[start:end] {
 			icon := sevStyle(l.sev).Render(l.sev.icon())
-			text := truncate(l.text, inner-3)
+			text := theme.Truncate(l.text, inner-3)
 			sb2.WriteString(icon + " " + styleNorm.Render(text) + "\n")
 		}
 		content := strings.TrimRight(sb2.String(), "\n")
@@ -778,24 +778,6 @@ func (m model) viewRight(inner, height int) string {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func truncate(s string, n int) string {
-	runes := []rune(s)
-	if len(runes) <= n {
-		return s
-	}
-	if n <= 1 {
-		return "…"
-	}
-	return string(runes[:n-1]) + "…"
-}
 
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
@@ -834,6 +816,9 @@ func main() {
 	}
 
 	repoRoot := filepath.Join(home, "mrk")
+	if r := os.Getenv("MRK_ROOT"); r != "" {
+		repoRoot = r
+	}
 	binDir := filepath.Join(home, "bin")
 
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
