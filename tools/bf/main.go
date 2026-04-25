@@ -53,6 +53,7 @@ var (
 	reFormula = regexp.MustCompile(`^brew\s+"([^"]+)"(.*)$`)
 	reCask    = regexp.MustCompile(`^cask\s+"([^"]+)"(.*)$`)
 	reHeader  = regexp.MustCompile(`^#\s+([A-Z].+)$`)
+	reGreedy  = regexp.MustCompile(`,\s*greedy:\s*true`)
 )
 
 type brewfile struct {
@@ -182,8 +183,7 @@ func (bf *brewfile) toggleGreedy(e *entry) {
 	}
 	line := bf.lines[e.lineIdx]
 	if e.greedy {
-		line = strings.Replace(line, `, greedy: true`, "", 1)
-		line = strings.Replace(line, `, greedy:true`, "", 1)
+		line = reGreedy.ReplaceAllString(line, "")
 	} else {
 		line = strings.TrimRight(line, " \t") + ", greedy: true"
 	}
@@ -642,7 +642,6 @@ func (m model) handleNormal(key string) (model, tea.Cmd) {
 				m.flash = "save failed: " + err.Error()
 				break
 			}
-			m.dirty = false
 			m.inputBuf = "Brewfile: "
 			m.state = stateCommit
 		}
@@ -737,6 +736,15 @@ func (m model) handleAddSection(key string) (model, tea.Cmd) {
 		}
 	case "enter":
 		if m.addSecIdx < len(secs) {
+			for _, sec := range m.bf.sections {
+				for _, e := range sec.entries {
+					if e.name == m.addName && e.kind == m.addKind {
+						m.flash = "already in Brewfile"
+						m.state = stateNormal
+						return m, nil
+					}
+				}
+			}
 			secName := secs[m.addSecIdx].name
 			m.bf.addEntry(m.addName, m.addKind, false, secName)
 			m.dirty = true
