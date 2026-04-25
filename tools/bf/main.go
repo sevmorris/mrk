@@ -15,6 +15,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	theme "mrk-theme"
 )
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -944,31 +945,6 @@ func (m *model) clampCursor() {
 	}
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func truncate(s string, n int) string {
-	runes := []rune(s)
-	if len(runes) <= n {
-		return s
-	}
-	if n <= 1 {
-		return "…"
-	}
-	return string(runes[:n-1]) + "…"
-}
-
 func padRight(s string, n int) string {
 	w := lipgloss.Width(s)
 	if w >= n {
@@ -1163,7 +1139,7 @@ func (m model) viewLeft(inner, height int) string {
 		if nameW < 1 {
 			nameW = 1
 		}
-		name := truncate(sec.name, nameW)
+		name := theme.Truncate(sec.name, nameW)
 		pad := strings.Repeat(" ", max(0, nameW-lipgloss.Width(name)))
 
 		var line string
@@ -1201,7 +1177,7 @@ func (m model) viewRight(inner, height int) string {
 	}
 
 	// Show section full name as a dim header
-	header := styleDim.Render(truncate(sec.fullName, inner))
+	header := styleDim.Render(theme.Truncate(sec.fullName, inner))
 	headerLines := 1
 	pkgH := height - headerLines - 1
 	if pkgH < 1 {
@@ -1244,7 +1220,7 @@ func (m model) viewRight(inner, height int) string {
 
 		isCursor := i == m.entIdx && !m.leftFocus
 
-		name := truncate(e.name, nameW)
+		name := theme.Truncate(e.name, nameW)
 		name = padRight(name, nameW)
 
 		kindBadge := styleDim.Render(padRight(e.kind.String(), kindW))
@@ -1256,7 +1232,7 @@ func (m model) viewRight(inner, height int) string {
 		desc := ""
 		if descW > 0 {
 			if d, ok := m.descCache[e.name]; ok {
-				desc = "  " + styleDim.Render(truncate(d, descW))
+				desc = "  " + styleDim.Render(theme.Truncate(d, descW))
 			}
 		}
 
@@ -1310,8 +1286,8 @@ func (m model) viewSearch(bodyH int) string {
 				continue
 			}
 			isCursor := i == m.searchIdx
-			name := padRight(truncate(r.name, nameW), nameW)
-			sec := truncate(r.sec, 16)
+			name := padRight(theme.Truncate(r.name, nameW), nameW)
+			sec := theme.Truncate(r.sec, 16)
 			kind := styleDim.Render(padRight(r.kind.String(), 4))
 
 			var line string
@@ -1369,9 +1345,9 @@ func (m model) viewPrune(bodyH int) string {
 		if p.marked {
 			checkbox = styleDelete.Render("[✕]")
 		}
-		name := padRight(truncate(p.name, nameW), nameW)
+		name := padRight(theme.Truncate(p.name, nameW), nameW)
 		kind := styleDim.Render(padRight(p.kind.String(), 4))
-		sec := styleSearchSec.Render(truncate(p.sec, 16))
+		sec := styleSearchSec.Render(theme.Truncate(p.sec, 16))
 
 		var line string
 		if isCursor {
@@ -1411,7 +1387,7 @@ func (m model) viewSectionPicker(label string, cursor int, bodyH int) string {
 		}
 		badge := styleBadge.Render(fmt.Sprintf("(%d)", len(sec.entries)))
 		nameW := inner - lipgloss.Width(badge) - 4
-		name := truncate(sec.name, nameW)
+		name := theme.Truncate(sec.name, nameW)
 
 		var line string
 		if i == cursor {

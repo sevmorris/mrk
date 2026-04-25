@@ -16,6 +16,20 @@ var (
 	ColRed       = lipgloss.AdaptiveColor{Light: "#af0000", Dark: "#ff8787"}
 )
 
+// ── Shared utilities ─────────────────────────────────────────────────────────
+
+// Truncate clips s to at most n runes, appending "…" when clipped.
+func Truncate(s string, n int) string {
+	runes := []rune(s)
+	if len(runes) <= n {
+		return s
+	}
+	if n <= 1 {
+		return "…"
+	}
+	return string(runes[:n-1]) + "…"
+}
+
 // ── Shared styles ────────────────────────────────────────────────────────────
 
 var (
