@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status build-tools sync sync-login-items snapshot-prefs pull-prefs dock help
+.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status build-tools tidy sync sync-login-items snapshot-prefs pull-prefs dock help
 
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
 define go-build
@@ -12,7 +12,7 @@ define go-build
 		exit 1; \
 	fi
 	@printf '  \033[36m▸\033[0m Building $(1)…\n'
-	@cd "$(REPO_ROOT)/tools/$(2)" && go mod tidy && go build -o "$(BIN_DIR)/$(1)" .
+	@cd "$(REPO_ROOT)/tools/$(2)" && go build -o "$(BIN_DIR)/$(1)" .
 	@chmod +x "$(BIN_DIR)/$(1)"
 endef
 
@@ -47,6 +47,12 @@ adventure: ## Full install in narrative adventure mode
 build-tools: ## Build all Go TUI binaries (requires Go)
 	@printf '\n\033[1;34m══ Phase 4: TUI Tools\033[0m\n\n'
 	@$(MAKE) --no-print-directory picker bf mrk-status
+
+tidy: ## Run go mod tidy in all tool directories
+	@for dir in picker bf mrk-status; do \
+		printf '  \033[36m▸\033[0m go mod tidy: tools/$$dir\n'; \
+		cd "$(REPO_ROOT)/tools/$$dir" && go mod tidy; \
+	done
 
 fix-exec: ## Make scripts and bin files executable
 	@if find $(SCRIPTS) -type f -maxdepth 1 -not -name "*.md" -exec chmod +x {} + 2>/dev/null && \
