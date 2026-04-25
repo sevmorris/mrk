@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status build-tools tidy sync sync-login-items snapshot-prefs pull-prefs dock help
+.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs dock help
 
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
 define go-build
@@ -122,11 +122,17 @@ mrk-status: ## Build the mrk-status TUI health dashboard binary
 	@printf '  \033[32m✓\033[0m mrk-status → ~/bin/mrk-status, ~/bin/status\n'
 
 
+# TODO: ARGS is word-split by Make before the shell sees it. For flags with
+# embedded spaces, quote the script invocation directly. (audit Makefile-L1)
+
 sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to commit, ARGS=-n for dry run)
 	@"$(SCRIPTS)/sync" $(ARGS)
 
 sync-login-items: ## Sync system login items into post-install and docs  (pass ARGS=-c to commit, ARGS=-n for dry run)
 	@"$(SCRIPTS)/sync-login-items" $(ARGS)
+
+snapshot: ## Export selected app prefs to assets/preferences/ in repo (distinct from snapshot-prefs)
+	@"$(BIN_DIR)/snapshot" $(ARGS)
 
 snapshot-prefs: ## Export app preferences to ~/.mrk/preferences/ and push to mrk-prefs
 	@"$(SCRIPTS)/snapshot-prefs"
