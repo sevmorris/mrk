@@ -24,13 +24,18 @@ if ! mkdir -p "$ROLL_DIR"; then
   exit 1
 fi
 
-if ! printf '#!/usr/bin/env bash\n' > "$ROLLBACK"; then
-  echo "Error: Failed to initialize rollback script: $ROLLBACK" >&2
-  exit 1
-fi
-if ! chmod +x "$ROLLBACK"; then
-  echo "Error: Failed to set executable on rollback script: $ROLLBACK" >&2
-  exit 1
+if [[ -f "$ROLLBACK" ]] && grep -q '^#!/usr/bin/env bash$' "$ROLLBACK" 2>/dev/null; then
+  # Rollback file already exists and has a valid shebang — preserve prior entries
+  chmod +x "$ROLLBACK" 2>/dev/null || true
+else
+  if ! printf '#!/usr/bin/env bash\n' > "$ROLLBACK"; then
+    echo "Error: Failed to initialize rollback script: $ROLLBACK" >&2
+    exit 1
+  fi
+  if ! chmod +x "$ROLLBACK"; then
+    echo "Error: Failed to set executable on rollback script: $ROLLBACK" >&2
+    exit 1
+  fi
 fi
 
 _self="${BASH_SOURCE[0]}"
@@ -41,7 +46,7 @@ while [[ -L "$_self" ]]; do
 done
 SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
-backup_line(){ echo "$1" >> "$ROLLBACK"; }
+backup_line(){ grep -qFx "$1" "$ROLLBACK" 2>/dev/null && return 0; echo "$1" >> "$ROLLBACK"; }
 
 # Helper: capture current value (if any) and append the inverse to rollback.
 # Skips the write if the current value already matches the target (idempotent).
@@ -54,6 +59,17 @@ write_default(){
   if current=$(defaults read "$domain" "$key" 2>/dev/null); then
     # Authoritative type detection
     current_type=$(defaults read-type "$domain" "$key" 2>/dev/null | awk '{print $NF}' || echo "string")
+
+    # Save rollback BEFORE idempotency check so re-runs preserve first-run originals.
+    # Guard skips append when an entry for this domain+key already exists in the file.
+    if ! grep -qF "$domain $key " "$ROLLBACK" 2>/dev/null; then
+      case "$current_type" in
+        boolean) backup_line "defaults write $domain $key -bool $([[ "$current" == "1" ]] && echo "true" || echo "false")" ;;
+        integer) backup_line "defaults write $domain $key -int $current" ;;
+        float)   backup_line "defaults write $domain $key -float $current" ;;
+        *)       backup_line "defaults write $domain $key -string \"$current\"" ;;
+      esac
+    fi
 
     # Idempotency: skip write if already at target value and type
     local already_set=0
@@ -82,14 +98,6 @@ write_default(){
     if (( already_set )); then
       return 0
     fi
-
-    # Save rollback using authoritative type
-    case "$current_type" in
-      boolean) backup_line "defaults write $domain $key -bool $([[ "$current" == "1" ]] && echo "true" || echo "false")" ;;
-      integer) backup_line "defaults write $domain $key -int $current" ;;
-      float)   backup_line "defaults write $domain $key -float $current" ;;
-      *)       backup_line "defaults write $domain $key -string \"$current\"" ;;
-    esac
   else
     backup_line "defaults delete $domain $key >/dev/null 2>&1 || true"
   fi
