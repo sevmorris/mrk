@@ -29,6 +29,8 @@ done
 
 failed=0
 
+trap 'printf "\n[post-install] interrupted — exiting\n" >&2; exit 1' INT TERM
+
 section "Phase 3 of 3: Post-install"
 if (( ADVENTURE )); then
   cat >&2 <<'INTRO'
@@ -201,6 +203,7 @@ install_github_app(){
   local tmp_dmg tmp_mount
   tmp_dmg=$(mktemp -t mrk)
   tmp_mount=$(mktemp -t mrk -d)
+  trap "hdiutil detach \"$tmp_mount\" -quiet 2>/dev/null; rm -f \"$tmp_dmg\"; rm -rf \"$tmp_mount\" 2>/dev/null" EXIT
   log "Downloading $name..."
   curl -L -sf -o "$tmp_dmg" "$dmg_url" || { log "Warning: failed to download $name"; rm -f "$tmp_dmg"; return 1; }
   hdiutil attach "$tmp_dmg" -mountpoint "$tmp_mount" -quiet -nobrowse \
