@@ -45,7 +45,6 @@ brew "xcodegen"
 # Languages / runtimes
 brew "deno"
 brew "go"
-brew "nvm"  # TODO: requires .zshrc init lines or migration to official install script (audit B3)
 brew "python@3.12"
 brew "pipx"
 brew "pyenv"
