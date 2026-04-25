@@ -205,18 +205,6 @@ Clones `mrk-prefs` into `~/.mrk/preferences/` if it doesn't exist, or fast-forwa
 
 > **Note:** `make post-install` does this automatically if `~/.mrk/preferences/` is absent and your SSH key is authenticated with GitHub.
 
-## Syncing All Repos
-
-**`syncall`** — auto-commit and push all GitHub repos found under `$HOME`:
-
-```bash
-syncall         # Commit and push all repos (prompts before committing dirty ones)
-syncall -n      # Dry run — show what would be committed/pushed
-make syncall    # Same via make
-```
-
-Skips `~/mrk` by default (configurable via `SYNCALL_SKIP_PATHS`). Only syncs repos whose remotes point to GitHub. Logs runs to `~/.mrk/syncall.log`.
-
 ## Configuring the Dock
 
 **`dock-setup`** populates the Dock from a predefined app list, clearing whatever was there first:
@@ -488,7 +476,6 @@ Pass `ARGS=--adventure` to any phase target to enable narrative mode for that ph
 | Command | Description |
 |---|---|
 | `make sync` | Sync installed packages into Brewfile |
-| `make syncall` | Auto-commit and push all GitHub repos under `$HOME` |
 | `make update` | Upgrade all packages (topgrade or brew upgrade) |
 | `make updates` | Run macOS software updates (`softwareupdate -ia`) |
 | `make uninstall` | Remove symlinks and undo setup |
@@ -529,7 +516,6 @@ mrk writes runtime state to `~/.mrk/` (gitignored):
 | `~/.mrk/backups/` | Timestamped backups of dotfiles that were replaced during setup |
 | `~/.mrk/defaults-rollback.sh` | Shell script to undo all `defaults write` changes |
 | `~/.mrk/hardening-rollback.sh` | Shell script to undo security hardening |
-| `~/.mrk/syncall.log` | Log of `syncall` runs |
 
 To undo macOS defaults applied by mrk:
 

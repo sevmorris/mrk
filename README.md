@@ -62,7 +62,6 @@ Run `make all` to execute all three phases at once. Phases are independent — r
 |--------|-------------|
 | `make sync` | Snapshot installed Homebrew packages into the Brewfile |
 | `make sync-login-items` | Sync system login items into post-install and docs |
-| `make syncall` | Auto-commit and push all GitHub repos under `$HOME` |
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
 | `make update` | Update via topgrade (or brew) |
