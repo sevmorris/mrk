@@ -62,12 +62,12 @@ write_default(){
 
     # Save rollback BEFORE idempotency check so re-runs preserve first-run originals.
     # Guard skips append when an entry for this domain+key already exists in the file.
-    if ! grep -qF "$domain $key " "$ROLLBACK" 2>/dev/null; then
+    if ! grep -qF "$domain \"$key\"" "$ROLLBACK" 2>/dev/null; then
       case "$current_type" in
-        boolean) backup_line "defaults write $domain $key -bool $([[ "$current" == "1" ]] && echo "true" || echo "false")" ;;
-        integer) backup_line "defaults write $domain $key -int $current" ;;
-        float)   backup_line "defaults write $domain $key -float $current" ;;
-        *)       backup_line "defaults write $domain $key -string \"$current\"" ;;
+        boolean) backup_line "defaults write $domain \"$key\" -bool $([[ "$current" == "1" ]] && echo "true" || echo "false")" ;;
+        integer) backup_line "defaults write $domain \"$key\" -int $current" ;;
+        float)   backup_line "defaults write $domain \"$key\" -float $current" ;;
+        *)       backup_line "defaults write $domain \"$key\" -string \"$current\"" ;;
       esac
     fi
 
@@ -99,7 +99,7 @@ write_default(){
       return 0
     fi
   else
-    backup_line "defaults delete $domain $key >/dev/null 2>&1 || true"
+    backup_line "defaults delete $domain \"$key\" >/dev/null 2>&1 || true"
   fi
 
   case "$type" in
