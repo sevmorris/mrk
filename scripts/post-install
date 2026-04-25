@@ -202,6 +202,33 @@ else
 fi
 
 ###############################################################################
+# nvm (Node Version Manager)                                                  #
+###############################################################################
+
+# Install via official script. PROFILE=/dev/null prevents the installer from
+# appending init lines to .zshrc/.bashrc — those are managed in the dotfile.
+NVM_VERSION="v0.40.4"
+NVM_INSTALL_URL="https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh"
+
+if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
+  logskip "nvm" "already installed at ~/.nvm"
+else
+  log "Installing nvm ${NVM_VERSION}..."
+  if PROFILE=/dev/null bash <(curl -fsSL "$NVM_INSTALL_URL") 2>&1 | \
+       grep -v "^$\|=> Downloading\|=> Installed\|=> Close\|=> Profile\|=> Creating" || true; then
+    if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
+      ok "nvm ${NVM_VERSION} → ~/.nvm"
+    else
+      warn "nvm install script ran but ~/.nvm/nvm.sh not found"
+      ((++failed))
+    fi
+  else
+    warn "nvm install failed — run manually: curl -o- ${NVM_INSTALL_URL} | PROFILE=/dev/null bash"
+    ((++failed))
+  fi
+fi
+
+###############################################################################
 # Companion apps (installed from GitHub releases)                             #
 ###############################################################################
 
