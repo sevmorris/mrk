@@ -53,7 +53,10 @@ Brewfile.lock.json
 bin/mrk-picker
 bin/bf
 bin/mrk-status
+# Source-tree build artifacts from `go build` inside tools/<name>/
+tools/*/bf
+tools/*/mrk-status
+tools/*/mrk-picker
 
 # Personal app preferences (captured via `make snapshot-prefs`, stored in ~/.mrk/preferences/)
 assets/preferences/*.plist
-
