@@ -260,6 +260,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.flashMsg = ""
 		}
+		return m, tea.ClearScreen
 	}
 
 	return m, nil
