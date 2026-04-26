@@ -433,7 +433,8 @@ exec zsh
 | `make picker` | Build the mrk-picker TUI binary |
 | `make bf` | Build the bf Brewfile manager TUI binary |
 | `make mrk-status` | Build the mrk-status TUI health dashboard binary |
-| `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status) |
+| `make mrk-menu` | Build the mrk-menu TUI launcher binary |
+| `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status + mrk-menu) |
 
 **General**
 
@@ -476,10 +477,11 @@ Pass `ARGS=--adventure` to any phase target to enable narrative mode for that ph
 | `make updates` | Run macOS software updates (`softwareupdate -ia`) |
 | `make uninstall` | Remove symlinks and undo setup |
 
-**Diagnostics**
+**Diagnostics & Launchers**
 
 | Command | Description |
 |---|---|
+| `mrk-menu` | Open the mrk-menu TUI launcher for all tools and tasks |
 | `make status` | Open the mrk-status TUI health dashboard |
 | `make doctor` | Check `~/bin` is on PATH; `--fix` adds it to `.zshrc` |
 | `make fix-exec` | Make all scripts and bin files executable |
