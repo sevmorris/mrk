@@ -284,18 +284,18 @@ var (
 	styleWarning  = lipgloss.NewStyle().Foreground(theme.ColAmber)
 	styleHelp     = lipgloss.NewStyle().Foreground(theme.ColSubtle).MarginTop(1)
 
-	stylePaneCatActive   = lipgloss.NewStyle().Width(25).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColAccent)
-	stylePaneCatInactive = lipgloss.NewStyle().Width(25).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColSubtle)
+	stylePaneCatActive   = lipgloss.NewStyle().Width(25).Height(19).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColAccent)
+	stylePaneCatInactive = lipgloss.NewStyle().Width(25).Height(19).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColSubtle)
 
-	stylePaneItemActive   = lipgloss.NewStyle().PaddingLeft(2)
-	stylePaneItemInactive = lipgloss.NewStyle().PaddingLeft(2)
+	stylePaneItemActive   = lipgloss.NewStyle().PaddingLeft(2).Width(51).Height(19)
+	stylePaneItemInactive = lipgloss.NewStyle().PaddingLeft(2).Width(51).Height(19)
 
 	styleWindow = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(theme.ColSubtle).
 		Padding(1, 2).
 		Width(82).
-		Height(25)
+		Height(29)
 )
 
 func (m model) View() string {
