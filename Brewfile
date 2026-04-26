@@ -3,7 +3,6 @@
 # CLI Tools - General Utilities & Power User Tools
 brew "bash"
 brew "bat"
-brew "cirruslabs/cli/tart"
 brew "coreutils"
 brew "fastfetch"
 brew "gemini-cli"
