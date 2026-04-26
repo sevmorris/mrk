@@ -110,6 +110,9 @@ type model struct {
 
 	nukeInput string
 	flashMsg  string
+
+	width  int
+	height int
 }
 
 type execFinishedMsg struct {
@@ -153,6 +156,10 @@ func (m model) runCmd(i item) tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+
 	case tea.KeyMsg:
 		switch m.state {
 		case stateFocusCat:
