@@ -102,7 +102,7 @@ Configures installed apps. Must be run after Phase 2.
 - **Plist imports** (14 apps): Imports personal preference plists; skips any app that already has a preferences file (non-destructive)
 - **Barkeep:** Downloads and installs Barkeep from the latest GitHub release. Skipped if `/Applications/Barkeep.app` already exists — to update, use Barkeep itself or remove the app first
 - **App Support restore:** Restores Loopback and SoundSource configuration files (non-destructive)
-- **Login items:** Registers AlDente,BetterSnapTool,Bitwarden,Chrono Plus,Dropbox,Hammerspoon,Ice,NordPass,Raycast,SoundSource,Stats as login items
+- **Login items:** Registers AlDente,BetterSnapTool,Chrono Plus,Dropbox,Ice,NordPass,Raycast,SoundSource,Stats as login items
 
 **Managed app preferences:**
 
