@@ -89,7 +89,7 @@ if $have_sudo; then
     # Capture current stealth mode state before enabling — first-run original wins
     prev_stealth="off"
     /usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode 2>/dev/null | \
-      grep -qi "enabled" && prev_stealth="on" || true
+      grep -qi " is on" && prev_stealth="on" || true
     grep -qF "setstealthmode" "$ROLL" 2>/dev/null || \
       rollback "sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode $prev_stealth"
     log "Enabling macOS firewall (global on, stealth on)"
