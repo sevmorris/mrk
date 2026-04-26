@@ -284,18 +284,18 @@ var (
 	styleWarning  = lipgloss.NewStyle().Foreground(theme.ColAmber)
 	styleHelp     = lipgloss.NewStyle().Foreground(theme.ColSubtle).MarginTop(1)
 
-	stylePaneCatActive   = lipgloss.NewStyle().Width(25).Height(19).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColAccent)
-	stylePaneCatInactive = lipgloss.NewStyle().Width(25).Height(19).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColSubtle)
+	stylePaneCatActive   = lipgloss.NewStyle().Width(25).Height(15).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColAccent)
+	stylePaneCatInactive = lipgloss.NewStyle().Width(25).Height(15).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColSubtle)
 
-	stylePaneItemActive   = lipgloss.NewStyle().PaddingLeft(2).Width(51).Height(19)
-	stylePaneItemInactive = lipgloss.NewStyle().PaddingLeft(2).Width(51).Height(19)
+	stylePaneItemActive   = lipgloss.NewStyle().PaddingLeft(2).Width(48).Height(15)
+	stylePaneItemInactive = lipgloss.NewStyle().PaddingLeft(2).Width(48).Height(15)
 
 	styleWindow = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(theme.ColSubtle).
 		Padding(1, 2).
-		Width(82).
-		Height(29)
+		Width(80).
+		Height(21)
 )
 
 func (m model) View() string {
@@ -328,7 +328,7 @@ func (m model) View() string {
 		cat := categories[m.cursorCat]
 		for i, it := range cat.items {
 			cursor := "  "
-			nameStr := it.name
+			nameStr := theme.Truncate(it.name, 47)
 
 			if i == m.cursorItems[m.cursorCat] {
 				cursor = "> "
@@ -351,10 +351,14 @@ func (m model) View() string {
 				cmdStr += " " + strings.Join(it.args, " ")
 			}
 
-			rightPane.WriteString(styleDesc.Render("    "+it.desc) + "\n")
-			rightPane.WriteString(styleCmd.Render("    $ "+cmdStr) + "\n")
+			descStr := theme.Truncate(it.desc, 45)
+			cmdStr = theme.Truncate(cmdStr, 45)
+
+			rightPane.WriteString(styleDesc.Render("    "+descStr) + "\n")
 			if i < len(cat.items)-1 {
-				rightPane.WriteString("\n")
+				rightPane.WriteString(styleCmd.Render("    $ "+cmdStr) + "\n")
+			} else {
+				rightPane.WriteString(styleCmd.Render("    $ "+cmdStr))
 			}
 		}
 
