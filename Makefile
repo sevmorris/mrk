@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs dock help
+.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs dock help
 
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
 define go-build
@@ -45,10 +45,10 @@ adventure: ## Full install in narrative adventure mode
 
 build-tools: ## Build all Go TUI binaries (requires Go)
 	@printf '\n\033[1;34m══ Phase 4: TUI Tools\033[0m\n\n'
-	@$(MAKE) --no-print-directory picker bf mrk-status
+	@$(MAKE) --no-print-directory picker bf mrk-status mrk-menu
 
 tidy: ## Run go mod tidy in all tool directories
-	@for dir in picker bf mrk-status; do \
+	@for dir in picker bf mrk-status mrk-menu; do \
 		printf '  \033[36m▸\033[0m go mod tidy: tools/$$dir\n'; \
 		cd "$(REPO_ROOT)/tools/$$dir" && go mod tidy; \
 	done
@@ -119,6 +119,11 @@ mrk-status: ## Build the mrk-status TUI health dashboard binary
 	@ln -sf "$(BIN_DIR)/mrk-status" "$(HOME)/bin/mrk-status"
 	@ln -sf "$(BIN_DIR)/mrk-status" "$(HOME)/bin/status"
 	@printf '  \033[32m✓\033[0m mrk-status → ~/bin/mrk-status, ~/bin/status\n'
+
+mrk-menu: ## Build the mrk-menu TUI launcher binary
+	$(call go-build,mrk-menu,mrk-menu)
+	@ln -sf "$(BIN_DIR)/mrk-menu" "$(HOME)/bin/mrk-menu"
+	@printf '  \033[32m✓\033[0m mrk-menu → ~/bin/mrk-menu\n'
 
 
 # TODO: ARGS is word-split by Make before the shell sees it. For flags with
