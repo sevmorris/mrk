@@ -63,7 +63,6 @@ cask "a-better-finder-rename", greedy: true
 cask "adapter", greedy: true
 cask "aldente", greedy: true
 cask "appcleaner", greedy: true
-cask "arctic", greedy: true
 cask "audio-hijack", greedy: true
 cask "auto-claude", greedy: true
 cask "balenaetcher", greedy: true
