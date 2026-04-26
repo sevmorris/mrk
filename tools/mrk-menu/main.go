@@ -293,7 +293,9 @@ var (
 	styleWindow = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(theme.ColSubtle).
-		Padding(1, 2)
+		Padding(1, 2).
+		Width(82).
+		Height(25)
 )
 
 func (m model) View() string {
