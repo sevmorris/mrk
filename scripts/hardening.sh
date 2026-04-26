@@ -82,7 +82,7 @@ if $have_sudo; then
     grep -qi "enabled" && prev="on" || true
   # Guard: only record globalstate rollback on first run
   grep -qF "setglobalstate" "$ROLL" 2>/dev/null || \
-    rollback "/usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate $prev"
+    rollback "sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate $prev"
   if [[ "$prev" == "on" ]]; then
     log "Firewall already enabled"
   else
@@ -91,7 +91,7 @@ if $have_sudo; then
     /usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode 2>/dev/null | \
       grep -qi "enabled" && prev_stealth="on" || true
     grep -qF "setstealthmode" "$ROLL" 2>/dev/null || \
-      rollback "/usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode $prev_stealth"
+      rollback "sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode $prev_stealth"
     log "Enabling macOS firewall (global on, stealth on)"
     if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on 2>/dev/null; then
       if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on 2>/dev/null; then
