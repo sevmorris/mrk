@@ -289,6 +289,11 @@ var (
 
 	stylePaneItemActive   = lipgloss.NewStyle().PaddingLeft(2)
 	stylePaneItemInactive = lipgloss.NewStyle().PaddingLeft(2)
+
+	styleWindow = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(theme.ColSubtle).
+		Padding(1, 2)
 )
 
 func (m model) View() string {
@@ -380,7 +385,13 @@ func (m model) View() string {
 		s.WriteString(styleHelp.Render("Press esc to return"))
 	}
 
-	return lipgloss.NewStyle().Margin(1, 2).Render(s.String())
+	renderedBox := styleWindow.Render(s.String())
+	
+	if m.width > 0 && m.height > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, renderedBox)
+	}
+	
+	return renderedBox
 }
 
 func main() {
