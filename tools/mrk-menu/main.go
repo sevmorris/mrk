@@ -284,18 +284,18 @@ var (
 	styleWarning  = lipgloss.NewStyle().Foreground(theme.ColAmber)
 	styleHelp     = lipgloss.NewStyle().Foreground(theme.ColSubtle).MarginTop(1)
 
-	stylePaneCatActive   = lipgloss.NewStyle().Width(25).Height(15).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColAccent)
-	stylePaneCatInactive = lipgloss.NewStyle().Width(25).Height(15).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColSubtle)
+	stylePaneCatActive   = lipgloss.NewStyle().Width(30).Height(24).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColAccent)
+	stylePaneCatInactive = lipgloss.NewStyle().Width(30).Height(24).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColSubtle)
 
-	stylePaneItemActive   = lipgloss.NewStyle().PaddingLeft(2).Width(48).Height(15)
-	stylePaneItemInactive = lipgloss.NewStyle().PaddingLeft(2).Width(48).Height(15)
+	stylePaneItemActive   = lipgloss.NewStyle().PaddingLeft(2).Width(64).Height(24)
+	stylePaneItemInactive = lipgloss.NewStyle().PaddingLeft(2).Width(64).Height(24)
 
 	styleWindow = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(theme.ColSubtle).
 		Padding(1, 2).
-		Width(80).
-		Height(21)
+		Width(100).
+		Height(30)
 )
 
 func (m model) View() string {
@@ -328,7 +328,7 @@ func (m model) View() string {
 		cat := categories[m.cursorCat]
 		for i, it := range cat.items {
 			cursor := "  "
-			nameStr := theme.Truncate(it.name, 47)
+			nameStr := theme.Truncate(it.name, 60)
 
 			if i == m.cursorItems[m.cursorCat] {
 				cursor = "> "
@@ -351,8 +351,8 @@ func (m model) View() string {
 				cmdStr += " " + strings.Join(it.args, " ")
 			}
 
-			descStr := theme.Truncate(it.desc, 45)
-			cmdStr = theme.Truncate(cmdStr, 45)
+			descStr := theme.Truncate(it.desc, 60)
+			cmdStr = theme.Truncate(cmdStr, 60)
 
 			rightPane.WriteString(styleDesc.Render("    "+descStr) + "\n")
 			if i < len(cat.items)-1 {
