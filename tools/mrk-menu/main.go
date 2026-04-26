@@ -96,8 +96,8 @@ var categories = []category{
 type state int
 
 const (
-	stateTop state = iota
-	stateCategory
+	stateFocusCat state = iota
+	stateFocusItem
 	stateNukeConfirm
 	stateHelp
 )
@@ -119,7 +119,7 @@ type execFinishedMsg struct {
 
 func initialModel() model {
 	return model{
-		state:       stateTop,
+		state:       stateFocusCat,
 		cursorItems: make([]int, len(categories)),
 	}
 }
@@ -155,7 +155,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch m.state {
-		case stateTop:
+		case stateFocusCat:
 			switch msg.String() {
 			case "q", "ctrl+c":
 				return m, tea.Quit
@@ -172,7 +172,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.flashMsg = ""
 			case "enter", "right", "l":
-				m.state = stateCategory
+				m.state = stateFocusItem
 				m.flashMsg = ""
 			case "?":
 				m.prevState = m.state
@@ -180,13 +180,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.flashMsg = ""
 			}
 
-		case stateCategory:
+		case stateFocusItem:
 			switch msg.String() {
 			case "q", "ctrl+c":
 				return m, tea.Quit
 			case "esc", "left", "h":
-				m.state = stateTop
+				m.state = stateFocusCat
 				m.flashMsg = ""
+				return m, tea.ClearScreen
 			case "j", "down":
 				m.cursorItems[m.cursorCat]++
 				max := len(categories[m.cursorCat].items) - 1
@@ -218,17 +219,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case stateNukeConfirm:
 			switch msg.Type {
 			case tea.KeyCtrlC, tea.KeyEsc:
-				m.state = stateCategory
+				m.state = stateFocusItem
 				m.nukeInput = ""
 				m.flashMsg = "Canceled nuke operation."
 			case tea.KeyEnter:
 				if m.nukeInput == "nuke" {
 					item := categories[m.cursorCat].items[m.cursorItems[m.cursorCat]]
-					m.state = stateCategory
+					m.state = stateFocusItem
 					m.nukeInput = ""
 					return m, m.runCmd(item)
 				} else {
-					m.state = stateCategory
+					m.state = stateFocusItem
 					m.nukeInput = ""
 					m.flashMsg = "Canceled nuke operation (incorrect input)."
 				}
@@ -246,6 +247,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			case "esc", "enter":
 				m.state = m.prevState
+				return m, tea.ClearScreen
 			}
 		}
 
@@ -274,46 +276,58 @@ var (
 	styleCmd      = lipgloss.NewStyle().Foreground(theme.ColDim)
 	styleWarning  = lipgloss.NewStyle().Foreground(theme.ColAmber)
 	styleHelp     = lipgloss.NewStyle().Foreground(theme.ColSubtle).MarginTop(1)
+
+	stylePaneCatActive   = lipgloss.NewStyle().Width(25).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColAccent)
+	stylePaneCatInactive = lipgloss.NewStyle().Width(25).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColSubtle)
+
+	stylePaneItemActive   = lipgloss.NewStyle().PaddingLeft(2)
+	stylePaneItemInactive = lipgloss.NewStyle().PaddingLeft(2)
 )
 
 func (m model) View() string {
 	var s strings.Builder
 
-	if m.state == stateTop {
+	if m.state == stateFocusCat || m.state == stateFocusItem {
 		s.WriteString(styleHeader.Render("mrk-menu") + "\n")
 		if m.flashMsg != "" {
 			s.WriteString(styleWarning.Render(m.flashMsg) + "\n\n")
+		} else {
+			s.WriteString("\n\n")
 		}
 
+		var leftPane strings.Builder
 		for i, cat := range categories {
 			cursor := "  "
 			if i == m.cursorCat {
 				cursor = "> "
-				s.WriteString(styleSelected.Render(cursor+cat.name) + "\n")
+				if m.state == stateFocusCat {
+					leftPane.WriteString(styleSelected.Render(cursor+cat.name) + "\n")
+				} else {
+					leftPane.WriteString(styleNormal.Render(cursor+cat.name) + "\n")
+				}
 			} else {
-				s.WriteString(styleNormal.Render(cursor+cat.name) + "\n")
+				leftPane.WriteString(styleNormal.Render(cursor+cat.name) + "\n")
 			}
 		}
-		s.WriteString(styleHelp.Render("[j/k] navigate  [enter/→] select  [q/ctrl-c] quit  [?] help"))
 
-	} else if m.state == stateCategory {
+		var rightPane strings.Builder
 		cat := categories[m.cursorCat]
-		s.WriteString(styleHeader.Render(fmt.Sprintf("mrk-menu / %s", cat.name)) + "\n")
-		if m.flashMsg != "" {
-			s.WriteString(styleWarning.Render(m.flashMsg) + "\n\n")
-		}
-
 		for i, it := range cat.items {
 			cursor := "  "
 			nameStr := it.name
+
 			if i == m.cursorItems[m.cursorCat] {
 				cursor = "> "
-				nameStr = styleSelected.Render(cursor + nameStr)
+				if m.state == stateFocusItem {
+					nameStr = styleSelected.Render(cursor + nameStr)
+				} else {
+					nameStr = styleNormal.Render(cursor + nameStr)
+				}
 			} else {
 				nameStr = styleNormal.Render(cursor + nameStr)
 			}
 
-			s.WriteString(nameStr + "\n")
+			rightPane.WriteString(nameStr + "\n")
 
 			cmdStr := it.target
 			if it.cmdType == cmdMake {
@@ -323,13 +337,25 @@ func (m model) View() string {
 				cmdStr += " " + strings.Join(it.args, " ")
 			}
 
-			s.WriteString(styleDesc.Render("    "+it.desc) + "\n")
-			s.WriteString(styleCmd.Render("    $ "+cmdStr) + "\n")
+			rightPane.WriteString(styleDesc.Render("    "+it.desc) + "\n")
+			rightPane.WriteString(styleCmd.Render("    $ "+cmdStr) + "\n")
 			if i < len(cat.items)-1 {
-				s.WriteString("\n")
+				rightPane.WriteString("\n")
 			}
 		}
-		s.WriteString(styleHelp.Render("[j/k] navigate  [enter/→] launch  [esc/←] back  [q/ctrl-c] quit  [?] help"))
+
+		var leftRendered, rightRendered string
+		if m.state == stateFocusCat {
+			leftRendered = stylePaneCatActive.Render(leftPane.String())
+			rightRendered = stylePaneItemInactive.Render(rightPane.String())
+			s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, rightRendered) + "\n\n")
+			s.WriteString(styleHelp.Render("[j/k] navigate  [enter/→] select  [q/ctrl-c] quit  [?] help"))
+		} else {
+			leftRendered = stylePaneCatInactive.Render(leftPane.String())
+			rightRendered = stylePaneItemActive.Render(rightPane.String())
+			s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, rightRendered) + "\n\n")
+			s.WriteString(styleHelp.Render("[j/k] navigate  [enter/→] launch  [esc/←] back  [q/ctrl-c] quit  [?] help"))
+		}
 
 	} else if m.state == stateNukeConfirm {
 		cat := categories[m.cursorCat]
