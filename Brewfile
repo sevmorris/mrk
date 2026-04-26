@@ -66,7 +66,6 @@ cask "arctic", greedy: true
 cask "audio-hijack", greedy: true
 cask "auto-claude", greedy: true
 cask "balenaetcher", greedy: true
-cask "bitwarden", greedy: true
 cask "brave-browser", greedy: true
 cask "calibre", greedy: true
 cask "claude-code", greedy: true
@@ -85,7 +84,6 @@ cask "google-chrome", greedy: true
 cask "google-chrome@canary", greedy: true
 cask "google-drive", greedy: true
 cask "gpg-suite-no-mail", greedy: true
-cask "hammerspoon", greedy: true
 cask "handbrake-app", greedy: true
 cask "helium-browser", greedy: true
 cask "ilok-license-manager", greedy: true
@@ -103,7 +101,6 @@ cask "macwhisper", greedy: true
 cask "mdrp", greedy: true
 cask "mediainfo", greedy: true
 cask "minecraft", greedy: true
-cask "musicbrainz-picard", greedy: true
 cask "nordpass", greedy: true
 cask "nordvpn", greedy: true
 cask "omnidisksweeper", greedy: true
