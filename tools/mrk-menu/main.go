@@ -224,6 +224,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case stateNukeConfirm:
+			m.flashMsg = ""
 			switch msg.Type {
 			case tea.KeyCtrlC, tea.KeyEsc:
 				m.state = stateFocusItem
@@ -275,34 +276,113 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// Layout sizing:
+//   - Anything smaller than (minTermW × minTermH) shows a "resize" message.
+//   - The window box width is capped at preferredW and shrinks to fit smaller terminals.
+//   - The window box height is content-driven (lipgloss expands to fit) but the
+//     panes inside are sized to leave room for the chrome on small terminals.
+//   - The left pane is fixed at leftPaneW; the right pane gets the rest.
+const (
+	minTermW   = 80
+	minTermH   = 22
+	preferredW = 100
+	leftPaneW  = 30
+	// chromeLines is the number of vertical lines outside the panes:
+	// window border (2) + window padding (2) + header (1) + header margin (1) +
+	// flash row (1) + spacer (1) + spacer-after-panes (1) + help margin (1) + help (1).
+	chromeLines = 11
+	maxPaneH    = 24
+	minPaneH    = 6
+)
+
 var (
-	styleHeader   = lipgloss.NewStyle().Bold(true).Foreground(theme.ColNormal).MarginBottom(1)
-	styleSelected = lipgloss.NewStyle().Foreground(theme.ColAccent).Bold(true)
-	styleNormal   = lipgloss.NewStyle().Foreground(theme.ColNormal)
-	styleDesc     = lipgloss.NewStyle().Foreground(theme.ColSubtle)
-	styleCmd      = lipgloss.NewStyle().Foreground(theme.ColDim)
-	styleWarning  = lipgloss.NewStyle().Foreground(theme.ColAmber)
-	styleHelp     = lipgloss.NewStyle().Foreground(theme.ColSubtle).MarginTop(1)
+	styleHeader     = lipgloss.NewStyle().Bold(true).Foreground(theme.ColNormal).MarginBottom(1)
+	styleSelected   = lipgloss.NewStyle().Foreground(theme.ColAccent).Bold(true)
+	styleNormal     = lipgloss.NewStyle().Foreground(theme.ColNormal)
+	styleDesc       = lipgloss.NewStyle().Foreground(theme.ColSubtle)
+	styleCmd        = lipgloss.NewStyle().Foreground(theme.ColDim)
+	styleWarning    = lipgloss.NewStyle().Foreground(theme.ColAmber)
+	styleHelp       = lipgloss.NewStyle().Foreground(theme.ColSubtle).MarginTop(1)
+	styleHelpKey    = lipgloss.NewStyle().Foreground(theme.ColAccent).Bold(true)
+	styleNukePrompt = lipgloss.NewStyle().Foreground(theme.ColAccent).Bold(true)
+)
 
-	stylePaneCatActive   = lipgloss.NewStyle().Width(30).Height(24).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColAccent)
-	stylePaneCatInactive = lipgloss.NewStyle().Width(30).Height(24).PaddingRight(2).BorderRight(true).BorderStyle(lipgloss.NormalBorder()).BorderForeground(theme.ColSubtle)
+func paneCatStyle(focused bool, w, h int) lipgloss.Style {
+	border := theme.ColSubtle
+	if focused {
+		border = theme.ColAccent
+	}
+	return lipgloss.NewStyle().
+		Width(w).Height(h).
+		PaddingRight(2).
+		BorderRight(true).
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(border)
+}
 
-	stylePaneItemActive   = lipgloss.NewStyle().PaddingLeft(2).Width(64).Height(24)
-	stylePaneItemInactive = lipgloss.NewStyle().PaddingLeft(2).Width(64).Height(24)
+func paneItemStyle(w, h int) lipgloss.Style {
+	return lipgloss.NewStyle().PaddingLeft(2).Width(w).Height(h)
+}
 
-	styleWindow = lipgloss.NewStyle().
+func windowStyle(w int) lipgloss.Style {
+	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(theme.ColSubtle).
 		Padding(1, 2).
-		Width(100).
-		Height(30)
-)
+		Width(w)
+}
 
 func (m model) View() string {
+	if m.width == 0 || m.height == 0 {
+		return ""
+	}
+	if m.width < minTermW || m.height < minTermH {
+		msg := fmt.Sprintf("Terminal too small (%d×%d). Resize to at least %d×%d.",
+			m.width, m.height, minTermW, minTermH)
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center,
+			styleWarning.Render(msg))
+	}
+
+	// Target outer width on screen: cap at preferredW, shrink to fit smaller terminals.
+	outerW := preferredW
+	if outerW > m.width {
+		outerW = m.width
+	}
+	// lipgloss Width(N) sets the rendered width *including padding but excluding
+	// border*, so subtract 2 (border left + right) to get the Width value.
+	winW := outerW - 2
+
+	// Window height is content-driven (lipgloss expands as needed); we just size
+	// the panes to leave room for the chrome.
+	paneH := m.height - chromeLines
+	if paneH < minPaneH {
+		paneH = minPaneH
+	}
+	if paneH > maxPaneH {
+		paneH = maxPaneH
+	}
+
+	// Inside the window box: subtract horizontal padding (4) from Width.
+	innerW := winW - 4
+	rightW := innerW - leftPaneW
+	if rightW < 30 {
+		rightW = 30
+	}
+	// Right-pane content has 4 spaces of indent; truncation budget is rightW - 4.
+	descBudget := rightW - 4
+	if descBudget < 10 {
+		descBudget = 10
+	}
+
 	var s strings.Builder
 
-	if m.state == stateFocusCat || m.state == stateFocusItem {
-		s.WriteString(styleHeader.Render("mrk-menu") + "\n")
+	switch m.state {
+	case stateFocusCat, stateFocusItem:
+		title := "mrk-menu"
+		if m.state == stateFocusItem {
+			title = "mrk-menu / " + categories[m.cursorCat].name
+		}
+		s.WriteString(styleHeader.Render(title) + "\n")
 		if m.flashMsg != "" {
 			s.WriteString(styleWarning.Render(m.flashMsg) + "\n\n")
 		} else {
@@ -328,7 +408,7 @@ func (m model) View() string {
 		cat := categories[m.cursorCat]
 		for i, it := range cat.items {
 			cursor := "  "
-			nameStr := theme.Truncate(it.name, 60)
+			nameStr := theme.Truncate(it.name, descBudget)
 
 			if i == m.cursorItems[m.cursorCat] {
 				cursor = "> "
@@ -351,8 +431,8 @@ func (m model) View() string {
 				cmdStr += " " + strings.Join(it.args, " ")
 			}
 
-			descStr := theme.Truncate(it.desc, 60)
-			cmdStr = theme.Truncate(cmdStr, 60)
+			descStr := theme.Truncate(it.desc, descBudget)
+			cmdStr = theme.Truncate(cmdStr, descBudget)
 
 			rightPane.WriteString(styleDesc.Render("    "+descStr) + "\n")
 			if i < len(cat.items)-1 {
@@ -362,42 +442,45 @@ func (m model) View() string {
 			}
 		}
 
-		var leftRendered, rightRendered string
+		leftRendered := paneCatStyle(m.state == stateFocusCat, leftPaneW, paneH).Render(leftPane.String())
+		rightRendered := paneItemStyle(rightW, paneH).Render(rightPane.String())
+		s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, rightRendered) + "\n\n")
+
 		if m.state == stateFocusCat {
-			leftRendered = stylePaneCatActive.Render(leftPane.String())
-			rightRendered = stylePaneItemInactive.Render(rightPane.String())
-			s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, rightRendered) + "\n\n")
 			s.WriteString(styleHelp.Render("[j/k] navigate  [enter/→] select  [q/ctrl-c] quit  [?] help"))
 		} else {
-			leftRendered = stylePaneCatInactive.Render(leftPane.String())
-			rightRendered = stylePaneItemActive.Render(rightPane.String())
-			s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, rightRendered) + "\n\n")
 			s.WriteString(styleHelp.Render("[j/k] navigate  [enter/→] launch  [esc/←] back  [q/ctrl-c] quit  [?] help"))
 		}
 
-	} else if m.state == stateNukeConfirm {
+	case stateNukeConfirm:
 		cat := categories[m.cursorCat]
-		s.WriteString(styleHeader.Render(fmt.Sprintf("mrk-menu / %s", cat.name)) + "\n")
-		s.WriteString(styleWarning.Render("WARNING: This will remove all mrk symlinks and undo setup.") + "\n")
-		s.WriteString("Type 'nuke' to proceed, esc to cancel.\n\n")
-		s.WriteString("> " + m.nukeInput + "\n")
+		s.WriteString(styleHeader.Render("mrk-menu / "+cat.name) + "\n")
+		s.WriteString(styleWarning.Render("⚠ This will remove all mrk symlinks and undo setup.") + "\n\n")
+		s.WriteString(styleNormal.Render("Type ") +
+			styleNukePrompt.Render("nuke") +
+			styleNormal.Render(" to proceed, ") +
+			styleHelpKey.Render("esc") +
+			styleNormal.Render(" to cancel.") + "\n\n")
+		s.WriteString(styleNukePrompt.Render("> ") + styleNormal.Render(m.nukeInput))
 
-	} else if m.state == stateHelp {
-		s.WriteString(styleHeader.Render("mrk-menu Help") + "\n")
-		s.WriteString("j, k, up, down  : navigate\n")
-		s.WriteString("enter, right, l : select / launch\n")
-		s.WriteString("esc, left, h    : back\n")
-		s.WriteString("q, ctrl-c       : quit\n")
-		s.WriteString(styleHelp.Render("Press esc to return"))
+	case stateHelp:
+		s.WriteString(styleHeader.Render("mrk-menu / Help") + "\n\n")
+		rows := []struct{ keys, desc string }{
+			{"j  k  ↑  ↓", "navigate"},
+			{"enter  →  l", "select / launch"},
+			{"esc  ←  h", "back"},
+			{"?", "toggle this help"},
+			{"q  ctrl-c", "quit"},
+		}
+		for _, r := range rows {
+			s.WriteString(styleHelpKey.Render(fmt.Sprintf("  %-14s", r.keys)) +
+				styleNormal.Render("  "+r.desc) + "\n")
+		}
+		s.WriteString(styleHelp.Render("Press esc or enter to return"))
 	}
 
-	renderedBox := styleWindow.Render(s.String())
-	
-	if m.width > 0 && m.height > 0 {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, renderedBox)
-	}
-	
-	return renderedBox
+	renderedBox := windowStyle(winW).Render(s.String())
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, renderedBox)
 }
 
 func main() {
