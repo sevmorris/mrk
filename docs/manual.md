@@ -229,7 +229,7 @@ sync-login-items -c       # Auto-commit changes after updating
 2. Parses `scripts/post-install` for tracked `add_login_item` calls
 3. Shows the diff: items on the system but not tracked, and vice versa
 4. Opens a TUI selector (via `gum`) to choose which items to add or remove
-5. Updates `scripts/post-install`, `docs/manual.md`, and `docs/index.html`
+5. Updates `scripts/post-install` and `docs/manual.md`
 
 ## Installation Health Dashboard
 
@@ -294,25 +294,17 @@ These live in `~/bin/` (linked from `mrk/bin/`) and are not exposed as Make targ
 
 ## Updating the Manual
 
-The manual is maintained in two places:
-
-- `docs/manual.md` — Markdown source (this file)
-- `docs/index.html` — hand-authored AFTO-style HTML document (the canonical published version)
-
-The HTML document is the authoritative version served by GitHub Pages. Edit `docs/index.html` directly for the published site. This Markdown file serves as a reference and may lag behind the HTML.
+This file is the manual. Edit it in place and push.
 
 ```bash
-# Edit the published manual directly
-$EDITOR ~/mrk/docs/index.html
-
-# Commit and push
+$EDITOR ~/mrk/docs/manual.md
 cd ~/mrk
-git add docs/index.html
+git add docs/manual.md
 git commit -m "docs: update manual"
 git push
 ```
 
-GitHub Pages picks up the change automatically — the site at `sevmorris.github.io/mrk` updates within a minute of the push.
+GitHub renders the file directly in the repo, so the [link from the README](../README.md) is always current.
 
 ---
 

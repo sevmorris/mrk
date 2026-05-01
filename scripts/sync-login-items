@@ -53,16 +53,14 @@ done
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 readonly POST_INSTALL="$REPO_ROOT/scripts/post-install"
 readonly MANUAL_MD="$REPO_ROOT/docs/manual.md"
-readonly INDEX_HTML="$REPO_ROOT/docs/index.html"
 
 # Temp files
 TEMP_ADD=""
 TEMP_REMOVE=""
 TMP_PI=""
 TMP_MD=""
-TMP_HTML=""
 cleanup() {
-  for _f in "$TEMP_ADD" "$TEMP_REMOVE" "$TMP_PI" "$TMP_MD" "$TMP_HTML"; do
+  for _f in "$TEMP_ADD" "$TEMP_REMOVE" "$TMP_PI" "$TMP_MD"; do
     [[ -n "$_f" && -f "$_f" ]] && rm -f "$_f" || true
   done
 }
@@ -241,7 +239,6 @@ TEMP_ADD=$(mktemp -t mrk)
 TEMP_REMOVE=$(mktemp -t mrk)
 TMP_PI=$(mktemp -t mrk)
 TMP_MD=$(mktemp -t mrk)
-TMP_HTML=$(mktemp -t mrk)
 
 for name in "${!add_items[@]}"; do
   printf '%s\t%s\n' "$name" "${system_items[$name]}" >> "$TEMP_ADD"
@@ -352,24 +349,9 @@ with open(out_path, 'w') as f:
     f.write(new_content)
 PYEOF
 
-python3 - "$INDEX_HTML" "$items_list" "$TMP_HTML" <<'PYEOF'
-import sys, re
-path, items, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
-with open(path) as f:
-    content = f.read()
-new_content = re.sub(
-    r'(<li><strong>Login items:</strong> Registers )([^<]+?)(\s*</li>)',
-    lambda m: m.group(1) + items + m.group(3),
-    content
-)
-with open(out_path, 'w') as f:
-    f.write(new_content)
-PYEOF
-
-# All three outputs succeeded — atomically replace the real files
-mv "$TMP_PI"   "$POST_INSTALL"
-mv "$TMP_MD"   "$MANUAL_MD"
-mv "$TMP_HTML" "$INDEX_HTML"
+# Both outputs succeeded — atomically replace the real files
+mv "$TMP_PI" "$POST_INSTALL"
+mv "$TMP_MD" "$MANUAL_MD"
 
 log "post-install and docs updated."
 
@@ -384,7 +366,6 @@ if (( COMMIT )); then
   changed_files=()
   git diff --quiet "$POST_INSTALL" 2>/dev/null || changed_files+=("scripts/post-install")
   git diff --quiet "$MANUAL_MD"    2>/dev/null || changed_files+=("docs/manual.md")
-  git diff --quiet "$INDEX_HTML"   2>/dev/null || changed_files+=("docs/index.html")
 
   if (( ${#changed_files[@]} == 0 )); then
     log "No changes to commit."
