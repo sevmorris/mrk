@@ -12,15 +12,17 @@ func TestViewRendersAtVariousSizes(t *testing.T) {
 		state      state
 		wantSubstr string
 	}{
-		{"big terminal cat focus", 200, 60, stateFocusCat, "mrk-menu"},
-		{"big terminal item focus", 200, 60, stateFocusItem, "Brewfile"},
-		{"exact preferred", 100, 30, stateFocusCat, "mrk-menu"},
-		{"min size", 80, 22, stateFocusCat, "mrk-menu"},
+		{"big terminal cat focus", 200, 60, stateFocusCat, "Brewfile"},
+		{"big terminal item focus", 200, 60, stateFocusItem, "bf"},
+		{"exact preferred", 100, 30, stateFocusCat, "Brewfile"},
+		{"min size", 80, 22, stateFocusCat, "Brewfile"},
 		{"too small width", 60, 30, stateFocusCat, "Terminal too small"},
 		{"too small height", 100, 10, stateFocusCat, "Terminal too small"},
 		{"zero size", 0, 0, stateFocusCat, ""},
 		{"help screen", 100, 30, stateHelp, "Help"},
 		{"nuke confirm", 100, 30, stateNukeConfirm, "nuke"},
+		{"splash", 100, 30, stateSplash, "Mac Reset Kit"},
+		{"filter", 100, 30, stateFilter, "Filter"},
 	}
 
 	for _, tc := range cases {
@@ -51,8 +53,6 @@ func TestViewDoesNotOverflowWidth(t *testing.T) {
 		m.height = tc.h
 		m.state = stateFocusItem
 		out := m.View()
-		// Each rendered line shouldn't exceed terminal width (allowing ANSI escapes,
-		// so we strip them roughly with a visible-width approximation).
 		for _, line := range strings.Split(out, "\n") {
 			visible := stripANSI(line)
 			runes := []rune(visible)
@@ -62,6 +62,91 @@ func TestViewDoesNotOverflowWidth(t *testing.T) {
 				break
 			}
 		}
+	}
+}
+
+// TestViewDoesNotOverflowHeight asserts that the rendered output respects the
+// terminal height — a regression test for the right-pane wrapping bug we fixed.
+func TestViewDoesNotOverflowHeight(t *testing.T) {
+	cases := []struct {
+		name  string
+		w, h  int
+		state state
+	}{
+		{"min focus item", 80, 22, stateFocusItem},
+		{"preferred focus item", 100, 30, stateFocusItem},
+		{"min focus cat", 80, 22, stateFocusCat},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := initialModel()
+			m.width = tc.w
+			m.height = tc.h
+			m.state = tc.state
+			out := m.View()
+			lines := strings.Split(out, "\n")
+			if len(lines) > tc.h {
+				t.Errorf("size %d×%d: output has %d lines, exceeds height",
+					tc.w, tc.h, len(lines))
+			}
+		})
+	}
+}
+
+// TestDigitJump exercises the number-hotkey helper.
+func TestDigitJump(t *testing.T) {
+	cases := []struct {
+		s     string
+		count int
+		idx   int
+		ok    bool
+	}{
+		{"1", 5, 0, true},
+		{"5", 5, 4, true},
+		{"6", 5, 0, false},
+		{"0", 5, 0, false},
+		{"a", 5, 0, false},
+		{"", 5, 0, false},
+		{"12", 5, 0, false},
+	}
+	for _, tc := range cases {
+		idx, ok := digitJump(tc.s, tc.count)
+		if ok != tc.ok || idx != tc.idx {
+			t.Errorf("digitJump(%q, %d) = (%d, %v), want (%d, %v)",
+				tc.s, tc.count, idx, ok, tc.idx, tc.ok)
+		}
+	}
+}
+
+// TestApplyFilter exercises the substring filter.
+func TestApplyFilter(t *testing.T) {
+	m := initialModel()
+	m.filterInput = "brew"
+	m.applyFilter()
+	if len(m.filterResults) == 0 {
+		t.Errorf("expected at least one match for 'brew'")
+	}
+	for _, fi := range m.filterResults {
+		hay := strings.ToLower(fi.item.name + " " + fi.item.desc + " " + categories[fi.cat].name)
+		if !strings.Contains(hay, "brew") {
+			t.Errorf("result %q does not match 'brew'", fi.item.name)
+		}
+	}
+
+	m.filterInput = ""
+	m.applyFilter()
+	total := 0
+	for _, c := range categories {
+		total += len(c.items)
+	}
+	if len(m.filterResults) != total {
+		t.Errorf("empty filter should return all %d items, got %d", total, len(m.filterResults))
+	}
+
+	m.filterInput = "zzzzzzzzzzz-no-match"
+	m.applyFilter()
+	if len(m.filterResults) != 0 {
+		t.Errorf("expected zero matches, got %d", len(m.filterResults))
 	}
 }
 

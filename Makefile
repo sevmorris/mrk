@@ -121,7 +121,16 @@ mrk-status: ## Build the mrk-status TUI health dashboard binary
 	@printf '  \033[32m✓\033[0m mrk-status → ~/bin/mrk-status, ~/bin/status\n'
 
 mrk-menu: ## Build the mrk-menu TUI launcher binary
-	$(call go-build,mrk-menu,mrk-menu)
+	@if ! command -v go >/dev/null 2>&1; then \
+		echo "error: Go is not installed. Install it with: brew install go"; \
+		exit 1; \
+	fi
+	@printf '  \033[36m▸\033[0m Building mrk-menu…\n'
+	@VERSION=$$(git -C "$(REPO_ROOT)" describe --tags --always --dirty 2>/dev/null || echo dev); \
+	 SHA=$$(git -C "$(REPO_ROOT)" rev-parse --short HEAD 2>/dev/null || echo unknown); \
+	 cd "$(REPO_ROOT)/tools/mrk-menu" && \
+	 go build -ldflags "-X main.Version=$$VERSION -X main.GitSHA=$$SHA" -o "$(BIN_DIR)/mrk-menu" .
+	@chmod +x "$(BIN_DIR)/mrk-menu"
 	@ln -sf "$(BIN_DIR)/mrk-menu" "$(HOME)/bin/mrk-menu"
 	@printf '  \033[32m✓\033[0m mrk-menu → ~/bin/mrk-menu\n'
 
