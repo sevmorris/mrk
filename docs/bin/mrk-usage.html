@@ -732,7 +732,7 @@ mrk-status --help</code></pre>
           <h3>sync-login-items <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Diffs system login items against those tracked in <code>scripts/post-install</code>. Presents an interactive picker to add new items or remove stale ones, then updates <code>post-install</code>, <code>docs/manual.md</code>, and <code>docs/index.html</code> in one pass.</p>
+          <p class="desc">Diffs system login items against those tracked in <code>scripts/post-install</code>. Presents an interactive picker to add new items or remove stale ones, then updates <code>post-install</code> and <code>docs/manual.md</code> in one pass.</p>
           <pre><code>sync-login-items [--dry-run | -n] [--commit | -c]</code></pre>
           <ul>
             <li><code>--dry-run</code> — shows the diff and selected changes without writing any files</li>
@@ -816,6 +816,72 @@ mrk-status --help</code></pre>
           <pre><code>mrk-uninstall</code></pre>
         </div>
       </div>
+
+      <div class="proc" id="bf">
+        <div class="proc-header">
+          <span class="proc-num">2.18</span>
+          <h3>bf <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">Interactive Brewfile manager. Two-pane Bubble Tea TUI: sections (left) | packages (right). Reads and writes the mrk Brewfile directly. Built Go binary.</p>
+          <pre><code>bf</code></pre>
+          <ul>
+            <li><strong>j/k · ↑/↓</strong> — navigate</li>
+            <li><strong>tab · ←/→</strong> — switch panes</li>
+            <li><strong>enter</strong> — toggle package</li>
+            <li><strong>w</strong> — write changes back to the Brewfile</li>
+            <li><strong>q · ctrl-c</strong> — quit</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="mrk-menu">
+        <div class="proc-header">
+          <span class="proc-num">2.19</span>
+          <h3>mrk-menu <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">Central TUI launcher for every mrk task. Two-pane Miller-column layout grouping commands by category — Brewfile, Login items, Preferences, System state, Diagnostics, Maintenance, Nuclear options. Built Go binary.</p>
+          <pre><code>mrk-menu</code></pre>
+          <ul>
+            <li><strong>j/k · ↑/↓</strong> — navigate</li>
+            <li><strong>enter · → · l</strong> — select / launch</li>
+            <li><strong>esc · ← · h</strong> — back</li>
+            <li><strong>1–9</strong> — jump to the numbered entry in the focused pane</li>
+            <li><strong>/</strong> — type-ahead filter across every item in every category</li>
+            <li><strong>?</strong> — toggle help overlay</li>
+            <li><strong>q · ctrl-c</strong> — quit</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="mrk-picker">
+        <div class="proc-header">
+          <span class="proc-num">2.20</span>
+          <h3>mrk-picker <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">Interactive Brewfile package selector. Two-pane TUI showing categories and packages with descriptions; emits selected packages on stdout as <code>formula:name</code> or <code>cask:name</code> lines for piping into other scripts. Used by <code>sync</code> for the picker UI when present. Built Go binary.</p>
+          <pre><code>mrk-picker [flags]</code></pre>
+        </div>
+      </div>
+
+      <div class="proc" id="mrk-push">
+        <div class="proc-header">
+          <span class="proc-num">2.21</span>
+          <h3>mrk-push <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">Wrapper around <code>git commit &amp;&amp; git push</code> for the mrk repo, followed by a prune of stale GitHub Pages deployments via the GitHub CLI. Prompts for a commit message if none is given.</p>
+          <pre><code>mrk-push "commit message"
+mrk-push                # prompts for message</code></pre>
+          <ul>
+            <li>Requires the <code>gh</code> CLI on <code>$PATH</code>.</li>
+            <li>Must be run from inside a git working tree.</li>
+            <li>Keeps only the most recent GitHub Pages deployment; older deployments are deleted.</li>
+          </ul>
+        </div>
+      </div>
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
@@ -876,8 +942,12 @@ mrk-status --help</code></pre>
           <tr><td><code>snapshot</code></td><td>Export app prefs to mrk</td></tr>
           <tr><td><code>snapshot-prefs</code></td><td>Export + push prefs to private repo</td></tr>
           <tr><td><code>sync</code></td><td>Add new Homebrew packages to Brewfile</td></tr>
-          <tr><td><code>sync-login-items</code></td><td>Diff &amp; update tracked login items in post-install + docs</td></tr>
+          <tr><td><code>sync-login-items</code></td><td>Diff &amp; update tracked login items in post-install + manual</td></tr>
           <tr><td><code>status</code></td><td>Interactive TUI health dashboard (dotfiles, tools, Homebrew, etc.)</td></tr>
+          <tr><td><code>mrk-menu</code></td><td>TUI launcher for every mrk task (filter, hotkeys, status footer)</td></tr>
+          <tr><td><code>bf</code></td><td>Interactive Brewfile manager TUI (two-pane sections + packages)</td></tr>
+          <tr><td><code>mrk-picker</code></td><td>Interactive package picker (emits selections to stdout)</td></tr>
+          <tr><td><code>mrk-push "msg"</code></td><td>Commit + push mrk repo and prune stale Pages deployments</td></tr>
           <tr><td><code>nuke-mrk</code></td><td>Clean uninstall mrk for reinstall</td></tr>
           <tr><td><code>hardening.sh</code></td><td>Apply macOS security tweaks</td></tr>
           <tr><td><code>doctor --fix</code></td><td>Fix ~/bin PATH issues</td></tr>
