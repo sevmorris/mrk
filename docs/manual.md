@@ -242,9 +242,55 @@ status                    # Same thing (alias)
 
 Two-pane TUI: checks on the left, details on the right. Press `f` to run the suggested fix for any failing check, `r` to refresh.
 
+## mrk-menu
+
+**`mrk-menu`** is the central TUI launcher for every mrk task. It groups commands by category — Brewfile, Login items, Preferences, System state, Diagnostics, Maintenance, Nuclear options — and runs them in-place.
+
+```bash
+mrk-menu
+```
+
+**Layout**
+
+A splash screen shows the version and short git SHA on first launch (any key dismisses). Then a two-pane Miller-column view: categories on the left, items on the right. The status footer always shows the command preview for the highlighted item (`$ make defaults`) and the result of the last run (`✓ ok` or `✗ exited N`).
+
+**Key bindings**
+
+| Key | Action |
+|---|---|
+| `j` `k` / `↑` `↓` | Move cursor |
+| `enter` / `→` / `l` | Enter category, then launch item |
+| `esc` / `←` / `h` | Back |
+| `1`–`9` | Jump to numbered entry in the focused pane |
+| `/` | Filter mode — type-ahead search across every item in every category |
+| `?` | Toggle help overlay |
+| `q` / `ctrl-c` | Quit |
+
+**Filter mode**
+
+Press `/` from anywhere in the menu. Type any substring of an item's name, description, or category — matches show as `Category › item` and update live. `↑/↓` to navigate, `enter` to launch, `esc` to cancel.
+
+**Nuclear options**
+
+The `nuke-mrk` entry under Nuclear options requires you to type the literal word `nuke` to confirm before it runs. `esc` cancels.
+
 ## Barkeep
 
 **[Barkeep](https://github.com/sevmorris/Barkeep)** is a native macOS companion app for visually managing your Homebrew Brewfile. It is installed automatically by `make post-install`. It lives in its own repository — see the link above for releases.
+
+## Standalone Utilities
+
+These live in `~/bin/` (linked from `mrk/bin/`) and are not exposed as Make targets — run them directly.
+
+| Command | Purpose |
+|---|---|
+| `audio-mode` | Studio toggle: enable/disable sync clients and distractions for recording or mixing sessions |
+| `zoom-mode` | Wi-Fi keepalive + sleep blocker for long Zoom sessions; `zoom-mode on \| off \| status` |
+| `mrk-push` | `git commit && push` for `~/mrk` plus prune of stale GitHub Pages deployments |
+| `hide_tm.sh` | Hide Time Machine volumes from the Finder sidebar (defaults to `TimeMachine`; pass volume names or set `TM_VOLUMES`) |
+| `nuke-mrk` | Full teardown — moves `~/mrk` and `~/.mrk` to Trash, removes `~/bin` and dotfile symlinks, optionally rolls back defaults/hardening. Does NOT touch Homebrew. Also exposed in `mrk-menu` under Nuclear options |
+
+> `nuke-mrk` is more aggressive than `make uninstall`. Use `make uninstall` if you only want to unlink mrk; use `nuke-mrk` if you want a clean-room state for testing a fresh install.
 
 ## Updating the Manual
 
@@ -425,8 +471,11 @@ exec zsh
 
 | Command | Description |
 |---|---|
+| `make snapshot` | Export selected app prefs to `assets/preferences/` in the repo |
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
+
+> `snapshot` and `snapshot-prefs` are not the same. `snapshot` writes to the public mrk repo's `assets/preferences/` (used by `make post-install` for first-run defaults). `snapshot-prefs` writes to the private mrk-prefs repo (used by `pull-prefs` to restore your live preferences on a fresh machine).
 
 **Build Tools**
 
@@ -483,7 +532,7 @@ Pass `ARGS=--adventure` to any phase target to enable narrative mode for that ph
 
 | Command | Description |
 |---|---|
-| `mrk-menu` | Open the mrk-menu TUI launcher for all tools and tasks |
+| `mrk-menu` | Open the TUI launcher for all tools and tasks (see [mrk-menu](#mrk-menu) above for key bindings) |
 | `make status` | Open the mrk-status TUI health dashboard |
 | `make doctor` | Check `~/bin` is on PATH; `--fix` adds it to `.zshrc` |
 | `make fix-exec` | Make all scripts and bin files executable |
