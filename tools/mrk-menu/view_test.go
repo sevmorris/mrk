@@ -21,7 +21,7 @@ func TestViewRendersAtVariousSizes(t *testing.T) {
 		{"zero size", 0, 0, stateFocusCat, ""},
 		{"help screen", 100, 30, stateHelp, "Help"},
 		{"nuke confirm", 100, 30, stateNukeConfirm, "nuke"},
-		{"splash", 100, 30, stateSplash, "Mac Reset Kit"},
+		{"splash", 100, 30, stateSplash, "Mac Rebuild Kit"},
 		{"filter", 100, 30, stateFilter, "Filter"},
 	}
 

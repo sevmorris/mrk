@@ -352,7 +352,7 @@ func (m model) viewSplash() string {
 	}
 
 	s.WriteString(renderBanner(bannerBig, innerW) + "\n\n")
-	tagline := "Mac Reset Kit"
+	tagline := "Mac Rebuild Kit"
 	pad := (innerW - lipgloss.Width(tagline)) / 2
 	if pad < 0 {
 		pad = 0
