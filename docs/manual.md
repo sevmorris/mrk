@@ -1,7 +1,9 @@
----
-title: "mrk — macOS Bootstrap Manual"
-subtitle: "Workflow guide for managing, maintaining, and migrating your Mac setup"
-date: "[github.com/sevmorris/mrk](https://github.com/sevmorris/mrk)"
+# mrk — macOS Bootstrap Manual
+
+_Workflow guide for managing, maintaining, and migrating your Mac setup_
+
+[github.com/sevmorris/mrk](https://github.com/sevmorris/mrk)
+
 ---
 
 # Overview
