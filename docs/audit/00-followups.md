@@ -33,6 +33,17 @@ a third layer. It is not clear which Python is canonical. Documented in
 pin via `pyenv global` or `.python-version`. If Homebrew is primary, remove `pyenv`.
 Either way, update the Brewfile.
 
+**nvm management direction.** B3 closed by migrating `nvm` out of the Brewfile and
+into `scripts/post-install` (pinned at `v0.40.4`, installed via the upstream install
+script with `PROFILE=/dev/null`). The previous in-tree TODO was removed at the same
+time. Whether post-install installation is the right long-term home — versus returning
+to a tap, switching to `fnm` or `volta`, or going further and removing nvm in favor of
+a single pinned Node — is unresolved. The current setup works; this is a direction
+question, not a bug. Documented in `05-brewfile-and-ruby.md B3` (closed) and
+`scripts/post-install:205–222`.
+→ To close: pick a long-term Node-version-manager direction and document the rationale
+in the Brewfile or in `05-brewfile-and-ruby.md`.
+
 ---
 
 ## Known limitations (documented, not blocking)
