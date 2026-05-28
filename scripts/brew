@@ -58,6 +58,7 @@ Usage: scripts/brew [options]
   --skip-brew-install   Skip Homebrew installation (assume it's already installed)
   --dry-run             Preview changes without applying them
   --debug               Enable bash tracing (set -x)
+  --yes, -y             Skip confirmation prompts
 USAGE
       exit 0
       ;;
@@ -65,6 +66,8 @@ USAGE
   esac
   shift
 done
+
+export NONINTERACTIVE
 
 (( DEBUG )) && set -x
 
@@ -230,9 +233,8 @@ declare -A FORMULA_DESCRIPTIONS=(
   ["ripgrep"]="Fast text search tool (rg)"
   ["shellcheck"]="Static analysis tool for shell scripts"
   ["shfmt"]="Shell formatter - Format shell scripts automatically"
-  ["python@3.12"]="Python 3.12 programming language interpreter"
   ["pipx"]="Install and run Python apps in isolated environments"
-  ["pyenv"]="Python version management tool"
+  ["pyenv"]="Python version manager (canonical; see ~/mrk/.python-version)"
   ["openjdk"]="OpenJDK - Open-source Java Development Kit"
   ["ffmpeg"]="Complete solution for audio/video conversion"
   ["chromaprint"]="Audio fingerprinting library (used by AcoustID)"

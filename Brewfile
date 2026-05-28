@@ -3,6 +3,7 @@
 # CLI Tools - General Utilities & Power User Tools
 brew "bash"
 brew "bat"
+# GNU coreutils — prepend gnubin so ls/cat/sed use GNU names (see Brewfile comment)
 brew "coreutils"
 brew "fastfetch"
 brew "gemini-cli"
@@ -43,9 +44,10 @@ brew "shfmt"
 brew "xcodegen"
 
 # Languages / runtimes
+# Python: pyenv + pipx (see .python-version); no Homebrew python@ pins
+# Node: nvm installed via post-install (scripts/post-install), not Homebrew
 brew "deno"
 brew "go"
-brew "python@3.12"
 brew "pipx"
 brew "pyenv"
 brew "openjdk"
@@ -62,12 +64,12 @@ cask "a-better-finder-rename", greedy: true
 cask "adapter", greedy: true
 cask "aldente", greedy: true
 cask "appcleaner", greedy: true
+cask "arctic"
 cask "audio-hijack", greedy: true
 cask "auto-claude", greedy: true
 cask "balenaetcher", greedy: true
 cask "brave-browser", greedy: true
 cask "calibre", greedy: true
-cask "claude-code", greedy: true
 cask "cryptomator", greedy: true
 cask "descript", greedy: true
 cask "discord", greedy: true
@@ -77,7 +79,6 @@ cask "etrecheckpro", greedy: true
 cask "farrago", greedy: true
 cask "firefox", greedy: true
 cask "fission", greedy: true
-cask "folx", greedy: true
 cask "github", greedy: true
 cask "google-chrome", greedy: true
 cask "google-chrome@canary", greedy: true
@@ -114,7 +115,6 @@ cask "screenflow", greedy: true
 cask "shutter-encoder", greedy: true
 cask "signal", greedy: true
 cask "slack", greedy: true
-cask "softraid"
 cask "soundsource", greedy: true
 cask "stats", greedy: true
 cask "steam", greedy: true
@@ -130,3 +130,16 @@ cask "waves-central", greedy: true
 cask "whatsapp", greedy: true
 cask "zoom", greedy: true
 
+
+# Migrated
+cask "musicbrainz-picard"
+cask "sentinel"
+cask "bettertouchtool"
+
+# Adopted
+brew "autoconf"
+brew "bash-completion@2"
+brew "cirruslabs/cli/tart"
+brew "flac"
+brew "libpng"
+brew "unbound"

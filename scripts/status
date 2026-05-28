@@ -195,7 +195,7 @@ case ":$PATH:" in
     ok "  $INSTALL_BIN is on PATH"
     ;;
   *)
-    warn "  $INSTALL_BIN is NOT on PATH — run: doctor --fix"
+    warn "  $INSTALL_BIN is NOT on PATH — run: make doctor ARGS=--fix"
     ;;
 esac
 echo ""

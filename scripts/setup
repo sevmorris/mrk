@@ -64,6 +64,7 @@ Usage: scripts/setup [options]
   --validate            Validate configuration before installing
   --continue-on-error   Continue with remaining phases if one fails
   --debug               Enable bash tracing (set -x)
+  --yes, -y             Skip confirmation prompts
 Env:
   MRK_LOGIN_MSG        If set, writes login window message (requires sudo), rollback added to ~/.mrk/defaults-rollback.sh
 USAGE
@@ -73,6 +74,8 @@ USAGE
   esac
   shift
 done
+
+export NONINTERACTIVE
 
 (( DEBUG )) && set -x
 

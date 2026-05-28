@@ -15,7 +15,7 @@ plugins=(git zsh-autosuggestions zsh-syntax-highlighting z colored-man-pages com
 source "$ZSH/oh-my-zsh.sh"
 
 # --- PATH Customization ---
-# Add user-specific and Python paths. Homebrew path is set in .zprofile.
+# Add user-specific paths. Homebrew and GNU coreutils gnubin are set in .zprofile.
 
 path=(
   "$HOME/bin"
@@ -23,18 +23,15 @@ path=(
   $path
 )
 
-# Add latest python.org version to PATH, if present
-PYTHON_FRAMEWORK_DIR="/Library/Frameworks/Python.framework/Versions"
-if [[ -d "$PYTHON_FRAMEWORK_DIR" ]]; then
-  LATEST_PYTHON_VERSION=$(ls "$PYTHON_FRAMEWORK_DIR" | sort -V | tail -n 1)
-  LATEST_PYTHON_PATH="$PYTHON_FRAMEWORK_DIR/$LATEST_PYTHON_VERSION"
-  if [[ -d "$LATEST_PYTHON_PATH/bin" ]]; then
-    path=("$LATEST_PYTHON_PATH/bin" $path)
-  fi
-fi
-
 # Remove duplicate path entries
 typeset -U path
+
+# --- pyenv (Python version manager; pin in ~/mrk/.python-version) ---
+export PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
+[[ -d "$PYENV_ROOT/bin" ]] && path=("$PYENV_ROOT/bin" $path)
+if command -v pyenv >/dev/null 2>&1; then
+  eval "$(pyenv init - zsh)"
+fi
 
 # --- Source Personal Aliases ---
 [[ -f "$HOME/.aliases" ]] && source "$HOME/.aliases"

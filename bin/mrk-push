@@ -5,27 +5,21 @@ set -euo pipefail
 # Usage: mrk-push "commit message"
 #        mrk-push            (prompts for message)
 
-if [[ -t 1 ]]; then
-  _B='\033[1m' _D='\033[2m' _R='\033[0m'
-  _RED='\033[31m' _GRN='\033[32m' _YLW='\033[33m' _CYN='\033[36m'
-else
-  _B='' _D='' _R='' _RED='' _GRN='' _YLW='' _CYN=''
-fi
-
-log()  { printf "${_CYN}[push]${_R} %s\n" "$*"; }
-ok()   { printf "${_GRN}  ✓${_R} %s\n" "$*"; }
-warn() { printf "${_YLW}  ⚠${_R} %s\n" "$*"; }
-err()  { printf "${_RED}  ✗${_R} %s\n" "$*" >&2; }
-
 if ! command -v gh >/dev/null 2>&1; then
-  err "gh CLI not found. Install with: brew install gh"
+  echo "error: gh CLI not found. Install with: brew install gh" >&2
   exit 1
 fi
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  err "Not inside a git repository."
+  echo "error: Not inside a git repository." >&2
   exit 1
 fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+# shellcheck source=/dev/null
+source "$REPO_ROOT/scripts/lib.sh"
+
+push_log() { log "push: $*"; }
 
 # Commit message
 msg="${1:-}"
@@ -56,28 +50,36 @@ if [[ ! "$repo" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
 fi
 
 echo ""
-log "Repo: $repo"
+push_log "Repo: $repo"
 echo ""
 
 # ── Commit ────────────────────────────────────────────────────────────────────
-log "Staging changes..."
-git add -A
+push_log "Staging changes..."
+# Tracked updates + known repo paths only — never `git add -A`
+git add -u
+for path in Brewfile Makefile README.md dotfiles scripts bin tools docs assets; do
+  [[ -e "$REPO_ROOT/$path" ]] && git add "$REPO_ROOT/$path" 2>/dev/null || true
+done
 
 if git diff --cached --quiet; then
   warn "Nothing to commit."
 else
+  mapfile -t staged_files < <(git diff --cached --name-only --diff-filter=AM)
+  if (( ${#staged_files[@]} > 0 )); then
+    require_clean_secrets "${staged_files[@]}" || exit 1
+  fi
   git commit -m "$msg"
   ok "Committed: $msg"
 fi
 
 # ── Push ──────────────────────────────────────────────────────────────────────
-log "Pushing..."
+push_log "Pushing..."
 git push
 ok "Pushed to origin."
 
 # ── Prune deployments ─────────────────────────────────────────────────────────
 echo ""
-log "Fetching deployments for $repo..."
+push_log "Fetching deployments for $repo..."
 
 if ! mapfile -t ids < <(gh api --paginate "/repos/$repo/deployments" --jq '.[].id' 2>/dev/null); then
   err "Failed to fetch deployments for $repo"
@@ -115,5 +117,5 @@ for id in "${to_delete[@]}"; do
 done
 
 echo ""
-printf "${_GRN}${_B}  ✔  Done.${_R}\n"
+ok "Done."
 echo ""

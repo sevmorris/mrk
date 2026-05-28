@@ -13,7 +13,13 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"mrk-theme"
+	theme "mrk-theme"
+)
+
+// Version and GitSHA are populated at build time via -ldflags.
+var (
+	Version = "dev"
+	GitSHA  = "unknown"
 )
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -43,6 +49,7 @@ type category struct {
 
 var descriptions = map[string]string{
 	// Formulae
+	"autoconf":          "Generate configure scripts for portable builds",
 	"bash":              "Modern shell (Bash 5.x) with improved features",
 	"bash-completion@2": "Programmable tab completion for Bash 4.1+",
 	"bat":               "cat clone with syntax highlighting and Git integration",
@@ -53,7 +60,7 @@ var descriptions = map[string]string{
 	"gnupg":             "GNU Privacy Guard — encryption and signing tool",
 	"htop":              "Interactive process viewer and system monitor",
 	"lsd":               "Modern ls replacement with colors and icons",
-	"mac-cleanup-py":    "Clean macOS caches, logs, downloads, and trash",
+	"libpng":            "PNG image format reference library",
 	"mkdocs":            "Static site generator for project documentation",
 	"moreutils":         "Useful Unix utilities: sponge, vidir, ts, and more",
 	"nano":              "Simple terminal text editor",
@@ -82,18 +89,21 @@ var descriptions = map[string]string{
 	"watch":             "Repeatedly run a command and display its output",
 	"wget":              "Internet file retriever",
 	"zsh":               "Z shell — advanced interactive shell with many features",
-	"nvm":               "Node Version Manager — install and manage Node.js versions",
-	"python@3.12":       "Python 3.12 programming language interpreter",
 	"pipx":              "Install and run Python apps in isolated environments",
-	"pyenv":             "Python version manager",
+	"pyenv":             "Python version manager (canonical; see .python-version)",
 	"openjdk":           "OpenJDK — open-source Java Development Kit",
 	"ffmpeg":            "Complete solution for audio/video recording and conversion",
+	"flac":              "Free lossless audio codec library and tools",
 	"chromaprint":       "Audio fingerprinting library (AcoustID core component)",
 	"whisper-cpp":       "Speech-to-text engine (optimized C++ port of Whisper)",
+	"xcodegen":          "Generate Xcode projects from YAML or JSON specs",
 	"yt-dlp":            "Download video and audio from YouTube and 1000+ sites",
+	"cirruslabs/cli/tart":    "macOS and Linux virtual machines on Apple Silicon",
+	"gemini-cli":             "Google Gemini command-line interface",
+	"poppler":                "PDF rendering library and utilities",
+	"sentinel":               "Static analysis security scanner for code",
+	"unbound":                "Validating, recursive DNS resolver",
 	// Casks
-	"1password":              "Password manager and secure digital wallet",
-	"1password-cli":          "1Password command-line tool (op)",
 	"4k-video-downloader+":   "Download videos from YouTube and other platforms",
 	"a-better-finder-rename": "Powerful batch file renaming for Finder",
 	"adapter":                "Convert audio, video, and image files",
@@ -103,13 +113,10 @@ var descriptions = map[string]string{
 	"audio-hijack":           "Record and process audio from any application",
 	"auto-claude":            "Automated Claude AI workflows",
 	"balenaetcher":           "Flash OS images to SD cards and USB drives",
-	"bitwarden":              "Open-source password manager",
+	"bettertouchtool":        "Customize trackpad, mouse, and keyboard shortcuts",
 	"brave-browser":          "Privacy-focused browser based on Chromium",
-	"calibre":                "E-book manager, reader, and format converter",
-	"chatgpt":                "OpenAI ChatGPT desktop application",
-	"claude":                 "Anthropic Claude desktop application",
-	"claude-code":            "Claude Code CLI tool",
 	"cryptomator":            "Client-side encryption for files stored in the cloud",
+	"calibre":                "E-book manager, reader, and format converter",
 	"descript":               "AI-powered audio and video editor",
 	"discord":                "Voice, video, and text chat for communities",
 	"disk-drill":             "Data recovery software and disk health monitoring",
@@ -118,7 +125,6 @@ var descriptions = map[string]string{
 	"farrago":                "Robust, rapid-fire soundboard for Mac",
 	"firefox":                "Free and open-source web browser by Mozilla",
 	"fission":                "Fast, lossless audio editor for Mac",
-	"folx":                   "Download manager with integrated torrent support",
 	"github":                 "GitHub Desktop — visual Git client",
 	"google-chrome":          "Google Chrome web browser",
 	"google-chrome@canary":   "Chrome Canary — bleeding-edge preview builds",
@@ -126,13 +132,11 @@ var descriptions = map[string]string{
 	"gpg-suite-no-mail":      "GPG tools for macOS (without the Mail plugin)",
 	"handbrake-app":          "Open-source video transcoder",
 	"helium-browser":         "Floating browser window that sits above other apps",
-	"hot":                    "macOS menu bar CPU temperature and frequency monitor",
 	"ilok-license-manager":   "iLok USB hardware license manager",
 	"iterm2":                 "Feature-rich terminal emulator for macOS",
 	"izotope-product-portal": "iZotope audio plugin installer and manager",
 	"jordanbaird-ice":        "Menu bar item hider and manager",
 	"keka":                   "File archiver and extractor for macOS",
-	"keybase":                "Secure key directory, file sharing, and messaging",
 	"keyboardcleantool":      "Temporarily disable keyboard and trackpad for cleaning",
 	"kid3":                   "Cross-platform audio tag editor",
 	"kobo":                   "Kobo e-reader desktop application",
@@ -144,6 +148,7 @@ var descriptions = map[string]string{
 	"mediainfo":              "Display technical information about media files",
 	"minecraft":              "Minecraft game launcher",
 	"musicbrainz-picard":     "Music tagger using the MusicBrainz database",
+	"nordpass":               "Password manager with encrypted vault sync",
 	"nordvpn":                "NordVPN client for macOS",
 	"omnidisksweeper":        "Disk usage analyzer for macOS",
 	"onyx":                   "System maintenance, tweaking, and cleaning for macOS",
@@ -153,7 +158,6 @@ var descriptions = map[string]string{
 	"pulsar":                 "Community-driven Atom editor fork",
 	"raspberry-pi-imager":    "Official Raspberry Pi OS imaging tool",
 	"raycast":                "Extensible macOS launcher and productivity platform",
-	"samsung-magician":       "Samsung SSD firmware and management utility",
 	"screenflow":             "Screen recording and video editing for Mac",
 	"shutter-encoder":        "Video, audio, and image converter and encoder",
 	"signal":                 "Private, end-to-end encrypted messaging",

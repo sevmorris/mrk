@@ -3,7 +3,7 @@ REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 
-.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs dock help
+.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs dock help check ci
 
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
 define go-build
@@ -12,13 +12,21 @@ define go-build
 		exit 1; \
 	fi
 	@printf '  \033[36m▸\033[0m Building $(1)…\n'
-	@cd "$(REPO_ROOT)/tools/$(2)" && go build -o "$(BIN_DIR)/$(1)" .
+	@VERSION=$$(git -C "$(REPO_ROOT)" describe --tags --always --dirty 2>/dev/null || echo dev); \
+	 SHA=$$(git -C "$(REPO_ROOT)" rev-parse --short HEAD 2>/dev/null || echo unknown); \
+	 cd "$(REPO_ROOT)/tools/$(2)" && \
+	 go build -ldflags "-X main.Version=$$VERSION -X main.GitSHA=$$SHA" -o "$(BIN_DIR)/$(1)" .
 	@chmod +x "$(BIN_DIR)/$(1)"
 endef
 
 help: ## Show available make commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+
+check: ## Run local CI checks (shellcheck, picker desc, go test)
+	@"$(SCRIPTS)/ci-check"
+
+ci: check build-tools ## Full CI pipeline locally (check + build all TUIs)
 
 all: fix-exec setup brew post-install build-tools ## Full install: setup + brew + post-install + TUI binaries
 	@printf '\n'
@@ -54,12 +62,7 @@ tidy: ## Run go mod tidy in all tool directories
 	done
 
 fix-exec: ## Make scripts and bin files executable
-	@if find $(SCRIPTS) -type f -maxdepth 1 -not -name "*.md" -exec chmod +x {} + 2>/dev/null && \
-	    find $(BIN_DIR) -type f -maxdepth 1 -not -name "*.md" -exec chmod +x {} + 2>/dev/null; then \
-	  printf '  \033[32m✓\033[0m Made scripts executable\n'; \
-	else \
-	  printf '  \033[31m✗\033[0m Failed to make some scripts executable\n'; \
-	fi
+	@"$(SCRIPTS)/fix-exec"
 
 install: setup ## Run Phase 1 setup
 setup: ## Phase 1: shell, dotfiles, macOS defaults
@@ -96,7 +99,7 @@ updates: ## Run macOS software updates
 	@softwareupdate -ia || true
 
 harden: ## Apply macOS security hardening
-	@"$(SCRIPTS)/hardening.sh"
+	@"$(SCRIPTS)/hardening.sh" $(ARGS)
 
 status: ## Show installation status
 	@"$(SCRIPTS)/status"
@@ -121,16 +124,7 @@ mrk-status: ## Build the mrk-status TUI health dashboard binary
 	@printf '  \033[32m✓\033[0m mrk-status → ~/bin/mrk-status, ~/bin/status\n'
 
 mrk-menu: ## Build the mrk-menu TUI launcher binary
-	@if ! command -v go >/dev/null 2>&1; then \
-		echo "error: Go is not installed. Install it with: brew install go"; \
-		exit 1; \
-	fi
-	@printf '  \033[36m▸\033[0m Building mrk-menu…\n'
-	@VERSION=$$(git -C "$(REPO_ROOT)" describe --tags --always --dirty 2>/dev/null || echo dev); \
-	 SHA=$$(git -C "$(REPO_ROOT)" rev-parse --short HEAD 2>/dev/null || echo unknown); \
-	 cd "$(REPO_ROOT)/tools/mrk-menu" && \
-	 go build -ldflags "-X main.Version=$$VERSION -X main.GitSHA=$$SHA" -o "$(BIN_DIR)/mrk-menu" .
-	@chmod +x "$(BIN_DIR)/mrk-menu"
+	$(call go-build,mrk-menu,mrk-menu)
 	@ln -sf "$(BIN_DIR)/mrk-menu" "$(HOME)/bin/mrk-menu"
 	@printf '  \033[32m✓\033[0m mrk-menu → ~/bin/mrk-menu\n'
 

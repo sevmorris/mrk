@@ -84,3 +84,46 @@ setup_logging() {
 
 # Ensure DRY_RUN is defined (default 0 if not set by caller)
 : "${DRY_RUN:=0}"
+
+# Scan files for patterns that look like secrets (API keys, tokens, private keys).
+# Prints findings to stderr; returns 1 if any match, 0 if clean.
+scan_for_secrets() {
+  (( $# == 0 )) && return 0
+  local -a patterns=(
+    '-----BEGIN (RSA |OPENSSH |EC |)PRIVATE KEY-----'
+    '<(key)>(APIKey|apiKey|accessToken|authToken|secretKey|clientSecret|refreshToken|password)</key>'
+    '(api[_-]?key|apikey|secret[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret)[[:space:]]*[:=][[:space:]]*['\''"]?[A-Za-z0-9_./+-]{12,}'
+    'Bearer[[:space:]]+[A-Za-z0-9._-]{20,}'
+  )
+  local pat file hits=0 line
+  for file in "$@"; do
+    [[ -f "$file" ]] || continue
+    for pat in "${patterns[@]}"; do
+      while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        err "possible secret in ${file}: ${line:0:120}"
+        hits=1
+      done < <(grep -Ein "$pat" "$file" 2>/dev/null || true)
+    done
+  done
+  return "$hits"
+}
+
+# Warn or abort when staged/content files look like secrets.
+# With NONINTERACTIVE=1, abort instead of prompting.
+require_clean_secrets() {
+  scan_for_secrets "$@" && return 0
+  warn "Potential secrets detected in files above."
+  if (( ${NONINTERACTIVE:-0} )); then
+    err "Aborting (NONINTERACTIVE=1)."
+    return 1
+  fi
+  if [[ ! -t 0 ]]; then
+    err "Aborting (not a TTY — cannot confirm)."
+    return 1
+  fi
+  printf '%s  Push/commit anyway?%s ' "$_YLW" "$_R" >&2
+  local _ans
+  read -r _ans </dev/tty
+  [[ "${_ans,,}" =~ ^(y|yes)$ ]]
+}

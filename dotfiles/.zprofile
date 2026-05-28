@@ -12,6 +12,18 @@ elif [ -x /usr/local/bin/brew ]; then
   eval "$(/usr/local/bin/brew shellenv)"
 fi
 
+# GNU coreutils — prepend gnubin so ls/cat/sed use GNU names (see Brewfile coreutils comment)
+if command -v brew >/dev/null 2>&1; then
+  _coreutils_gnubin="$(brew --prefix coreutils 2>/dev/null)/libexec/gnubin"
+  if [[ -d "$_coreutils_gnubin" ]]; then
+    case ":${PATH}:" in
+      *":${_coreutils_gnubin}:"*) ;;
+      *) export PATH="${_coreutils_gnubin}:${PATH}" ;;
+    esac
+  fi
+  unset _coreutils_gnubin
+fi
+
 # --- Ensure ~/.local/bin is on PATH (idempotent) ---
 if [ -d "$HOME/.local/bin" ]; then
   case ":$PATH:" in

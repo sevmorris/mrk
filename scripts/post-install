@@ -26,8 +26,20 @@ for _arg in "$@"; do
     --yes|-y)    NONINTERACTIVE=1 ;;
   esac
 done
+export NONINTERACTIVE
 
 failed=0
+
+# ask_yes PROMPT — returns 0 for yes; skipped when NONINTERACTIVE or not a TTY
+ask_yes() {
+  if (( NONINTERACTIVE )) || [[ ! -t 0 ]]; then
+    return 1
+  fi
+  printf '%s' "$1"
+  local answer
+  read -r answer </dev/tty
+  [[ "$answer" =~ ^[Yy]$ ]]
+}
 
 trap 'printf "\n[post-install] interrupted — exiting\n" >&2; exit 1' INT TERM
 
@@ -118,14 +130,10 @@ BROWSERS_DIR="$REPO_ROOT/assets/browsers"
 if [[ -d "/Applications/Safari.app" ]]; then
   apply_defaults "$BROWSERS_DIR/safari-defaults.sh" "Safari" || ((failed++))
   if [[ -f "$BROWSERS_DIR/safari-extensions.txt" ]]; then
-    if [[ -t 0 ]]; then
-      printf "[post-install] Open Safari extension URLs? [y/N]: "
-      read -r answer </dev/tty
-      if [[ "$answer" =~ ^[Yy]$ ]]; then
-        open_extension_urls "$BROWSERS_DIR/safari-extensions.txt" "Safari" || ((failed++))
-      else
-        logskip "Safari extension URLs" "user declined"
-      fi
+    if ask_yes "[post-install] Open Safari extension URLs? [y/N]: "; then
+      open_extension_urls "$BROWSERS_DIR/safari-extensions.txt" "Safari" || ((failed++))
+    else
+      logskip "Safari extension URLs" "skipped"
     fi
   fi
 else
@@ -138,14 +146,10 @@ if [[ -d "/Applications/Google Chrome.app" ]]; then
     "$HOME/Library/Application Support/Google/Chrome/policies/managed" \
     "Chrome" || ((failed++))
   if [[ -f "$BROWSERS_DIR/chrome-extensions.txt" ]]; then
-    if [[ -t 0 ]]; then
-      printf "[post-install] Open Chrome extension URLs? [y/N]: "
-      read -r answer </dev/tty
-      if [[ "$answer" =~ ^[Yy]$ ]]; then
-        open_extension_urls "$BROWSERS_DIR/chrome-extensions.txt" "Chrome" || ((failed++))
-      else
-        logskip "Chrome extension URLs" "user declined"
-      fi
+    if ask_yes "[post-install] Open Chrome extension URLs? [y/N]: "; then
+      open_extension_urls "$BROWSERS_DIR/chrome-extensions.txt" "Chrome" || ((failed++))
+    else
+      logskip "Chrome extension URLs" "skipped"
     fi
   fi
 else
@@ -158,14 +162,10 @@ if [[ -d "/Applications/Brave Browser.app" ]]; then
     "$HOME/Library/Application Support/BraveSoftware/Brave-Browser/policies/managed" \
     "Brave" || ((failed++))
   if [[ -f "$BROWSERS_DIR/brave-extensions.txt" ]]; then
-    if [[ -t 0 ]]; then
-      printf "[post-install] Open Brave extension URLs? [y/N]: "
-      read -r answer </dev/tty
-      if [[ "$answer" =~ ^[Yy]$ ]]; then
-        open_extension_urls "$BROWSERS_DIR/brave-extensions.txt" "Brave" || ((failed++))
-      else
-        logskip "Brave extension URLs" "user declined"
-      fi
+    if ask_yes "[post-install] Open Brave extension URLs? [y/N]: "; then
+      open_extension_urls "$BROWSERS_DIR/brave-extensions.txt" "Brave" || ((failed++))
+    else
+      logskip "Brave extension URLs" "skipped"
     fi
   fi
 else
@@ -229,6 +229,35 @@ else
 fi
 
 ###############################################################################
+# pyenv (Python)                                                              #
+###############################################################################
+
+# Install the version pinned in ~/mrk/.python-version when pyenv is available.
+# pyenv init lives in dotfiles/.zshrc; this only ensures the runtime exists.
+PYENV_VERSION_FILE="$REPO_ROOT/.python-version"
+if command -v pyenv >/dev/null 2>&1 && [[ -f "$PYENV_VERSION_FILE" ]]; then
+  pyenv_wanted="$(tr -d '[:space:]' < "$PYENV_VERSION_FILE")"
+  if [[ -n "$pyenv_wanted" ]]; then
+    if pyenv versions --bare 2>/dev/null | grep -qxF "$pyenv_wanted"; then
+      logskip "pyenv Python ${pyenv_wanted}" "already installed"
+    else
+      log "Installing Python ${pyenv_wanted} via pyenv..."
+      if pyenv install -s "$pyenv_wanted"; then
+        ok "pyenv Python ${pyenv_wanted} installed"
+        if pyenv global "$pyenv_wanted" 2>/dev/null; then
+          ok "pyenv global → ${pyenv_wanted}"
+        fi
+      else
+        warn "pyenv install ${pyenv_wanted} failed — run: pyenv install ${pyenv_wanted}"
+        ((++failed))
+      fi
+    fi
+  fi
+else
+  logskip "pyenv bootstrap" "pyenv not installed or no .python-version"
+fi
+
+###############################################################################
 # Companion apps (installed from GitHub releases)                             #
 ###############################################################################
 
@@ -252,7 +281,12 @@ install_github_app(){
   local tmp_dmg tmp_mount
   tmp_dmg=$(mktemp -t mrk)
   tmp_mount=$(mktemp -t mrk -d)
-  trap "hdiutil detach \"$tmp_mount\" -quiet 2>/dev/null; rm -f \"$tmp_dmg\"; rm -rf \"$tmp_mount\" 2>/dev/null" EXIT
+  _cleanup_github_app() {
+    hdiutil detach "$tmp_mount" -quiet 2>/dev/null || true
+    rm -f "$tmp_dmg"
+    rm -rf "$tmp_mount" 2>/dev/null || true
+  }
+  trap _cleanup_github_app EXIT
   log "Downloading $name..."
   curl -L -sf -o "$tmp_dmg" "$dmg_url" || { log "Warning: failed to download $name"; rm -f "$tmp_dmg"; return 1; }
   hdiutil attach "$tmp_dmg" -mountpoint "$tmp_mount" -quiet -nobrowse \
@@ -268,6 +302,7 @@ install_github_app(){
   hdiutil detach "$tmp_mount" -quiet
   rm -f "$tmp_dmg"
   rm -rf "$tmp_mount" 2>/dev/null || true
+  trap - EXIT
   if [[ -d "$app_path" ]]; then
     xattr -cr "$app_path" 2>/dev/null || true
   fi

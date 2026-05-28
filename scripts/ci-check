@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+# Re-exec with Homebrew bash if running under bash < 4 (mapfile, arrays)
+if (( BASH_VERSINFO[0] < 4 )); then
+  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
+  done
+  echo "error: bash 4+ required for ci-check (install via: brew install bash)" >&2
+  exit 1
+fi
+
+set -euo pipefail
+
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+log "check-picker-desc"
+"$SCRIPT_DIR/check-picker-desc"
+
+if command -v shellcheck >/dev/null 2>&1; then
+  log "shellcheck"
+  mapfile -t scripts < <(
+    git -C "$REPO_ROOT" ls-files 'scripts/*' 'bin/*' \
+      | while IFS= read -r f; do
+          [[ "$f" == scripts/adventure-prologue ]] && continue
+          [[ -f "$REPO_ROOT/$f" ]] && head -1 "$REPO_ROOT/$f" | grep -qE '^#!.*bash' && printf '%s\n' "$REPO_ROOT/$f"
+        done
+  )
+  if ((${#scripts[@]})); then
+    shellcheck -x "${scripts[@]}"
+  fi
+else
+  warn "shellcheck not installed — skipping (brew install shellcheck)"
+fi
+
+for dir in picker bf mrk-status mrk-menu theme; do
+  log "go test: tools/$dir"
+  (cd "$REPO_ROOT/tools/$dir" && go test ./...)
+done
+
+ok "All checks passed"

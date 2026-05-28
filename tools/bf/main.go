@@ -18,6 +18,12 @@ import (
 	theme "mrk-theme"
 )
 
+// Version and GitSHA are populated at build time via -ldflags.
+var (
+	Version = "dev"
+	GitSHA  = "unknown"
+)
+
 // ── Types ─────────────────────────────────────────────────────────────────
 
 type pkgKind int
@@ -271,7 +277,11 @@ func (bf *brewfile) moveEntry(e *entry, targetSec string) {
 }
 
 func (bf *brewfile) commit(msg string) error {
-	cmd := exec.Command("git", "-C", bf.repoRoot, "add", "Brewfile")
+	gitPath, err := filepath.Rel(bf.repoRoot, bf.path)
+	if err != nil {
+		gitPath = filepath.Base(bf.path)
+	}
+	cmd := exec.Command("git", "-C", bf.repoRoot, "add", gitPath)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git add: %w\n%s", err, out)
 	}
@@ -1446,6 +1456,7 @@ TUI keys:
   c                   Commit saved changes via git
   q / esc             Quit
 `)
+	fmt.Printf("\nVersion: %s (%s)\n", Version, GitSHA)
 }
 
 func main() {
@@ -1454,6 +1465,9 @@ func main() {
 		switch os.Args[1] {
 		case "--help", "-h":
 			usage()
+			os.Exit(0)
+		case "--version":
+			fmt.Printf("bf %s (%s)\n", Version, GitSHA)
 			os.Exit(0)
 		default:
 			path = os.Args[1]

@@ -1021,7 +1021,7 @@ make doctor     # Run full diagnostics</code></pre>
           <tr><td>Dotfile conflict ("file exists")</td><td>Backup auto-created in <code>~/.mrk/backups/</code>; resolve manually then re-run</td></tr>
           <tr><td>post-install skips plist imports</td><td>SSH key not authenticated; run <code>pull-prefs</code> after adding key to GitHub</td></tr>
           <tr><td>mrk-picker not rendering</td><td>Rebuild the binary: <code>make picker</code></td></tr>
-          <tr><td>~/bin not on PATH</td><td>Run <code>make doctor --fix</code> — automatically adds <code>~/bin</code> to PATH in <code>.zshrc</code></td></tr>
+          <tr><td>~/bin not on PATH</td><td>Run <code>make doctor ARGS=--fix</code> — automatically adds <code>~/bin</code> to PATH in <code>.zshrc</code></td></tr>
           <tr><td>Brewfile entry shows ✗ (missing)</td><td>Package name may differ from formula name; check with <code>brew info &lt;pkg&gt;</code></td></tr>
           <tr><td>sync exits with "nothing to add"</td><td>All installed packages are already in the Brewfile — nothing to do</td></tr>
           <tr><td>snapshot-prefs fails for an app</td><td>App is not installed or <code>defaults export</code> failed; check the app is running</td></tr>

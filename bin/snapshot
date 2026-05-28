@@ -4,8 +4,13 @@ set -euo pipefail
 # Personal snapshot tool — export current machine prefs into mrk
 # Updates: ~/mrk/assets/preferences/
 
+# Resolve this script's real path (works when invoked via ~/bin symlink)
 _src="${BASH_SOURCE[0]}"
-while [[ -L "$_src" ]]; do _src="$(readlink "$_src")"; done
+while [[ -L "$_src" ]]; do
+  _dir="$(cd "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  [[ "$_src" != /* ]] && _src="$_dir/$_src"
+done
 REPO_ROOT="$(cd "$(dirname "$_src")/.." && pwd)"
 PREFS_DIR="$REPO_ROOT/assets/preferences"
 

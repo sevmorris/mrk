@@ -17,6 +17,12 @@ import (
 	theme "mrk-theme"
 )
 
+// Version and GitSHA are populated at build time via -ldflags.
+var (
+	Version = "dev"
+	GitSHA  = "unknown"
+)
+
 // ── Severity ──────────────────────────────────────────────────────────────
 
 type severity int
@@ -237,7 +243,15 @@ func checkBackups(stateDir string) group {
 
 func checkShell() group {
 	user := os.Getenv("USER")
-	out, _ := exec.Command("dscl", ".", "-read", "/Users/"+user, "UserShell").Output()
+	if user == "" {
+		return group{"Shell", sevWarn,
+			[]statusLine{sl(sevWarn, "USER environment variable is not set")}, ""}
+	}
+	out, err := exec.Command("dscl", ".", "-read", "/Users/"+user, "UserShell").Output()
+	if err != nil {
+		return group{"Shell", sevWarn,
+			[]statusLine{sl(sevWarn, fmt.Sprintf("dscl failed: %v", err))}, ""}
+	}
 	current := ""
 	if parts := strings.Fields(strings.TrimSpace(string(out))); len(parts) >= 2 {
 		current = parts[1]
@@ -264,7 +278,7 @@ func checkPATH(binDir string) group {
 		}
 	}
 	return group{"PATH", sevWarn,
-		[]statusLine{sl(sevWarn, binDir+" is NOT on PATH")}, "doctor --fix"}
+		[]statusLine{sl(sevWarn, binDir+" is NOT on PATH")}, "make doctor ARGS=--fix"}
 }
 
 func checkHomebrew() group {
@@ -647,8 +661,9 @@ func (m model) viewHeader() string {
 
 func (m model) viewFooter() string {
 	hints := styleFooter.Render("[↑↓/jk] navigate  [tab] switch pane  [f]ix  [r]efresh  [q]uit")
+	version := styleFooter.Render(fmt.Sprintf("  %s (%s)", Version, GitSHA))
 	if m.flash == "" {
-		return hints
+		return hints + version
 	}
 	var flashStr string
 	if m.pendingFix || strings.Contains(m.flash, "fail") || strings.Contains(m.flash, "no fix") {

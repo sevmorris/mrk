@@ -75,9 +75,11 @@ eval "$($HOMEBREW shellenv)"
 # Temp files
 TEMP_BREWFILE=""
 TEMP_INSERTIONS=""
+BREWFILE_TMP=""
 cleanup() {
   [[ -n "$TEMP_BREWFILE"   && -f "$TEMP_BREWFILE"   ]] && rm -f "$TEMP_BREWFILE"   || true
   [[ -n "$TEMP_INSERTIONS" && -f "$TEMP_INSERTIONS" ]] && rm -f "$TEMP_INSERTIONS" || true
+  [[ -n "$BREWFILE_TMP"    && -f "$BREWFILE_TMP"    ]] && rm -f "$BREWFILE_TMP"    || true
 }
 trap cleanup EXIT INT TERM
 
@@ -226,9 +228,10 @@ if (( PRUNE && n_stale > 0 )); then
       echo "  [dry run] Would remove $n_prune entr(ies) from Brewfile."
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     else
-      # Build sed patterns to remove matching lines
+      # Build sed patterns to remove matching lines (atomic write via temp file)
       local_sed_args=()
       escaped_pkg=
+      BREWFILE_TMP="$(mktemp "${REPO_ROOT}/.Brewfile.XXXXXX")"
       for pkg in "${!prune_formulae[@]}"; do
         escaped_pkg=$(printf '%s\n' "$pkg" | sed 's/[[\.*^$&/]/\\&/g')
         local_sed_args+=(-e "/^brew \"${escaped_pkg}\"/d")
@@ -238,7 +241,9 @@ if (( PRUNE && n_stale > 0 )); then
         local_sed_args+=(-e "/^cask \"${escaped_pkg}\"/d")
       done
 
-      sed -i '' "${local_sed_args[@]}" "$BREWFILE"
+      sed "${local_sed_args[@]}" "$BREWFILE" > "$BREWFILE_TMP"
+      mv "$BREWFILE_TMP" "$BREWFILE"
+      BREWFILE_TMP=""
 
       log "Removed $n_prune stale entr(ies) from Brewfile."
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -251,10 +256,15 @@ elif (( PRUNE && n_stale == 0 )); then
 fi
 
 if (( ${#new_formulae_arr[@]} == 0 && ${#new_casks_arr[@]} == 0 )); then
-  log "Brewfile is up to date. No new packages found."
-  exit 0
-fi
-
+  if git diff --quiet "$BREWFILE" 2>/dev/null; then
+    log "Brewfile is up to date. No new packages found."
+    exit 0
+  fi
+  # Brewfile changed (e.g. prune-only) — skip add UI; commit below if -c
+  if (( ! COMMIT )); then
+    exit 0
+  fi
+else
 log "Found ${#new_formulae_arr[@]} new formula(e) and ${#new_casks_arr[@]} new cask(s) not in Brewfile."
 
 # ─── 4. Selection UI ─────────────────────────────────────────────────────────
@@ -486,13 +496,15 @@ fi
 
 TEMP_INSERTIONS=$(mktemp -t mrk)
 printf '%s' "$insertions_data" > "$TEMP_INSERTIONS"
+BREWFILE_TMP="$(mktemp "${REPO_ROOT}/.Brewfile.XXXXXX")"
 
-python3 - "$BREWFILE" "$TEMP_INSERTIONS" <<'PYEOF'
+python3 - "$BREWFILE" "$TEMP_INSERTIONS" "$BREWFILE_TMP" <<'PYEOF'
 import sys, re
 from collections import defaultdict
 
-brewfile_path   = sys.argv[1]
+src_path        = sys.argv[1]
 insertions_path = sys.argv[2]
+out_path        = sys.argv[3]
 
 with open(insertions_path) as f:
     raw = f.read().strip()
@@ -506,7 +518,7 @@ for line in raw.splitlines():
         section, entry = line.split('\t', 1)
         insertions.append((section, entry))
 
-with open(brewfile_path) as f:
+with open(src_path) as f:
     lines = f.readlines()
 
 def is_section_header(line):
@@ -568,16 +580,21 @@ for section in sorted(new_sections):
     for entry in entries:
         lines.append(entry + '\n')
 
-with open(brewfile_path, 'w') as f:
+with open(out_path, 'w') as f:
     f.writelines(lines)
 
 total = len(to_insert) + sum(len(v) for v in new_sections.values())
 print(f'Added {total} entr{"ies" if total != 1 else "y"} to Brewfile.')
 PYEOF
 
+mv "$BREWFILE_TMP" "$BREWFILE"
+BREWFILE_TMP=""
+
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 log "Brewfile updated."
+
+fi  # end new-package add flow (prune-only skips sections 4–8)
 
 # ─── 9. Optional commit ──────────────────────────────────────────────────────
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -207,8 +208,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.filterResults = nil
 			return m, m.runCmd(it)
 		case tea.KeyBackspace, tea.KeyDelete:
-			if len(m.filterInput) > 0 {
-				m.filterInput = m.filterInput[:len(m.filterInput)-1]
+			if m.filterInput != "" {
+				_, size := utf8.DecodeLastRuneInString(m.filterInput)
+				m.filterInput = m.filterInput[:len(m.filterInput)-size]
 				m.applyFilter()
 			}
 		case tea.KeyRunes:
@@ -237,8 +239,9 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.nukeInput = ""
 			m.flashMsg = "Canceled nuke operation (incorrect input)."
 		case tea.KeyBackspace, tea.KeyDelete:
-			if len(m.nukeInput) > 0 {
-				m.nukeInput = m.nukeInput[:len(m.nukeInput)-1]
+			if m.nukeInput != "" {
+				_, size := utf8.DecodeLastRuneInString(m.nukeInput)
+				m.nukeInput = m.nukeInput[:len(m.nukeInput)-size]
 			}
 		case tea.KeyRunes:
 			m.nukeInput += string(msg.Runes)

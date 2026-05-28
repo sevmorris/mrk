@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# check-picker-desc — verify mrk-picker descriptions cover every Brewfile package
+
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+BREWFILE="$REPO_ROOT/Brewfile"
+PICKER_GO="$REPO_ROOT/tools/picker/main.go"
+
+if [[ ! -f "$BREWFILE" ]]; then
+  echo "check-picker-desc: Brewfile not found: $BREWFILE" >&2
+  exit 1
+fi
+if [[ ! -f "$PICKER_GO" ]]; then
+  echo "check-picker-desc: picker source not found: $PICKER_GO" >&2
+  exit 1
+fi
+
+mapfile -t brew_pkgs < <(rg '^(brew|cask) "' "$BREWFILE" | sed 's/^[^"]*"\([^"]*\)".*/\1/' | sort -u)
+mapfile -t picker_keys < <(rg '^\t"[^"]+":' "$PICKER_GO" | sed 's/^\t"\([^"]*\)".*/\1/' | sort -u)
+
+missing=()
+orphan=()
+for pkg in "${brew_pkgs[@]}"; do
+  if ! printf '%s\n' "${picker_keys[@]}" | grep -Fxq "$pkg"; then
+    missing+=("$pkg")
+  fi
+done
+for key in "${picker_keys[@]}"; do
+  if ! printf '%s\n' "${brew_pkgs[@]}" | grep -Fxq "$key"; then
+    orphan+=("$key")
+  fi
+done
+
+if (( ${#missing[@]} == 0 && ${#orphan[@]} == 0 )); then
+  echo "check-picker-desc: OK (${#brew_pkgs[@]} packages, descriptions in sync)"
+  exit 0
+fi
+
+if (( ${#missing[@]} > 0 )); then
+  echo "check-picker-desc: missing from tools/picker/main.go (${#missing[@]}):" >&2
+  printf '  %s\n' "${missing[@]}" >&2
+fi
+if (( ${#orphan[@]} > 0 )); then
+  echo "check-picker-desc: orphaned in picker, not in Brewfile (${#orphan[@]}):" >&2
+  printf '  %s\n' "${orphan[@]}" >&2
+fi
+exit 1

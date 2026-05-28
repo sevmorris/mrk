@@ -4,11 +4,13 @@ set -euo pipefail
 # mrk snapshot-prefs — export current app preferences to ~/.mrk/preferences/
 # and push to the private mrk-prefs repo.
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
 : "${PREFS_REPO:=git@github.com:sevmorris/mrk-prefs.git}"
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
 APP_SUPPORT="$HOME/Library/Application Support"
-
-log(){ printf "[snapshot-prefs] %s\n" "$*"; }
 
 # Ensure the local prefs dir is a git repo pointing at mrk-prefs
 if [[ ! -d "$LOCAL_PREFS_DIR/.git" ]]; then
@@ -31,9 +33,12 @@ snapshot_plist(){
     return 0
   fi
   defaults export "$bundle_id" "$LOCAL_PREFS_DIR/$filename" || {
-    log "Warning: failed to export $name"
+    warn "failed to export $name"
     return 1
   }
+  if ! scan_for_secrets "$LOCAL_PREFS_DIR/$filename"; then
+    warn "$name export may contain secrets — review before pushing"
+  fi
   log "Saved $name → $LOCAL_PREFS_DIR/$filename"
 }
 
@@ -74,6 +79,9 @@ snapshot_app_support(){
   for file in "${files[@]}"; do
     if [[ -f "$src_dir/$file" ]]; then
       cp "$src_dir/$file" "$dest_dir/$file"
+      if ! scan_for_secrets "$dest_dir/$file"; then
+        warn "$app_name/$file may contain secrets — review before pushing"
+      fi
       saved=$(( saved + 1 ))
     fi
   done
@@ -91,11 +99,33 @@ snapshot_app_support "SoundSource" "SoundSource" \
 # ── Commit and push ───────────────────────────────────────────────────────────
 
 cd "$LOCAL_PREFS_DIR"
-git add .
+
+# Stage only snapshot outputs — never `git add .`
+shopt -s nullglob
+stage_files=( *.plist )
+shopt -u nullglob
+if [[ -d app-support ]]; then
+  while IFS= read -r -d '' f; do
+    stage_files+=("$f")
+  done < <(find app-support -type f -print0 2>/dev/null)
+fi
+
+if (( ${#stage_files[@]} == 0 )); then
+  log "No preference files to stage."
+  exit 0
+fi
+
+git add -- "${stage_files[@]}"
+
 if git diff --cached --quiet; then
   log "No changes to push."
-else
-  git commit -m "snapshot: $(date '+%Y-%m-%d %H:%M')"
-  git push
-  log "Pushed to $PREFS_REPO"
+  exit 0
 fi
+
+# Scan staged snapshot files before commit/push
+mapfile -t changed_files < <(git diff --cached --name-only --diff-filter=AM)
+require_clean_secrets "${changed_files[@]}" || exit 1
+
+git commit -m "snapshot: $(date '+%Y-%m-%d %H:%M')"
+git push
+ok "Pushed to $PREFS_REPO"

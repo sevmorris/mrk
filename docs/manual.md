@@ -574,7 +574,7 @@ bash ~/.mrk/defaults-rollback.sh
 | Dotfile conflict ("file exists" warning) | Backup auto-created in `~/.mrk/backups/`; resolve manually then re-run |
 | post-install skips plist imports | SSH key not authenticated; run `make pull-prefs` after adding key to GitHub |
 | mrk-picker not rendering | Rebuild the binary: `make picker` |
-| `~/bin` not on PATH | Run `make doctor --fix` — automatically adds `~/bin` to PATH in `.zshrc` |
+| `~/bin` not on PATH | Run `make doctor ARGS=--fix` — automatically adds `~/bin` to PATH in `.zshrc` |
 | Brewfile entry shows ✗ (missing) | Package name may differ from formula name; check with `brew info <pkg>` |
 | `make sync` exits with "nothing to add" | All installed packages are already in the Brewfile — nothing to do |
 | `make snapshot-prefs` fails for an app | App is not installed or `defaults export` failed; check the app is running |
