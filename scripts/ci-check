@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
-
-# Re-exec with Homebrew bash if running under bash < 4 (mapfile, arrays)
-if (( BASH_VERSINFO[0] < 4 )); then
-  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
-    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
-  done
-  echo "error: bash 4+ required for ci-check (install via: brew install bash)" >&2
-  exit 1
-fi
-
 set -euo pipefail
 
 _self="${BASH_SOURCE[0]}"
@@ -28,14 +18,17 @@ log "check-picker-desc"
 
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"
-  mapfile -t scripts < <(
+  scripts=()
+  while IFS= read -r f; do
+    [[ -n "$f" ]] && scripts+=("$f")
+  done < <(
     git -C "$REPO_ROOT" ls-files 'scripts/*' 'bin/*' \
       | while IFS= read -r f; do
           [[ "$f" == scripts/adventure-prologue ]] && continue
           [[ -f "$REPO_ROOT/$f" ]] && head -1 "$REPO_ROOT/$f" | grep -qE '^#!.*bash' && printf '%s\n' "$REPO_ROOT/$f"
         done
   )
-  if ((${#scripts[@]})); then
+  if ((${#scripts[@]} > 0)); then
     shellcheck -x "${scripts[@]}"
   fi
 else
