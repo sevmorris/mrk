@@ -2,6 +2,13 @@ SHELL := /bin/bash
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
+INSTALL_BIN := $(HOME)/bin
+
+# Symlink a repo-built binary into ~/bin (mkdir -p first — CI runners may lack ~/bin)
+define link-home-bin
+	@mkdir -p "$(INSTALL_BIN)"
+	@ln -sf "$(BIN_DIR)/$(1)" "$(INSTALL_BIN)/$(1)"
+endef
 
 .PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs dock help check ci
 
@@ -109,23 +116,23 @@ doctor: ## Run diagnostics
 
 bf: ## Build the bf Brewfile manager TUI binary
 	$(call go-build,bf,bf)
-	@ln -sf "$(BIN_DIR)/bf" "$(HOME)/bin/bf"
+	$(call link-home-bin,bf)
 	@printf '  \033[32m✓\033[0m bf → ~/bin/bf\n'
 
 picker: ## Build the mrk-picker TUI binary
 	$(call go-build,mrk-picker,picker)
-	@ln -sf "$(BIN_DIR)/mrk-picker" "$(HOME)/bin/mrk-picker"
+	$(call link-home-bin,mrk-picker)
 	@printf '  \033[32m✓\033[0m mrk-picker → ~/bin/mrk-picker\n'
 
 mrk-status: ## Build the mrk-status TUI health dashboard binary
 	$(call go-build,mrk-status,mrk-status)
-	@ln -sf "$(BIN_DIR)/mrk-status" "$(HOME)/bin/mrk-status"
-	@ln -sf "$(BIN_DIR)/mrk-status" "$(HOME)/bin/status"
+	$(call link-home-bin,mrk-status)
+	@ln -sf "$(BIN_DIR)/mrk-status" "$(INSTALL_BIN)/status"
 	@printf '  \033[32m✓\033[0m mrk-status → ~/bin/mrk-status, ~/bin/status\n'
 
 mrk-menu: ## Build the mrk-menu TUI launcher binary
 	$(call go-build,mrk-menu,mrk-menu)
-	@ln -sf "$(BIN_DIR)/mrk-menu" "$(HOME)/bin/mrk-menu"
+	$(call link-home-bin,mrk-menu)
 	@printf '  \033[32m✓\033[0m mrk-menu → ~/bin/mrk-menu\n'
 
 
