@@ -46,6 +46,3 @@ export NVM_DIR="$HOME/.nvm"
 
 # --- Shell Welcome ---
 command -v fastfetch >/dev/null 2>&1 && fastfetch
-
-# OpenClaw Completion
-[[ -f "$HOME/.openclaw/completions/openclaw.zsh" ]] && source "$HOME/.openclaw/completions/openclaw.zsh"
