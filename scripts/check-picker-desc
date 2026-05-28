@@ -24,8 +24,15 @@ if [[ ! -f "$PICKER_GO" ]]; then
   exit 1
 fi
 
-mapfile -t brew_pkgs < <(rg '^(brew|cask) "' "$BREWFILE" | sed 's/^[^"]*"\([^"]*\)".*/\1/' | sort -u)
-mapfile -t picker_keys < <(rg '^\t"[^"]+":' "$PICKER_GO" | sed 's/^\t"\([^"]*\)".*/\1/' | sort -u)
+brew_pkgs=()
+while IFS= read -r pkg; do
+  [[ -n "$pkg" ]] && brew_pkgs+=("$pkg")
+done < <(grep -E '^(brew|cask) "' "$BREWFILE" | sed 's/^[^"]*"\([^"]*\)".*/\1/' | sort -u)
+
+picker_keys=()
+while IFS= read -r key; do
+  [[ -n "$key" ]] && picker_keys+=("$key")
+done < <(grep -E '^\t"[^"]+":' "$PICKER_GO" | sed 's/^\t"\([^"]*\)".*/\1/' | sort -u)
 
 missing=()
 orphan=()
