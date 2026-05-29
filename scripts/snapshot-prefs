@@ -12,6 +12,34 @@ source "$SCRIPT_DIR/lib.sh"
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
 APP_SUPPORT="$HOME/Library/Application Support"
 
+# Apps whose export failed or timed out — reported at exit, never fatal.
+SNAPSHOT_SKIPPED=()
+report_skipped(){
+  if (( ${#SNAPSHOT_SKIPPED[@]} > 0 )); then
+    warn "Skipped ${#SNAPSHOT_SKIPPED[@]} app(s) — export failed or timed out: ${SNAPSHOT_SKIPPED[*]}"
+  fi
+}
+trap report_skipped EXIT
+
+# Export a defaults domain with a timeout so a hung or sandboxed domain can't
+# stall the whole run. Prefers timeout/gtimeout (coreutils); else background-kill.
+defaults_export_timeout(){
+  local bundle_id="$1" out="$2" secs="${3:-15}"
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$secs" defaults export "$bundle_id" "$out"
+  elif command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$secs" defaults export "$bundle_id" "$out"
+  else
+    defaults export "$bundle_id" "$out" &
+    local pid=$! rc=0
+    ( sleep "$secs"; kill "$pid" 2>/dev/null ) &
+    local killer=$!
+    wait "$pid" 2>/dev/null || rc=$?
+    kill "$killer" 2>/dev/null || true
+    return "$rc"
+  fi
+}
+
 # Ensure the local prefs dir is a git repo pointing at mrk-prefs
 if [[ ! -d "$LOCAL_PREFS_DIR/.git" ]]; then
   if [[ -d "$LOCAL_PREFS_DIR" ]]; then
@@ -32,10 +60,11 @@ snapshot_plist(){
     log "Skipping $name (not installed)"
     return 0
   fi
-  defaults export "$bundle_id" "$LOCAL_PREFS_DIR/$filename" || {
-    warn "failed to export $name"
-    return 1
-  }
+  if ! defaults_export_timeout "$bundle_id" "$LOCAL_PREFS_DIR/$filename"; then
+    warn "failed to export $name — skipped"
+    SNAPSHOT_SKIPPED+=("$name")
+    return 0
+  fi
   if ! scan_for_secrets "$LOCAL_PREFS_DIR/$filename"; then
     warn "$name export may contain secrets — review before pushing"
   fi
@@ -55,10 +84,6 @@ snapshot_plist "com.rogueamoeba.soundsource"            "SoundSource.plist"     
 snapshot_plist "com.rogueamoeba.audiohijack"            "AudioHijack.plist"       "/Applications/Audio Hijack.app"     "Audio Hijack"
 snapshot_plist "com.rogueamoeba.farrago"                "Farrago.plist"           "/Applications/Farrago.app"          "Farrago"
 snapshot_plist "com.rogueamoeba.Piezo"                  "Piezo.plist"             "/Applications/Piezo.app"            "Piezo"
-snapshot_plist "abnerworks.Typora"                      "Typora.plist"            "/Applications/Typora.app"           "Typora"
-snapshot_plist "com.aone.keka"                          "Keka.plist"              "/Applications/Keka.app"             "Keka"
-snapshot_plist "com.tclementdev.timemachineeditor.application" "TimeMachineEditor.plist" "/Applications/TimeMachineEditor.app" "TimeMachineEditor"
-snapshot_plist "com.goodsnooze.MacWhisper"              "MacWhisper.plist"        "/Applications/MacWhisper.app"       "MacWhisper"
 
 # ── Application Support files ─────────────────────────────────────────────────
 
