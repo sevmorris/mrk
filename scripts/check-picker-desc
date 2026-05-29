@@ -36,15 +36,20 @@ done < <(grep -E '^\t"[^"]+":' "$PICKER_GO" | sed 's/^\t"\([^"]*\)".*/\1/' | sor
 
 missing=()
 orphan=()
+# Bash-3.2-safe membership test. The previous `printf | grep -Fxq` pattern
+# races against `set -o pipefail` on macOS bash 3.2: when grep -q matches
+# early, printf gets SIGPIPE, pipefail makes the pipeline non-zero, and the
+# `if !` flips it — flagging a hit as a false-positive orphan (or missing).
+in_array() {
+  local target=$1; shift
+  for item in "$@"; do [[ $item == "$target" ]] && return 0; done
+  return 1
+}
 for pkg in "${brew_pkgs[@]}"; do
-  if ! printf '%s\n' "${picker_keys[@]}" | grep -Fxq "$pkg"; then
-    missing+=("$pkg")
-  fi
+  in_array "$pkg" "${picker_keys[@]}" || missing+=("$pkg")
 done
 for key in "${picker_keys[@]}"; do
-  if ! printf '%s\n' "${brew_pkgs[@]}" | grep -Fxq "$key"; then
-    orphan+=("$key")
-  fi
+  in_array "$key" "${brew_pkgs[@]}" || orphan+=("$key")
 done
 
 if (( ${#missing[@]} == 0 && ${#orphan[@]} == 0 )); then
