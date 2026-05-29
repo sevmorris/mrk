@@ -10,7 +10,7 @@ define link-home-bin
 	@ln -sf "$(BIN_DIR)/$(1)" "$(INSTALL_BIN)/$(1)"
 endef
 
-.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update updates harden status doctor picker bf mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs dock help check ci
+.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker bf mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs dock help check ci
 
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
 define go-build
@@ -98,6 +98,9 @@ trackpad: ## Apply macOS defaults including trackpad settings
 
 uninstall: ## Remove symlinks and undo setup
 	@"$(SCRIPTS)/uninstall"
+
+pull: ## Fast-forward the mrk repo to origin (git pull --ff-only)
+	@git -C "$(REPO_ROOT)" pull --ff-only
 
 update: ## Upgrade all packages (topgrade or brew)
 	@if command -v topgrade >/dev/null 2>&1; then topgrade; else brew update && brew upgrade; fi

@@ -66,6 +66,7 @@ var categories = []category{
 	{
 		name: "Maintenance",
 		items: []item{
+			{"make pull", "git pull mrk repo (fast-forward only)", cmdMake, "pull", nil, false},
 			{"make update", "upgrade packages (topgrade or brew upgrade)", cmdMake, "update", nil, false},
 			{"make updates", "run macOS software updates", cmdMake, "updates", nil, false},
 			{"make tidy", "go mod tidy in all tool directories", cmdMake, "tidy", nil, false},
