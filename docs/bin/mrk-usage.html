@@ -446,7 +446,6 @@
   <a href="#check-updates">2.1 check-updates</a>
   <a href="#doctor">2.2 doctor</a>
   <a href="#fix-exec">2.3 fix-exec</a>
-  <a href="#generate-install-manifest">2.4 gen-manifest</a>
   <a href="#hardening">2.5 hardening.sh</a>
   <a href="#hide-tm">2.6 hide_tm.sh</a>
   <a href="#pull-prefs">2.7 pull-prefs</a>
@@ -614,17 +613,6 @@ zoom-mode status</code></pre>
         <div class="proc-body">
           <p class="desc">Sets executable bits on all mrk scripts and <code>~/bin</code> symlinks pointing into the repo. Idempotent.</p>
           <pre><code>fix-exec</code></pre>
-        </div>
-      </div>
-
-      <div class="proc" id="generate-install-manifest">
-        <div class="proc-header">
-          <span class="proc-num">2.4</span>
-          <h3>generate-install-manifest <span class="tag tag-mrk">mrk</span></h3>
-        </div>
-        <div class="proc-body">
-          <p class="desc">Scans symlinks in <code>~/bin</code> and <code>$HOME</code> that point into mrk, writes the list to <code>~/mrk/.install-manifest</code> for the uninstaller.</p>
-          <pre><code>generate-install-manifest</code></pre>
         </div>
       </div>
 
