@@ -132,12 +132,6 @@ cask "zoom", greedy: true
 
 
 # Migrated
-cask "musicbrainz-picard"
-cask "bettertouchtool"
 
 # Adopted
-brew "autoconf"
 brew "bash-completion@2"
-brew "flac"
-brew "libpng"
-brew "unbound"

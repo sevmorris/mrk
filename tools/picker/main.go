@@ -49,7 +49,6 @@ type category struct {
 
 var descriptions = map[string]string{
 	// Formulae
-	"autoconf":          "Generate configure scripts for portable builds",
 	"bash":              "Modern shell (Bash 5.x) with improved features",
 	"bash-completion@2": "Programmable tab completion for Bash 4.1+",
 	"bat":               "cat clone with syntax highlighting and Git integration",
@@ -60,7 +59,6 @@ var descriptions = map[string]string{
 	"gnupg":             "GNU Privacy Guard — encryption and signing tool",
 	"htop":              "Interactive process viewer and system monitor",
 	"lsd":               "Modern ls replacement with colors and icons",
-	"libpng":            "PNG image format reference library",
 	"mkdocs":            "Static site generator for project documentation",
 	"moreutils":         "Useful Unix utilities: sponge, vidir, ts, and more",
 	"nano":              "Simple terminal text editor",
@@ -93,14 +91,12 @@ var descriptions = map[string]string{
 	"pyenv":             "Python version manager (canonical; see .python-version)",
 	"openjdk":           "OpenJDK — open-source Java Development Kit",
 	"ffmpeg":            "Complete solution for audio/video recording and conversion",
-	"flac":              "Free lossless audio codec library and tools",
 	"chromaprint":       "Audio fingerprinting library (AcoustID core component)",
 	"whisper-cpp":       "Speech-to-text engine (optimized C++ port of Whisper)",
 	"xcodegen":          "Generate Xcode projects from YAML or JSON specs",
 	"yt-dlp":            "Download video and audio from YouTube and 1000+ sites",
 	"gemini-cli":        "Google Gemini command-line interface",
 	"poppler":           "PDF rendering library and utilities",
-	"unbound":           "Validating, recursive DNS resolver",
 	// Casks
 	"4k-video-downloader+":   "Download videos from YouTube and other platforms",
 	"a-better-finder-rename": "Powerful batch file renaming for Finder",
@@ -111,7 +107,6 @@ var descriptions = map[string]string{
 	"audio-hijack":           "Record and process audio from any application",
 	"auto-claude":            "Automated Claude AI workflows",
 	"balenaetcher":           "Flash OS images to SD cards and USB drives",
-	"bettertouchtool":        "Customize trackpad, mouse, and keyboard shortcuts",
 	"brave-browser":          "Privacy-focused browser based on Chromium",
 	"cryptomator":            "Client-side encryption for files stored in the cloud",
 	"calibre":                "E-book manager, reader, and format converter",
@@ -145,7 +140,6 @@ var descriptions = map[string]string{
 	"mdrp":                   "Mastodon and decentralized social media client",
 	"mediainfo":              "Display technical information about media files",
 	"minecraft":              "Minecraft game launcher",
-	"musicbrainz-picard":     "Music tagger using the MusicBrainz database",
 	"nordpass":               "Password manager with encrypted vault sync",
 	"nordvpn":                "NordVPN client for macOS",
 	"omnidisksweeper":        "Disk usage analyzer for macOS",
