@@ -98,11 +98,9 @@ var descriptions = map[string]string{
 	"whisper-cpp":       "Speech-to-text engine (optimized C++ port of Whisper)",
 	"xcodegen":          "Generate Xcode projects from YAML or JSON specs",
 	"yt-dlp":            "Download video and audio from YouTube and 1000+ sites",
-	"cirruslabs/cli/tart":    "macOS and Linux virtual machines on Apple Silicon",
-	"gemini-cli":             "Google Gemini command-line interface",
-	"poppler":                "PDF rendering library and utilities",
-	"sentinel":               "Static analysis security scanner for code",
-	"unbound":                "Validating, recursive DNS resolver",
+	"gemini-cli":        "Google Gemini command-line interface",
+	"poppler":           "PDF rendering library and utilities",
+	"unbound":           "Validating, recursive DNS resolver",
 	// Casks
 	"4k-video-downloader+":   "Download videos from YouTube and other platforms",
 	"a-better-finder-rename": "Powerful batch file renaming for Finder",
@@ -697,4 +695,3 @@ func main() {
 		}
 	}
 }
-
