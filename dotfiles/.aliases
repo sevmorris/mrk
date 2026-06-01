@@ -149,8 +149,11 @@ if command -v topgrade >/dev/null 2>&1; then
     topgrade
   }
 
-  # Full update: closes running apps, runs topgrade, then offers a reboot.
+  # Full update: pull mrk, close apps, macOS + package updates, rebuild tools,
+  # cleanup, then offer a reboot.
   update-full() {
+    local mrk_root="${MRK_ROOT:-$HOME/mrk}"
+
     # Detect current terminal so we don't close it
     local current_term
     case "${TERM_PROGRAM:-}" in
@@ -161,9 +164,17 @@ if command -v topgrade >/dev/null 2>&1; then
       *)              current_term="" ;;
     esac
 
-    echo "This will close running apps, run updates, then offer a reboot."
+    echo "This will pull mrk, close running apps, run macOS and package updates,"
+    echo "rebuild mrk tools, run cleanup, then offer a reboot."
     read -r "reply?Continue? [Y/n] "
     [[ -z "$reply" || "$reply" =~ ^[Yy]$ ]] || return 0
+
+    if [[ -d "$mrk_root/.git" ]]; then
+      echo "Pulling mrk repo..."
+      make -C "$mrk_root" pull
+    else
+      echo "Skipping mrk pull — not a git repo: $mrk_root" >&2
+    fi
 
     echo "Closing running applications..."
     local -a keep=("Finder" "Dock" "SystemUIServer" "loginwindow")
@@ -192,7 +203,30 @@ if command -v topgrade >/dev/null 2>&1; then
     done
 
     sleep 2
+
+    if [[ -d "$mrk_root/.git" ]]; then
+      echo "Running macOS software updates..."
+      make -C "$mrk_root" updates
+    elif command -v softwareupdate >/dev/null 2>&1; then
+      echo "Running macOS software updates..."
+      sudo softwareupdate -ia || true
+    fi
+
     topgrade
+
+    if [[ -d "$mrk_root/.git" ]]; then
+      echo "Rebuilding mrk Go tools..."
+      make -C "$mrk_root" build-tools
+    fi
+
+    if (( ${+functions[clean-ds]} )); then
+      clean-ds
+    fi
+
+    if command -v brew >/dev/null 2>&1; then
+      echo "Running brew doctor..."
+      brew doctor || true
+    fi
 
     echo
     read -r "reply?Reboot now? [y/N] "

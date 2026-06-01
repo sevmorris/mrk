@@ -25,6 +25,15 @@ notify_each_step = false
 [commands]
 "npm global update" = "bash -lc 'export NVM_DIR=\"$HOME/.nvm\"; [ -s \"/opt/homebrew/opt/nvm/nvm.sh\" ] && . \"/opt/homebrew/opt/nvm/nvm.sh\"; npm update -g'"
 
+[post_commands]
+"pipx upgrade-all" = "bash -lc 'command -v pipx >/dev/null && pipx upgrade-all || true'"
+"pip cache purge" = "bash -lc 'command -v pip3 >/dev/null && pip3 cache purge || true'"
+"Homebrew cache scrub" = "bash -lc 'command -v brew >/dev/null && brew cleanup -s --prune=30 || true'"
+"npm cache verify" = "bash -lc 'export NVM_DIR=\"$HOME/.nvm\"; [ -s \"/opt/homebrew/opt/nvm/nvm.sh\" ] && . \"/opt/homebrew/opt/nvm/nvm.sh\"; command -v npm >/dev/null && npm cache verify || true'"
+"pyenv rehash" = "bash -lc 'command -v pyenv >/dev/null && pyenv rehash || true'"
+"go clean test cache" = "bash -lc 'command -v go >/dev/null && go clean -testcache || true'"
+"Refresh zsh completions" = "bash -lc 'rm -f \"$HOME\"/.zcompdump* 2>/dev/null || true'"
+
 [brew]
 greedy_cask = true
 autoremove = true
