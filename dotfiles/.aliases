@@ -73,7 +73,8 @@ clean-ds() {
   echo "🧹 Starting .DS_Store cleanup (local-only; Desktop & Library excluded)…"
 
   local TMPFILE COUNT
-  TMPFILE=$(mktemp -t mrk)
+  # Portable template (GNU mktemp in gnubin rejects `mktemp -t mrk`; zsh has no trap RETURN)
+  TMPFILE=$(mktemp "${TMPDIR:-/tmp}/mrk-clean-ds.XXXXXX") || return 1
   trap "rm -f '$TMPFILE'" EXIT
 
   # Build safe local dirs on the same device as $HOME
@@ -89,11 +90,9 @@ clean-ds() {
   [[ ${#SAFE_DIRS[@]} -eq 0 ]] && { echo "ℹ️ No eligible local folders."; return 0; }
 
   # Launch the cleanup in the BACKGROUND quietly, then disown it (no job-control messages).
-  # Save and restore job control state to prevent leaks on early exit
-  local old_monitor
-  old_monitor=$(set +o | grep monitor)
+  local restore_monitor=false
+  [[ -o monitor ]] && restore_monitor=true
   set +m  # temporarily silence job control output
-  trap '$old_monitor' RETURN  # restore on function exit
   (
     for d in "${SAFE_DIRS[@]}"; do
       find "$d" -xdev -type f -name ".DS_Store" \
@@ -114,6 +113,7 @@ clean-ds() {
     done
     printf "\r"
   }
+  $restore_monitor && set -m
 
   COUNT=$(wc -l < "$TMPFILE" | tr -d ' ')
   rm -f "$TMPFILE"
