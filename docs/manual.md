@@ -167,15 +167,18 @@ sync -p               # Prune — remove Brewfile entries for packages no longer
 **How sync works:**
 
 1. Reads the Brewfile to build a list of already-tracked packages
-2. Runs `brew leaves` (top-level formulae) and `brew list --cask` to see what's installed
+2. Runs `brew leaves --installed-on-request` (formulae the user explicitly installed, dropping transitive deps that were left behind as leaves) and `brew list --cask` to see what's installed
 3. Computes the diff — packages installed but not yet in the Brewfile
-4. Opens **mrk-picker** TUI: use `Space` to select packages, `Enter` to confirm, `q` to quit
-5. For each selected formula, prompts via `gum` to choose which Brewfile section to add it to
-6. Casks are auto-assigned to the existing cask section
-7. Inserts each entry alphabetically within its section
+4. Filters the diff against `~/.mrk/sync-ignore` (if present) so flagged packages never reach the picker
+5. Opens **mrk-picker** TUI: use `Space` to select packages, `Enter` to confirm, `q` to quit
+6. For each selected formula, prompts via `gum` to choose which Brewfile section to add it to
+7. Casks are auto-assigned to the existing cask section
+8. Inserts each entry alphabetically within its section
 
 > **Note:** The mrk-picker binary lives at `bin/mrk-picker` (gitignored, platform-specific).
 > If it's missing, rebuild it first with `make picker`.
+
+**Persistent ignore list (`~/.mrk/sync-ignore`):** one formula or cask name per line (no `brew`/`cask` prefix); `#` starts a comment. Names listed there will be silently dropped from the sync diff every run, so installed-but-unwanted-in-the-Brewfile packages stop showing up. The file is not auto-created — `touch ~/.mrk/sync-ignore` to start one.
 
 ## Keeping App Preferences Current
 

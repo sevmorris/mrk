@@ -60,7 +60,7 @@ Run `make all` to execute all three phases at once. On a fresh machine, run Phas
 
 | Target | Description |
 |--------|-------------|
-| `make sync` | Snapshot installed Homebrew packages into the Brewfile |
+| `make sync` | Snapshot installed Homebrew packages into the Brewfile. Add names to `~/.mrk/sync-ignore` (one per line) to permanently skip them. |
 | `make sync-login-items` | Sync system login items into post-install and docs |
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |

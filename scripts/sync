@@ -83,6 +83,39 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# ─── Load persistent ignore list ─────────────────────────────────────────────
+#
+# Format of ~/.mrk/sync-ignore:
+#   one formula or cask name per line (no brew/cask prefix)
+#   lines starting with # are ignored
+#   example:
+#     nvm
+#     python@3.12
+#
+# The file is not auto-created — add it manually when you want to keep a
+# package installed but never have it suggested by `sync`.
+
+_SYNC_IGNORE=()
+if [[ -f "${STATE_DIR}/sync-ignore" ]]; then
+  while IFS= read -r _line; do
+    _line="${_line%%#*}"            # strip inline comments
+    _line="${_line//[[:space:]]/}"  # strip whitespace
+    [[ -n "$_line" ]] && _SYNC_IGNORE+=("$_line")
+  done < "${STATE_DIR}/sync-ignore"
+  if (( ${#_SYNC_IGNORE[@]} > 0 )); then
+    log "Loaded ${#_SYNC_IGNORE[@]} ignore rule(s) from ~/.mrk/sync-ignore"
+  fi
+fi
+
+_sync_ignored() {
+  local _pkg="$1"
+  local _item
+  for _item in "${_SYNC_IGNORE[@]}"; do
+    [[ "$_item" == "$_pkg" ]] && return 0
+  done
+  return 1
+}
+
 # ─── 1. Parse Brewfile entries ───────────────────────────────────────────────
 
 declare -A brewfile_formulae=()
@@ -104,7 +137,7 @@ declare -A installed_formulae=()    # top-level only (for new-package detection)
 declare -A installed_formulae_all=() # all installed (for stale detection)
 declare -A installed_casks=()
 
-if ! _leaves_out=$($HOMEBREW leaves 2>/dev/null); then
+if ! _leaves_out=$($HOMEBREW leaves --installed-on-request 2>/dev/null); then
   err "brew leaves failed — cannot determine installed formulae"
   exit 1
 fi
@@ -124,14 +157,29 @@ done < <($HOMEBREW list --cask 2>/dev/null)
 
 new_formulae_arr=()
 new_casks_arr=()
+_filtered=0
 
 for pkg in "${!installed_formulae[@]}"; do
-  [[ -z "${brewfile_formulae[$pkg]+x}" ]] && new_formulae_arr+=("$pkg")
+  [[ -z "${brewfile_formulae[$pkg]+x}" ]] || continue
+  if _sync_ignored "$pkg"; then
+    _filtered=$((_filtered + 1))
+    continue
+  fi
+  new_formulae_arr+=("$pkg")
 done
 
 for pkg in "${!installed_casks[@]}"; do
-  [[ -z "${brewfile_casks[$pkg]+x}" ]] && new_casks_arr+=("$pkg")
+  [[ -z "${brewfile_casks[$pkg]+x}" ]] || continue
+  if _sync_ignored "$pkg"; then
+    _filtered=$((_filtered + 1))
+    continue
+  fi
+  new_casks_arr+=("$pkg")
 done
+
+if (( _filtered > 0 )); then
+  log "Skipping $_filtered ignored package(s) (see ~/.mrk/sync-ignore)"
+fi
 
 # Sort
 if (( ${#new_formulae_arr[@]} > 0 )); then
