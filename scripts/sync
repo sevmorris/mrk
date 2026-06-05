@@ -283,7 +283,7 @@ picker_bin=$(find_picker)
 
 if [[ -n "$picker_bin" ]]; then
   # Build a minimal temp Brewfile for mrk-picker
-  TEMP_BREWFILE=$(mktemp -t mrk)
+  TEMP_BREWFILE=$(mktemp "${TMPDIR:-/tmp}/mrk.XXXXXX")
 
   if (( ${#new_formulae_arr[@]} > 0 )); then
     printf '# New Formulae\n' >> "$TEMP_BREWFILE"
@@ -494,7 +494,7 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
-TEMP_INSERTIONS=$(mktemp -t mrk)
+TEMP_INSERTIONS=$(mktemp "${TMPDIR:-/tmp}/mrk-insertions.XXXXXX")
 printf '%s' "$insertions_data" > "$TEMP_INSERTIONS"
 BREWFILE_TMP="$(mktemp "${REPO_ROOT}/.Brewfile.XXXXXX")"
 
