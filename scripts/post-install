@@ -30,6 +30,23 @@ export NONINTERACTIVE
 
 failed=0
 
+# Shared rollback file (the same one scripts/defaults.sh maintains) so that
+# `make uninstall` covers post-install changes too. PLIST_BACKUP_DIR stores
+# pre-import snapshots of any domain we overwrite, keyed by bundle ID.
+STATE_DIR="$HOME/.mrk"
+ROLLBACK="${ROLLBACK:-$STATE_DIR/defaults-rollback.sh}"
+PLIST_BACKUP_DIR="$STATE_DIR/plist-backups"
+mkdir -p "$STATE_DIR"
+
+# Initialize the rollback file if missing or lacking a valid shebang. Mirrors
+# the check in scripts/defaults.sh — the audit confirmed that logic correct,
+# so we duplicate the shape here for the case where post-install runs before
+# defaults.sh on a given machine.
+if [[ ! -f "$ROLLBACK" ]] || ! grep -q '^#!/usr/bin/env bash$' "$ROLLBACK" 2>/dev/null; then
+  printf '#!/usr/bin/env bash\n' > "$ROLLBACK"
+  chmod +x "$ROLLBACK"
+fi
+
 # ask_yes PROMPT — returns 0 for yes; skipped when NONINTERACTIVE or not a TTY
 ask_yes() {
   if (( NONINTERACTIVE )) || [[ ! -t 0 ]]; then
@@ -94,6 +111,15 @@ open_extension_urls(){
     ((count++))
   done < "$list_file"
   log "Opened $count $name extension URL(s)"
+}
+
+# Snapshot the current state of a defaults domain into PLIST_BACKUP_DIR so
+# the rollback script can restore it. `defaults export` fails when the domain
+# has no existing prefs (typical fresh install) — that's expected and harmless.
+backup_plist(){
+  local domain="$1"
+  mkdir -p "$PLIST_BACKUP_DIR"
+  defaults export "$domain" "$PLIST_BACKUP_DIR/${domain}.plist" 2>/dev/null || true
 }
 
 ###############################################################################
@@ -214,8 +240,16 @@ if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
   logskip "nvm" "already installed at ~/.nvm"
 else
   log "Installing nvm ${NVM_VERSION}..."
-  if PROFILE=/dev/null bash <(curl -fsSL "$NVM_INSTALL_URL") 2>&1 | \
-       grep -v "^$\|=> Downloading\|=> Installed\|=> Close\|=> Profile\|=> Creating" || true; then
+  # Filter noisy progress lines for display, but check the installer's own
+  # exit code (PIPESTATUS[0]), not the pipeline's exit code. The `|| true` on
+  # the trailing assignment branches captures PIPESTATUS before it's reset by
+  # any subsequent command, and avoids set -e firing on a failed installer.
+  nvm_installer_rc=0
+  PROFILE=/dev/null bash <(curl -fsSL "$NVM_INSTALL_URL") 2>&1 | \
+    grep -v "^$\|=> Downloading\|=> Installed\|=> Close\|=> Profile\|=> Creating" \
+    && nvm_installer_rc=${PIPESTATUS[0]} \
+    || nvm_installer_rc=${PIPESTATUS[0]}
+  if [[ $nvm_installer_rc -eq 0 ]]; then
     if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
       ok "nvm ${NVM_VERSION} → ~/.nvm"
     else
@@ -395,7 +429,27 @@ import_plist(){
     logskip "$name plist" "exists — skipping import (won't overwrite)"
     return 0
   fi
+
+  # Snapshot any existing domain state so rollback can restore it.
+  backup_plist "$bundle_id"
+
   defaults import "$bundle_id" "$plist_file" || return 1
+
+  # Append the inverse of the import to the shared rollback file. If we
+  # captured a prior snapshot, restore via `defaults import`; otherwise
+  # remove the imported domain entirely (mirrors hardening.sh's pattern
+  # for keys that didn't exist before).
+  {
+    if [[ -f "$PLIST_BACKUP_DIR/${bundle_id}.plist" ]]; then
+      printf 'defaults import %s %s\n' \
+        "$(printf '%q' "$bundle_id")" \
+        "$(printf '%q' "$PLIST_BACKUP_DIR/${bundle_id}.plist")"
+    else
+      printf 'defaults delete %s >/dev/null 2>&1 || true\n' \
+        "$(printf '%q' "$bundle_id")"
+    fi
+  } >> "$ROLLBACK"
+
   log "Imported $name preferences"
 }
 

@@ -12,12 +12,12 @@ source "$SCRIPT_DIR/lib.sh"
 failed=0
 
 apps=(
-  "com.rogueamoeba.AudioHijack"
+  "com.rogueamoeba.audiohijack"
   "com.rogueamoeba.Fission"
   "com.rogueamoeba.Loopback"
   "com.rogueamoeba.Piezo"
   "com.rogueamoeba.soundsource"
-  "com.rogueamoeba.Farrago2"
+  "com.rogueamoeba.farrago"
 )
 
 for bundle_id in "${apps[@]}"; do

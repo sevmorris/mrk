@@ -58,6 +58,7 @@ var descriptions = map[string]string{
 	"git":               "Distributed version control system",
 	"gnupg":             "GNU Privacy Guard — encryption and signing tool",
 	"htop":              "Interactive process viewer and system monitor",
+	"jq":                "Lightweight, flexible command-line JSON processor",
 	"lsd":               "Modern ls replacement with colors and icons",
 	"mkdocs":            "Static site generator for project documentation",
 	"moreutils":         "Useful Unix utilities: sponge, vidir, ts, and more",

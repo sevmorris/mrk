@@ -38,6 +38,7 @@ brew "zsh"
 
 # Repo essentials
 brew "gum"
+brew "jq"
 brew "ripgrep"
 brew "shellcheck"
 brew "shfmt"

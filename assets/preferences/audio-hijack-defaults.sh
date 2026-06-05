@@ -12,16 +12,16 @@ source "$SCRIPT_DIR/lib.sh"
 failed=0
 
 # Dark theme (0=light, 1=auto, 2=dark)
-defaults write com.rogueamoeba.AudioHijack applicationTheme -int 2 || ((failed++))
+defaults write com.rogueamoeba.audiohijack applicationTheme -int 2 || ((failed++))
 
 # Preferred external audio editor — iZotope RX
-defaults write com.rogueamoeba.AudioHijack audioEditorBundleID -string "com.izotope.RXPro" || ((failed++))
+defaults write com.rogueamoeba.audiohijack audioEditorBundleID -string "com.izotope.RXPro" || ((failed++))
 
 # Audio buffer size (frames)
-defaults write com.rogueamoeba.AudioHijack bufferFrames -int 512 || ((failed++))
+defaults write com.rogueamoeba.audiohijack bufferFrames -int 512 || ((failed++))
 
 # Disable external command execution (security)
-defaults write com.rogueamoeba.AudioHijack allowExternalCommands -int 0 || ((failed++))
+defaults write com.rogueamoeba.audiohijack allowExternalCommands -int 0 || ((failed++))
 
 if (( failed > 0 )); then
   warn "$failed default(s) failed to apply"

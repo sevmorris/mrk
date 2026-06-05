@@ -116,12 +116,15 @@ defaults write com.apple.screensaver askForPasswordDelay -int 0
 
 # 3) Enable firewall (global + stealth)
 if $have_sudo; then
+  # Capture command output before grep to avoid SIGPIPE/pipefail race
+  # (grep -q closes stdin early, which can make the pipeline return non-zero
+  # under `set -o pipefail` even when the pattern matches).
   prev="off"
-  /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>/dev/null | \
-    grep -qi "enabled" && prev="on" || true
+  fw_state=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>/dev/null || true)
+  if grep -qi "enabled" <<< "$fw_state"; then prev="on"; fi
   prev_stealth="off"
-  /usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode 2>/dev/null | \
-    grep -qi " is on" && prev_stealth="on" || true
+  fw_stealth=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode 2>/dev/null || true)
+  if grep -qi " is on" <<< "$fw_stealth"; then prev_stealth="on"; fi
 
   need_firewall=0
   if [[ "$prev" != "on" || "$prev_stealth" != "on" ]]; then

@@ -63,11 +63,21 @@ write_default(){
     # Save rollback BEFORE idempotency check so re-runs preserve first-run originals.
     # Guard skips append when an entry for this domain+key already exists in the file.
     if ! grep -qF "$domain \"$key\"" "$ROLLBACK" 2>/dev/null; then
+      # Shell-escape with printf %q so values containing ", \, $, newlines, or
+      # shell metacharacters survive re-evaluation in the rollback script intact.
+      local esc_domain esc_key esc_current
+      esc_domain=$(printf '%q' "$domain")
+      esc_key=$(printf '%q' "$key")
+      esc_current=$(printf '%q' "$current")
       case "$current_type" in
-        boolean) backup_line "defaults write $domain \"$key\" -bool $([[ "$current" == "1" ]] && echo "true" || echo "false")" ;;
-        integer) backup_line "defaults write $domain \"$key\" -int $current" ;;
-        float)   backup_line "defaults write $domain \"$key\" -float $current" ;;
-        *)       backup_line "defaults write $domain \"$key\" -string \"$current\"" ;;
+        boolean)
+          local bool_val
+          [[ "$current" == "1" ]] && bool_val="true" || bool_val="false"
+          backup_line "defaults write $esc_domain $esc_key -bool $bool_val"
+          ;;
+        integer) backup_line "defaults write $esc_domain $esc_key -int $current" ;;
+        float)   backup_line "defaults write $esc_domain $esc_key -float $current" ;;
+        *)       backup_line "defaults write $esc_domain $esc_key -string $esc_current" ;;
       esac
     fi
 
@@ -99,7 +109,10 @@ write_default(){
       return 0
     fi
   else
-    backup_line "defaults delete $domain \"$key\" >/dev/null 2>&1 || true"
+    local esc_domain_del esc_key_del
+    esc_domain_del=$(printf '%q' "$domain")
+    esc_key_del=$(printf '%q' "$key")
+    backup_line "defaults delete $esc_domain_del $esc_key_del >/dev/null 2>&1 || true"
   fi
 
   case "$type" in
