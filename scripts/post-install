@@ -49,7 +49,7 @@ fi
 
 # ask_yes PROMPT — returns 0 for yes; skipped when NONINTERACTIVE or not a TTY
 ask_yes() {
-  if (( NONINTERACTIVE )) || [[ ! -t 0 ]]; then
+  if (( ${NONINTERACTIVE:-0} )) || [[ ! -t 0 ]]; then
     return 1
   fi
   printf '%s' "$1"

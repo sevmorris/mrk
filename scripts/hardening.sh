@@ -40,7 +40,7 @@ have_sudo=false
 if command -v sudo >/dev/null 2>&1; then
   have_sudo=true
   # Refresh credentials once when interactive (avoids mid-script password prompts)
-  if [[ -t 0 ]] && (( ! NONINTERACTIVE )) && ! sudo -n true 2>/dev/null; then
+  if [[ -t 0 ]] && (( ! ${NONINTERACTIVE:-0} )) && ! sudo -n true 2>/dev/null; then
     log "Hardening requires administrator privileges"
     sudo -v || have_sudo=false
   fi
