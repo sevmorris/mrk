@@ -139,7 +139,7 @@ var descriptions = map[string]string{
 	"losslesscut":            "Lossless video and audio trimmer and cutter",
 	"macfuse":                "FUSE file system extensions for macOS",
 	"macwhisper":             "macOS app for Whisper-powered audio transcription",
-	"mdrp":                   "Mastodon and decentralized social media client",
+	"mdrp":                   "Mac DVDRipper Pro — rip and back up DVDs on macOS",
 	"mediainfo":              "Display technical information about media files",
 	"nordpass":               "Password manager with encrypted vault sync",
 	"nordvpn":                "NordVPN client for macOS",
