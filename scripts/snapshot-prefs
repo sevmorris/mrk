@@ -65,6 +65,13 @@ snapshot_plist(){
     SNAPSHOT_SKIPPED+=("$name")
     return 0
   fi
+  # Convert to xml1 (as bin/snapshot does) so the secret scan reads text,
+  # not binary plist data.
+  if ! plutil -convert xml1 "$LOCAL_PREFS_DIR/$filename" 2>/dev/null; then
+    warn "failed to convert $name export to xml1 — skipped"
+    SNAPSHOT_SKIPPED+=("$name")
+    return 0
+  fi
   if ! scan_for_secrets "$LOCAL_PREFS_DIR/$filename"; then
     warn "$name export may contain secrets — review before pushing"
   fi
@@ -156,5 +163,7 @@ mapfile -t changed_files < <(git diff --cached --name-only --diff-filter=AM)
 require_clean_secrets "${changed_files[@]}" || exit 1
 
 git commit -m "snapshot: $(date '+%Y-%m-%d %H:%M')"
-git push
+# -u origin HEAD: the init path (git init + remote add) has no upstream yet;
+# on the clone path this is equivalent to a plain push.
+git push -u origin HEAD
 ok "Pushed to $PREFS_REPO"
