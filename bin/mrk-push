@@ -81,7 +81,13 @@ ok "Pushed to origin."
 echo ""
 push_log "Fetching deployments for $repo..."
 
-if ! mapfile -t ids < <(gh api --paginate "/repos/$repo/deployments" --jq '.[].id' 2>/dev/null); then
+# Check gh's exit status directly — mapfile from a process substitution
+# always succeeds, so a gh auth/network failure used to slip through as
+# "No deployments found".
+if gh_out=$(gh api --paginate "/repos/$repo/deployments" --jq '.[].id' 2>/dev/null); then
+  ids=()
+  [[ -n "$gh_out" ]] && mapfile -t ids <<< "$gh_out"
+else
   err "Failed to fetch deployments for $repo"
   exit 1
 fi
