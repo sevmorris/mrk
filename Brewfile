@@ -3,6 +3,7 @@
 ## CLI Tools - General Utilities & Power User Tools
 brew "bash"
 brew "bat"
+brew "git-filter-repo"
 # GNU coreutils — prepend gnubin so ls/cat/sed use GNU names (see Brewfile comment)
 brew "coreutils"
 brew "fastfetch"
@@ -80,6 +81,7 @@ cask "etrecheckpro", greedy: true
 cask "farrago", greedy: true
 cask "firefox", greedy: true
 cask "fission", greedy: true
+cask "gcloud-cli"
 cask "github", greedy: true
 cask "google-chrome", greedy: true
 cask "google-chrome@canary", greedy: true
