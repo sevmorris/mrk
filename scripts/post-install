@@ -385,8 +385,13 @@ LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
 PREFS_SCRIPT="$(dirname "$0")/pull-prefs"
 
 _ssh_ok=0
-if command -v git >/dev/null 2>&1 && ssh -T -o ConnectTimeout=5 git@github.com 2>&1 | grep -q "successfully authenticated"; then
-  _ssh_ok=1
+if command -v git >/dev/null 2>&1; then
+  # Capture before grep: ssh -T exits 1 even on successful auth, which under
+  # pipefail made the old pipeline unconditionally false. || true absorbs it.
+  _ssh_out=$(ssh -T -o ConnectTimeout=5 git@github.com 2>&1 || true)
+  if grep -q "successfully authenticated" <<< "$_ssh_out"; then
+    _ssh_ok=1
+  fi
 fi
 
 # Switch mrk remote from HTTPS to SSH now that auth is confirmed
