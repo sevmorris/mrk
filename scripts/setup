@@ -273,6 +273,7 @@ phase_link_tools() {
   _skip_link() {
     case "$1" in
       lib.sh) return 0 ;;  # sourced helper, not executable
+      status) return 0 ;;  # ~/bin/status is owned by make mrk-status (TUI alias)
       *) return 1 ;;
     esac
   }
