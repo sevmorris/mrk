@@ -451,6 +451,21 @@ install_brewfile() {
     return 0
   fi
 
+  # Non-interactive mode (--yes / no TTY): skip the picker entirely and install
+  # the full Brewfile directly — no TEMP_BREWFILE, no /dev/tty. --no-upgrade
+  # installs missing packages without upgrading existing ones (idempotent re-runs).
+  if (( ${NONINTERACTIVE:-0} )) || [[ ! -t 0 ]]; then
+    log "Non-interactive mode — installing full Brewfile (no package selection)"
+    if $HOMEBREW bundle --file="$BREWFILE" --no-upgrade --verbose; then
+      log "Brewfile installation completed successfully"
+      return 0
+    else
+      err "Brewfile installation failed"
+      ((ERRORS++))
+      return 1
+    fi
+  fi
+
   # Parse Brewfile and collect items
   TEMP_BREWFILE=$(mrk_mktemp)
 
