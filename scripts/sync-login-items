@@ -339,11 +339,14 @@ import sys, re
 path, items, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(path) as f:
     content = f.read()
-new_content = re.sub(
+new_content, n_subs = re.subn(
     r'(- \*\*Login items:\*\* Registers )([^\n]+?)( as login items)',
     lambda m: m.group(1) + items + m.group(3),
     content
 )
+if n_subs == 0:
+    print('Warning: could not locate login-items line in manual.md.', file=sys.stderr)
+    sys.exit(1)
 with open(out_path, 'w') as f:
     f.write(new_content)
 PYEOF
