@@ -71,26 +71,31 @@ log "Reading system login items..."
 
 declare -A system_items=()
 
-raw_names=$(osascript -e "tell application \"System Events\" to get the name of every login item" 2>/dev/null || true)
+# Single System Events query returning "name<TAB>path" pairs, one per line.
+# The old comma-split name list broke on names containing commas, and the
+# per-name path lookup guessed /Applications/$name.app when it failed.
+raw_items=$(
+  osascript 2>/dev/null <<'OSASCRIPT' || true
+tell application "System Events"
+  set output to ""
+  repeat with li in login items
+    try
+      set output to output & (name of li) & tab & (POSIX path of (path of li)) & linefeed
+    end try
+  end repeat
+  return output
+end tell
+OSASCRIPT
+)
 
-if [[ -z "$raw_names" ]]; then
+if [[ -z "$raw_items" ]]; then
   warn "No login items returned from osascript (System Events may be unavailable)"
 fi
 
-if [[ -n "$raw_names" ]]; then
-  while IFS= read -r name; do
-    name="${name#"${name%%[![:space:]]*}"}"
-    name="${name%"${name##*[![:space:]]}"}"
-    if [[ -n "$name" ]]; then
-      app_path=$(osascript - "$name" <<'OSASCRIPT' 2>/dev/null || true)
-on run argv
-  tell application "System Events" to get the path of login item (item 1 of argv)
-end run
-OSASCRIPT
-      [[ -z "$app_path" ]] && app_path="/Applications/${name}.app"
-      system_items["$name"]="$app_path"
-    fi
-  done < <(echo "$raw_names" | tr ',' '\n')
+if [[ -n "$raw_items" ]]; then
+  while IFS=$'\t' read -r name app_path; do
+    [[ -n "$name" && -n "$app_path" ]] && system_items["$name"]="$app_path"
+  done <<< "$raw_items"
 fi
 
 # ─── 2. Parse tracked login items from post-install ──────────────────────────
@@ -299,11 +304,18 @@ for name, path in existing.items():
 for name, path in to_add.items():
     final[name] = path
 
-max_entry_len = max(len(f'add_login_item "{path}"') for path in final.values()) if final else 0
+def sh_dq(path):
+    # Escape bash double-quote metacharacters so a path cannot break out of
+    # (or inject into) the generated add_login_item "..." line.
+    for ch in ('\\', '"', '$', '`'):
+        path = path.replace(ch, '\\' + ch)
+    return path
+
+max_entry_len = max(len(f'add_login_item "{sh_dq(path)}"') for path in final.values()) if final else 0
 col = max_entry_len + 3
 
 def make_line(path):
-    entry = f'add_login_item "{path}"'
+    entry = f'add_login_item "{sh_dq(path)}"'
     padding = col - len(entry)
     return f'{entry}{" " * padding}|| ((failed++))\n'
 

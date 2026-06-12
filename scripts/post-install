@@ -529,12 +529,23 @@ add_login_item(){
     return 0
   fi
 
-  if osascript -e "tell application \"System Events\" to get the name of every login item" 2>/dev/null | grep -qF "$app_name"; then
+  # One name per line so the exact-match grep can't false-positive on
+  # substrings ("Stats" vs "iStats Menus") — the raw list is comma-joined.
+  if osascript \
+       -e "set AppleScript's text item delimiters to linefeed" \
+       -e "tell application \"System Events\" to set _names to name of every login item" \
+       -e "_names as text" 2>/dev/null | grep -qFx "$app_name"; then
     logskip "Login item" "exists: $app_name"
     return 0
   fi
 
-  osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"$app_path\", hidden:false}" >/dev/null 2>&1 || return 1
+  # Pass the path via argv so quotes/metacharacters in it can't break the
+  # AppleScript string literal.
+  osascript - "$app_path" <<'OSASCRIPT' >/dev/null 2>&1 || return 1
+on run argv
+  tell application "System Events" to make login item at end with properties {path:(item 1 of argv), hidden:false}
+end run
+OSASCRIPT
   log "Added login item: $app_name"
 }
 
