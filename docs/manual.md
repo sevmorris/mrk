@@ -558,7 +558,7 @@ mrk writes runtime state to `~/.mrk/` (gitignored):
 |---|---|
 | `~/.mrk/preferences/` | Cloned from `sevmorris/mrk-prefs`; app plists + App Support files |
 | `~/.mrk/backups/` | Timestamped backups of dotfiles that were replaced during setup |
-| `~/.mrk/defaults-rollback.sh` | Shell script to undo all `defaults write` changes |
+| `~/.mrk/defaults-rollback.sh` | Undoes the macOS system defaults applied by `make defaults` and the app plists imported by post-install. The app-preference scripts run during Phase 3 (Safari, Helium, AlDente, Audio Hijack, Fission, Rogue Amoeba) write defaults directly and are **not** covered |
 | `~/.mrk/hardening-rollback.sh` | Shell script to undo security hardening |
 
 To undo macOS defaults applied by mrk:
