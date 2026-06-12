@@ -136,7 +136,7 @@ func checkTools(repoRoot, binDir string) group {
 		}
 		full := filepath.Join(binDir, e.Name())
 		target, err := os.Readlink(full)
-		if err != nil || !strings.HasPrefix(target, repoRoot) {
+		if err != nil || !strings.HasPrefix(target, repoRoot+"/") {
 			continue
 		}
 		if _, err := os.Stat(target); err == nil {
@@ -149,7 +149,8 @@ func checkTools(repoRoot, binDir string) group {
 
 	fix := ""
 	if broken > 0 {
-		fix = "fix-exec"
+		// fix-exec only chmods existing files; broken links need re-creation.
+		fix = "make setup"
 	}
 	summary := fmt.Sprintf("%d linked", linked)
 	if broken > 0 {
