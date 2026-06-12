@@ -460,7 +460,7 @@
   <a href="#mrk-defaults">2.15 mrk-defaults</a>
   <a href="#mrk-uninstall">2.16 mrk-uninstall</a>
   <a class="section-head">Sect. 3 — Reference</a>
-  <a href="#lib">3.1 Shared Library</a>
+  <a href="#lib">3.1 Shared Libraries</a>
   <a href="#quick-ref">3.2 Quick Reference</a>
 </nav>
 
@@ -475,7 +475,7 @@
       <p>This manual covers personal command-line tools installed in <code>~/bin</code>. Scripts fall into two categories: <strong>standalone</strong> tools with no external dependency, and <strong>mrk</strong> tools — symlinks into <code>~/mrk/scripts/</code> managed by the <a href="https://github.com/sevmorris/mrk">mrk</a> machine configuration system.</p>
       <div class="callout">
         <span class="callout-label">Note</span>
-        <div class="callout-body">All scripts are bash. Common behavior (logging, prompts, safe deletion) is provided by the shared library at <code>scripts/lib.sh</code>. See Section 3.1.</div>
+        <div class="callout-body">All scripts are bash. Common behavior is provided by two shared libraries: <code>scripts/lib.sh</code> for the mrk install-phase scripts, and <code>bin/lib/common.sh</code> for the standalone tools. See Section 3.1.</div>
       </div>
     </section>
 
@@ -876,32 +876,54 @@ mrk-push                # prompts for message</code></pre>
     <section id="lib">
       <div class="section-heading">
         <span class="section-num">3.1</span>
-        <h2>Shared Library</h2>
-        <span class="section-sub">scripts/lib.sh</span>
+        <h2>Shared Libraries</h2>
+        <span class="section-sub">scripts/lib.sh · bin/lib/common.sh</span>
       </div>
-      <p>Sourced by scripts that need consistent logging, colors, and utilities.</p>
+      <p>Two separate libraries with deliberately different defaults. <code>scripts/lib.sh</code> serves the mrk install-phase scripts; <code>bin/lib/common.sh</code> serves the standalone <code>~/bin</code> tools. Their <code>confirm()</code> functions have <strong>opposite defaults</strong>: install flows default to proceeding, standalone tools default to declining.</p>
 
       <table class="ref-table">
-        <caption>Table 3.1-1. lib.sh Function Reference</caption>
+        <caption>Table 3.1-1. scripts/lib.sh — mrk install-phase scripts (setup, brew, post-install, defaults.sh, hardening.sh, sync, …)</caption>
         <thead>
           <tr><th>Function</th><th>Purpose</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>ok()</code></td><td>Green checkmark success message</td></tr>
-          <tr><td><code>warn()</code></td><td>Yellow warning (stderr)</td></tr>
-          <tr><td><code>err()</code></td><td>Red error (stderr)</td></tr>
-          <tr><td><code>info()</code></td><td>Blue info message</td></tr>
+          <tr><td><code>log() ok() warn() err() info()</code></td><td>Logging to stderr (cyan/green/yellow/red/plain)</td></tr>
+          <tr><td><code>dry() logskip() section()</code></td><td>Dry-run-aware log, skip notice, section banner</td></tr>
+          <tr><td><code>confirm()</code></td><td>Adventure-style <code>&gt;</code> prompt — <strong>default yes</strong>: proceeds on anything except <code>quit</code>/<code>exit</code>/<code>q</code>/<code>n</code>/<code>no</code>; skipped when <code>NONINTERACTIVE=1</code> or no TTY</td></tr>
+          <tr><td><code>sudo_refresh</code></td><td>Extend an active sudo session (never prompts)</td></tr>
+          <tr><td><code>check_macos</code></td><td>Exit unless running on macOS</td></tr>
+          <tr><td><code>setup_logging</code></td><td>Create <code>~/.mrk</code>, rotate <code>~/.mrk/install.log</code> past 10&nbsp;MB</td></tr>
+          <tr><td><code>resolve_path</code></td><td>Resolve a path, following symlinks (no python3 needed)</td></tr>
+          <tr><td><code>mrk_mktemp / mrk_mktemp_d</code></td><td>Portable mktemp (GNU mktemp rejects BSD <code>-t mrk</code>)</td></tr>
+          <tr><td><code>scan_for_secrets / require_clean_secrets</code></td><td>Grep files for key/token patterns; gate commits/pushes</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <span class="callout-label">Note — lib.sh Environment Variables</span>
+        <div class="callout-body">
+          <code>NONINTERACTIVE=1</code> — skip confirm() prompts, abort instead of asking in secret checks &nbsp;·&nbsp;
+          <code>DRY_RUN=1</code> — dry() labels actions instead of logging them as performed
+        </div>
+      </div>
+
+      <table class="ref-table">
+        <caption>Table 3.1-2. bin/lib/common.sh — standalone bin/ tools (audio-mode, zoom-mode, …)</caption>
+        <thead>
+          <tr><th>Function</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>ok() warn() err() info()</code></td><td>Logging (info to stdout, the rest to stderr)</td></tr>
           <tr><td><code>debug()</code></td><td>Cyan debug (only when <code>DEBUG=1</code>)</td></tr>
-          <tr><td><code>confirm()</code></td><td>Interactive y/N prompt (auto-confirms when <code>YES=1</code>)</td></tr>
+          <tr><td><code>confirm()</code></td><td>y/N prompt — <strong>default no</strong> (safe for destructive ops); auto-confirms when <code>YES=1</code>; sets <code>CONFIRM_LAST</code></td></tr>
           <tr><td><code>is_running</code></td><td>Check if a process matching a pattern is running</td></tr>
-          <tr><td><code>require_cmd</code></td><td>Exit with error if any listed command is missing</td></tr>
-          <tr><td><code>human_bytes</code></td><td>Convert bytes to human-readable (e.g. <code>1.5 G</code>)</td></tr>
+          <tr><td><code>require_cmd</code></td><td>Error if any listed command is missing</td></tr>
+          <tr><td><code>human_bytes / du_bytes</code></td><td>Bytes → human-readable; total size of paths in bytes</td></tr>
+          <tr><td><code>resolve_path</code></td><td>Resolve to absolute path, following symlinks</td></tr>
           <tr><td><code>safe_rm</code></td><td>Remove paths safely (refuses anything outside <code>$HOME</code>)</td></tr>
         </tbody>
       </table>
-
       <div class="callout">
-        <span class="callout-label">Note — Environment Variables</span>
+        <span class="callout-label">Note — common.sh Environment Variables</span>
         <div class="callout-body">
           <code>YES=1</code> — auto-confirm all prompts &nbsp;·&nbsp;
           <code>DRY_RUN=1</code> — safe_rm prints instead of deleting &nbsp;·&nbsp;

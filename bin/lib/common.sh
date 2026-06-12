@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # common.sh — shared library for ~/bin scripts
 # Source this file: source "$(dirname "$0")/lib/common.sh"
+# Scope: standalone bin/ tools (bin/) — mrk install-phase scripts use scripts/lib.sh
 
 # shellcheck disable=SC2034  # Variables used by sourcing scripts
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # lib.sh — shared helpers for mrk scripts
 # Source this file; do not execute directly.
+# Scope: mrk install-phase scripts (scripts/) — standalone bin/ tools use bin/lib/common.sh
 
 # Guard against multiple sourcing
 [[ -n "${_LIB_SH_LOADED:-}" ]] && return 0
