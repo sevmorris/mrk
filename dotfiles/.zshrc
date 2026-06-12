@@ -11,8 +11,12 @@ zstyle ':omz:update' mode auto
 COMPLETION_WAITING_DOTS="true"
 plugins=(git zsh-autosuggestions zsh-syntax-highlighting z colored-man-pages command-not-found gh)
 
-# Load Oh My Zsh
-source "$ZSH/oh-my-zsh.sh"
+# Load Oh My Zsh (guarded: a hard failure here would abort the rest of .zshrc)
+if [[ -f "$ZSH/oh-my-zsh.sh" ]]; then
+  source "$ZSH/oh-my-zsh.sh"
+else
+  echo "mrk: oh-my-zsh not found at $ZSH — install it before sourcing .zshrc" >&2
+fi
 
 # --- PATH Customization ---
 # Add user-specific paths. Homebrew and GNU coreutils gnubin are set in .zprofile.
