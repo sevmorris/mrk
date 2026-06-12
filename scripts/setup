@@ -568,8 +568,16 @@ phase_defaults() {
   if [[ -n "${MRK_LOGIN_MSG:-}" ]]; then
     if command -v sudo >/dev/null 2>&1; then
       log "Setting login window message"
+      # Read the pre-existing value BEFORE writing so rollback restores it
+      # instead of unconditionally deleting the key.
+      local _prev_login_msg
+      _prev_login_msg=$(defaults read /Library/Preferences/com.apple.loginwindow LoginwindowText 2>/dev/null || true)
       if sudo defaults write /Library/Preferences/com.apple.loginwindow LoginwindowText "$MRK_LOGIN_MSG"; then
-        echo "sudo defaults delete /Library/Preferences/com.apple.loginwindow LoginwindowText" >> "$ROLLBACK"
+        if [[ -n "$_prev_login_msg" ]]; then
+          echo "sudo defaults write /Library/Preferences/com.apple.loginwindow LoginwindowText -string $(printf '%q' "$_prev_login_msg")" >> "$ROLLBACK"
+        else
+          echo "sudo defaults delete /Library/Preferences/com.apple.loginwindow LoginwindowText 2>/dev/null || true" >> "$ROLLBACK"
+        fi
       else
         err "Failed to set login window message"
         return 1
