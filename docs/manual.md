@@ -52,6 +52,7 @@ Sets up the foundational shell environment on a new or existing machine.
 - Links `scripts/` and `bin/` into `~/bin` so tools are on your PATH
 - Applies macOS system preferences via `scripts/defaults.sh`
 - Sets Zsh as the login shell
+- Installs oh-my-zsh and the configured zsh plugins (zsh-autosuggestions, zsh-syntax-highlighting) via `git clone` — skipped if already present
 - Generates a rollback script at `~/.mrk/defaults-rollback.sh`
 
 **Options:**

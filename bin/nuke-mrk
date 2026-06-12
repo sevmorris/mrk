@@ -214,6 +214,19 @@ if [[ -d "/Applications/Barkeep.app" ]]; then
   fi
 fi
 
+# Offer to remove oh-my-zsh (installed by make setup's shell phase)
+if [[ -d "$HOME/.oh-my-zsh" ]]; then
+  echo ""
+  printf "${_B}Remove oh-my-zsh (~/.oh-my-zsh)? [y/N]:${_R} "
+  read -r remove_omz
+  if [[ "$remove_omz" =~ ^[Yy]$ ]]; then
+    trash_item "$HOME/.oh-my-zsh"
+    ok "$HOME/.oh-my-zsh (→ Trash)"
+  else
+    dim "Keeping $HOME/.oh-my-zsh"
+  fi
+fi
+
 # Offer to remove audio-mode / zoom-mode state (written by the standalone
 # ~/bin tools, not by the core bootstrap)
 audio_zoom_files=(
