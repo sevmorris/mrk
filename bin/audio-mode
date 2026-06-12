@@ -124,18 +124,12 @@ dropbox_running() {
 }
 
 dropbox_pause() {
-  # Native AppleScript (varies by build)
-  if osascript -e 'try tell application "Dropbox" to pause syncing end try' >/dev/null 2>&1; then
-    return 0
-  fi
-  # Menu item fallback (text can vary by locale); final fallback is quit
+  # Menu item click (text can vary by locale); fallback is quit.
+  # (Dropbox has no scriptable pause/resume dictionary — UI scripting is the only path.)
   click_menu_item "Dropbox" "Pause syncing" || quit_app_by_name "Dropbox"
 }
 
 dropbox_resume() {
-  if osascript -e 'try tell application "Dropbox" to resume syncing end try' >/dev/null 2>&1; then
-    return 0
-  fi
   launch_app "Dropbox"
 }
 
