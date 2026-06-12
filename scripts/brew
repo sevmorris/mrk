@@ -466,6 +466,15 @@ install_brewfile() {
     fi
   fi
 
+  # Ensure gum is available for interactive selection (skipped when mrk-picker
+  # is present; never reached in non-interactive mode thanks to the bypass above)
+  if [[ -z "$(find_picker)" ]]; then
+    if ! ensure_gum; then
+      err "Neither mrk-picker nor gum is available for package selection. Aborting."
+      return 1
+    fi
+  fi
+
   # Parse Brewfile and collect items
   TEMP_BREWFILE=$(mrk_mktemp)
 
@@ -675,14 +684,6 @@ main() {
   if ! ensure_brew_path; then
     err "Homebrew is not available. Aborting."
     exit 1
-  fi
-
-  # Ensure gum is available for interactive selection (skipped when mrk-picker is present)
-  if [[ -z "$(find_picker)" ]]; then
-    if ! ensure_gum; then
-      err "Neither mrk-picker nor gum is available for package selection. Aborting."
-      exit 1
-    fi
   fi
 
   # Phase 2: Install from Brewfile
