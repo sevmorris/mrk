@@ -510,8 +510,8 @@ restore_app_support(){
 }
 
 if [[ -d "$LOCAL_PREFS_DIR" ]]; then
-  restore_app_support "Loopback"    "Loopback"    "Devices.plist" "RecentApps.plist"
-  restore_app_support "SoundSource" "SoundSource" "Presets.plist" "CustomPresets.plist" "Sources.plist" "Models.plist"
+  restore_app_support "Loopback"    "Loopback"    "Devices.plist" "RecentApps.plist" || ((failed++))
+  restore_app_support "SoundSource" "SoundSource" "Presets.plist" "CustomPresets.plist" "Sources.plist" "Models.plist" || ((failed++))
 fi
 
 ###############################################################################
