@@ -24,7 +24,7 @@ for NAME in "${NAMES[@]}"; do
         end tell
         return "OK"
       on error e
-        return e as text
+        error e
       end try
     end tell
   end run' "$NAME" >/dev/null; then
