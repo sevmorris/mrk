@@ -56,7 +56,7 @@ all: fix-exec setup brew post-install build-tools ## Full install: setup + brew 
 	@printf '\n'
 
 adventure: ## Full install in narrative adventure mode
-	@"$(SCRIPTS)/adventure-prologue" && $(MAKE) --no-print-directory all ARGS=--adventure-end
+	@"$(SCRIPTS)/adventure-prologue" && $(MAKE) --no-print-directory all ARGS=--adventure
 
 build-tools: ## Build all Go TUI binaries (requires Go)
 	@printf '\n\033[1;34m══ Phase 4: TUI Tools\033[0m\n\n'
