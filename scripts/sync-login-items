@@ -235,10 +235,10 @@ fi
 
 # ─── 7. Update post-install ──────────────────────────────────────────────────
 
-TEMP_ADD=$(mktemp -t mrk)
-TEMP_REMOVE=$(mktemp -t mrk)
-TMP_PI=$(mktemp -t mrk)
-TMP_MD=$(mktemp -t mrk)
+TEMP_ADD=$(mrk_mktemp)
+TEMP_REMOVE=$(mrk_mktemp)
+TMP_PI=$(mrk_mktemp)
+TMP_MD=$(mrk_mktemp)
 
 for name in "${!add_items[@]}"; do
   printf '%s\t%s\n' "$name" "${system_items[$name]}" >> "$TEMP_ADD"

@@ -453,7 +453,7 @@ install_brewfile() {
   fi
 
   # Parse Brewfile and collect items
-  TEMP_BREWFILE=$(mktemp -t mrk)
+  TEMP_BREWFILE=$(mrk_mktemp)
 
   local formulae_count=0
   local casks_count=0

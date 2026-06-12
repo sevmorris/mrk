@@ -64,6 +64,11 @@ confirm() {
 # Uses -n (non-interactive) so it never prompts — only extends an active session.
 sudo_refresh() { sudo -n -v 2>/dev/null || true; }
 
+# Portable mktemp: GNU mktemp (gnubin on PATH) rejects BSD-style `-t mrk`
+# ("too few X's in template"), so always use an explicit template.
+mrk_mktemp()   { mktemp    "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
+mrk_mktemp_d() { mktemp -d "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
+
 # macOS-only guard
 check_macos() {
   if [[ "$(uname -s)" != "Darwin" ]]; then

@@ -54,7 +54,7 @@ if $have_sudo; then
       log "Enabling Touch ID for sudo"
       if sudo cp /etc/pam.d/sudo /etc/pam.d/sudo.backup.mrk 2>/dev/null; then
         rollback "sudo mv /etc/pam.d/sudo.backup.mrk /etc/pam.d/sudo"
-        tmpfile="$(mktemp -t mrk)"
+        tmpfile="$(mrk_mktemp)"
         { echo 'auth       sufficient     pam_tid.so'; cat /etc/pam.d/sudo; } > "$tmpfile"
         if [[ ! -s "$tmpfile" ]] || ! grep -q 'pam_tid\.so' "$tmpfile" || \
            ! grep -qE 'pam_smartcard\.so|pam_opendirectory\.so' "$tmpfile"; then

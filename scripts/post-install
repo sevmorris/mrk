@@ -313,8 +313,8 @@ install_github_app(){
   fi
   name="${name//[^[:alnum:]._-]/}"
   local tmp_dmg tmp_mount
-  tmp_dmg=$(mktemp -t mrk)
-  tmp_mount=$(mktemp -t mrk -d)
+  tmp_dmg=$(mrk_mktemp)
+  tmp_mount=$(mrk_mktemp_d)
   _cleanup_github_app() {
     hdiutil detach "$tmp_mount" -quiet 2>/dev/null || true
     rm -f "$tmp_dmg"
