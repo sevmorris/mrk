@@ -518,7 +518,7 @@ audio-mode status</code></pre>
 zoom-mode off
 zoom-mode status</code></pre>
           <ul>
-            <li><strong>on</strong> — Pings 8.8.8.8 every 30s in the background (prevents AP idle-timeout drops), runs <code>caffeinate -d</code> to block display and system sleep, stops any active Time Machine backup, then calls <code>audio-mode on --all</code>.</li>
+            <li><strong>on</strong> — Pings the default gateway (8.8.8.8 as fallback) every 30s in the background (prevents AP idle-timeout drops), runs <code>caffeinate -d</code> to block display and system sleep, stops any active Time Machine backup, then calls <code>audio-mode on --all</code>.</li>
             <li><strong>off</strong> — Kills the keepalive and caffeinate processes, then calls <code>audio-mode off</code> to restore sync services.</li>
             <li><strong>status</strong> — Shows whether zoom-mode is active and delegates to <code>audio-mode status</code>.</li>
             <li>Background PIDs tracked at <code>~/.zoom_mode_pids</code>.</li>
@@ -669,10 +669,10 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
           <h3>snapshot-prefs <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Comprehensive preference export: plists for 15 apps plus Application Support files. Commits and pushes to the private mrk-prefs repo.</p>
+          <p class="desc">Comprehensive preference export: plists for 14 apps plus Application Support files. Commits and pushes to the private mrk-prefs repo.</p>
           <pre><code>snapshot-prefs</code></pre>
           <ul>
-            <li><strong>Apps:</strong> BetterSnapTool, Ice, iTerm2, Raycast, Stats, Loopback, SoundSource, Audio Hijack, Farrago, Piezo, Typora, Hot, Keka, TimeMachineEditor, MacWhisper</li>
+            <li><strong>Apps:</strong> BetterSnapTool, Ice, iTerm2, Raycast, Stats, Loopback, SoundSource, Audio Hijack, Farrago, Piezo, Typora, Keka, TimeMachineEditor, MacWhisper</li>
             <li><strong>App Support:</strong> Loopback (devices/routing), SoundSource (presets/sources)</li>
           </ul>
         </div>
@@ -738,10 +738,13 @@ mrk-status --help</code></pre>
         </div>
         <div class="proc-body">
           <p class="desc">Unified mrk installer. Runs setup, brew, and post-install phases. Entry point for a full bootstrap or targeted re-run.</p>
-          <pre><code>mrk-install [phase] [options]</code></pre>
+          <pre><code>mrk-install [--brew | --post | --all] [options]</code></pre>
           <ul>
-            <li>Phases: <code>setup</code>, <code>brew</code>, <code>post-install</code>, or omit for all</li>
-            <li>Options pass through to the selected phase</li>
+            <li><code>--brew</code> — run the brew phase</li>
+            <li><code>--post</code> — run the post-install phase</li>
+            <li><code>--all</code> — run all phases sequentially</li>
+            <li>(no flags) — run setup only</li>
+            <li>Other options pass through to the selected phase</li>
           </ul>
         </div>
       </div>
@@ -816,8 +819,14 @@ mrk-status --help</code></pre>
           <ul>
             <li><strong>j/k · ↑/↓</strong> — navigate</li>
             <li><strong>tab · ←/→</strong> — switch panes</li>
-            <li><strong>enter</strong> — toggle package</li>
+            <li><strong>a</strong> — add a package</li>
+            <li><strong>d</strong> — delete selected package</li>
+            <li><strong>m</strong> — move package to another section</li>
+            <li><strong>g</strong> — toggle greedy (casks only)</li>
+            <li><strong>p</strong> — prune uninstalled entries</li>
+            <li><strong>/</strong> — search packages</li>
             <li><strong>w</strong> — write changes back to the Brewfile</li>
+            <li><strong>c</strong> — commit saved changes via git</li>
             <li><strong>q · ctrl-c</strong> — quit</li>
           </ul>
         </div>
