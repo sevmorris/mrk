@@ -554,7 +554,7 @@ zoom-mode status</code></pre>
           <p class="desc">Exports current app preferences as plists into <code>~/mrk/assets/preferences/</code>.</p>
           <pre><code>snapshot [--brewfile] [--help]</code></pre>
           <ul>
-            <li>Without <code>--brewfile</code>: exports plists only, prompts to commit if changes detected.</li>
+            <li>Local export only — writes plists into <code>assets/preferences/</code> and stops. No git integration (the exported plists are gitignored).</li>
             <li>With <code>--brewfile</code>: also runs <code>brew bundle dump</code> (destructive — overwrites comments). Asks for confirmation.</li>
             <li><strong>Apps:</strong> AlDente, Amphetamine, BetterSnapTool, Descript, Fission, HandBrake, Helium, Ice, iTerm2, ScreenFlow</li>
           </ul>

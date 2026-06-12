@@ -118,35 +118,5 @@ if (( OPT_BREWFILE )); then
   fi
 fi
 
-###############################################################################
-# Git status and optional commit                                              #
-###############################################################################
-
-cd "$REPO_ROOT"
-
-check_paths=("assets/preferences/")
-(( OPT_BREWFILE )) && check_paths+=("Brewfile")
-
-_git_status=""
-if ! _git_status=$(git status --porcelain -- "${check_paths[@]}" 2>/dev/null); then
-  warn "git status failed"
-  exit 1
-fi
-
-if [[ -z "$_git_status" ]]; then
-  log "No changes detected"
-  exit 0
-fi
-
-log "Changes detected:"
-git status --short -- "${check_paths[@]}"
-
-printf "[snapshot] Commit changes? [y/N]: "
-read -r answer </dev/tty
-if [[ "$answer" =~ ^[Yy]$ ]]; then
-  git add -- "${check_paths[@]}"
-  git commit -m "snapshot: update managed preferences $(date +%Y-%m-%d)"
-  log "Committed"
-else
-  log "Skipped commit — run 'git add assets/preferences/ && git commit' when ready"
-fi
+# Local export only — assets/preferences/*.plist is gitignored, so there is
+# deliberately no git detect/commit step here.
