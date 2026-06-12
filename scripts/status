@@ -116,7 +116,7 @@ echo ""
 
 echo "macOS Defaults:"
 if [[ -f "$STATE_DIR/defaults-rollback.sh" ]] && [[ -s "$STATE_DIR/defaults-rollback.sh" ]]; then
-  rollback_lines=$(grep -c "defaults write\|defaults delete" "$STATE_DIR/defaults-rollback.sh" 2>/dev/null || echo "0")
+  rollback_lines=$(grep -c "defaults write\|defaults delete" "$STATE_DIR/defaults-rollback.sh" 2>/dev/null || true)
   if (( rollback_lines > 0 )); then
     ok "  Defaults have been applied"
     info "  Rollback script: $STATE_DIR/defaults-rollback.sh"
@@ -135,7 +135,7 @@ echo ""
 
 echo "Security Hardening:"
 if [[ -f "$STATE_DIR/hardening-rollback.sh" ]] && [[ -s "$STATE_DIR/hardening-rollback.sh" ]]; then
-  rollback_lines=$(grep -c "sudo\|defaults write\|defaults delete" "$STATE_DIR/hardening-rollback.sh" 2>/dev/null || echo "0")
+  rollback_lines=$(grep -c "sudo\|defaults write\|defaults delete" "$STATE_DIR/hardening-rollback.sh" 2>/dev/null || true)
   if (( rollback_lines > 0 )); then
     ok "  Hardening has been applied"
     info "  Rollback script: $STATE_DIR/hardening-rollback.sh"
