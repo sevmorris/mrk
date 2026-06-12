@@ -227,8 +227,12 @@ func parseBrewfile(
 		trimmed := strings.TrimSpace(line)
 
 		if strings.HasPrefix(trimmed, "#") {
-			text := strings.TrimSpace(strings.TrimPrefix(trimmed, "#"))
-			// Skip blank comments, "Taps", and commented-out mas lines
+			// Only ## lines are section headers; single-# lines are annotations.
+			if !strings.HasPrefix(trimmed, "##") {
+				continue
+			}
+			text := strings.TrimSpace(strings.TrimPrefix(trimmed, "##"))
+			// Skip blank headers, "Taps", and commented-out mas lines
 			if text == "" || text == "Taps" || strings.HasPrefix(text, "mas ") {
 				continue
 			}

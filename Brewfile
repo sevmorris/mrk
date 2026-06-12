@@ -1,6 +1,6 @@
-# Taps
+## Taps
 
-# CLI Tools - General Utilities & Power User Tools
+## CLI Tools - General Utilities & Power User Tools
 brew "bash"
 brew "bat"
 # GNU coreutils — prepend gnubin so ls/cat/sed use GNU names (see Brewfile comment)
@@ -36,7 +36,7 @@ brew "watch"
 brew "wget"
 brew "zsh"
 
-# Repo essentials
+## Repo essentials
 brew "gum"
 brew "jq"
 brew "ripgrep"
@@ -44,7 +44,7 @@ brew "shellcheck"
 brew "shfmt"
 brew "xcodegen"
 
-# Languages / runtimes
+## Languages / runtimes
 # Python: pyenv + pipx (see .python-version); no Homebrew python@ pins
 # Node: nvm installed via post-install (scripts/post-install), not Homebrew
 brew "deno"
@@ -53,13 +53,13 @@ brew "pipx"
 brew "pyenv"
 brew "openjdk"
 
-# CLI Tools - Media
+## CLI Tools - Media
 brew "ffmpeg"
 brew "chromaprint"    # Core component of the AcoustID project (Audio fingerprinting)
 brew "whisper-cpp"
 brew "yt-dlp"
 
-# Casks - General Applications & Utilities
+## Casks - General Applications & Utilities
 cask "4k-video-downloader+", greedy: true
 cask "a-better-finder-rename", greedy: true
 cask "adapter", greedy: true
@@ -127,7 +127,7 @@ cask "whatsapp", greedy: true
 cask "zoom", greedy: true
 
 
-# Migrated
+## Migrated
 
-# Adopted
+## Adopted
 brew "bash-completion@2"

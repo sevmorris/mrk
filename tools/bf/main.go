@@ -59,7 +59,7 @@ type section struct {
 var (
 	reFormula = regexp.MustCompile(`^brew\s+"([^"]+)"(.*)$`)
 	reCask    = regexp.MustCompile(`^cask\s+"([^"]+)"(.*)$`)
-	reHeader  = regexp.MustCompile(`^#\s+([A-Z].+)$`)
+	reHeader  = regexp.MustCompile(`^##\s+(.+)$`)
 	reGreedy  = regexp.MustCompile(`,\s*greedy:\s*true`)
 )
 

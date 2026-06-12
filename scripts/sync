@@ -414,7 +414,7 @@ fi
 # Extract formula section headers (skip Taps, Casks, Mac App Store)
 declare -a formula_sections=()
 while IFS= read -r line || [[ -n "$line" ]]; do
-  if [[ "$line" =~ ^#[[:space:]]([A-Z].+) ]]; then
+  if [[ "$line" =~ ^##[[:space:]](.+) ]]; then
     header="${BASH_REMATCH[1]}"
     case "$header" in
       Taps|"Mac App Store Apps") continue ;;
@@ -427,7 +427,7 @@ done < "$BREWFILE"
 # Find the cask section header
 cask_section_header="Casks - General Applications & Utilities"
 while IFS= read -r line || [[ -n "$line" ]]; do
-  if [[ "$line" =~ ^#[[:space:]](Casks.*) ]]; then
+  if [[ "$line" =~ ^##[[:space:]](Casks.*) ]]; then
     cask_section_header="${BASH_REMATCH[1]}"
     break
   fi
@@ -571,13 +571,13 @@ with open(src_path) as f:
 
 def is_section_header(line):
     s = line.strip()
-    return bool(re.match(r'^# [A-Z]', s)) and not re.match(r'^#(brew|cask|mas)', s)
+    return bool(re.match(r'^## ', s)) and not re.match(r'^#(brew|cask|mas)', s)
 
 def find_section_range(lines, section_header):
     """Return (start, end) line indices for the body of a section (exclusive of header)."""
     start = None
     for i, line in enumerate(lines):
-        if line.strip() == f'# {section_header}':
+        if line.strip() == f'## {section_header}':
             start = i + 1
             continue
         if start is not None and is_section_header(line):
@@ -624,7 +624,7 @@ for idx, entry in to_insert:
 # Append new sections at end of file
 for section in sorted(new_sections):
     entries = sorted(new_sections[section])
-    lines.append(f'\n# {section}\n')
+    lines.append(f'\n## {section}\n')
     for entry in entries:
         lines.append(entry + '\n')
 
