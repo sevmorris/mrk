@@ -37,12 +37,12 @@ DOCK_APPS=(
   "/Applications/WaxOnWaxOff.app"
   "/Applications/ClipHack.app"
   "/Applications/FilmStrip.app"
-  "/System/Applications/System Preferences.app"
+  "/System/Applications/System Settings.app"
   "/System/Library/CoreServices/Finder.app"
 )
 
 log "Clearing current Dock..."
-dockutil --remove all --no-restart
+dockutil --remove all --no-restart || warn "dockutil --remove all failed"
 
 added=0
 skipped=0
@@ -50,9 +50,12 @@ skipped=0
 for app in "${DOCK_APPS[@]}"; do
   name=$(basename "$app" .app)
   if [[ -d "$app" ]]; then
-    dockutil --add "$app" --no-restart
-    ok "Added: $name"
-    (( added++ )) || true
+    if dockutil --add "$app" --no-restart; then
+      ok "Added: $name"
+      (( added++ )) || true
+    else
+      warn "Failed to add: $name"
+    fi
   else
     warn "Skipped: $name (not installed)"
     (( skipped++ )) || true
@@ -60,8 +63,11 @@ for app in "${DOCK_APPS[@]}"; do
 done
 
 # Applications folder
-dockutil --add /Applications --view grid --display folder --no-restart
-ok "Added: Applications folder"
+if dockutil --add /Applications --view grid --display folder --no-restart; then
+  ok "Added: Applications folder"
+else
+  warn "Failed to add: Applications folder"
+fi
 
 killall Dock
 log "$added app(s) added, $skipped skipped"
