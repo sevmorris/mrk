@@ -114,6 +114,22 @@ if [[ -L "$topgrade_link" ]]; then
   fi
 fi
 
+# Remove the pre-mrk topgrade config backup created by post-install
+topgrade_bak="$HOME/.config/topgrade.toml.bak"
+if [[ -f "$topgrade_bak" ]]; then
+  trash_item "$topgrade_bak"
+  ok "topgrade.toml.bak (→ Trash)"
+fi
+
+# Remove managed browser policy files installed by post-install
+for f in "$HOME/Library/Application Support/Google/Chrome/policies/managed/mrk-policy.json" \
+         "$HOME/Library/Application Support/BraveSoftware/Brave-Browser/policies/managed/mrk-policy.json"; do
+  if [[ -f "$f" ]]; then
+    rm -f "$f"
+    ok "$(basename "$(dirname "$(dirname "$(dirname "$f")")")") mrk-policy.json"
+  fi
+done
+
 # Offer to run rollback scripts before trashing state dir
 DEFAULTS_ROLLBACK="$STATE_DIR/defaults-rollback.sh"
 HARDENING_ROLLBACK="$STATE_DIR/hardening-rollback.sh"
@@ -159,6 +175,13 @@ else
   dim "$STATE_DIR (not found)"
 fi
 
+# Remove the update-check cache (written by check-updates)
+CACHE_DIR="$HOME/.cache/mrk"
+if [[ -d "$CACHE_DIR" ]]; then
+  trash_item "$CACHE_DIR"
+  ok "$CACHE_DIR"
+fi
+
 # Remove cloned repo
 if [[ -d "$MRK_DIR" ]]; then
   log "Moving $MRK_DIR to Trash..."
@@ -188,6 +211,54 @@ if [[ -d "/Applications/Barkeep.app" ]]; then
     fi
   else
     dim "Keeping Barkeep.app"
+  fi
+fi
+
+# Offer to remove audio-mode / zoom-mode state (written by the standalone
+# ~/bin tools, not by the core bootstrap)
+audio_zoom_files=(
+  "$HOME/.audio_mode_state.json"
+  "$HOME/.audio_mode_active"
+  "$HOME/.zoom_mode_pids"
+  "$HOME/.zoom_mode_active"
+  "$HOME/Library/Logs/audio-mode.log"
+  "$HOME/Library/Logs/zoom-mode.log"
+)
+have_audio_zoom=0
+for f in "${audio_zoom_files[@]}"; do
+  if [[ -e "$f" ]]; then have_audio_zoom=1; break; fi
+done
+if (( have_audio_zoom )); then
+  echo ""
+  printf "${_B}Remove audio-mode and zoom-mode state (state files + logs)? [y/N]:${_R} "
+  read -r remove_audio_zoom
+  if [[ "$remove_audio_zoom" =~ ^[Yy]$ ]]; then
+    for f in "${audio_zoom_files[@]}"; do
+      if [[ -e "$f" ]]; then
+        rm -f "$f"
+        ok "$(basename "$f")"
+      fi
+    done
+  else
+    dim "Keeping audio-mode/zoom-mode state"
+  fi
+fi
+
+# Offer to remove the openjdk symlink created by post-install.
+# System path — removed explicitly via sudo, never by a general rm block.
+JDK_LINK="/Library/Java/JavaVirtualMachines/openjdk.jdk"
+if [[ -L "$JDK_LINK" ]]; then
+  echo ""
+  printf "${_B}Remove openjdk symlink $JDK_LINK? (requires sudo) [y/N]:${_R} "
+  read -r remove_jdk
+  if [[ "$remove_jdk" =~ ^[Yy]$ ]]; then
+    if sudo rm -f "$JDK_LINK"; then
+      ok "openjdk.jdk symlink"
+    else
+      warn "failed to remove $JDK_LINK"
+    fi
+  else
+    dim "Keeping $JDK_LINK"
   fi
 fi
 

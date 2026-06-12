@@ -800,7 +800,7 @@ mrk-status --help</code></pre>
           <h3>mrk-uninstall <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Conservative mrk uninstaller. Removes symlinks and mrk state. Does not uninstall Homebrew packages or undo defaults.</p>
+          <p class="desc">Conservative mrk uninstaller. Removes <code>~/bin</code> symlinks pointing into the repo and offers to run the defaults/hardening rollback scripts. Does not remove dotfile symlinks or <code>~/.mrk</code> state, and does not uninstall Homebrew packages.</p>
           <pre><code>mrk-uninstall</code></pre>
         </div>
       </div>
@@ -943,7 +943,7 @@ mrk-push                # prompts for message</code></pre>
           <tr><td><code>mrk-setup</code></td><td>Phase 1: dotfiles, symlinks, shell</td></tr>
           <tr><td><code>mrk-brew</code></td><td>Phase 2: Homebrew packages</td></tr>
           <tr><td><code>mrk-defaults [--with-trackpad]</code></td><td>Apply macOS defaults (add trackpad gestures with flag)</td></tr>
-          <tr><td><code>mrk-uninstall</code></td><td>Remove mrk symlinks and state (does not touch Homebrew or defaults)</td></tr>
+          <tr><td><code>mrk-uninstall</code></td><td>Remove mrk ~/bin symlinks; offers rollbacks (keeps dotfiles, ~/.mrk state, Homebrew)</td></tr>
         </tbody>
       </table>
     </section>
