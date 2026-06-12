@@ -57,19 +57,19 @@ Sets up the foundational shell environment on a new or existing machine.
 **Options:**
 
 ```
-make setup --only dotfiles      # Link dotfiles only
-make setup --only tools         # Link scripts/bin only
-make setup --only defaults      # Apply macOS defaults only
-make setup --dry-run            # Preview changes without applying
-make setup-dry                  # Shorthand for --dry-run
-make setup --validate           # Check prerequisites before running
-make setup --continue-on-error  # Continue remaining phases if one fails
-make setup --adventure          # Enable narrative (Zork-style) mode for this phase
-make setup --yes                # Skip all confirmation prompts
-make dotfiles                   # Shorthand for --only dotfiles
-make tools                      # Shorthand for --only tools
-make defaults                   # Shorthand for --only defaults
-make trackpad                   # Apply defaults including trackpad settings
+make setup ARGS="--only dotfiles"      # Link dotfiles only
+make setup ARGS="--only tools"         # Link scripts/bin only
+make setup ARGS="--only defaults"      # Apply macOS defaults only
+make setup ARGS="--dry-run"            # Preview changes without applying
+make setup-dry                         # Shorthand for --dry-run
+make setup ARGS="--validate"           # Check prerequisites before running
+make setup ARGS="--continue-on-error"  # Continue remaining phases if one fails
+make setup ARGS="--adventure"          # Enable narrative (Zork-style) mode for this phase
+make setup ARGS="--yes"                # Skip all confirmation prompts
+make dotfiles                          # Shorthand for --only dotfiles
+make tools                             # Shorthand for --only tools
+make defaults                          # Shorthand for --only defaults
+make trackpad                          # Apply defaults including trackpad settings
 ```
 
 ## Phase 2 — Homebrew (`make brew`)
