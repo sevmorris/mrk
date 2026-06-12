@@ -60,15 +60,18 @@ write_default(){
     # Authoritative type detection
     current_type=$(defaults read-type "$domain" "$key" 2>/dev/null | awk '{print $NF}' || echo "string")
 
+    # Shell-escape with printf %q so values containing ", \, $, newlines, or
+    # shell metacharacters survive re-evaluation in the rollback script intact.
+    local esc_domain esc_key esc_current
+    esc_domain=$(printf '%q' "$domain")
+    esc_key=$(printf '%q' "$key")
+    esc_current=$(printf '%q' "$current")
+
     # Save rollback BEFORE idempotency check so re-runs preserve first-run originals.
-    # Guard skips append when an entry for this domain+key already exists in the file.
-    if ! grep -qF "$domain \"$key\"" "$ROLLBACK" 2>/dev/null; then
-      # Shell-escape with printf %q so values containing ", \, $, newlines, or
-      # shell metacharacters survive re-evaluation in the rollback script intact.
-      local esc_domain esc_key esc_current
-      esc_domain=$(printf '%q' "$domain")
-      esc_key=$(printf '%q' "$key")
-      esc_current=$(printf '%q' "$current")
+    # Guard skips append when an entry for this domain+key already exists in the file,
+    # in either form backup_line writes (trailing space stops prefix collisions).
+    if ! grep -qF "defaults write $esc_domain $esc_key " "$ROLLBACK" 2>/dev/null && \
+       ! grep -qF "defaults delete $esc_domain $esc_key " "$ROLLBACK" 2>/dev/null; then
       case "$current_type" in
         boolean)
           local bool_val

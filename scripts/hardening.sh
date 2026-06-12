@@ -96,15 +96,18 @@ else
   prev2_absent=1
   prev2="0"
 fi
-# Guard: only record if no entry for this key exists — first-run originals win on re-runs
-if ! grep -qF "askForPassword -" "$ROLL" 2>/dev/null; then
+# Guard: only record if no entry for this key exists — first-run originals win on re-runs.
+# Match both forms the rollback lines take (trailing space stops prefix collisions).
+if ! grep -qF "defaults write com.apple.screensaver askForPassword " "$ROLL" 2>/dev/null && \
+   ! grep -qF "defaults delete com.apple.screensaver askForPassword " "$ROLL" 2>/dev/null; then
   if (( prev1_absent )); then
     rollback 'defaults delete com.apple.screensaver askForPassword >/dev/null 2>&1 || true'
   else
     rollback "defaults write com.apple.screensaver askForPassword -int ${prev1}"
   fi
 fi
-if ! grep -qF "askForPasswordDelay -" "$ROLL" 2>/dev/null; then
+if ! grep -qF "defaults write com.apple.screensaver askForPasswordDelay " "$ROLL" 2>/dev/null && \
+   ! grep -qF "defaults delete com.apple.screensaver askForPasswordDelay " "$ROLL" 2>/dev/null; then
   if (( prev2_absent )); then
     rollback 'defaults delete com.apple.screensaver askForPasswordDelay >/dev/null 2>&1 || true'
   else
