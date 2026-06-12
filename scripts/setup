@@ -600,6 +600,35 @@ phase_shell() {
       logskip "login shell" "already $target_shell"
     fi
   fi
+
+  # oh-my-zsh + non-bundled plugins. dotfiles/.zshrc sources OMZ and lists
+  # them in plugins=(); its guard tolerates absence — this installs them.
+  # Clone failures warn and continue: a network hiccup must not abort setup.
+  local omz_dir="$HOME/.oh-my-zsh"
+  if [[ -d "$omz_dir" ]]; then
+    logskip "oh-my-zsh" "already installed"
+  elif (( DRY_RUN )); then
+    dry "Would clone oh-my-zsh -> $omz_dir"
+  elif git clone -q --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$omz_dir"; then
+    log "Installed oh-my-zsh -> $omz_dir"
+  else
+    warn "oh-my-zsh clone failed — install manually: git clone https://github.com/ohmyzsh/ohmyzsh.git ~/.oh-my-zsh"
+    return 0  # custom plugins live inside OMZ; nothing more to do here
+  fi
+
+  local plugin_dir="${ZSH_CUSTOM:-$omz_dir/custom}/plugins"
+  local plugin
+  for plugin in zsh-autosuggestions zsh-syntax-highlighting; do
+    if [[ -d "$plugin_dir/$plugin" ]]; then
+      logskip "$plugin" "already installed"
+    elif (( DRY_RUN )); then
+      dry "Would clone $plugin -> $plugin_dir/$plugin"
+    elif git clone -q --depth=1 "https://github.com/zsh-users/$plugin" "$plugin_dir/$plugin"; then
+      log "Installed $plugin -> $plugin_dir/$plugin"
+    else
+      warn "$plugin clone failed — install manually: git clone https://github.com/zsh-users/$plugin"
+    fi
+  done
 }
 
 # Run validation if requested
@@ -620,12 +649,12 @@ run_phase tools \
 run_phase dotfiles \
   "One by one, your config files are carried from mrk/dotfiles/ and linked into ~/. Any existing files are relocated to ~/.mrk/backups/ first." \
   phase_dotfiles
+run_phase shell \
+  "You persuade zsh to become your default login shell (it agrees, as it always does) and summon oh-my-zsh and its plugins to furnish it." \
+  phase_shell
 run_phase defaults \
   "You inscribe your macOS preferences — how the Finder behaves, how the Dock sits, how fast keys repeat. A rollback scroll is saved to ~/.mrk/ should you wish to undo this later." \
   phase_defaults
-run_phase shell \
-  "You persuade zsh to become your default login shell. It agrees, as it always does." \
-  phase_shell
 
 # Installation summary
 show_summary() {
