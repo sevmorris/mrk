@@ -7,20 +7,6 @@
 [[ -n "${_LIB_SH_LOADED:-}" ]] && return 0
 _LIB_SH_LOADED=1
 
-# Resolve the real path of a file, following symlinks.
-# Works on macOS (which may lack readlink -f on older versions).
-resolve_path() {
-  local target="$1"
-  while [[ -L "$target" ]]; do
-    local dir
-    dir="$(cd "$(dirname "$target")" && pwd)"
-    target="$(readlink "$target")"
-    # Handle relative symlink targets
-    [[ "$target" != /* ]] && target="$dir/$target"
-  done
-  echo "$(cd "$(dirname "$target")" && pwd)/$(basename "$target")"
-}
-
 # Constants
 STATE_DIR="$HOME/.mrk"
 LOGFILE="$STATE_DIR/install.log"
