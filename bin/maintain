@@ -1,0 +1,206 @@
+#!/usr/bin/env bash
+
+# maintain — periodic mrk housekeeping
+#
+# Every push to main triggers a GitHub Pages deployment; with heavy commit
+# cycles these accumulate. This prunes old deployments, cleans stale remote
+# refs, runs validation, and checks whether the installed TUI binaries are
+# current. Follows the bin/ conventions (sources lib/common.sh, bash<4
+# re-exec) and the deployment-pruning pattern from bin/mrk-push.
+#
+# Usage:
+#   maintain [--dry-run] [--keep=N] [--skip-check]
+
+# Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2)
+if (( BASH_VERSINFO[0] < 4 )); then
+  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
+  done
+  echo "error: bash 4+ required (system bash is ${BASH_VERSION}; install via 'brew install bash')" >&2
+  exit 1
+fi
+
+set -euo pipefail
+
+# Resolve this script's real path (works when invoked via ~/bin symlink)
+_src="${BASH_SOURCE[0]}"
+while [[ -L "$_src" ]]; do
+  _dir="$(cd "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  [[ "$_src" != /* ]] && _src="$_dir/$_src"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+# ── Flags ─────────────────────────────────────────────────────────────────────
+DRY_RUN=0
+KEEP=10
+SKIP_CHECK=0
+
+usage() {
+  cat <<'EOF'
+maintain — periodic mrk housekeeping
+
+Usage: maintain [options]
+  --dry-run      Preview all operations; make no changes (no API/git/make calls)
+  --keep=N       Number of GitHub Pages deployments to retain (default: 10)
+  --skip-check   Skip the 'make check' validation step
+  --help, -h     Show this help
+
+Steps:
+  1. Prune old GitHub Pages deployments, keeping the N most recent
+  2. git fetch --prune (drop stale remote-tracking refs)
+  3. make check (shellcheck, picker descriptions, go tests)
+  4. Build freshness — flag TUI binaries older than their source
+EOF
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run)    DRY_RUN=1 ;;
+    --keep=*)     KEEP="${arg#*=}" ;;
+    --skip-check) SKIP_CHECK=1 ;;
+    --help|-h)    usage; exit 0 ;;
+    *) err "Unknown option: $arg"; usage >&2; exit 2 ;;
+  esac
+done
+
+if [[ ! "$KEEP" =~ ^[0-9]+$ ]]; then
+  err "--keep must be a non-negative integer (got: '$KEEP')"
+  exit 2
+fi
+
+# Local step header (color comes from the ok/warn/err lines within each step).
+step() { printf '\n▶ %s\n' "$*"; }
+
+# Binary presence is a local check (safe in dry-run); gh auth pings the network,
+# so it's only verified when we will actually make API calls.
+require_cmd gh git make || exit 1
+if (( ! DRY_RUN )); then
+  if ! gh auth status >/dev/null 2>&1; then
+    err "gh is not authenticated. Run: gh auth login"
+    exit 1
+  fi
+fi
+
+CHECK_FAILED=0
+
+if (( DRY_RUN )); then
+  info "DRY RUN — previewing only; no API, git, or make operations will run."
+fi
+
+# ── Step 1 — Prune GitHub Pages deployments ───────────────────────────────────
+step "Step 1: GitHub Pages deployments"
+
+if (( DRY_RUN )); then
+  info "Would prune GitHub Pages deployments beyond the $KEEP most recent."
+elif ! REPO=$(cd "$REPO_ROOT" && gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null); then
+  warn "Could not determine repo slug via gh — skipping deployment pruning."
+elif dep_out=$(gh api --paginate "/repos/$REPO/deployments?environment=github-pages" --jq '.[].id' 2>/dev/null); then
+  ids=()
+  [[ -n "$dep_out" ]] && mapfile -t ids <<< "$dep_out"
+  total=${#ids[@]}
+
+  if (( total <= KEEP )); then
+    ok "$total deployment(s), nothing to prune (keeping $KEEP)."
+  else
+    # gh returns deployments newest-first; the first $KEEP are retained.
+    to_prune=("${ids[@]:KEEP}")
+    nprune=${#to_prune[@]}
+    info "Found $total deployments. Keeping $KEEP most recent, pruning $nprune."
+
+    printf 'Prune %d deployment(s)? [y/N] ' "$nprune"
+    read -r reply </dev/tty 2>/dev/null || reply=""
+    if [[ "$reply" =~ ^[Yy]$ ]]; then
+      n=0
+      # Oldest first: to_prune is newest-first, so walk it in reverse.
+      for (( i=${#to_prune[@]}-1; i>=0; i-- )); do
+        id="${to_prune[$i]}"
+        [[ -z "$id" ]] && continue
+        ((n++)) || true
+        if ! gh api -X POST "/repos/$REPO/deployments/$id/statuses" \
+             -f state=inactive --silent 2>/dev/null; then
+          warn "Could not mark #$id inactive — skipping"
+          continue
+        fi
+        if gh api -X DELETE "/repos/$REPO/deployments/$id" --silent 2>/dev/null; then
+          ok "Pruned $n/$nprune (#$id)"
+        else
+          warn "Could not delete #$id (may already be gone)"
+        fi
+      done
+      ok "Deployment pruning complete."
+    else
+      info "Skipped deployment pruning."
+    fi
+  fi
+else
+  warn "Failed to fetch deployments for $REPO — skipping pruning."
+fi
+
+# ── Step 2 — git fetch --prune ────────────────────────────────────────────────
+step "Step 2: prune stale remote refs"
+
+if (( DRY_RUN )); then
+  info "Would run: git -C \"\$REPO_ROOT\" fetch --prune"
+elif fetch_out=$(git -C "$REPO_ROOT" fetch --prune 2>&1); then
+  if [[ -n "$fetch_out" ]]; then
+    printf '%s\n' "$fetch_out"
+    ok "remote refs synced"
+  else
+    ok "remote refs up to date"
+  fi
+else
+  warn "git fetch --prune failed"
+  [[ -n "$fetch_out" ]] && printf '%s\n' "$fetch_out"
+fi
+
+# ── Step 3 — make check ───────────────────────────────────────────────────────
+step "Step 3: validation"
+
+if (( SKIP_CHECK )); then
+  info "Skipping make check (--skip-check)."
+elif (( DRY_RUN )); then
+  info "Would run: make -C \"\$REPO_ROOT\" check"
+elif make -C "$REPO_ROOT" check; then
+  ok "make check passed"
+else
+  err "make check failed"
+  CHECK_FAILED=1
+fi
+
+# ── Step 4 — Build freshness ──────────────────────────────────────────────────
+# Pure local mtime comparison — no writes, so it runs even in dry-run.
+step "Step 4: TUI build freshness"
+
+# Binary name → tools/ source subdirectory (picker source lives in tools/picker).
+declare -A TOOL_DIR=(
+  [bf]=bf
+  [mrk-picker]=picker
+  [mrk-status]=mrk-status
+  [mrk-menu]=mrk-menu
+)
+
+for binname in bf mrk-picker mrk-status mrk-menu; do
+  bin_path="$HOME/bin/$binname"
+  src_dir="$REPO_ROOT/tools/${TOOL_DIR[$binname]}"
+  if [[ ! -e "$bin_path" ]]; then
+    warn "$binname: not installed — run make build-tools"
+    continue
+  fi
+  newer=$(find "$src_dir" -name '*.go' -newer "$bin_path" -print -quit 2>/dev/null || true)
+  if [[ -n "$newer" ]]; then
+    warn "$binname: source newer than binary — run make build-tools"
+  else
+    ok "$binname: up to date"
+  fi
+done
+
+echo ""
+if (( CHECK_FAILED )); then
+  err "Maintenance finished with validation failures."
+  exit 1
+fi
+ok "Maintenance complete."

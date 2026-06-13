@@ -10,7 +10,7 @@ define link-home-bin
 	@ln -sf "$(BIN_DIR)/$(1)" "$(INSTALL_BIN)/$(1)"
 endef
 
-.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker bf mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs dock help check ci
+.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker bf mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs dock help check ci maintain
 
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
 define go-build
@@ -107,6 +107,9 @@ update: ## Upgrade all packages (topgrade or brew)
 
 updates: ## Run macOS software updates
 	@softwareupdate -ia || true
+
+maintain: ## Housekeeping: prune Pages deployments, fetch --prune, validate, check builds
+	@"$(BIN_DIR)/maintain" $(ARGS)
 
 harden: ## Apply macOS security hardening
 	@"$(SCRIPTS)/hardening.sh" $(ARGS)
