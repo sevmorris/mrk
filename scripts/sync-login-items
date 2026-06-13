@@ -363,7 +363,11 @@ with open(out_path, 'w') as f:
     f.write(new_content)
 PYEOF
 
-# Both outputs succeeded — atomically replace the real files
+# Both outputs succeeded — atomically replace the real files.
+# mktemp creates 0600, so restore the expected modes before the swap
+# (post-install must stay executable for make post-install).
+chmod 755 "$TMP_PI"
+chmod 644 "$TMP_MD"
 mv "$TMP_PI" "$POST_INSTALL"
 mv "$TMP_MD" "$MANUAL_MD"
 
