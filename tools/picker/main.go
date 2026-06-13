@@ -16,12 +16,6 @@ import (
 	theme "mrk-theme"
 )
 
-// Version and GitSHA are populated at build time via -ldflags.
-var (
-	Version = "dev"
-	GitSHA  = "unknown"
-)
-
 // ── Types ─────────────────────────────────────────────────────────────────
 
 type pkgKind string
@@ -234,8 +228,7 @@ func parseBrewfile(
 				continue
 			}
 			text := strings.TrimSpace(strings.TrimPrefix(trimmed, "##"))
-			// Skip blank headers, "Taps", and commented-out mas lines
-			if text == "" || text == "Taps" || strings.HasPrefix(text, "mas ") {
+			if text == "" || text == "Taps" {
 				continue
 			}
 			name := categoryName(text)

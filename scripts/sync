@@ -571,7 +571,7 @@ with open(src_path) as f:
 
 def is_section_header(line):
     s = line.strip()
-    return bool(re.match(r'^## ', s)) and not re.match(r'^#(brew|cask|mas)', s)
+    return bool(re.match(r'^## ', s))
 
 def find_section_range(lines, section_header):
     """Return (start, end) line indices for the body of a section (exclusive of header)."""

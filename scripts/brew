@@ -478,9 +478,6 @@ install_brewfile() {
   # Parse Brewfile and collect items
   TEMP_BREWFILE=$(mrk_mktemp)
 
-  local formulae_count=0
-  local casks_count=0
-  
   # Arrays to store items for selection
   local -a formula_items=()
   local -a cask_items=()
@@ -518,8 +515,7 @@ install_brewfile() {
     # Handle formulae (now interactive like casks)
     if [[ "$line" =~ ^brew\ \"([^\"]+)\" ]]; then
       local formula="${BASH_REMATCH[1]}"
-      ((formulae_count++))
-      
+
       if (( NO_FORMULAE )); then
         continue
       fi
@@ -537,8 +533,7 @@ install_brewfile() {
     # Handle casks
     if [[ "$line" =~ ^cask\ \"([^\"]+)\" ]]; then
       local cask="${BASH_REMATCH[1]}"
-      ((casks_count++))
-      
+
       if (( NO_CASKS )); then
         continue
       fi

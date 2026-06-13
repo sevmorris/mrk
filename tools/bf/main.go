@@ -219,15 +219,6 @@ func formatLine(name string, kind pkgKind, greedy bool) string {
 	return fmt.Sprintf(`%s "%s"%s`, kind, name, suffix)
 }
 
-// sectionNames returns the full names of all sections (for pickers).
-func (bf *brewfile) sectionNames() []string {
-	var names []string
-	for _, s := range bf.sections {
-		names = append(names, s.name)
-	}
-	return names
-}
-
 // addEntry inserts a new package alphabetically within the named section.
 func (bf *brewfile) addEntry(name string, kind pkgKind, greedy bool, secName string) {
 	newLine := formatLine(name, kind, greedy)
