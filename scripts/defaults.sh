@@ -56,15 +56,17 @@ write_default(){
   local domain="$1" key="$2" type="$3" value="$4"
   local current current_type
 
+  # Shell-escape with printf %q so values containing ", \, $, newlines, or
+  # shell metacharacters survive re-evaluation in the rollback script intact.
+  local esc_domain esc_key
+  esc_domain=$(printf '%q' "$domain")
+  esc_key=$(printf '%q' "$key")
+
   if current=$(defaults read "$domain" "$key" 2>/dev/null); then
     # Authoritative type detection
     current_type=$(defaults read-type "$domain" "$key" 2>/dev/null | awk '{print $NF}' || echo "string")
 
-    # Shell-escape with printf %q so values containing ", \, $, newlines, or
-    # shell metacharacters survive re-evaluation in the rollback script intact.
-    local esc_domain esc_key esc_current
-    esc_domain=$(printf '%q' "$domain")
-    esc_key=$(printf '%q' "$key")
+    local esc_current
     esc_current=$(printf '%q' "$current")
 
     # Save rollback BEFORE idempotency check so re-runs preserve first-run originals.
@@ -112,10 +114,7 @@ write_default(){
       return 0
     fi
   else
-    local esc_domain_del esc_key_del
-    esc_domain_del=$(printf '%q' "$domain")
-    esc_key_del=$(printf '%q' "$key")
-    backup_line "defaults delete $esc_domain_del $esc_key_del >/dev/null 2>&1 || true"
+    backup_line "defaults delete $esc_domain $esc_key >/dev/null 2>&1 || true"
   fi
 
   case "$type" in

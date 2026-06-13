@@ -194,11 +194,6 @@ resolve_homebrew() {
   eval "$($HOMEBREW shellenv)"
 }
 
-# Ensure Homebrew is in PATH
-ensure_brew_path() {
-  resolve_homebrew
-}
-
 # Formula descriptions (associative array for O(1) lookup)
 declare -A FORMULA_DESCRIPTIONS=(
   ["bash"]="Bourne Again SHell - Modern shell with improved features"
@@ -435,7 +430,7 @@ install_brewfile() {
     return 1
   fi
 
-  if ! ensure_brew_path; then
+  if ! resolve_homebrew; then
     return 1
   fi
 
@@ -673,7 +668,7 @@ main() {
   fi
 
   # Ensure Homebrew is in PATH
-  if ! ensure_brew_path; then
+  if ! resolve_homebrew; then
     err "Homebrew is not available. Aborting."
     exit 1
   fi
