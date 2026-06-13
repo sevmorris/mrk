@@ -14,7 +14,7 @@
 #   audio-mode status
 #
 # Notes:
-# - Dropbox: pause via AppleScript/menu; resume or relaunch as needed.
+# - Dropbox: pause via menu-bar UI scripting (fallback: quit); resume or relaunch as needed.
 # - iCloud: launchctl bootout/bootstrap for bird/cloudd (no sudo).
 # - Google Drive: quit/relaunch (no public pause API).
 # - We snapshot pre-on state so "off" only restores what was actually running.

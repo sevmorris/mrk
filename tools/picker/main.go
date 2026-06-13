@@ -228,6 +228,7 @@ func parseBrewfile(
 				continue
 			}
 			text := strings.TrimSpace(strings.TrimPrefix(trimmed, "##"))
+			// Skip blank headers and the Taps header (taps aren't selectable packages)
 			if text == "" || text == "Taps" {
 				continue
 			}
