@@ -371,10 +371,10 @@ func (m model) missingDescs(entries []*entry) []*entry {
 // ── Prune ─────────────────────────────────────────────────────────────────
 
 type pruneEntry struct {
-	name    string
-	kind    pkgKind
-	sec     string
-	marked  bool
+	name     string
+	kind     pkgKind
+	sec      string
+	marked   bool
 	entryRef *entry // pointer into brewfile for deletion
 }
 
@@ -970,44 +970,25 @@ func padRight(s string, n int) string {
 // ── Styles ────────────────────────────────────────────────────────────────
 
 var (
-	colSubtle    = lipgloss.AdaptiveColor{Light: "#888888", Dark: "#555555"}
-	colDim       = lipgloss.AdaptiveColor{Light: "#aaaaaa", Dark: "#444444"}
-	colNormal    = lipgloss.AdaptiveColor{Light: "#222222", Dark: "#cccccc"}
-	colHighlight = lipgloss.AdaptiveColor{Light: "#d7005f", Dark: "#ff87af"}
-	colAccent    = lipgloss.AdaptiveColor{Light: "#005fd7", Dark: "#87d7ff"}
-	colGreen     = lipgloss.AdaptiveColor{Light: "#00875f", Dark: "#5fd7a7"}
-	colAmber     = lipgloss.AdaptiveColor{Light: "#875f00", Dark: "#ffd787"}
-	colRed       = lipgloss.AdaptiveColor{Light: "#af0000", Dark: "#ff8787"}
-
-	stylePaneOff = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colSubtle)
-
-	stylePaneOn = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colAccent)
-
-	styleTitle     = lipgloss.NewStyle().Bold(true).Foreground(colNormal)
-	styleCount     = lipgloss.NewStyle().Foreground(colAccent)
-	styleFooter    = lipgloss.NewStyle().Foreground(colSubtle)
-	styleFlash     = lipgloss.NewStyle().Foreground(colGreen)
-	styleFlashWarn = lipgloss.NewStyle().Foreground(colAmber)
-	styleDirty     = lipgloss.NewStyle().Foreground(colAmber)
-	styleCatActive = lipgloss.NewStyle().Bold(true).Foreground(colHighlight)
-	styleCatNorm   = lipgloss.NewStyle().Foreground(colNormal)
-	styleBadge     = lipgloss.NewStyle().Foreground(colSubtle)
-	styleEntCursor = lipgloss.NewStyle().Bold(true).Foreground(colHighlight)
-	styleEntNorm   = lipgloss.NewStyle().Foreground(colNormal)
-	styleGreedy    = lipgloss.NewStyle().Foreground(colAccent)
-	styleDim       = lipgloss.NewStyle().Foreground(colDim)
-	styleInput     = lipgloss.NewStyle().Foreground(colNormal)
-	styleInputPfx  = lipgloss.NewStyle().Foreground(colAccent).Bold(true)
-	stylePrompt    = lipgloss.NewStyle().Foreground(colAmber).Bold(true)
-	styleSearchHit = lipgloss.NewStyle().Foreground(colHighlight).Bold(true)
-	styleSearchSec = lipgloss.NewStyle().Foreground(colSubtle)
-	styleKindSel   = lipgloss.NewStyle().Bold(true).Foreground(colHighlight)
-	styleKindNorm  = lipgloss.NewStyle().Foreground(colNormal)
-	styleDelete    = lipgloss.NewStyle().Foreground(colRed).Bold(true)
+	styleCount     = lipgloss.NewStyle().Foreground(theme.ColAccent)
+	styleFlash     = lipgloss.NewStyle().Foreground(theme.ColGreen)
+	styleFlashWarn = lipgloss.NewStyle().Foreground(theme.ColAmber)
+	styleDirty     = lipgloss.NewStyle().Foreground(theme.ColAmber)
+	styleCatActive = lipgloss.NewStyle().Bold(true).Foreground(theme.ColHighlight)
+	styleCatNorm   = lipgloss.NewStyle().Foreground(theme.ColNormal)
+	styleBadge     = lipgloss.NewStyle().Foreground(theme.ColSubtle)
+	styleEntCursor = lipgloss.NewStyle().Bold(true).Foreground(theme.ColHighlight)
+	styleEntNorm   = lipgloss.NewStyle().Foreground(theme.ColNormal)
+	styleGreedy    = lipgloss.NewStyle().Foreground(theme.ColAccent)
+	styleDim       = lipgloss.NewStyle().Foreground(theme.ColDim)
+	styleInput     = lipgloss.NewStyle().Foreground(theme.ColNormal)
+	styleInputPfx  = lipgloss.NewStyle().Foreground(theme.ColAccent).Bold(true)
+	stylePrompt    = lipgloss.NewStyle().Foreground(theme.ColAmber).Bold(true)
+	styleSearchHit = lipgloss.NewStyle().Foreground(theme.ColHighlight).Bold(true)
+	styleSearchSec = lipgloss.NewStyle().Foreground(theme.ColSubtle)
+	styleKindSel   = lipgloss.NewStyle().Bold(true).Foreground(theme.ColHighlight)
+	styleKindNorm  = lipgloss.NewStyle().Foreground(theme.ColNormal)
+	styleDelete    = lipgloss.NewStyle().Foreground(theme.ColRed).Bold(true)
 )
 
 // ── View ──────────────────────────────────────────────────────────────────
@@ -1025,12 +1006,12 @@ func (m model) View() string {
 }
 
 func (m model) viewHeader() string {
-	left := styleTitle.Render("bf") + styleFooter.Render("  Brewfile Manager")
+	left := theme.StyleTitle.Render("bf") + theme.StyleFooter.Render("  Brewfile Manager")
 	dirtyMark := ""
 	if m.dirty {
 		dirtyMark = styleDirty.Render(" ●")
 	}
-	path := styleFooter.Render(m.bf.path) + dirtyMark
+	path := theme.StyleFooter.Render(m.bf.path) + dirtyMark
 	gap := m.width - lipgloss.Width(left) - lipgloss.Width(path)
 	if gap < 1 {
 		gap = 1
@@ -1050,15 +1031,15 @@ func (m model) viewFooter() string {
 		} else {
 			cask = styleKindSel.Render("▸ cask  ")
 		}
-		return styleInputPfx.Render(" add › type: ") + brew + cask + styleFooter.Render("  ↑↓ choose · enter confirm · esc cancel")
+		return styleInputPfx.Render(" add › type: ") + brew + cask + theme.StyleFooter.Render("  ↑↓ choose · enter confirm · esc cancel")
 	case stateDeleteConfirm:
 		e := m.currentEntry()
 		if e == nil {
 			return ""
 		}
 		return styleDelete.Render(fmt.Sprintf(" delete \"%s\"? ", e.name)) +
-			stylePrompt.Render("[y]") + styleFooter.Render("es  ") +
-			stylePrompt.Render("[n]") + styleFooter.Render("o")
+			stylePrompt.Render("[y]") + theme.StyleFooter.Render("es  ") +
+			stylePrompt.Render("[n]") + theme.StyleFooter.Render("o")
 	case stateCommit:
 		return styleInputPfx.Render(" commit: ") + styleInput.Render(m.inputBuf+"█")
 	case stateSearch:
@@ -1068,10 +1049,10 @@ func (m model) viewFooter() string {
 			n = styleCount.Render(fmt.Sprintf(" (%d)", len(m.searchResults)))
 		}
 		return indicator + styleInput.Render(m.inputBuf+"█") + n +
-			styleFooter.Render("  ↑↓ navigate · enter jump · esc cancel")
+			theme.StyleFooter.Render("  ↑↓ navigate · enter jump · esc cancel")
 	case statePrune:
 		if m.pruneLoading {
-			return styleFooter.Render("checking installed packages…")
+			return theme.StyleFooter.Render("checking installed packages…")
 		}
 		marked := 0
 		for _, p := range m.pruneList {
@@ -1083,7 +1064,7 @@ func (m model) viewFooter() string {
 		if marked > 0 {
 			sel = styleDelete.Render(fmt.Sprintf("  %d selected", marked))
 		}
-		return styleFooter.Render("[space] mark  [a] all  [enter/d] delete marked  [esc] cancel") + sel
+		return theme.StyleFooter.Render("[space] mark  [a] all  [enter/d] delete marked  [esc] cancel") + sel
 	default:
 		var flashStr string
 		if m.flash != "" {
@@ -1093,7 +1074,7 @@ func (m model) viewFooter() string {
 				flashStr = "  " + styleFlash.Render(m.flash)
 			}
 		}
-		hints := styleFooter.Render("[a]dd [d]el [m]ove [g]reedy [p]rune [/]search [w]rite [c]ommit [q]uit")
+		hints := theme.StyleFooter.Render("[a]dd [d]el [m]ove [g]reedy [p]rune [/]search [w]rite [c]ommit [q]uit")
 		return hints + flashStr
 	}
 }
@@ -1172,17 +1153,17 @@ func (m model) viewLeft(inner, height int) string {
 	}
 
 	content := strings.TrimRight(sb.String(), "\n")
-	pane := stylePaneOff
+	pane := theme.StylePaneOff
 	if m.leftFocus {
-		pane = stylePaneOn
+		pane = theme.StylePaneOn
 	}
 	return pane.Width(inner).Height(height).Render(content)
 }
 
 func (m model) viewRight(inner, height int) string {
-	pane := stylePaneOff
+	pane := theme.StylePaneOff
 	if !m.leftFocus {
-		pane = stylePaneOn
+		pane = theme.StylePaneOn
 	}
 
 	sec := m.currentSection()
@@ -1316,7 +1297,7 @@ func (m model) viewSearch(bodyH int) string {
 	}
 
 	content := strings.TrimRight(sb.String(), "\n")
-	return stylePaneOn.Width(inner).Height(paneH).Render(content)
+	return theme.StylePaneOn.Width(inner).Height(paneH).Render(content)
 }
 
 func (m model) viewPrune(bodyH int) string {
@@ -1327,12 +1308,12 @@ func (m model) viewPrune(bodyH int) string {
 	}
 
 	if m.pruneLoading {
-		return stylePaneOn.Width(inner).Height(paneH).
+		return theme.StylePaneOn.Width(inner).Height(paneH).
 			Render(styleDim.Render("checking installed packages…"))
 	}
 
 	if len(m.pruneList) == 0 {
-		return stylePaneOn.Width(inner).Height(paneH).
+		return theme.StylePaneOn.Width(inner).Height(paneH).
 			Render(styleFlash.Render("✓ all Brewfile entries are installed — nothing to prune"))
 	}
 
@@ -1376,7 +1357,7 @@ func (m model) viewPrune(bodyH int) string {
 	}
 
 	content := strings.TrimRight(sb.String(), "\n")
-	return stylePaneOn.Width(inner).Height(paneH).Render(content)
+	return theme.StylePaneOn.Width(inner).Height(paneH).Render(content)
 }
 
 func (m model) viewSectionPicker(label string, cursor int, bodyH int) string {
@@ -1414,7 +1395,7 @@ func (m model) viewSectionPicker(label string, cursor int, bodyH int) string {
 	}
 
 	content := strings.TrimRight(sb.String(), "\n")
-	return stylePaneOn.Width(inner).Height(paneH).Render(content)
+	return theme.StylePaneOn.Width(inner).Height(paneH).Render(content)
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
