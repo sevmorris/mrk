@@ -956,6 +956,10 @@ mrk-push                # prompts for message</code></pre>
           <tr><td><code>nuke-mrk</code></td><td>Clean uninstall mrk for reinstall</td></tr>
           <tr><td><code>hardening.sh</code></td><td>Apply macOS security tweaks</td></tr>
           <tr><td><code>make doctor ARGS=--fix</code></td><td>Fix ~/bin PATH issues</td></tr>
+          <tr><td><code>make check</code></td><td>Local CI validation (picker descriptions, shellcheck, go tests)</td></tr>
+          <tr><td><code>make ci</code></td><td>Full CI pipeline locally (check + build all TUI binaries)</td></tr>
+          <tr><td><code>make pull</code></td><td>Fast-forward the mrk repo to origin (git pull --ff-only)</td></tr>
+          <tr><td><code>make tidy</code></td><td>Run go mod tidy across all Go tool directories</td></tr>
           <tr><td><code>mrk-install</code></td><td>Full mrk bootstrap (all phases)</td></tr>
           <tr><td><code>mrk-setup</code></td><td>Phase 1: dotfiles, symlinks, shell</td></tr>
           <tr><td><code>mrk-brew</code></td><td>Phase 2: Homebrew packages</td></tr>

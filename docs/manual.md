@@ -101,7 +101,7 @@ Configures installed apps. Must be run after Phase 2.
 - **Plist imports** (14 apps): Imports personal preference plists; skips any app that already has a preferences file (non-destructive)
 - **Barkeep:** Downloads and installs Barkeep from the latest GitHub release. Skipped if `/Applications/Barkeep.app` already exists — to update, use Barkeep itself or remove the app first
 - **App Support restore:** Restores Loopback and SoundSource configuration files (non-destructive)
-- **Login items:** Registers AlDente,BetterSnapTool,Chrono Plus,Dropbox,Ice,NordPass,Raycast,SoundSource,Stats as login items
+- **Login items:** Registers AlDente,BetterSnapTool,Chrono Plus,Dropbox,Ice,Raycast,SoundSource,Stats as login items
 
 **Managed app preferences:**
 
@@ -461,13 +461,11 @@ exec zsh
 | Command | Description |
 |---|---|
 | `make sync` | Sync installed packages into Brewfile (`-c` commit · `-n` dry run · `-p` prune) |
-| `make sync-login-items` | Diff and sync system login items against post-install |
 
 **Preferences**
 
 | Command | Description |
 |---|---|
-| `make snapshot` | Export selected app prefs to `assets/preferences/` in the repo |
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
 
@@ -478,10 +476,6 @@ exec zsh
 | Command | Description |
 |---|---|
 | `make picker` | Build the mrk-picker TUI binary |
-| `make bf` | Build the bf Brewfile manager TUI binary |
-| `make mrk-status` | Build the mrk-status TUI health dashboard binary |
-| `make mrk-menu` | Build the mrk-menu TUI launcher binary |
-| `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status + mrk-menu) |
 
 **General**
 
