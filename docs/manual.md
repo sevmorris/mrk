@@ -192,8 +192,10 @@ snapshot-prefs
 **How snapshot-prefs works:**
 
 1. Exports the preference plist for each managed app using `defaults export`
-2. Commits all changes to `~/.mrk/preferences/` with a timestamped message
-3. Pushes to `sevmorris/mrk-prefs` on GitHub
+2. Copies file-tree configs that aren't defaults domains (e.g. Calibre's settings, conversion presets, and plugins from `~/Library/Preferences/calibre/`) into `config/`
+3. Secret-scans the exported/copied files before staging
+4. Commits all changes to `~/.mrk/preferences/` with a timestamped message
+5. Pushes to `sevmorris/mrk-prefs` on GitHub
 
 Snapshots are idempotent — if nothing changed, it reports "No changes to push."
 
@@ -204,6 +206,8 @@ pull-prefs
 ```
 
 Clones `mrk-prefs` into `~/.mrk/preferences/` if it doesn't exist, or fast-forward pulls if it does.
+
+`pull-prefs` only fetches the data. The actual restore into place happens in `post-install`, which imports each defaults-domain plist (`defaults import`), restores Application Support files, and copies file-tree configs back to `~/Library/Preferences/` (e.g. Calibre's settings, conversion presets, and plugins). Every restore is non-destructive — it skips any app that's already configured, so it won't overwrite live settings. The app must not be running during its restore.
 
 > **Note:** `make post-install` does this automatically if `~/.mrk/preferences/` is absent and your SSH key is authenticated with GitHub.
 

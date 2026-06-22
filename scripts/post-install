@@ -515,6 +515,47 @@ if [[ -d "$LOCAL_PREFS_DIR" ]]; then
 fi
 
 ###############################################################################
+# Preference directories (file trees, not defaults domains)                   #
+###############################################################################
+
+# Restore a config tree captured by snapshot-prefs' snapshot_pref_dir() into its
+# live location under ~/Library/Preferences/. Like import_plist, this only runs
+# when the app is unconfigured (the sentinel file is absent) so a live config is
+# never clobbered. The app must not be running during restore.
+restore_pref_dir(){
+  local app_path="$1" src_subdir="$2" dest_dir="$3" sentinel="$4" name="$5"
+  local src_dir="$LOCAL_PREFS_DIR/config/$src_subdir"
+
+  if [[ ! -d "$app_path" ]]; then
+    logskip "$name config" "not installed"
+    return 0
+  fi
+  if [[ ! -d "$src_dir" ]]; then
+    logskip "$name config" "not in preferences — run: make snapshot-prefs"
+    return 0
+  fi
+  if [[ -e "$dest_dir/$sentinel" ]]; then
+    logskip "$name config" "exists — skipping (won't overwrite)"
+    return 0
+  fi
+
+  mkdir -p "$dest_dir"
+  # Trailing /. copies the tree's contents (incl. dotfiles) into dest_dir.
+  if cp -R "$src_dir/." "$dest_dir/"; then
+    log "Restored $name config → $dest_dir"
+  else
+    warn "Failed to restore $name config"
+    return 1
+  fi
+}
+
+if [[ -d "$LOCAL_PREFS_DIR" ]]; then
+  # gui.json is Calibre's main config — its absence means Calibre is unconfigured.
+  restore_pref_dir "/Applications/calibre.app" "calibre" \
+    "$HOME/Library/Preferences/calibre" "gui.json" "Calibre" || ((failed++))
+fi
+
+###############################################################################
 # Login items                                                                 #
 ###############################################################################
 

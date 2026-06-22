@@ -132,6 +132,60 @@ snapshot_app_support "Loopback" "Loopback" \
 snapshot_app_support "SoundSource" "SoundSource" \
   "Presets.plist" "CustomPresets.plist" "Sources.plist" "Models.plist"
 
+# ── Preference directories (file trees, not defaults domains) ─────────────────
+
+# Some apps store configuration as a tree of files under ~/Library/Preferences/
+# rather than as a defaults domain, so `defaults export` captures nothing useful.
+# Copy selected top-level globs and/or subdirectories verbatim into config/, then
+# secret-scan each copied file. The dest is cleared first so files removed from
+# the source (e.g. uninstalled plugins) don't linger in the backup.
+snapshot_pref_dir(){
+  local src_dir="$1" dest_subdir="$2" name="$3"
+  shift 3
+  local includes=("$@")
+
+  [[ -n "$dest_subdir" ]] || { warn "snapshot_pref_dir: empty dest_subdir for $name"; return 0; }
+  if [[ ! -d "$src_dir" ]]; then
+    log "Skipping $name (config dir not found: $src_dir)"
+    return 0
+  fi
+
+  local dest_dir="$LOCAL_PREFS_DIR/config/$dest_subdir"
+  rm -rf "$dest_dir"
+  mkdir -p "$dest_dir"
+
+  local item path rel saved=0
+  for item in "${includes[@]}"; do
+    shopt -s nullglob
+    # Intentional glob: $item is a pattern (e.g. *.json) or a literal subdir name.
+    # shellcheck disable=SC2206
+    local matches=( "$src_dir"/$item )
+    shopt -u nullglob
+    for path in "${matches[@]}"; do
+      [[ -e "$path" ]] || continue
+      rel="${path#"$src_dir"/}"
+      mkdir -p "$dest_dir/$(dirname "$rel")"
+      cp -R "$path" "$dest_dir/$rel"
+      saved=$(( saved + 1 ))
+    done
+  done
+
+  # Plugin/config files may carry tokens — scan everything that was copied.
+  local f
+  while IFS= read -r -d '' f; do
+    if ! scan_for_secrets "$f"; then
+      warn "$name/${f#"$dest_dir"/} may contain secrets — review before pushing"
+    fi
+  done < <(find "$dest_dir" -type f -print0 2>/dev/null)
+
+  log "Saved $name config ($saved item(s)) → $dest_dir"
+}
+
+# Calibre stores settings as JSON/plist files plus conversion presets and
+# installed plugins under ~/Library/Preferences/calibre/ (not a defaults domain).
+snapshot_pref_dir "$HOME/Library/Preferences/calibre" "calibre" "Calibre" \
+  "*.json" "*.plist" "conversion" "plugins"
+
 # ── Commit and push ───────────────────────────────────────────────────────────
 
 cd "$LOCAL_PREFS_DIR"
@@ -140,11 +194,13 @@ cd "$LOCAL_PREFS_DIR"
 shopt -s nullglob
 stage_files=( *.plist )
 shopt -u nullglob
-if [[ -d app-support ]]; then
-  while IFS= read -r -d '' f; do
-    stage_files+=("$f")
-  done < <(find app-support -type f -print0 2>/dev/null)
-fi
+for tree in app-support config; do
+  if [[ -d "$tree" ]]; then
+    while IFS= read -r -d '' f; do
+      stage_files+=("$f")
+    done < <(find "$tree" -type f -print0 2>/dev/null)
+  fi
+done
 
 if (( ${#stage_files[@]} == 0 )); then
   log "No preference files to stage."
