@@ -70,7 +70,6 @@ cask "adapter", greedy: true
 cask "aldente", greedy: true
 cask "android-platform-tools", greedy: true
 cask "appcleaner", greedy: true
-cask "arctic"
 cask "audio-hijack", greedy: true
 cask "auto-claude", greedy: true
 cask "balenaetcher", greedy: true
