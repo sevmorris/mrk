@@ -4,9 +4,12 @@ pre_sudo = true
 sudo_command = "sudo"
 
 # Modules you don't want Topgrade to touch
-# "system" = macOS softwareupdate (handled separately)
-# "pnpm"   = managed via npm, not standalone
-disable = ["system", "mas", "pnpm", "pip3", "node"]
+# "system"      = macOS softwareupdate (handled separately)
+# "pnpm"        = managed via npm, not standalone
+# "claude_code" = step runs `claude plugin marketplace update`, which grabs the
+#                 tty and gets SIGTTOU'd, suspending the whole run; Claude Code
+#                 self-updates anyway.
+disable = ["system", "mas", "pnpm", "pip3", "node", "claude_code"]
 
 no_retry = true
 cleanup = true
