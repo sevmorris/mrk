@@ -145,13 +145,24 @@ while IFS= read -r pkg; do
   [[ -n "$pkg" ]] && installed_formulae["$pkg"]=1
 done <<< "$_leaves_out"
 
+# Capture with an exit-code check (like brew leaves above): a failed list must
+# not silently yield an empty set, which --prune would read as "every tracked
+# entry is stale" and offer to delete the whole Brewfile.
+if ! _formulae_out=$($HOMEBREW list --formula 2>/dev/null); then
+  err "brew list --formula failed — cannot determine installed formulae"
+  exit 1
+fi
 while IFS= read -r pkg; do
   [[ -n "$pkg" ]] && installed_formulae_all["$pkg"]=1
-done < <($HOMEBREW list --formula 2>/dev/null)
+done <<< "$_formulae_out"
 
+if ! _casks_out=$($HOMEBREW list --cask 2>/dev/null); then
+  err "brew list --cask failed — cannot determine installed casks"
+  exit 1
+fi
 while IFS= read -r pkg; do
   [[ -n "$pkg" ]] && installed_casks["$pkg"]=1
-done < <($HOMEBREW list --cask 2>/dev/null)
+done <<< "$_casks_out"
 
 # ─── 3. Compute diff ─────────────────────────────────────────────────────────
 
