@@ -80,7 +80,7 @@ tell application "System Events"
   set output to ""
   repeat with li in login items
     try
-      set output to output & (name of li) & tab & (POSIX path of (path of li)) & linefeed
+      set output to output & (name of li) & tab & (path of li) & linefeed
     end try
   end repeat
   return output
