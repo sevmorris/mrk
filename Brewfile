@@ -2,15 +2,16 @@
 
 ## CLI Tools - General Utilities & Power User Tools
 brew "bash"
+brew "bash-completion@2"
 brew "bat"
 brew "cliclick"
-brew "git-filter-repo"
 # GNU coreutils — prepend gnubin so ls/cat/sed use GNU names (see Brewfile comment)
 brew "coreutils"
 brew "fastfetch"
 brew "gemini-cli"
 brew "gh"
 brew "git"
+brew "git-filter-repo"
 brew "gnupg"
 brew "htop"
 brew "lsd"
@@ -52,14 +53,14 @@ brew "xcodegen"
 # Node: nvm installed via post-install (scripts/post-install), not Homebrew
 brew "deno"
 brew "go"
+brew "gradle"
+brew "openjdk"
 brew "pipx"
 brew "pyenv"
-brew "openjdk"
-brew "gradle"
 
 ## CLI Tools - Media
-brew "ffmpeg"
 brew "chromaprint"    # Core component of the AcoustID project (Audio fingerprinting)
+brew "ffmpeg"
 brew "whisper-cpp"
 brew "yt-dlp"
 
@@ -137,9 +138,3 @@ cask "vlc", greedy: true
 cask "waves-central", greedy: true
 cask "whatsapp", greedy: true
 cask "zoom", greedy: true
-
-
-## Migrated
-
-## Adopted
-brew "bash-completion@2"

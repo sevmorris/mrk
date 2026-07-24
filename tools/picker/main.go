@@ -103,7 +103,6 @@ var descriptions = map[string]string{
 	"aldente":                "Battery charge limiter to extend MacBook battery life",
 	"android-platform-tools": "Android SDK platform tools (adb, fastboot)",
 	"appcleaner":             "Completely uninstall apps and all their leftover files",
-	"arctic":                 "Git client for GitHub, GitLab, and Bitbucket",
 	"audio-hijack":           "Record and process audio from any application",
 	"auto-claude":            "Automated Claude AI workflows",
 	"balenaetcher":           "Flash OS images to SD cards and USB drives",
