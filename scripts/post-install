@@ -154,10 +154,10 @@ BROWSERS_DIR="$REPO_ROOT/assets/browsers"
 
 # Safari
 if [[ -d "/Applications/Safari.app" ]]; then
-  apply_defaults "$BROWSERS_DIR/safari-defaults.sh" "Safari" || ((failed++))
+  apply_defaults "$BROWSERS_DIR/safari-defaults.sh" "Safari" || failed=$(( failed + 1 ))
   if [[ -f "$BROWSERS_DIR/safari-extensions.txt" ]]; then
     if ask_yes "[post-install] Open Safari extension URLs? [y/N]: "; then
-      open_extension_urls "$BROWSERS_DIR/safari-extensions.txt" "Safari" || ((failed++))
+      open_extension_urls "$BROWSERS_DIR/safari-extensions.txt" "Safari" || failed=$(( failed + 1 ))
     else
       logskip "Safari extension URLs" "skipped"
     fi
@@ -170,10 +170,10 @@ fi
 if [[ -d "/Applications/Google Chrome.app" ]]; then
   install_browser_policy "$BROWSERS_DIR/chrome-policy.json" \
     "$HOME/Library/Application Support/Google/Chrome/policies/managed" \
-    "Chrome" || ((failed++))
+    "Chrome" || failed=$(( failed + 1 ))
   if [[ -f "$BROWSERS_DIR/chrome-extensions.txt" ]]; then
     if ask_yes "[post-install] Open Chrome extension URLs? [y/N]: "; then
-      open_extension_urls "$BROWSERS_DIR/chrome-extensions.txt" "Chrome" || ((failed++))
+      open_extension_urls "$BROWSERS_DIR/chrome-extensions.txt" "Chrome" || failed=$(( failed + 1 ))
     else
       logskip "Chrome extension URLs" "skipped"
     fi
@@ -186,10 +186,10 @@ fi
 if [[ -d "/Applications/Brave Browser.app" ]]; then
   install_browser_policy "$BROWSERS_DIR/brave-policy.json" \
     "$HOME/Library/Application Support/BraveSoftware/Brave-Browser/policies/managed" \
-    "Brave" || ((failed++))
+    "Brave" || failed=$(( failed + 1 ))
   if [[ -f "$BROWSERS_DIR/brave-extensions.txt" ]]; then
     if ask_yes "[post-install] Open Brave extension URLs? [y/N]: "; then
-      open_extension_urls "$BROWSERS_DIR/brave-extensions.txt" "Brave" || ((failed++))
+      open_extension_urls "$BROWSERS_DIR/brave-extensions.txt" "Brave" || failed=$(( failed + 1 ))
     else
       logskip "Brave extension URLs" "skipped"
     fi
@@ -200,7 +200,7 @@ fi
 
 # Helium
 if [[ -d "/Applications/Helium.app" ]]; then
-  apply_defaults "$BROWSERS_DIR/helium-defaults.sh" "Helium" || ((failed++))
+  apply_defaults "$BROWSERS_DIR/helium-defaults.sh" "Helium" || failed=$(( failed + 1 ))
 else
   logskip "Helium" "not installed"
 fi
@@ -343,7 +343,7 @@ install_github_app(){
   ok "$name → $app_path"
 }
 
-install_github_app "/Applications/Barkeep.app" "sevmorris/Barkeep" "Barkeep" || ((failed++))
+install_github_app "/Applications/Barkeep.app" "sevmorris/Barkeep" "Barkeep" || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Application preferences — defaults write scripts                            #
@@ -353,24 +353,24 @@ PREFS_DIR="$REPO_ROOT/assets/preferences"
 
 # Audio Hijack
 if [[ -d "/Applications/Audio Hijack.app" ]]; then
-  apply_defaults "$PREFS_DIR/audio-hijack-defaults.sh" "Audio Hijack" || ((failed++))
+  apply_defaults "$PREFS_DIR/audio-hijack-defaults.sh" "Audio Hijack" || failed=$(( failed + 1 ))
 else
   logskip "Audio Hijack defaults" "not installed"
 fi
 
 # Fission
 if [[ -d "/Applications/Fission.app" ]]; then
-  apply_defaults "$PREFS_DIR/fission-defaults.sh" "Fission" || ((failed++))
+  apply_defaults "$PREFS_DIR/fission-defaults.sh" "Fission" || failed=$(( failed + 1 ))
 else
   logskip "Fission defaults" "not installed"
 fi
 
 # Rogue Amoeba — disable Sparkle auto-updates (managed by topgrade)
-apply_defaults "$PREFS_DIR/rogue-amoeba-updates.sh" "Rogue Amoeba updates" || ((failed++))
+apply_defaults "$PREFS_DIR/rogue-amoeba-updates.sh" "Rogue Amoeba updates" || failed=$(( failed + 1 ))
 
 # AlDente
 if [[ -d "/Applications/AlDente.app" ]]; then
-  apply_defaults "$PREFS_DIR/aldente-defaults.sh" "AlDente" || ((failed++))
+  apply_defaults "$PREFS_DIR/aldente-defaults.sh" "AlDente" || failed=$(( failed + 1 ))
 else
   logskip "AlDente defaults" "not installed"
 fi
@@ -461,20 +461,20 @@ import_plist(){
 if [[ ! -d "$LOCAL_PREFS_DIR" ]]; then
   : # preferences will be noted in make all summary
 else
-  import_plist "/Applications/BetterSnapTool.app"  "com.hegenberg.BetterSnapTool"              "$LOCAL_PREFS_DIR/BetterSnapTool.plist"    "BetterSnapTool"    || ((failed++))
-  import_plist "/Applications/Ice.app"            "com.jordanbaird.Ice"                       "$LOCAL_PREFS_DIR/Ice.plist"               "Ice"               || ((failed++))
-  import_plist "/Applications/iTerm.app"          "com.googlecode.iterm2"                     "$LOCAL_PREFS_DIR/iTerm2.plist"            "iTerm2"            || ((failed++))
-  import_plist "/Applications/Raycast.app"        "com.raycast.macos"                         "$LOCAL_PREFS_DIR/Raycast.plist"           "Raycast"           || ((failed++))
-  import_plist "/Applications/Stats.app"          "eu.exelban.Stats"                          "$LOCAL_PREFS_DIR/Stats.plist"             "Stats"             || ((failed++))
-  import_plist "/Applications/Loopback.app"       "com.rogueamoeba.Loopback"                  "$LOCAL_PREFS_DIR/Loopback.plist"          "Loopback"          || ((failed++))
-  import_plist "/Applications/SoundSource.app"    "com.rogueamoeba.soundsource"               "$LOCAL_PREFS_DIR/SoundSource.plist"       "SoundSource"       || ((failed++))
-  import_plist "/Applications/Audio Hijack.app"   "com.rogueamoeba.audiohijack"               "$LOCAL_PREFS_DIR/AudioHijack.plist"       "Audio Hijack"      || ((failed++))
-  import_plist "/Applications/Farrago.app"        "com.rogueamoeba.farrago"                   "$LOCAL_PREFS_DIR/Farrago.plist"           "Farrago"           || ((failed++))
-  import_plist "/Applications/Piezo.app"          "com.rogueamoeba.Piezo"                     "$LOCAL_PREFS_DIR/Piezo.plist"             "Piezo"             || ((failed++))
-  import_plist "/Applications/Typora.app"         "abnerworks.Typora"                         "$LOCAL_PREFS_DIR/Typora.plist"            "Typora"            || ((failed++))
-  import_plist "/Applications/Keka.app"           "com.aone.keka"                             "$LOCAL_PREFS_DIR/Keka.plist"              "Keka"              || ((failed++))
-  import_plist "/Applications/TimeMachineEditor.app" "com.tclementdev.timemachineeditor.application" "$LOCAL_PREFS_DIR/TimeMachineEditor.plist" "TimeMachineEditor" || ((failed++))
-  import_plist "/Applications/MacWhisper.app"     "com.goodsnooze.MacWhisper"                 "$LOCAL_PREFS_DIR/MacWhisper.plist"        "MacWhisper"        || ((failed++))
+  import_plist "/Applications/BetterSnapTool.app"  "com.hegenberg.BetterSnapTool"              "$LOCAL_PREFS_DIR/BetterSnapTool.plist"    "BetterSnapTool"    || failed=$(( failed + 1 ))
+  import_plist "/Applications/Ice.app"            "com.jordanbaird.Ice"                       "$LOCAL_PREFS_DIR/Ice.plist"               "Ice"               || failed=$(( failed + 1 ))
+  import_plist "/Applications/iTerm.app"          "com.googlecode.iterm2"                     "$LOCAL_PREFS_DIR/iTerm2.plist"            "iTerm2"            || failed=$(( failed + 1 ))
+  import_plist "/Applications/Raycast.app"        "com.raycast.macos"                         "$LOCAL_PREFS_DIR/Raycast.plist"           "Raycast"           || failed=$(( failed + 1 ))
+  import_plist "/Applications/Stats.app"          "eu.exelban.Stats"                          "$LOCAL_PREFS_DIR/Stats.plist"             "Stats"             || failed=$(( failed + 1 ))
+  import_plist "/Applications/Loopback.app"       "com.rogueamoeba.Loopback"                  "$LOCAL_PREFS_DIR/Loopback.plist"          "Loopback"          || failed=$(( failed + 1 ))
+  import_plist "/Applications/SoundSource.app"    "com.rogueamoeba.soundsource"               "$LOCAL_PREFS_DIR/SoundSource.plist"       "SoundSource"       || failed=$(( failed + 1 ))
+  import_plist "/Applications/Audio Hijack.app"   "com.rogueamoeba.audiohijack"               "$LOCAL_PREFS_DIR/AudioHijack.plist"       "Audio Hijack"      || failed=$(( failed + 1 ))
+  import_plist "/Applications/Farrago.app"        "com.rogueamoeba.farrago"                   "$LOCAL_PREFS_DIR/Farrago.plist"           "Farrago"           || failed=$(( failed + 1 ))
+  import_plist "/Applications/Piezo.app"          "com.rogueamoeba.Piezo"                     "$LOCAL_PREFS_DIR/Piezo.plist"             "Piezo"             || failed=$(( failed + 1 ))
+  import_plist "/Applications/Typora.app"         "abnerworks.Typora"                         "$LOCAL_PREFS_DIR/Typora.plist"            "Typora"            || failed=$(( failed + 1 ))
+  import_plist "/Applications/Keka.app"           "com.aone.keka"                             "$LOCAL_PREFS_DIR/Keka.plist"              "Keka"              || failed=$(( failed + 1 ))
+  import_plist "/Applications/TimeMachineEditor.app" "com.tclementdev.timemachineeditor.application" "$LOCAL_PREFS_DIR/TimeMachineEditor.plist" "TimeMachineEditor" || failed=$(( failed + 1 ))
+  import_plist "/Applications/MacWhisper.app"     "com.goodsnooze.MacWhisper"                 "$LOCAL_PREFS_DIR/MacWhisper.plist"        "MacWhisper"        || failed=$(( failed + 1 ))
 fi
 
 ###############################################################################
@@ -510,8 +510,8 @@ restore_app_support(){
 }
 
 if [[ -d "$LOCAL_PREFS_DIR" ]]; then
-  restore_app_support "Loopback"    "Loopback"    "Devices.plist" "RecentApps.plist" || ((failed++))
-  restore_app_support "SoundSource" "SoundSource" "Presets.plist" "CustomPresets.plist" "Sources.plist" "Models.plist" || ((failed++))
+  restore_app_support "Loopback"    "Loopback"    "Devices.plist" "RecentApps.plist" || failed=$(( failed + 1 ))
+  restore_app_support "SoundSource" "SoundSource" "Presets.plist" "CustomPresets.plist" "Sources.plist" "Models.plist" || failed=$(( failed + 1 ))
 fi
 
 ###############################################################################
@@ -552,7 +552,7 @@ restore_pref_dir(){
 if [[ -d "$LOCAL_PREFS_DIR" ]]; then
   # gui.json is Calibre's main config — its absence means Calibre is unconfigured.
   restore_pref_dir "/Applications/calibre.app" "calibre" \
-    "$HOME/Library/Preferences/calibre" "gui.json" "Calibre" || ((failed++))
+    "$HOME/Library/Preferences/calibre" "gui.json" "Calibre" || failed=$(( failed + 1 ))
 fi
 
 ###############################################################################
@@ -590,14 +590,14 @@ OSASCRIPT
   log "Added login item: $app_name"
 }
 
-add_login_item "/Applications/AlDente.app"          || ((failed++))
-add_login_item "/Applications/BetterSnapTool.app"   || ((failed++))
-add_login_item "/Applications/Chrono Plus.app"      || ((failed++))
-add_login_item "/Applications/Dropbox.app"          || ((failed++))
-add_login_item "/Applications/Ice.app"              || ((failed++))
-add_login_item "/Applications/Raycast.app"          || ((failed++))
-add_login_item "/Applications/SoundSource.app"      || ((failed++))
-add_login_item "/Applications/Stats.app"            || ((failed++))
+add_login_item "/Applications/AlDente.app"          || failed=$(( failed + 1 ))
+add_login_item "/Applications/BetterSnapTool.app"   || failed=$(( failed + 1 ))
+add_login_item "/Applications/Chrono Plus.app"      || failed=$(( failed + 1 ))
+add_login_item "/Applications/Dropbox.app"          || failed=$(( failed + 1 ))
+add_login_item "/Applications/Ice.app"              || failed=$(( failed + 1 ))
+add_login_item "/Applications/Raycast.app"          || failed=$(( failed + 1 ))
+add_login_item "/Applications/SoundSource.app"      || failed=$(( failed + 1 ))
+add_login_item "/Applications/Stats.app"            || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Summary                                                                     #

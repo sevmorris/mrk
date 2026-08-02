@@ -279,7 +279,10 @@ with open(remove_file) as f:
 with open(post_install) as f:
     lines = f.readlines()
 
-LOGIN_ITEM_RE = re.compile(r'^add_login_item\s+"(/[^"]+\.app)"\s*\|\|\s*\(\(failed\+\+\)\)')
+# Must stay in step with make_line() below. `((failed++))` returns 1 when failed
+# is 0, which aborts post-install under `set -e`, so the counter is incremented
+# by assignment instead (audit 12 N-1).
+LOGIN_ITEM_RE = re.compile(r'^add_login_item\s+"(/[^"]+\.app)"\s*\|\|\s*failed=\$\(\(\s*failed\s*\+\s*1\s*\)\)')
 
 first_idx = None
 last_idx  = None
@@ -317,7 +320,7 @@ col = max_entry_len + 3
 def make_line(path):
     entry = f'add_login_item "{sh_dq(path)}"'
     padding = col - len(entry)
-    return f'{entry}{" " * padding}|| ((failed++))\n'
+    return f'{entry}{" " * padding}|| failed=$(( failed + 1 ))\n'
 
 new_lines = [make_line(final[name]) for name in sorted(final.keys())]
 
