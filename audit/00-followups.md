@@ -64,6 +64,15 @@ this is inconsistent with its own precedent. Not a live defect. Documented in
 
 Items the audit identified that are real but classified as acceptable.
 
+**Defaults-page prose split is outstanding.** `docs/defaults/script.js` is reconciled
+(77/77 keys, 0 orphans) and the 18 newly authored entries are in Simplified Technical
+English, but the 59 pre-existing descriptions still mix functional text and historical
+material in one paragraph. The rendering support for the split is in place: an entry may
+carry a `background` field, which renders in a block labelled as not-STE. Documented in
+`docs/STE-CONVERSION.md`.
+→ To close: per entry, move the historical and editorial material into `background` and
+convert the functional sentence to STE. A per-entry authoring task, not a mechanical pass.
+
 **~40 browser and app-preference writes have NO ROLLBACK FOUND.** Safari, Helium, Audio
 Hijack, Fission, AlDente, and all six Rogue Amoeba update-suppression domains are written
 by `assets/browsers/` and `assets/preferences/` scripts with no rollback entries
@@ -99,10 +108,9 @@ The documented canonical form is `make doctor ARGS=--fix` (Makefile has `$(ARGS)
 passthrough at `:121`). Fixing the bare form would require MAKEFLAGS manipulation or
 `.RECIPEPREFIX` changes — marginal value. Documented in
 `07-contract-verification.md CLAIM-06`.
-**Note:** the bare form regressed into the docs at `docs/manual.md:531`;
-`:579` is correct. See the docs-accuracy items below.
-→ To close: no-op unless the bare-form UX is specifically desired. Fix the doc line
-regardless.
+The bare form had regressed into `docs/manual.md`; Phase B corrected it in `292485f`,
+and BIN-1 §2.2 now states the limitation explicitly.
+→ To close: no-op unless the bare-form UX is specifically desired.
 
 **N-10 — maintain build-freshness ignores tools/theme.** `bin/maintain:193` compares each
 binary only against its own `tools/<name>` directory (`:188`). All four TUIs import the
@@ -113,11 +121,11 @@ while Step 4 reports all four "up to date". Documented in
 
 **N-11 — Calibre restore sentinel is a single file.** `scripts/post-install:537` skips
 only when `gui.json` exists. If `gui.json` is absent but the directory holds other files,
-`cp -R "$src_dir/."` at `:544` overwrites matching siblings. `docs/manual.md:210` claims
-"Every restore is non-destructive", which is stronger than the guard provides.
-Documented in `12-fresh-audit-2026-08.md N-11`.
-→ To close: widen the guard to "directory is empty or sentinel absent", or soften the
-manual claim.
+`cp -R "$src_dir/."` at `:544` overwrites matching siblings. Documented in
+`12-fresh-audit-2026-08.md N-11`. The manual previously claimed "Every restore is
+non-destructive"; Phase B narrowed that claim to what the guard provides (`292485f`), so
+only the code side is open.
+→ To close: widen the guard to "directory is empty or sentinel absent".
 
 **N-13 / N-14 — sync write-path hardening.** `scripts/sync:571-572` calls `sys.exit(0)`
 without writing `out_path` when the insertions payload is empty, and `:649` then `mv`s
@@ -135,49 +143,6 @@ any environment; `bin/maintain:101` correctly scopes to `?environment=github-pag
 one at `:110` (interactive confirm at `:114-116` stands between). Documented in
 `12-fresh-audit-2026-08.md N-15, N-16`.
 → To close: scope the `mrk-push` query; reject `--keep=0`.
-
----
-
-## Documentation accuracy (Phase B inputs)
-
-Found 2026-08-02. Fix the facts before any Simplified Technical English rewrite.
-
-**N-7 — BIN-1 drift (`docs/bin/mrk-usage.html`).** The nav index ends at `:461`
-(`2.16 mrk-uninstall`); the body continues with `2.17 bf` (`:811`), `2.18 mrk-menu`
-(`:835`), `2.19 mrk-picker` (`:855`) and `2.20 mrk-push` (`:866`) — four unlisted
-sections. Five linked `~/bin` commands have no section at all: `maintain`, `dock-setup`,
-`ci-check`, `check-picker-desc`, `adventure-prologue` (all linked by
-`scripts/setup:299-400`). Content drift: §2.7 omits the Calibre config tree (`070916d`);
-§2.20 omits the pre-push secret scan at `bin/mrk-push:69`; §2.17 shows `bf` with no
-flags though it accepts `--help` and `--version`.
-Verified accurate and needing no change: both app lists (§1.4 vs `bin/snapshot:70-97`,
-§2.7 vs `scripts/snapshot-prefs:82-97`), §2.8's nine checks and key bindings vs
-`tools/mrk-status/main.go:384-392,492-540`, and the `bf` and `mrk-menu` key bindings.
-
-**N-8 — `docs/manual.md` factual errors.** `:476` states that `snapshot`'s output in
-`assets/preferences/` is "used by `make post-install` for first-run defaults". It is not:
-those plists are gitignored, `post-install:352`'s `PREFS_DIR` is used only for the four
-`*-defaults.sh` scripts, and plist imports read `~/.mrk/preferences` (`:384,464-477`).
-Nothing reads `assets/preferences/*.plist`. BIN-1 §1.4 already states this correctly, so
-the two documents contradict each other. `:531` reintroduces the bare `make doctor --fix`
-form that CLAIM-06 corrected. `:210` overclaims restore safety (see N-11). The Command
-Reference at `:490-532` omits `make check`, `make ci`, `make tidy`, `make bf`,
-`make build-tools`, `make mrk-status`, `make mrk-menu` and `make maintain`.
-
-**N-6 / N-12 — defaults reference.** Correcting a standing assumption: the page renders
-from **both** sources. `docs/defaults/script.js:502` fetches `scripts/defaults.sh` from
-GitHub raw `main` and parses it (`:512-570`) for structure and keys; `DEFAULT_DESCRIPTIONS`
-supplies prose by `${domain}.${key}` lookup at `:630`, falling back to
-`generateGenericDescription` at `:638`. So the published page tracks `main`, not the
-reader's branch, and needs network access.
-`parseWriteDefault` (`:615-627`) splits on whitespace with no shell evaluation, so 18 of
-77 parsed keys can never match an entry: the 16 trackpad keys written through the
-`$domain` loop (`scripts/defaults.sh:359-379`) and the 2 quoted multi-word Terminal keys
-(`:328-329`). All 18 render with generic prose and display non-runnable commands.
-Separately, 24 `DEFAULT_DESCRIPTIONS` entries describe keys `defaults.sh` no longer
-writes and are dead.
-→ To close: fix the parser or emit literal domains in `defaults.sh`; delete the 24 dead
-entries.
 
 ---
 
@@ -216,6 +181,41 @@ no production risk. Documented in `03-shell-hygiene.md L3`.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by Phase B (documentation), branch `docs/ste-phase-b`, 2026-08-02
+
+- **N-7 — BIN-1 drift** — `89fd1af`. The nav index now runs to 2.25. Added 2.17-2.20
+  (bf, mrk-menu, mrk-picker, mrk-push), which existed in the body but not the index, and
+  five commands that had no section at all: `maintain`, `dock-setup`, `ci-check`,
+  `check-picker-desc` and `adventure-prologue`. Also corrected §2.7 (Calibre config
+  tree), §2.17 (`bf` takes an optional path, `--help`/`-h` and `--version`) and §2.19
+  (`mrk-picker` has five real flags, not a placeholder). Rendered check: 31 nav links,
+  29 sections, no broken anchors.
+- **N-8 — `docs/manual.md` factual errors** — `292485f`. Deleted the false claim that
+  `make post-install` reads `assets/preferences/` "for first-run defaults"; nothing reads
+  those gitignored plists. Corrected `make doctor` from "Run full diagnostics" to what it
+  does, and replaced the bare `--fix` form with `make doctor ARGS=--fix`. Documented the
+  five `--only` phases instead of three, added the ten missing Make targets, added the
+  Calibre restore, and narrowed the "Every restore is non-destructive" claim to what the
+  single-sentinel guard actually provides.
+- **N-6 — defaults reference parse failures** — `7f3d8de`. The parser now resolves the
+  `for domain in ...` loop and tokenizes quoted multi-word keys. All 16 trackpad keys and
+  both Terminal profile keys render runnable commands; previously they displayed
+  `defaults write "$domain" TrackpadPinch ...` and a mangled `com.apple.Terminal."Default`.
+  Fixed in the parser, not in `defaults.sh`, so it works against the `defaults.sh` already
+  on main.
+- **N-12 — 24 dead `DEFAULT_DESCRIPTIONS` entries** — `7f3d8de`. Deleted. None could be
+  rewired; their key names no longer appear anywhere in `defaults.sh`. The 18 keys that
+  had no description gained one. Acceptance verified against the branch's `defaults.sh`
+  with the fetch URL temporarily repointed and then reverted: 77 parsed keys, 77
+  descriptions, 0 without a description, 0 orphans, 0 commands with an unexpanded
+  variable.
+- **Session-1 behaviour deltas absorbed into the docs** — `89fd1af`, `292485f`. The
+  `sync-login-items` abort on an empty or failed read; the secret-scan gate, documented
+  only on the two commands that call `require_clean_secrets`
+  (`scripts/snapshot-prefs:219` and `bin/mrk-push:69`) and explicitly disclaimed on
+  `bin/snapshot`, which has no gate; and `make defaults` / `make post-install` continuing
+  past a failed step to report a count.
 
 ### Closed by the fix session on branch `fix/audit-12-critical`, 2026-08-02
 

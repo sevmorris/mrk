@@ -11,11 +11,17 @@ file-tree backup, the Brewfile sync feature, PR #1 and PR #2.
 **Method:** every ledger claim was re-checked against current code. Line numbers below
 are fresh as of `a17ba54`. Nothing was modified during the audit itself.
 
-> **Status update — 2026-08-02, branch `fix/audit-12-critical`.**
-> N-1, N-2, N-3 and N-4 are **FIXED**. See "Fix session outcomes" at the end of this
-> file for commits, adversarial reproductions, and two further defects that surfaced
-> while fixing N-2. Line numbers in the finding bodies below are as-audited and now
-> refer to pre-fix code. Everything else in this document still stands.
+> **Status update — 2026-08-02.**
+> Fix session 1 (branch `fix/audit-12-critical`) closed N-1, N-2, N-3 and N-4.
+> Phase B (branch `docs/ste-phase-b`) closed N-6, N-7, N-8 and N-12, and rewrote the
+> documentation prose in Simplified Technical English — see `docs/STE-CONVERSION.md`.
+>
+> Two sections at the end of this file record the outcomes: "Fix session outcomes"
+> (commits, adversarial reproductions, and two further defects that surfaced while
+> fixing N-2) and "Phase B outcomes".
+>
+> Line numbers in the finding bodies below are as-audited and now refer to pre-fix
+> code. Everything else in this document still stands.
 
 **Headline:** the ledger is in better shape than it reads — 9 of 15 open items are
 resolved. But this pass found one HIGH defect that the prior audit missed entirely,
@@ -32,13 +38,13 @@ affecting 114 call sites across the two largest install-phase scripts.
 | N-3 | ~~MEDIUM~~ **FIXED** | `sync-login-items` empty-list path still only warns |
 | N-4 | ~~MEDIUM~~ **FIXED** | Secret scan reads binary plists in `config/` and `app-support/` |
 | N-5 | MEDIUM | Deleted config files are never staged, so they persist in `mrk-prefs` |
-| N-6 | MEDIUM | Defaults reference renders 18 keys with a broken parse |
-| N-7 | MEDIUM | BIN-1 nav index stops at 2.16; five `~/bin` commands undocumented |
-| N-8 | MEDIUM | `manual.md` states a false relationship between `snapshot` and `post-install` |
+| N-6 | ~~MEDIUM~~ **FIXED** | Defaults reference renders 18 keys with a broken parse |
+| N-7 | ~~MEDIUM~~ **FIXED** | BIN-1 nav index stops at 2.16; five `~/bin` commands undocumented |
+| N-8 | ~~MEDIUM~~ **FIXED** | `manual.md` states a false relationship between `snapshot` and `post-install` |
 | N-9 | MEDIUM | oh-my-zsh and plugin clones are unpinned |
 | N-10 | LOW | `maintain` build-freshness ignores the shared `tools/theme` module |
 | N-11 | LOW | Calibre restore sentinel is a single file; `cp -R` can overwrite siblings |
-| N-12 | LOW | 24 dead `DEFAULT_DESCRIPTIONS` entries |
+| N-12 | ~~LOW~~ **FIXED** | 24 dead `DEFAULT_DESCRIPTIONS` entries |
 | N-13 | LOW | Latent Brewfile truncation in the `sync` python3 block |
 | N-14 | LOW | `sync` does not restore file mode before the atomic replace |
 | N-15 | LOW | `mrk-push` prunes deployments in every environment, not just Pages |
@@ -65,7 +71,7 @@ affecting 114 call sites across the two largest install-phase scripts.
 | fix-exec target vs binary divergence | **RESOLVED** | `Makefile:71-72` now calls `"$(SCRIPTS)/fix-exec"`; the binary repairs `~/bin` symlinks that point into the repo at `scripts/fix-exec:27-38` |
 | ~40 browser/app-pref writes have no rollback | **STILL OPEN** | `scripts/post-install:157,173,189,203,356,363,369,373` — `apply_defaults` writes with no rollback capture. Unchanged |
 | ARGS word-split for value-bearing flags | **STILL OPEN — line moved** | TODO now at `Makefile:145-146` (ledger said `:124`). No recipe quotes `$(ARGS)` |
-| `make doctor --fix` bare form | **STILL OPEN (accepted) — and regressed in docs** | `docs/manual.md:531` shows the bare `--fix` form again; `:579` has the correct `ARGS=--fix`. See N-8 |
+| `make doctor --fix` bare form | **STILL OPEN (accepted); docs fixed** | The Make limitation stands. The doc regression at `docs/manual.md:531` was corrected in Phase B (`292485f`), and BIN-1 §2.2 now states it. See N-8 |
 | snapshot-prefs API key scan | **PARTIALLY RESOLVED — material gaps** | `scan_for_secrets` exists (`scripts/lib.sh:82-102`) and is wired in, but misses the token formats the ledger explicitly asked for. See N-2, N-4 |
 | Tests 1C, 2, 3, 4 | **STILL OPEN — plan is missing** | See N-19 |
 
@@ -758,3 +764,80 @@ None of these were edited — the docs freeze held. Phase B should reflect:
 3. **`make defaults` and `make post-install` now continue past a failed step and report a
    count at the end.** Previously they aborted. Any doc describing their failure behaviour
    should say so.
+
+
+---
+
+# Phase B outcomes — 2026-08-02, branch `docs/ste-phase-b`
+
+Documentation accuracy fixes plus a Simplified Technical English rewrite. Facts first
+per file, then prose. Branched from `bff9fe5` so the docs describe the Session-1 code.
+
+| Finding | Commit | Result |
+|---|---|---|
+| N-7 | `89fd1af` | BIN-1 index runs to 2.25; 5 undocumented commands added |
+| N-8 | `292485f` | manual.md false claims corrected; 10 missing targets added |
+| N-6, N-12 | `7f3d8de` | 77/77 keys resolve, 0 orphans, every command runnable |
+| — | `5b8064a` | `docs/STE-CONVERSION.md`: ruleset, glossary, scope, deviations |
+
+## Secret-scan gate — verified before documenting
+
+The instruction was to document the gate only on commands that enforce it. Checked in
+code first: `require_clean_secrets` is called at `scripts/snapshot-prefs:219` and
+`bin/mrk-push:69` only. `bin/snapshot` has no gate, so BIN-1 §1.4 now says so explicitly
+rather than leaving a reader to assume otherwise.
+
+## Generator round trip
+
+`scripts/sync-login-items` templates the Login items line in `docs/manual.md`, and its
+`re.subn` pattern anchored on the old wording. An STE rewrite of that sentence alone
+would have made the next run fail its drift guard and exit 1. The sentence, the template
+and the regex changed together in `292485f`.
+
+Verified by driving the real script through a pty with a stubbed `osascript` reporting
+one extra app:
+
+- `docs/manual.md` — only the item list changed. The STE sentence survived, and the new
+  name was inserted alphabetically with `, ` separators.
+- `scripts/post-install` — exactly one new `add_login_item` line, in the Session-1 safe
+  `|| failed=$(( failed + 1 ))` form, with correct alignment padding. The code emitter is
+  undisturbed.
+
+Also fixed there: `IFS=', '` joins on the first IFS character only, so the manual had
+rendered a run-on `A,B,C` list with no spaces.
+
+## Defaults-page reconcile — verification record
+
+The page fetches `scripts/defaults.sh` from `main` at runtime, so the reconcile was
+verified locally by temporarily pointing `loadScript` at the branch file, loading the
+page, and then reverting the URL. The committed file points at `main`.
+
+| Check | Result |
+|---|---|
+| parsed keys | 77 |
+| descriptions | 77 |
+| keys with no description | 0 |
+| orphan descriptions | 0 |
+| commands rendered | 77 |
+| commands with an unexpanded `$domain` | 0 |
+| multi-domain notices | 16 |
+
+Sample resolved commands, previously non-runnable:
+
+```
+defaults write com.apple.AppleMultitouchTrackpad Clicking -bool false
+defaults write com.apple.Terminal "Default Window Settings" -string "Pro"
+```
+
+The parser was fixed rather than `defaults.sh`, so the page works against the
+`defaults.sh` already on `main`. The one command that still contains a `$` is
+`defaults write com.apple.screencapture location -string "$HOME/Desktop"`, which is a
+real shell variable and expands correctly when pasted.
+
+## Not done
+
+The STE prose split across the **59 pre-existing** `DEFAULT_DESCRIPTIONS` entries. Each
+mixes functional text with historical material in one paragraph, so it is a per-entry
+authoring task. The rendering support is in place (`background` field, labelled
+not-STE), and the 18 entries authored during the reconcile are the worked example.
+Tracked in `00-followups.md` under Known limitations.
