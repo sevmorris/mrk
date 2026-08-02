@@ -363,7 +363,10 @@ for name in "${!add_items[@]}"; do
 done
 
 mapfile -t sorted_names < <(printf '%s\n' "${!final_items[@]}" | sort)
-items_list=$(IFS=', '; echo "${sorted_names[*]}")
+# Join with ", ". `IFS=', '` would join on the first IFS character only, which
+# produced an unreadable "A,B,C" run-on in the manual.
+items_list=$(printf '%s, ' "${sorted_names[@]}")
+items_list="${items_list%, }"
 
 # ─── 9. Update docs ──────────────────────────────────────────────────────────
 
@@ -372,9 +375,12 @@ import sys, re
 path, items, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(path) as f:
     content = f.read()
+# Must stay in step with the sentence in docs/manual.md. The prefix is the
+# anchor and the list runs to the end of the line. If the manual is reworded,
+# change it here too — the n_subs check below turns any drift into a hard error.
 new_content, n_subs = re.subn(
-    r'(- \*\*Login items:\*\* Registers )([^\n]+?)( as login items)',
-    lambda m: m.group(1) + items + m.group(3),
+    r'(- \*\*Login items:\*\* post-install adds these apps to the login items: )([^\n]+)',
+    lambda m: m.group(1) + items,
     content
 )
 if n_subs == 0:
