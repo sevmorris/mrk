@@ -87,16 +87,37 @@ scan_for_secrets() {
     '(api[_-]?key|apikey|secret[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret)[[:space:]]*[:=][[:space:]]*['\''"]?[A-Za-z0-9_./+-]{12,}'
     'Bearer[[:space:]]+[A-Za-z0-9._-]{20,}'
   )
-  local pat file hits=0 line
+  local pat file hits=0 line target tmp_xml
   for file in "$@"; do
     [[ -f "$file" ]] || continue
+
+    # Binary plists are not greppable — the patterns below would silently match
+    # nothing. snapshot-prefs converts its own `defaults export` output, but
+    # Application Support and config-tree files are copied verbatim and are
+    # routinely bplist00 (Loopback Devices.plist, SoundSource Sources.plist).
+    # Scan an xml1 copy; the stored file is left untouched.
+    target="$file"
+    tmp_xml=""
+    if [[ "$(head -c 8 "$file" 2>/dev/null)" == "bplist00" ]]; then
+      tmp_xml="$(mrk_mktemp)"
+      if plutil -convert xml1 -o "$tmp_xml" "$file" 2>/dev/null; then
+        target="$tmp_xml"
+      else
+        warn "could not convert $file to xml1 — scanning raw bytes"
+        rm -f "$tmp_xml"
+        tmp_xml=""
+      fi
+    fi
+
     for pat in "${patterns[@]}"; do
       while IFS= read -r line; do
         [[ -z "$line" ]] && continue
         err "possible secret in ${file}: ${line:0:120}"
         hits=1
-      done < <(grep -Ein "$pat" "$file" 2>/dev/null || true)
+      done < <(grep -Ein "$pat" "$target" 2>/dev/null || true)
     done
+
+    [[ -n "$tmp_xml" ]] && rm -f "$tmp_xml"
   done
   return "$hits"
 }
