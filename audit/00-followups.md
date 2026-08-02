@@ -1,14 +1,24 @@
 # Followups
 
 This file indexes every deferred item, known limitation, and explicitly-out-of-scope
-finding from the mrk audit (modules 1–11, five fix sessions, runtime verification).
-It is not a punch list of unfixed bugs — every item here was explicitly chosen to defer,
-accept as a known limitation, or scope out. Nothing here is blocking. The value of the
-file is that "what's still open?" has a single answer without grepping the whole audit
-directory.
+finding from the mrk audit (modules 1–12, five fix sessions, runtime verification).
+It is not a punch list of unfixed bugs — most items here were explicitly chosen to defer,
+accept as a known limitation, or scope out. The value of the file is that "what's still
+open?" has a single answer without grepping the whole audit directory.
 
 For each item: what it is, where it's documented, why it was deferred, what action
 would close it.
+
+**Last re-verified:** 2026-08-02 against `a17ba54`, in `12-fresh-audit-2026-08.md`.
+That pass closed 9 items, reopened 2, and added new findings — including one HIGH
+(`N-1`) that modules 1–11 did not catch. Line numbers below are current as of that
+verification.
+
+---
+
+## Blocking
+
+None. N-1 is fixed — see Closed below.
 
 ---
 
@@ -16,33 +26,37 @@ would close it.
 
 Items that require a real choice before they can be closed in either direction.
 
-**Tests 1C, 2, 3, and 4 in the test plan.** Idempotency (Test 2), order-independence
-(Test 3), and re-entry recovery (Test 4) were not executed. Test 1C (combined
-`make defaults` + `make harden` rollback) was also not run; static analysis predicts
-a PARTIAL verdict because ~40 browser and app-preference keys have no rollback coverage.
-The plan and procedures are in `docs/audit/10-test-plan.md`, Sections 2C and 3–5.
-Tests 1C and 2 have the highest remaining value; 3 and 4 are lower.
-→ To run: `tart clone mrk-audit-clean-prepared mrk-test-N` and follow the test plan.
+**Tests 1C, 2, 3, and 4 in the test plan — BLOCKED: the plan does not exist.**
+Idempotency (Test 2), order-independence (Test 3), and re-entry recovery (Test 4) were
+not executed. Test 1C (combined `make defaults` + `make harden` rollback) was also not
+run; static analysis predicts a PARTIAL verdict because ~40 browser and app-preference
+keys have no rollback coverage. **`10-test-plan.md` was never committed at any path** —
+`git log --all --diff-filter=A` over both `docs/audit/*` and `audit/*` shows modules
+00–09, 11 and `syncall-removal` added, and no 10. The `docs/audit/` prefix is separately
+stale: the tree moved to `audit/` in `b3ad0d0`. These tests cannot be run from the repo
+as it stands. Documented in `12-fresh-audit-2026-08.md N-19`.
+→ To close: write and commit `audit/10-test-plan.md`, or amend the three files that
+reference it (this file, `11-test-results.md:3,264`, `syncall-removal.md:67-78`) and
+fix the stale `docs/audit/` prefix at the same time. Then
+`tart clone mrk-audit-clean-prepared mrk-test-N` and run.
 
-**B4 — Python management strategy.** `python@3.12` and `pyenv` both remain in the
-Brewfile (`Brewfile:49,51`). These represent two competing management strategies: a
-pinned Homebrew-managed Python that ages in place, and a version manager. `pipx` adds
-a third layer. It is not clear which Python is canonical. Documented in
-`05-brewfile-and-ruby.md B4`.
-→ To close: decide on one strategy. If `pyenv` is primary, remove `python@3.12` and
-pin via `pyenv global` or `.python-version`. If Homebrew is primary, remove `pyenv`.
-Either way, update the Brewfile.
+**N-17 — `bash-completion@2` is back in the Brewfile (reopened B6).** B6 removed it in
+`3fe44dd`; `43c4d55` reintroduced it and it has been present ever since, now at
+`Brewfile:5`. The mechanism matters more than the entry: `make sync` re-offers anything
+installed but absent from the Brewfile, and the `~/.mrk/sync-ignore` opt-out
+(`scripts/sync:86-96`) is not auto-created and does not exist on this machine. Any
+deliberate Brewfile removal can be silently re-added on a later sync. Documented in
+`12-fresh-audit-2026-08.md N-17`.
+→ To close: decide whether it stays. If it stays, that is the answer. If it goes, also
+uninstall it or add it to `~/.mrk/sync-ignore`, and document the round-trip.
 
-**nvm management direction.** B3 closed by migrating `nvm` out of the Brewfile and
-into `scripts/post-install` (pinned at `v0.40.4`, installed via the upstream install
-script with `PROFILE=/dev/null`). The previous in-tree TODO was removed at the same
-time. Whether post-install installation is the right long-term home — versus returning
-to a tap, switching to `fnm` or `volta`, or going further and removing nvm in favor of
-a single pinned Node — is unresolved. The current setup works; this is a direction
-question, not a bug. Documented in `05-brewfile-and-ruby.md B3` (closed) and
-`scripts/post-install:205–222`.
-→ To close: pick a long-term Node-version-manager direction and document the rationale
-in the Brewfile or in `05-brewfile-and-ruby.md`.
+**N-9 — oh-my-zsh and zsh plugins are cloned unpinned.** `scripts/setup:612,626` clone
+`ohmyzsh/ohmyzsh` and two `zsh-users` plugins at `--depth=1` from the default branch,
+with no tag, commit pin, or verification. The result is sourced by every interactive
+shell. The project pins its other network-installed dependency (nvm at `v0.40.4`), so
+this is inconsistent with its own precedent. Not a live defect. Documented in
+`12-fresh-audit-2026-08.md N-9`.
+→ To close: pin to a tag or commit, or record the decision to track upstream.
 
 ---
 
@@ -50,22 +64,13 @@ in the Brewfile or in `05-brewfile-and-ruby.md`.
 
 Items the audit identified that are real but classified as acceptable.
 
-**Screensaver rollback writes 0 instead of deleting.** When `askForPassword` and
-`askForPasswordDelay` are absent pre-apply, `scripts/hardening.sh` captures the `|| echo "0"`
-fallback and generates `defaults write … -int 0` rollback entries. After rollback the
-keys are explicitly present as `0` rather than absent. Functionally equivalent — macOS
-treats absent and `0` identically for screensaver password lock — but `defaults read`
-returns a value instead of an error. Documented in `11-test-results.md §5`.
-→ To close: detect the fallback `0` case and emit `defaults delete` instead of
-`defaults write … -int 0`, consistent with the pattern `scripts/defaults.sh` uses for
-absent keys.
-
 **~40 browser and app-preference writes have NO ROLLBACK FOUND.** Safari, Helium, Audio
 Hijack, Fission, AlDente, and all six Rogue Amoeba update-suppression domains are written
-by `assets/browsers/` and `assets/preferences/` scripts with no rollback entries.
-The 14 plist imports (`defaults import`) and browser policy JSON files written by
-`scripts/post-install` also have no rollback. Documented in `02-side-effects.md`
-(macOS defaults tables) and `11-test-results.md §5`.
+by `assets/browsers/` and `assets/preferences/` scripts with no rollback entries
+(`scripts/post-install:157,173,189,203,356,363,369,373`). The 14 plist imports
+(`defaults import`, `:464-477`) and browser policy JSON files also have no rollback.
+Documented in `02-side-effects.md` (macOS defaults tables) and `11-test-results.md §5`.
+Re-verified unchanged 2026-08-02. Still the largest deferred item.
 → To close: extend the rollback mechanism to these paths. Significant work; lower
 priority because plist imports are gated on the preferences file being absent (skip-if-
 exists) and browser policies are additive, not destructive to existing user settings.
@@ -73,97 +78,106 @@ exists) and browser policies are additive, not destructive to existing user sett
 **ARGS word-split for value-bearing flags.** Make word-splits `$(ARGS)` before the
 shell receives it. For single-token flags (`--dry-run`, `-c`) this is benign. For
 flags with embedded spaces (`ARGS="--message hello world"`) the value is split into
-three tokens. A TODO comment documents this at `Makefile:124`. No current ARGS values
-trigger the problem. Documented in `04-makefile-audit.md L1`.
+three tokens. A TODO comment documents this at `Makefile:145-146` (was `:124`). No
+current ARGS values trigger the problem. Documented in `04-makefile-audit.md L1`.
 → To close: quote the expansion in each recipe: `@"$(SCRIPTS)/sync" "$(ARGS)"`. For
 multi-flag use, a proper argument-splitting approach or documented workaround would
 also help.
 
-**check-updates 1-second blocking timeout.** Reduced from 5 seconds to 1 second
-(`scripts/check-updates:50`) in `fix/final-cleanup`. The full restructure — detached
-background fetch writing a flag file, `.zshrc` checking only the flag — was deferred.
-Every new interactive shell still blocks for up to 1 second on a slow network.
-Documented in `03-shell-hygiene.md M3`.
-→ To close: move the `git fetch` entirely to a background process that writes a flag
-file (e.g., `~/.cache/mrk/update-available`); have `.zshrc` read the flag and never
-wait on the network directly.
-
-**scripts/sync python3 Brewfile write is not atomic.** The inline python3 block that
-inserts new entries into the Brewfile (`scripts/sync:490`) writes directly to the
-Brewfile with `open(brewfile_path, 'w')` — the same non-atomic pattern that `audit M5`
-flagged in `scripts/sync-login-items`. The M5 fix (temp-and-rename) was applied only
-to `sync-login-items`. Lower stakes here: the Brewfile is version-controlled, so
-`git checkout Brewfile` recovers a truncated file. Documented in `03-shell-hygiene.md M5`
-(by analogy) and `01-callgraph.md` sync target.
-→ To close: write the output to a temp file in the same directory, then `mv` it over
-the Brewfile only after a successful python3 run. Same pattern as `sync-login-items`'s
-existing fix.
-
-**snapshot-prefs has no API key scan before push.** `scripts/snapshot-prefs` exports
-the full defaults domains for Raycast (`com.raycast.macos`) and MacWhisper
-(`com.goodsnooze.MacWhisper`) without filtering. Both apps are known to store live API
-keys in their defaults when configured for cloud services (Raycast AI Commands extension,
-MacWhisper cloud transcription). A user who activates those extensions and runs
-`make snapshot-prefs` will push live API keys to GitHub with no warning. No pre-push
-check exists. Documented in `09-snapshot-prefs-deep-dive.md §§7d, 7e, §6`.
-Verification commands: `defaults read com.raycast.macos | grep -i 'apiKey\|token\|secret\|openai'`
-and `defaults read com.goodsnooze.MacWhisper | grep -i 'api\|key\|openai\|secret'`.
-→ To close: add a pre-export grep for common API key patterns (sk-, ghp_, gho_, bearer,
-and common key/token field names) across the to-be-exported plists; abort with a
-clear warning if any match.
-
-**M4 — hardening.sh sudo check tests PATH presence, not usability.** `command -v sudo`
-confirms the binary is in `$PATH` but does not verify the current user can invoke sudo
-(active credential cache, NOPASSWD, or interactive TTY available). In practice the first
-actual sudo call (`sudo cp /etc/pam.d/sudo`) prompts interactively and caches the
-credential; the remaining sudo calls complete within that window. Silent no-ops with
-warning messages cover the failure case. Practical consequence is low on a personal
-machine. Documented in `03-shell-hygiene.md M4` and `08-harden-deep-dive.md §2`.
-→ To close: replace `command -v sudo` with `sudo -n true 2>/dev/null` and update the
-comment. One-line change; no behavioral difference on NOPASSWD machines.
-
-**FM5 — make harden skips stealth mode when firewall is already enabled.** When
-`socketfilterfw --getglobalstate` returns `on`, the entire setglobalstate + setstealthmode
-block is bypassed (`scripts/hardening.sh:86-88`). If stealth mode was off before running
-`make harden`, it remains off. The script logs "Firewall already enabled" with no
-indication that stealth mode was not evaluated. Documented in `08-harden-deep-dive.md §FM5`.
-→ To close: split the stealth mode check out of the `if prev != "on"` branch; run it
-independently of the global state check so stealth mode is always ensured when
-`make harden` runs.
+**N-5 — deleted config files are never staged, so they persist in mrk-prefs.**
+`scripts/snapshot-prefs:140-141` claims the dest is cleared "so files removed from the
+source don't linger in the backup". `rm -rf` at `:154` clears the local tree, but staging
+at `:194-210` collects only files that exist and runs `git add -- <paths>` — a tracked
+file that vanished is never staged as a deletion, so it stays in `HEAD` and in the pushed
+repo. Documented in `12-fresh-audit-2026-08.md N-5`.
+→ To close: stage deletions (`git add -A -- <trees>` scoped to the snapshot outputs), or
+correct the comment.
 
 **make doctor --fix bare form (Make limitation).** `make doctor --fix` is interpreted
 by Make as passing `--fix` as a Make option and produces `make: invalid option -- -`.
-The documented canonical form is now `make doctor ARGS=--fix` (README was corrected as
-part of CLAIM-06 fix; Makefile now has `$(ARGS)` passthrough). Fixing the bare form
-would require MAKEFLAGS manipulation or `.RECIPEPREFIX` changes — marginal value.
-Documented in `07-contract-verification.md CLAIM-06`.
-→ To close: no-op unless the bare-form UX is specifically desired.
+The documented canonical form is `make doctor ARGS=--fix` (Makefile has `$(ARGS)`
+passthrough at `:121`). Fixing the bare form would require MAKEFLAGS manipulation or
+`.RECIPEPREFIX` changes — marginal value. Documented in
+`07-contract-verification.md CLAIM-06`.
+**Note:** the bare form regressed into the docs at `docs/manual.md:531`;
+`:579` is correct. See the docs-accuracy items below.
+→ To close: no-op unless the bare-form UX is specifically desired. Fix the doc line
+regardless.
 
-**F10 — dscl error silently discarded in mrk-status.** `exec.Command("dscl", ...)` at
-`tools/mrk-status/main.go:240` discards its error return (`out, _ :=`). If `dscl`
-fails (empty USER env, non-existent account, permissions), the checkShell group shows
-"Login shell: (expected: /path/to/zsh)" with no diagnostic explaining what went wrong.
-Documented in `06-go-audit.md F10`.
-→ To close: capture the error and surface it in the warning text:
-`fmt.Sprintf("dscl failed: %v", err)`. Two-line change.
+**N-10 — maintain build-freshness ignores tools/theme.** `bin/maintain:193` compares each
+binary only against its own `tools/<name>` directory (`:188`). All four TUIs import the
+shared `tools/theme` module, so editing `tools/theme/theme.go` leaves every binary stale
+while Step 4 reports all four "up to date". Documented in
+`12-fresh-audit-2026-08.md N-10`.
+→ To close: include `tools/theme/*.go` in the `-newer` comparison for every binary.
 
-**B7 — coreutils provides g-prefixed GNU tools without PATH change.** `brew "coreutils"`
-is installed, but Homebrew places the GNU tools under `g`-prefixed names (`gls`, `gsed`,
-`gcat`). Transparent GNU tool replacement requires prepending the `gnubin` path to
-`$PATH`, which the mrk dotfiles do not do. Whether this is intentional (GNU tools
-available when needed via `gls` etc.) or an oversight is unresolved.
-Documented in `05-brewfile-and-ruby.md B7`.
-→ To close: if transparent GNU tools are desired, add the gnubin `$PATH` prepend to
-`dotfiles/.zshrc`. If `g`-prefix access is sufficient, add a comment to the Brewfile.
+**N-11 — Calibre restore sentinel is a single file.** `scripts/post-install:537` skips
+only when `gui.json` exists. If `gui.json` is absent but the directory holds other files,
+`cp -R "$src_dir/."` at `:544` overwrites matching siblings. `docs/manual.md:210` claims
+"Every restore is non-destructive", which is stronger than the guard provides.
+Documented in `12-fresh-audit-2026-08.md N-11`.
+→ To close: widen the guard to "directory is empty or sentinel absent", or soften the
+manual claim.
 
-**fix-exec Makefile target and scripts/fix-exec binary diverge.** The `make fix-exec`
-target runs `find scripts/ bin/ -maxdepth 1 | chmod +x` (covers repo files only). The
-`scripts/fix-exec` binary additionally runs `chmod +x ~/bin/mrk ~/bin/mrk-*` (also
-fixes the symlinks installed by `make setup`). The two silently diverged; a user who
-runs `make fix-exec` after a broken install will not have `~/bin` symlinks repaired.
-Documented in `03-shell-hygiene.md L5` and `04-makefile-audit.md L5`.
-→ To close: either have the Makefile target call `scripts/fix-exec`, or expand the
-Makefile target to also cover `~/bin/mrk*` symlinks and remove `scripts/fix-exec`.
+**N-13 / N-14 — sync write-path hardening.** `scripts/sync:571-572` calls `sys.exit(0)`
+without writing `out_path` when the insertions payload is empty, and `:649` then `mv`s
+the zero-byte temp file over the Brewfile. Currently unreachable (guards at `:418-421`
+and `:495-498`) but the same class as the already-fixed `F01`. Separately, `mktemp`
+creates 0600 and neither `:304` nor `:649` restores the mode before the replace;
+`scripts/sync-login-items:367-370` does, with a comment explaining why. Documented in
+`12-fresh-audit-2026-08.md N-13, N-14`.
+→ To close: guard the `mv` on a non-empty temp file; `chmod 644` before the replace.
+
+**N-15 / N-16 — deployment-pruning edges.** `bin/mrk-push:87` queries
+`/repos/$repo/deployments` with no environment filter, so it would delete deployments in
+any environment; `bin/maintain:101` correctly scopes to `?environment=github-pages`.
+`bin/maintain:70` accepts `--keep=0`, which selects every deployment including the live
+one at `:110` (interactive confirm at `:114-116` stands between). Documented in
+`12-fresh-audit-2026-08.md N-15, N-16`.
+→ To close: scope the `mrk-push` query; reject `--keep=0`.
+
+---
+
+## Documentation accuracy (Phase B inputs)
+
+Found 2026-08-02. Fix the facts before any Simplified Technical English rewrite.
+
+**N-7 — BIN-1 drift (`docs/bin/mrk-usage.html`).** The nav index ends at `:461`
+(`2.16 mrk-uninstall`); the body continues with `2.17 bf` (`:811`), `2.18 mrk-menu`
+(`:835`), `2.19 mrk-picker` (`:855`) and `2.20 mrk-push` (`:866`) — four unlisted
+sections. Five linked `~/bin` commands have no section at all: `maintain`, `dock-setup`,
+`ci-check`, `check-picker-desc`, `adventure-prologue` (all linked by
+`scripts/setup:299-400`). Content drift: §2.7 omits the Calibre config tree (`070916d`);
+§2.20 omits the pre-push secret scan at `bin/mrk-push:69`; §2.17 shows `bf` with no
+flags though it accepts `--help` and `--version`.
+Verified accurate and needing no change: both app lists (§1.4 vs `bin/snapshot:70-97`,
+§2.7 vs `scripts/snapshot-prefs:82-97`), §2.8's nine checks and key bindings vs
+`tools/mrk-status/main.go:384-392,492-540`, and the `bf` and `mrk-menu` key bindings.
+
+**N-8 — `docs/manual.md` factual errors.** `:476` states that `snapshot`'s output in
+`assets/preferences/` is "used by `make post-install` for first-run defaults". It is not:
+those plists are gitignored, `post-install:352`'s `PREFS_DIR` is used only for the four
+`*-defaults.sh` scripts, and plist imports read `~/.mrk/preferences` (`:384,464-477`).
+Nothing reads `assets/preferences/*.plist`. BIN-1 §1.4 already states this correctly, so
+the two documents contradict each other. `:531` reintroduces the bare `make doctor --fix`
+form that CLAIM-06 corrected. `:210` overclaims restore safety (see N-11). The Command
+Reference at `:490-532` omits `make check`, `make ci`, `make tidy`, `make bf`,
+`make build-tools`, `make mrk-status`, `make mrk-menu` and `make maintain`.
+
+**N-6 / N-12 — defaults reference.** Correcting a standing assumption: the page renders
+from **both** sources. `docs/defaults/script.js:502` fetches `scripts/defaults.sh` from
+GitHub raw `main` and parses it (`:512-570`) for structure and keys; `DEFAULT_DESCRIPTIONS`
+supplies prose by `${domain}.${key}` lookup at `:630`, falling back to
+`generateGenericDescription` at `:638`. So the published page tracks `main`, not the
+reader's branch, and needs network access.
+`parseWriteDefault` (`:615-627`) splits on whitespace with no shell evaluation, so 18 of
+77 parsed keys can never match an entry: the 16 trackpad keys written through the
+`$domain` loop (`scripts/defaults.sh:359-379`) and the 2 quoted multi-word Terminal keys
+(`:328-329`). All 18 render with generic prose and display non-runnable commands.
+Separately, 24 `DEFAULT_DESCRIPTIONS` entries describe keys `defaults.sh` no longer
+writes and are dead.
+→ To close: fix the parser or emit literal domains in `defaults.sh`; delete the 24 dead
+entries.
 
 ---
 
@@ -202,6 +216,82 @@ no production risk. Documented in `03-shell-hygiene.md L3`.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the fix session on branch `fix/audit-12-critical`, 2026-08-02
+
+- **N-1 — `|| ((failed++))` aborted the script under `set -e`** — `7e21605`.
+  All 114 sites in `scripts/defaults.sh` and `scripts/post-install` now use
+  `|| failed=$(( failed + 1 ))`, which always exits 0. The generator in
+  `scripts/sync-login-items` (`make_line`) and its matching `LOGIN_ITEM_RE` were fixed
+  in the same commit, so the next `make sync-login-items` cannot reintroduce the
+  pattern; a parse-and-regenerate round-trip over `post-install` is byte-identical.
+  Reproduced against a stubbed `defaults`: before, one refused write aborted the run
+  with 0 of 59 writes applied, no summary and a 2-line rollback stub; after, the run
+  completes, applies 59 writes, counts 2 failures, prints the summary and leaves a
+  well-formed 65-line rollback file.
+- **N-4 — binary plists were scanned as binary** — `92655df`. `scan_for_secrets`
+  detects `bplist00` and scans a temporary xml1 copy, so `snapshot_plist`,
+  `snapshot_app_support`, `snapshot_pref_dir` and `mrk-push` are all covered; the
+  stored file is untouched. Verified with identical content in both encodings:
+  `<key>apiKey</key>` with an unremarkable value was FLAG as xml1 and CLEAN as binary
+  before, FLAG in both after.
+- **N-2 — the scanner missed every common API-key format** — `601ced6`. Added vendor
+  value shapes (`sk-`/`sk-proj-`/`sk-ant-`, `gh[pousr]_`, `github_pat_`, `AKIA`,
+  `xox[baprs]-`, `AIza`) in a case-sensitive pass, loosened the plist key-name match and
+  paired it with a substantial `<string>` value, allowed a quote before the `:`/`=`
+  separator, and made `grep` rc>1 a scan failure instead of "clean". 15/15 fixtures pass
+  with 0 false positives across the 14 exported plists and 19 Application Support and
+  Calibre files on this machine. The fatal gate is unchanged.
+  **Two latent defects surfaced while fixing this** — the private-key pattern contained
+  an empty alternative that BSD grep rejects outright, and it began with `-` so grep
+  parsed it as options. Private-key detection had never worked on macOS. Both fixed.
+- **N-3 — `sync-login-items` only warned on an empty login-item read** — `6dea188`.
+  Both an empty read and a non-zero `osascript` exit now abort before the diff, matching
+  `scripts/sync`. Reproduced with a stubbed `osascript`: before, an empty read printed
+  all 8 tracked items as stale and prompted "Remove all 8 stale item(s)? [y/N]"; after,
+  both failure modes abort with no removal diff, while a normal 8-item read still reports
+  "up to date" and a read with a new item still offers the add.
+
+### Closed by re-verification, 2026-08-02
+
+Nine items carried as open in this file were already fixed in code. Verified against
+`a17ba54`; full detail in `12-fresh-audit-2026-08.md` Track 1.
+
+- **Screensaver rollback wrote `0` instead of deleting** — `scripts/hardening.sh:103-107`
+  and `:111-115` now emit `defaults delete …` when the key was absent pre-apply.
+- **M4 — sudo check tested PATH, not usability** — `scripts/hardening.sh:43` uses
+  `sudo -n true 2>/dev/null` to gate the credential refresh, as the close criteria asked.
+- **FM5 — `make harden` skipped stealth mode when the firewall was already on** —
+  `scripts/hardening.sh:132-136` computes `need_firewall` from the global *and* stealth
+  states; `:156-167` evaluates stealth independently.
+- **`scripts/sync` python3 Brewfile write was not atomic** — `:558` writes to
+  `.Brewfile.XXXXXX` in the repo and `:649` `mv`s it into place; the prune path does the
+  same at `:293-304`, with a `cleanup` trap at `:79-84`. (Two residual edges remain — see
+  N-13/N-14 above.)
+- **F10 — dscl error discarded in mrk-status** — `tools/mrk-status/main.go:251-255`
+  surfaces `dscl failed: %v`.
+- **B7 — coreutils gnubin not on PATH** — `dotfiles/.zprofile:15-24` prepends
+  `$(brew --prefix coreutils)/libexec/gnubin` with a duplicate guard; the `Brewfile:8`
+  comment now matches behaviour.
+- **B4 — Python management strategy** — `python@3.12` removed in `43c4d55`; `Brewfile:52`
+  records pyenv + pipx + `.python-version` as canonical.
+- **nvm management direction** — `Brewfile:53` documents post-install as the deliberate
+  long-term home.
+- **check-updates 1-second blocking timeout** — closed beyond the deferred plan.
+  `scripts/check-updates:55-84` performs no blocking fetch at all; it compares against the
+  last-fetched remote ref and refreshes via `{ git fetch …; } & disown`.
+- **fix-exec target vs binary divergence** — `Makefile:71-72` calls
+  `"$(SCRIPTS)/fix-exec"`; the binary repairs `~/bin` symlinks pointing into the repo at
+  `scripts/fix-exec:27-38`.
+
+**Correction to an earlier Closed entry.** F08 ("mrk-status dead indicator variable") is
+listed below as closed. The `MRK_ROOT` half (F09) landed; the dead variable did not.
+`tools/mrk-status/main.go:766-771` still computes `indicator`, discards it with
+`_ = indicator`, and carries the stale comment "we'll embed it in the header instead".
+The live scroll display is `scrollInfo` at `:775`. Documented in
+`12-fresh-audit-2026-08.md N-18`.
+
+### Closed by the original fix sessions
 
 - `make syncall` removed (Hot Spot #1, H3) — commits `ba29d0c`, `f9ac419`
 - Rollback truncation and re-run decay (M2) — `fix/rollback-fidelity` branch
