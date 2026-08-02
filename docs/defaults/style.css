@@ -553,6 +553,40 @@ body {
     margin-bottom: 0.2rem;
 }
 
+/* Background note — deliberately NOT Simplified Technical English.
+   Preserves historical and editorial material alongside the STE functional text. */
+.default-entry__background {
+    margin-top: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--color-background-secondary, #f8f9fa);
+    border-left: 3px solid var(--color-border, #ccc);
+    font-size: 0.875rem;
+    color: var(--color-text-secondary, #555);
+    line-height: 1.55;
+    font-style: italic;
+}
+
+.background-label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-tertiary, #888);
+    margin-bottom: 0.2rem;
+    font-style: normal;
+}
+
+/* Multi-domain notice (the trackpad loop writes each key to two domains) */
+.default-entry__also {
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--color-text-secondary, #555);
+}
+.default-entry__also code {
+    font-size: 0.95em;
+}
+
 /* Values Table */
 .default-entry__values {
     background-color: var(--color-background-secondary);

@@ -201,10 +201,6 @@ const DEFAULT_DESCRIPTIONS = {
         systemDefault: '0.5 (seconds)'
     },
     // kept for compatibility — not in defaults.sh
-    'com.apple.dock.autohide': { title: 'Auto-hide Dock', description: 'Automatically hides the Dock when not in use.', category: 'Dock' },
-    'com.apple.dock.autohide-time-modifier': { title: 'Auto-hide Animation Speed', description: 'Controls the speed of the Dock hide/show animation.', category: 'Dock' },
-    'com.apple.dock.show-process-indicators': { title: 'Show App Running Indicators', description: 'Controls whether dots appear under running apps in the Dock.', category: 'Dock' },
-    'com.apple.dock.enable-spring-load-actions-on-all-items': { title: 'Spring Loading for Dock Items', description: 'Enables spring-loading for all Dock items.', category: 'Dock' },
 
     // Finder
     'com.apple.finder.DisableAllAnimations': {
@@ -214,19 +210,6 @@ const DEFAULT_DESCRIPTIONS = {
         why: 'Makes file operations feel instant. Each animation adds visible latency per action, which compounds across a day of file management.'
     },
     // kept for compatibility — not in defaults.sh
-    'com.apple.finder.AppleShowAllFiles': { title: 'Show Hidden Files', description: 'Forces Finder to display hidden files and folders.', category: 'Finder' },
-    'com.apple.finder.ShowStatusBar': { title: 'Show Finder Status Bar', description: 'Displays a status bar at the bottom of Finder windows.', category: 'Finder' },
-    'com.apple.finder.ShowPathbar': { title: 'Show Finder Path Bar', description: 'Displays a path bar at the bottom of Finder windows.', category: 'Finder' },
-    'com.apple.finder._FXShowPosixPathInTitle': { title: 'Show Full Path in Title', description: 'Displays the full POSIX path in the Finder title bar.', category: 'Finder' },
-    'com.apple.finder.FXDefaultSearchScope': { title: 'Default Search Scope', description: 'Sets the default scope for Finder searches.', category: 'Finder' },
-    'com.apple.finder.FXEnableExtensionChangeWarning': { title: 'File Extension Change Warning', description: 'Controls whether Finder warns when changing a file extension.', category: 'Finder' },
-    'com.apple.finder.WarnOnEmptyTrash': { title: 'Empty Trash Warning', description: 'Controls whether Finder asks for confirmation before emptying Trash.', category: 'Finder' },
-    'com.apple.finder.FXPreferredViewStyle': { title: 'Default View Style', description: 'Sets the default view mode for new Finder windows.', category: 'Finder' },
-    'com.apple.finder.NewWindowTarget': { title: 'New Window Default Location', description: 'Sets where new Finder windows open by default.', category: 'Finder' },
-    'com.apple.finder.ShowExternalHardDrivesOnDesktop': { title: 'Show External Drives on Desktop', description: 'Controls whether external drives appear on the Desktop.', category: 'Desktop' },
-    'com.apple.finder.ShowHardDrivesOnDesktop': { title: 'Show Internal Drives on Desktop', description: 'Controls whether internal drives appear on the Desktop.', category: 'Desktop' },
-    'com.apple.finder.ShowMountedServersOnDesktop': { title: 'Show Network Drives on Desktop', description: 'Controls whether mounted network shares appear on the Desktop.', category: 'Desktop' },
-    'com.apple.finder.ShowRemovableMediaOnDesktop': { title: 'Show Removable Media on Desktop', description: 'Controls whether removable media appear on the Desktop.', category: 'Desktop' },
 
     // Screenshots
     'com.apple.screencapture.disable-shadow': {
@@ -256,7 +239,6 @@ const DEFAULT_DESCRIPTIONS = {
         category: 'Screenshots',
         preference: true
     },
-    'com.apple.screencapture.type': { title: 'Screenshot File Format', description: 'Sets the default file format for screenshots (png, jpg, pdf, tiff).', category: 'Screenshots' },
 
     // Desktop Services
     'com.apple.desktopservices.DSDontWriteNetworkStores': {
@@ -419,12 +401,144 @@ const DEFAULT_DESCRIPTIONS = {
     },
 
     // kept for compatibility — not in defaults.sh
-    'NSGlobalDomain.NSDisableAutomaticTermination': { title: 'Disable Automatic App Termination', description: 'Prevents macOS from automatically terminating background apps under memory pressure.', category: 'Performance' },
-    'NSGlobalDomain.com.apple.sound.beep.feedback': { title: 'Beep Feedback Volume', description: 'Controls the volume of system beep feedback sounds.', category: 'Audio' },
-    'com.apple.DiskUtility.DUDebugMenuEnabled': { title: 'Disk Utility Debug Menu', description: 'Enables the debug menu in Disk Utility.', category: 'System Tools' },
-    'com.apple.DiskUtility.advanced-image-options': { title: 'Advanced Disk Image Options', description: 'Enables advanced disk image creation options in Disk Utility.', category: 'System Tools' },
-    'com.apple.AddressBook.ABShowDebugMenu': { title: 'Address Book Debug Menu', description: 'Enables the debug menu in the Contacts app.', category: 'Applications' },
-    'com.apple.LaunchServices.LSQuarantine': { title: 'Disable Download Quarantine', description: 'Prevents macOS from quarantining downloaded files.', category: 'Security' }
+
+    // Terminal.app — window profile
+    'com.apple.Terminal.Default Window Settings': {
+        title: 'Default Terminal Profile',
+        description: 'Sets the profile that Terminal uses for a new window. "Pro" is a built-in profile with a dark background and light text. This key holds the profile name as a string, so the name must match a profile that Terminal has.',
+        category: 'Interface',
+        preference: true,
+        systemDefault: '"Basic"',
+        background: 'The key name contains spaces, which is unusual for a defaults key. Quote it on the command line, or the shell splits it into three arguments.'
+    },
+    'com.apple.Terminal.Startup Window Settings': {
+        title: 'Startup Terminal Profile',
+        description: 'Sets the profile that Terminal uses for the window it opens at startup. Set this key together with "Default Window Settings". If you set only one of the two, the first window does not match the windows that you open later.',
+        category: 'Interface',
+        preference: true,
+        systemDefault: '"Basic"'
+    },
+
+    // Trackpad (opt-in: --with-trackpad)
+    'com.apple.AppleMultitouchTrackpad.Clicking': {
+        title: 'Disable Tap to Click',
+        description: 'Turns off tap-to-click. You must press the trackpad until it clicks. A tap alone does nothing.',
+        category: 'Input',
+        preference: true,
+        why: 'A resting finger can register a tap and move the cursor or select text by accident.',
+        systemDefault: 'false on a desktop trackpad; true on many notebooks after Setup Assistant'
+    },
+    'com.apple.AppleMultitouchTrackpad.ForceSuppressed': {
+        title: 'Suppress Force Click',
+        description: 'Turns off Force Touch. A hard press no longer triggers a force click, and it no longer gives haptic feedback for that gesture.',
+        category: 'Input',
+        preference: true,
+        why: 'A force click fires on a firm ordinary click and opens a lookup panel that interrupts the task.',
+        systemDefault: 'false (Force Touch active)',
+        background: 'Apple added Force Touch to the trackpad with the Retina MacBook in 2015. The trackpad does not move; a Taptic Engine simulates the click.'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadCornerSecondaryClick': {
+        title: 'Secondary Click in the Bottom-Right Corner',
+        description: 'Sets the secondary click to the bottom-right corner of the trackpad. Value 2 selects the bottom-right corner. Value 1 selects the bottom-left corner. Value 0 turns the corner click off.',
+        category: 'Input',
+        preference: true,
+        systemDefault: '0 (corner click off; two-finger click instead)'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadPinch': {
+        title: 'Disable Pinch to Zoom',
+        description: 'Turns off the two-finger pinch that zooms in and out.',
+        category: 'Input',
+        preference: true,
+        why: 'The pinch fires during ordinary two-finger scrolling and changes the zoom level without intent.',
+        systemDefault: 'true (pinch to zoom on)'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadRightClick': {
+        title: 'Disable Two-Finger Secondary Click',
+        description: 'Turns off the two-finger secondary click. Use the bottom-right corner instead. See TrackpadCornerSecondaryClick.',
+        category: 'Input',
+        preference: true,
+        systemDefault: 'true (two-finger secondary click on)'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadRotate': {
+        title: 'Disable Rotate Gesture',
+        description: 'Turns off the two-finger rotate gesture.',
+        category: 'Input',
+        preference: true,
+        why: 'The rotate gesture can turn an image or a PDF page by accident during a two-finger scroll.',
+        systemDefault: 'true (rotate on)'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadThreeFingerDrag': {
+        title: 'Disable Three-Finger Drag',
+        description: 'Turns off three-finger drag. You cannot move a window with three fingers.',
+        category: 'Input',
+        preference: true,
+        systemDefault: 'false (three-finger drag off)',
+        background: 'macOS Sierra moved this control out of the Trackpad pane and into Accessibility → Pointer Control → Trackpad Options. The defaults key still works.'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadThreeFingerTapGesture': {
+        title: 'Disable Three-Finger Tap',
+        description: 'Turns off the three-finger tap that looks up a word or shows data detectors. Value 0 turns the gesture off. Value 2 turns it on.',
+        category: 'Input',
+        preference: true,
+        systemDefault: '2 (look up on)'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadTwoFingerDoubleTapGesture': {
+        title: 'Disable Smart Zoom',
+        description: 'Turns off the two-finger double tap that zooms into a page or an image.',
+        category: 'Input',
+        preference: true,
+        systemDefault: '1 (smart zoom on)'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadTwoFingerFromRightEdgeSwipeGesture': {
+        title: 'Disable Notification Centre Swipe',
+        description: 'Turns off the two-finger swipe from the right edge that opens Notification Centre.',
+        category: 'Input',
+        preference: true,
+        why: 'The gesture fires when you scroll near the right edge, and the panel covers the window.',
+        systemDefault: '3 (swipe on)'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadThreeFingerHorizSwipeGesture': {
+        title: 'Disable Three-Finger Horizontal Swipe',
+        description: 'Turns off the three-finger horizontal swipe that moves between full-screen apps and Spaces.',
+        category: 'Input',
+        preference: true,
+        systemDefault: '2 (swipe on)'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadThreeFingerVertSwipeGesture': {
+        title: 'Disable Three-Finger Vertical Swipe',
+        description: 'Turns off the three-finger vertical swipe that opens Mission Control and App Expose.',
+        category: 'Input',
+        preference: true,
+        systemDefault: '2 (swipe on)'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadFourFingerHorizSwipeGesture': {
+        title: 'Disable Four-Finger Horizontal Swipe',
+        description: 'Turns off the four-finger horizontal swipe that moves between full-screen apps and Spaces.',
+        category: 'Input',
+        preference: true,
+        systemDefault: '2 (swipe on)'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadFourFingerVertSwipeGesture': {
+        title: 'Disable Four-Finger Vertical Swipe',
+        description: 'Turns off the four-finger vertical swipe that opens Mission Control.',
+        category: 'Input',
+        preference: true,
+        systemDefault: '2 (swipe on)'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadFourFingerPinchGesture': {
+        title: 'Disable Four-Finger Pinch',
+        description: 'Turns off the four-finger pinch that opens Launchpad, and the four-finger spread that shows the desktop.',
+        category: 'Input',
+        preference: true,
+        systemDefault: '2 (pinch on)'
+    },
+    'com.apple.AppleMultitouchTrackpad.TrackpadFiveFingerPinchGesture': {
+        title: 'Disable Five-Finger Pinch',
+        description: 'Turns off the five-finger pinch that opens Launchpad.',
+        category: 'Input',
+        preference: true,
+        systemDefault: '2 (pinch on)'
+    },
 };
 
 class DefaultsDocGenerator {
@@ -514,6 +628,7 @@ class DefaultsDocGenerator {
         let currentSection = { name: 'General', entries: [], description: '' };
         let pendingComment = '';
         let sections = [];
+        let domainLoop = null;
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
@@ -549,9 +664,21 @@ class DefaultsDocGenerator {
                 continue;
             }
             
+            // Track `for domain in A B; do` so write_default "$domain" ... can be
+            // resolved to a real domain instead of the literal string '$domain'.
+            const loopMatch = line.match(/^for\s+domain\s+in\s+(.+?)\s*;\s*do\s*$/);
+            if (loopMatch) {
+                domainLoop = loopMatch[1].trim().split(/\s+/).filter(Boolean);
+                continue;
+            }
+            if (line === 'done') {
+                domainLoop = null;
+                continue;
+            }
+
             // Parse write_default commands
             if (line.startsWith('write_default ')) {
-                const entry = this.parseWriteDefault(line, pendingComment);
+                const entry = this.parseWriteDefault(line, pendingComment, domainLoop);
                 if (entry) {
                     currentSection.entries.push(entry);
                 }
@@ -612,36 +739,68 @@ class DefaultsDocGenerator {
         return descriptions[sectionName] || 'System configuration settings.';
     }
     
-    parseWriteDefault(line, comment) {
+    // Split a shell argument list on whitespace, but keep a double-quoted run
+    // together and drop its quotes. `write_default com.apple.Terminal
+    // "Default Window Settings" string Pro` must yield 4 tokens, not 6.
+    tokenizeShell(line) {
+        const tokens = [];
+        const re = /"([^"]*)"|(\S+)/g;
+        let m;
+        while ((m = re.exec(line)) !== null) {
+            tokens.push(m[1] !== undefined ? m[1] : m[2]);
+        }
+        return tokens;
+    }
+
+    // Quote a domain or key for display only when the shell would need it.
+    shellQuote(s) {
+        return /[^A-Za-z0-9._-]/.test(s) ? `"${s}"` : s;
+    }
+
+    parseWriteDefault(line, comment, domainLoop) {
         // Remove any shell error handling
         const cleanLine = line.split('||')[0].split('&&')[0].trim();
-        const parts = cleanLine.split(/\s+/);
-        
+        const parts = this.tokenizeShell(cleanLine);
+
         if (parts.length < 5 || parts[0] !== 'write_default') {
             return null;
         }
-        
-        const domain = parts[1];
+
+        // Inside `for domain in A B; do`, defaults.sh writes the same key to
+        // every domain in the list. Use the first as canonical, and keep the
+        // rest so the entry can show that the setting covers both.
+        let domain = parts[1];
+        let alsoDomains = [];
+        if (domain === '$domain' && domainLoop && domainLoop.length) {
+            domain = domainLoop[0];
+            alsoDomains = domainLoop.slice(1);
+        }
+
         const key = parts[2];
         const type = parts[3];
         const value = parts.slice(4).join(' ').replace(/['"]/g, '');
-        
+
         const domainKey = `${domain}.${key}`;
         const description = DEFAULT_DESCRIPTIONS[domainKey];
-        
+
+        const dq = this.shellQuote(domain);
+        const kq = this.shellQuote(key);
+
         return {
             domain,
+            alsoDomains,
             key,
             type,
             value,
             comment: comment || (description ? description.title : key),
             description: description ? description.description : this.generateGenericDescription(key, value, type),
+            background: description ? (description.background || null) : null,
             category: description ? description.category : 'System',
             why: description ? (description.why || null) : null,
             preference: description ? (description.preference || false) : false,
             systemDefault: description ? (description.systemDefault || null) : null,
-            revertCommand: `defaults delete ${domain} ${key}`,
-            command: `defaults write ${domain} ${key} -${type} ${this.formatValueForCommand(value, type)}`
+            revertCommand: `defaults delete ${dq} ${kq}`,
+            command: `defaults write ${dq} ${kq} -${type} ${this.formatValueForCommand(value, type)}`
         };
     }
     
@@ -779,12 +938,14 @@ class DefaultsDocGenerator {
                         ${entry.comment}
                     </h3>
                     <code class="default-entry__domain-key">${entry.domain} ${entry.key}</code>
+                    ${entry.alsoDomains && entry.alsoDomains.length ? `<div class="default-entry__also">mrk applies this to ${entry.alsoDomains.length + 1} domains: <code>${entry.domain}</code>, <code>${entry.alsoDomains.join('</code>, <code>')}</code></div>` : ''}
                 </div>
                 
                 <div class="default-entry__main">
                     <p class="default-entry__description">${entry.description}</p>
                     ${entry.why ? `<div class="default-entry__why"><span class="why-label">Why this setting</span>${entry.why}</div>` : ''}
                     ${entry.preference ? `<div class="default-entry__preference"><span class="preference-label">Personal preference</span>This reflects a specific workflow and may not suit everyone. Review before applying.</div>` : ''}
+                    ${entry.background ? `<div class="default-entry__background"><span class="background-label">Background — not Simplified Technical English</span>${entry.background}</div>` : ''}
                 </div>
                 
                 <div class="default-entry__values">
