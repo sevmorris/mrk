@@ -459,6 +459,15 @@
   <a href="#mrk-post-install">2.14 mrk-post-install</a>
   <a href="#mrk-defaults">2.15 mrk-defaults</a>
   <a href="#mrk-uninstall">2.16 mrk-uninstall</a>
+  <a href="#bf">2.17 bf</a>
+  <a href="#mrk-menu">2.18 mrk-menu</a>
+  <a href="#mrk-picker">2.19 mrk-picker</a>
+  <a href="#mrk-push">2.20 mrk-push</a>
+  <a href="#maintain">2.21 maintain</a>
+  <a href="#dock-setup">2.22 dock-setup</a>
+  <a href="#ci-check">2.23 ci-check</a>
+  <a href="#check-picker-desc">2.24 check-picker-desc</a>
+  <a href="#adventure-prologue">2.25 adventure-prologue</a>
   <a class="section-head">Sect. 3 — Reference</a>
   <a href="#lib">3.1 Shared Libraries</a>
   <a href="#quick-ref">3.2 Quick Reference</a>
@@ -472,10 +481,10 @@
         <span class="section-num">0.</span>
         <h2>Introduction</h2>
       </div>
-      <p>This manual covers personal command-line tools installed in <code>~/bin</code>. Scripts fall into two categories: <strong>standalone</strong> tools with no external dependency, and <strong>mrk</strong> tools — symlinks into <code>~/mrk/scripts/</code> managed by the <a href="https://github.com/sevmorris/mrk">mrk</a> machine configuration system.</p>
+      <p>This manual describes the command-line tools in <code>~/bin</code>. The tools fall into two groups. <strong>Standalone</strong> tools have no external dependency. <strong>mrk</strong> tools are symlinks into the <a href="https://github.com/sevmorris/mrk">mrk</a> repository, and mrk manages them.</p>
       <div class="callout">
         <span class="callout-label">Note</span>
-        <div class="callout-body">All scripts are bash. Common behavior is provided by two shared libraries: <code>scripts/lib.sh</code> for the mrk install-phase scripts, and <code>bin/lib/common.sh</code> for the standalone tools. See Section 3.1.</div>
+        <div class="callout-body">All the tools are bash scripts or Go binaries. Two shared libraries supply the common behavior. <code>scripts/lib.sh</code> serves the mrk install-phase scripts. <code>bin/lib/common.sh</code> serves the standalone tools. See Section 3.1.</div>
       </div>
     </section>
 
@@ -493,16 +502,16 @@
           <h3>audio-mode <span class="tag tag-standalone">standalone</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Pauses cloud sync services during recording sessions to prevent disk I/O noise and latency.</p>
+          <p class="desc">audio-mode pauses the cloud sync services during a recording session. This prevents disk noise and latency.</p>
           <pre><code>audio-mode on [--icloud] [--gdrive] [--all]
 audio-mode off
 audio-mode status</code></pre>
           <ul>
-            <li><strong>on</strong> — Pauses Dropbox (always), plus iCloud and/or Google Drive with flags. Snapshots pre-state so <code>off</code> only restores what was actually running.</li>
-            <li><strong>off</strong> — Restores services to their pre-<code>on</code> state. Only resumes services that were running before <code>on</code> was called.</li>
-            <li><strong>status</strong> — Shows current state of audio mode and each service.</li>
-            <li>State persisted at <code>~/.audio_mode_state.json</code> (JSON, managed via jq).</li>
-            <li>Activity logged to <code>~/Library/Logs/audio-mode.log</code>.</li>
+            <li><strong>on</strong> — Pauses Dropbox. The flags also pause iCloud and Google Drive. audio-mode first records which services run.</li>
+            <li><strong>off</strong> — Resumes the services. audio-mode resumes only the services that ran before you gave the <code>on</code> command.</li>
+            <li><strong>status</strong> — Shows the state of audio-mode and the state of each service.</li>
+            <li>audio-mode keeps its state in <code>~/.audio_mode_state.json</code>. It uses jq to read and write this file.</li>
+            <li>audio-mode writes a log to <code>~/Library/Logs/audio-mode.log</code>.</li>
           </ul>
         </div>
       </div>
@@ -513,16 +522,16 @@ audio-mode status</code></pre>
           <h3>zoom-mode <span class="tag tag-standalone">standalone</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Prepares the system for a Zoom recording session: keeps the WiFi AP alive, prevents sleep, stops active Time Machine backups, and delegates cloud sync pausing to <code>audio-mode</code>.</p>
+          <p class="desc">zoom-mode prepares the Mac for a Zoom recording session. It keeps the WiFi access point awake, stops sleep, stops a Time Machine backup, and starts <code>audio-mode</code>.</p>
           <pre><code>zoom-mode on
 zoom-mode off
 zoom-mode status</code></pre>
           <ul>
-            <li><strong>on</strong> — Pings the default gateway (8.8.8.8 as fallback) every 30s in the background (prevents AP idle-timeout drops), runs <code>caffeinate -d</code> to block display and system sleep, stops any active Time Machine backup, then calls <code>audio-mode on --all</code>.</li>
-            <li><strong>off</strong> — Kills the keepalive and caffeinate processes, then calls <code>audio-mode off</code> to restore sync services.</li>
-            <li><strong>status</strong> — Shows whether zoom-mode is active and delegates to <code>audio-mode status</code>.</li>
-            <li>Background PIDs tracked at <code>~/.zoom_mode_pids</code>.</li>
-            <li>Activity logged to <code>~/Library/Logs/zoom-mode.log</code>.</li>
+            <li><strong>on</strong> — Does four things. It pings the default gateway every 30 seconds in the background, which stops the access point from dropping an idle connection. It falls back to 8.8.8.8. It runs <code>caffeinate -d</code> to stop display sleep and system sleep. It stops an active Time Machine backup. It then runs <code>audio-mode on --all</code>.</li>
+            <li><strong>off</strong> — Stops the keepalive process and the caffeinate process. It then runs <code>audio-mode off</code> to resume the sync services.</li>
+            <li><strong>status</strong> — Shows whether zoom-mode is active. It then runs <code>audio-mode status</code>.</li>
+            <li>zoom-mode keeps the background process IDs in <code>~/.zoom_mode_pids</code>.</li>
+            <li>zoom-mode writes a log to <code>~/Library/Logs/zoom-mode.log</code>.</li>
           </ul>
         </div>
       </div>
@@ -533,14 +542,14 @@ zoom-mode status</code></pre>
           <h3>nuke-mrk <span class="tag tag-standalone">standalone</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Removes all mrk artifacts for a fresh reinstall: <code>~/mrk</code>, <code>~/.mrk</code>, symlinks in <code>~/bin</code>, and dotfile symlinks in <code>$HOME</code>.</p>
-          <pre><code>nuke-mrk</code></pre>
           <div class="callout callout-caution">
             <span class="callout-label">Caution</span>
-            <div class="callout-body">Destructive operation. Interactive — confirms before deleting. Does <strong>not</strong> uninstall Homebrew packages or undo macOS defaults.</div>
+            <div class="callout-body">nuke-mrk deletes data. It asks you to confirm first. It does <strong>not</strong> uninstall the Homebrew packages, and it does not roll back the macOS defaults.</div>
           </div>
+          <p class="desc">nuke-mrk deletes all the mrk files, so that you can install mrk again. It deletes <code>~/mrk</code>, <code>~/.mrk</code>, the mrk symlinks in <code>~/bin</code>, and the dotfile symlinks in <code>$HOME</code>.</p>
+          <pre><code>nuke-mrk</code></pre>
           <ul>
-            <li>Prints reinstall instructions after completion.</li>
+            <li>nuke-mrk shows the reinstall instructions when it completes.</li>
           </ul>
         </div>
       </div>
@@ -551,11 +560,12 @@ zoom-mode status</code></pre>
           <h3>snapshot <span class="tag tag-standalone">standalone</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Exports current app preferences as plists into <code>~/mrk/assets/preferences/</code>.</p>
+          <p class="desc">snapshot exports the current app preferences as plists into <code>~/mrk/assets/preferences/</code>.</p>
           <pre><code>snapshot [--brewfile] [--help]</code></pre>
           <ul>
-            <li>Local export only — writes plists into <code>assets/preferences/</code> and stops. No git integration (the exported plists are gitignored).</li>
-            <li>With <code>--brewfile</code>: also runs <code>brew bundle dump</code> (destructive — overwrites comments). Asks for confirmation.</li>
+            <li>snapshot writes the plists and then stops. It does not commit or push them, and gitignore excludes them.</li>
+            <li>snapshot does not scan the exported plists for secrets. Only <code>snapshot-prefs</code> and <code>mrk-push</code> do that.</li>
+            <li><code>--brewfile</code> — also runs <code>brew bundle dump</code>. This command overwrites the comments in the Brewfile, so snapshot asks you to confirm first.</li>
             <li><strong>Apps:</strong> AlDente, Amphetamine, BetterSnapTool, Descript, Fission, HandBrake, Helium, Ice, iTerm2, ScreenFlow</li>
           </ul>
         </div>
@@ -571,7 +581,7 @@ zoom-mode status</code></pre>
       </div>
       <div class="callout">
         <span class="callout-label">Note</span>
-        <div class="callout-body">Symlinked from <code>~/mrk/scripts/</code> during <code>make install</code>. Part of the <a href="https://github.com/sevmorris/mrk">mrk</a> machine configuration system.</div>
+        <div class="callout-body">The <code>make install</code> command symlinks these tools from <code>~/mrk/scripts/</code> and <code>~/mrk/bin/</code> into <code>~/bin</code>. They are part of the <a href="https://github.com/sevmorris/mrk">mrk</a> machine configuration system.</div>
       </div>
 
       <div class="proc" id="check-updates">
@@ -580,12 +590,13 @@ zoom-mode status</code></pre>
           <h3>check-updates <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Silently checks for mrk repo updates (at most once every 7 days). Prompts to update if behind.</p>
+          <p class="desc">check-updates checks whether the mrk repository has new commits. It runs at most once every 7 days. If your copy is behind, it asks you to update.</p>
           <pre><code>check-updates</code></pre>
           <ul>
-            <li>Only runs in interactive shells.</li>
-            <li>Exits silently on network failure or if up to date.</li>
-            <li>Timestamp cached in <code>~/.cache/mrk/</code>.</li>
+            <li>check-updates runs only in an interactive shell.</li>
+            <li>check-updates never waits for the network. It compares your copy against the last commit that git fetched, and it refreshes the remote in the background.</li>
+            <li>check-updates exits and shows nothing when your copy is current.</li>
+            <li>check-updates keeps the timestamp in <code>~/.cache/mrk/</code>.</li>
           </ul>
         </div>
       </div>
@@ -596,12 +607,16 @@ zoom-mode status</code></pre>
           <h3>doctor <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Verifies <code>~/bin</code> is on PATH. With <code>--fix</code>, appends a conditional PATH export to <code>~/.zshrc</code>.</p>
+          <p class="desc">doctor checks that <code>~/bin</code> is on the PATH. The <code>--fix</code> option adds a PATH line to <code>~/.zshrc</code>.</p>
           <pre><code>doctor [check | --fix | fix]</code></pre>
           <ul>
-            <li><code>check</code> (default) — prints pass/fail and exits with status 0 or 1</li>
-            <li><code>--fix</code> / <code>fix</code> — idempotent: only writes to <code>~/.zshrc</code> if the line isn't already there. The exported line checks that <code>~/bin</code> exists and isn't already in PATH before prepending it.</li>
+            <li><code>check</code> (the default) — Shows the result and exits with status 0 or status 1.</li>
+            <li><code>--fix</code> or <code>fix</code> — Adds the line to <code>~/.zshrc</code>. doctor writes the line only when the line is absent, so you can run this command more than once. The line it adds first checks that <code>~/bin</code> exists and that the PATH does not already contain it.</li>
           </ul>
+          <div class="callout">
+            <span class="callout-label">Note</span>
+            <div class="callout-body">To run the fix through Make, use <code>make doctor ARGS=--fix</code>. Make reads the bare form <code>make doctor --fix</code> as a Make option and fails.</div>
+          </div>
         </div>
       </div>
 
@@ -611,7 +626,7 @@ zoom-mode status</code></pre>
           <h3>fix-exec <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Sets executable bits on all mrk scripts and <code>~/bin</code> symlinks pointing into the repo. Idempotent.</p>
+          <p class="desc">fix-exec sets the executable bit on the mrk scripts. It also sets the bit on the <code>~/bin</code> symlinks that point into the repository. You can run fix-exec more than once.</p>
           <pre><code>fix-exec</code></pre>
         </div>
       </div>
@@ -622,16 +637,16 @@ zoom-mode status</code></pre>
           <h3>hardening.sh <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Applies opt-in macOS security hardening with automatic rollback script generation.</p>
-          <pre><code>hardening.sh</code></pre>
           <div class="callout callout-warn">
             <span class="callout-label">Warning</span>
-            <div class="callout-body">Modifies system files. A rollback script is generated at <code>~/.mrk/hardening-rollback.sh</code> before any changes are applied.</div>
+            <div class="callout-body">hardening.sh changes system files, and it needs sudo. It writes the rollback script to <code>~/.mrk/hardening-rollback.sh</code> before it changes anything. To undo the changes, run <code>bash ~/.mrk/hardening-rollback.sh</code>.</div>
           </div>
+          <p class="desc">hardening.sh applies three optional macOS security settings. It asks you to confirm each one.</p>
+          <pre><code>hardening.sh</code></pre>
           <ul>
-            <li><strong>Touch ID for sudo</strong> — adds <code>pam_tid.so</code> to <code>/etc/pam.d/sudo</code></li>
-            <li><strong>Immediate password on wake</strong> — screensaver password delay → 0</li>
-            <li><strong>Firewall + stealth mode</strong> — enables macOS application firewall</li>
+            <li><strong>Touch ID for sudo</strong> — Adds <code>pam_tid.so</code> to <code>/etc/pam.d/sudo</code>.</li>
+            <li><strong>Immediate password after sleep</strong> — Sets the screensaver password delay to 0.</li>
+            <li><strong>Firewall and stealth mode</strong> — Turns on the macOS application firewall. hardening.sh checks the firewall state and the stealth mode state separately, so it can turn on stealth mode when the firewall is already on.</li>
           </ul>
         </div>
       </div>
@@ -642,12 +657,12 @@ zoom-mode status</code></pre>
           <h3>hide_tm.sh <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Hides Time Machine backup volumes from the Finder sidebar.</p>
+          <p class="desc">hide_tm.sh hides the Time Machine backup volumes from the Finder sidebar.</p>
           <pre><code>hide_tm.sh [volume_name]
 TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
           <ul>
-            <li>Default volume: <code>TimeMachine</code>.</li>
-            <li>Accepts comma-separated list via env var or argument.</li>
+            <li>The default volume name is <code>TimeMachine</code>.</li>
+            <li>To name more than one volume, give a comma-separated list. Use the argument or the <code>TM_VOLUMES</code> environment variable.</li>
           </ul>
         </div>
       </div>
@@ -658,7 +673,7 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
           <h3>pull-prefs <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Clones or pulls the private <code>mrk-prefs</code> repo into <code>~/.mrk/preferences/</code>. Auto-called by mrk post-install.</p>
+          <p class="desc">pull-prefs clones the private <code>mrk-prefs</code> repository into <code>~/.mrk/preferences/</code>. If the clone exists, pull-prefs pulls it instead. The <code>mrk-post-install</code> command runs pull-prefs for you.</p>
           <pre><code>pull-prefs</code></pre>
         </div>
       </div>
@@ -669,11 +684,18 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
           <h3>snapshot-prefs <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Comprehensive preference export: plists for 14 apps plus Application Support files. Commits and pushes to the private mrk-prefs repo.</p>
+          <div class="callout callout-caution">
+            <span class="callout-label">Caution</span>
+            <div class="callout-body">snapshot-prefs scans every staged file for API keys and tokens before it commits. If the scan finds a match, snapshot-prefs stops and asks you to confirm. It does not ask when <code>NONINTERACTIVE=1</code> is set or when there is no terminal — in those two cases it aborts. Read the reported lines before you answer.</div>
+          </div>
+          <p class="desc">snapshot-prefs exports the app preferences and pushes them to the private mrk-prefs repository. It exports plists for 14 apps. It also copies the Application Support files and the config directories.</p>
           <pre><code>snapshot-prefs</code></pre>
           <ul>
             <li><strong>Apps:</strong> BetterSnapTool, Ice, iTerm2, Raycast, Stats, Loopback, SoundSource, Audio Hijack, Farrago, Piezo, Typora, Keka, TimeMachineEditor, MacWhisper</li>
-            <li><strong>App Support:</strong> Loopback (devices/routing), SoundSource (presets/sources)</li>
+            <li><strong>Application Support:</strong> Loopback (devices and routing), SoundSource (presets and sources)</li>
+            <li><strong>Config directories:</strong> Calibre (<code>~/Library/Preferences/calibre/</code>). Calibre keeps a tree of files, not a defaults domain, so snapshot-prefs copies the files.</li>
+            <li>snapshot-prefs converts each binary plist to xml1 before it scans the file, because the scan cannot read a binary plist.</li>
+            <li>snapshot-prefs skips an app that is not installed, and it reports the skipped apps when it exits.</li>
           </ul>
         </div>
       </div>
@@ -684,15 +706,15 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
           <h3>status <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Interactive two-pane TUI health dashboard for the mrk installation. Also available as <code>mrk-status</code>.</p>
+          <p class="desc">status is a two-pane TUI dashboard. It shows the health of the mrk installation. The same binary also runs as <code>mrk-status</code>.</p>
           <pre><code>status
 mrk-status --help</code></pre>
           <ul>
-            <li>Left pane: nine checks with ✓/⚠/✗ status — dotfiles, tool symlinks, macOS defaults, security hardening, backups, shell, PATH, Homebrew, Brewfile packages</li>
-            <li>Right pane: detail lines for the selected check, including the suggested fix command</li>
-            <li><strong>f</strong> — run the fix command for the selected check</li>
-            <li><strong>r</strong> — refresh all checks</li>
-            <li><strong>tab / ←→</strong> — switch panes</li>
+            <li>Left pane — nine checks, each with a ✓, ⚠ or ✗ mark: dotfiles, tool symlinks, macOS defaults, security hardening, backups, shell, PATH, Homebrew, and Brewfile packages.</li>
+            <li>Right pane — the detail lines for the selected check. The pane also shows the suggested fix command.</li>
+            <li><strong>f</strong> — Run the fix command for the selected check.</li>
+            <li><strong>r</strong> — Run all the checks again.</li>
+            <li><strong>tab / ←→</strong> — Move to the other pane.</li>
           </ul>
         </div>
       </div>
@@ -703,13 +725,15 @@ mrk-status --help</code></pre>
           <h3>sync <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Compares installed Homebrew packages against the Brewfile, presents an interactive picker for new packages, and inserts them alphabetically into the correct section.</p>
+          <p class="desc">sync compares the installed Homebrew packages against the Brewfile. It shows a picker for the new packages. It then adds the packages you select to the correct section, in alphabetical order.</p>
           <pre><code>sync [--dry-run | -n] [--commit | -c] [--prune | -p]</code></pre>
           <ul>
-            <li><code>--dry-run</code> — shows what would be added/removed without modifying</li>
-            <li><code>--commit</code> — auto-commits the Brewfile after updating</li>
-            <li><code>--prune</code> — removes Brewfile entries for packages no longer installed (interactive selection)</li>
-            <li>Uses mrk-picker or gum for interactive selection</li>
+            <li><code>--dry-run</code> — Shows the additions and the deletions. sync does not change the Brewfile.</li>
+            <li><code>--commit</code> — Commits the Brewfile after sync updates it.</li>
+            <li><code>--prune</code> — Deletes the Brewfile entries for the packages that you uninstalled. You select which entries to delete.</li>
+            <li>sync uses mrk-picker for the selection. If mrk-picker is absent, sync uses gum.</li>
+            <li>If <code>brew list</code> fails, sync stops. An empty package list would make <code>--prune</code> mark every Brewfile entry for deletion.</li>
+            <li>sync writes the Brewfile to a temporary file first, and then moves it into place.</li>
           </ul>
         </div>
       </div>
@@ -720,14 +744,18 @@ mrk-status --help</code></pre>
           <h3>sync-login-items <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Diffs system login items against those tracked in <code>scripts/post-install</code>. Presents an interactive picker to add new items or remove stale ones, then updates <code>post-install</code> and <code>docs/manual.md</code> in one pass.</p>
+          <p class="desc">sync-login-items compares the system login items against the items that <code>scripts/post-install</code> tracks. It shows a picker, so you can add the new items or delete the old ones. It then updates <code>scripts/post-install</code> and <code>docs/manual.md</code> together.</p>
           <pre><code>sync-login-items [--dry-run | -n] [--commit | -c]</code></pre>
           <ul>
-            <li><code>--dry-run</code> — shows the diff and selected changes without writing any files</li>
-            <li><code>--commit</code> — auto-commits all changed files after updating with a descriptive message (<code>login-items: add X; remove Y</code>)</li>
-            <li>Uses <code>gum</code> for multi-select UI when available; falls back to y/N bulk prompts.</li>
-            <li>Login items are read from System Events via AppleScript. Paths are resolved automatically.</li>
+            <li><code>--dry-run</code> — Shows the differences and your selections. sync-login-items writes no files.</li>
+            <li><code>--commit</code> — Commits the changed files. The commit message has the form <code>login-items: add X; remove Y</code>.</li>
+            <li>sync-login-items uses <code>gum</code> for the multiple-selection list. If gum is absent, it asks a y/N question for each group.</li>
+            <li>sync-login-items reads the login items from System Events with AppleScript.</li>
           </ul>
+          <div class="callout callout-caution">
+            <span class="callout-label">Caution</span>
+            <div class="callout-body">If System Events returns no login items, or if the AppleScript fails, sync-login-items stops and shows an error. It does not continue, because an empty list looks the same as a complete list of deletions, and sync-login-items would then offer to delete every tracked item. Give Automation access in System Settings → Privacy &amp; Security → Automation, and then run the command again. If you really have no login items, edit the <code>add_login_item</code> block in <code>scripts/post-install</code> by hand.</div>
+          </div>
         </div>
       </div>
 
@@ -737,14 +765,14 @@ mrk-status --help</code></pre>
           <h3>mrk-install <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Unified mrk installer. Runs setup, brew, and post-install phases. Entry point for a full bootstrap or targeted re-run.</p>
+          <p class="desc">mrk-install is the mrk installer. It runs the setup phase, the brew phase and the post-install phase. Use it for a full bootstrap, or to run one phase again.</p>
           <pre><code>mrk-install [--brew | --post | --all] [options]</code></pre>
           <ul>
-            <li><code>--brew</code> — run the brew phase</li>
-            <li><code>--post</code> — run the post-install phase</li>
-            <li><code>--all</code> — run all phases sequentially</li>
-            <li>(no flags) — run setup only</li>
-            <li>Other options pass through to the selected phase</li>
+            <li><code>--brew</code> — Run the brew phase.</li>
+            <li><code>--post</code> — Run the post-install phase.</li>
+            <li><code>--all</code> — Run all the phases, one after the other.</li>
+            <li>No flag — Run the setup phase only.</li>
+            <li>mrk-install passes the other options to the phase that you select.</li>
           </ul>
         </div>
       </div>
@@ -755,7 +783,7 @@ mrk-status --help</code></pre>
           <h3>mrk-setup <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Phase 1: idempotent macOS bootstrap. Dotfile linking, ~/bin symlinks, shell config, backups.</p>
+          <p class="desc">mrk-setup is phase 1. It symlinks the dotfiles, symlinks the tools into <code>~/bin</code>, sets the shell, installs oh-my-zsh and its plugins, and backs up the files that it replaces. You can run mrk-setup more than once.</p>
           <pre><code>mrk-setup [options]</code></pre>
         </div>
       </div>
@@ -766,7 +794,7 @@ mrk-status --help</code></pre>
           <h3>mrk-brew <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Phase 2: Homebrew package and cask installation from the Brewfile.</p>
+          <p class="desc">mrk-brew is phase 2. It installs the Homebrew formulae and casks that the Brewfile lists.</p>
           <pre><code>mrk-brew [options]</code></pre>
         </div>
       </div>
@@ -777,8 +805,12 @@ mrk-status --help</code></pre>
           <h3>mrk-post-install <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Phase 3: configure apps installed by Homebrew (post-install hooks, app-specific setup).</p>
+          <p class="desc">mrk-post-install is phase 3. It configures the apps that Homebrew installed. It imports the app plists, restores the Application Support files and the config directories, and registers the login items.</p>
           <pre><code>mrk-post-install</code></pre>
+          <ul>
+            <li>mrk-post-install continues when a step fails. It counts the failed steps and reports the total when it exits.</li>
+            <li>mrk-post-install imports a plist only when the app has no preferences yet, so it never overwrites a live configuration.</li>
+          </ul>
         </div>
       </div>
 
@@ -788,12 +820,18 @@ mrk-status --help</code></pre>
           <h3>mrk-defaults <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Applies macOS defaults (Dock, Finder, keyboard, etc.) and generates a rollback script at <code>~/.mrk/defaults-rollback.sh</code>.</p>
+          <p class="desc">mrk-defaults applies the macOS defaults for the Dock, the Finder, the keyboard and other system areas. It writes a rollback script to <code>~/.mrk/defaults-rollback.sh</code>.</p>
           <pre><code>mrk-defaults [--with-trackpad]</code></pre>
           <ul>
-            <li>Without flags: applies all defaults except trackpad gestures</li>
-            <li><code>--with-trackpad</code> — also applies trackpad gesture settings</li>
+            <li>No flag — Applies all the defaults except the trackpad gestures.</li>
+            <li><code>--with-trackpad</code> — Also applies the trackpad gesture settings.</li>
+            <li>mrk-defaults continues when a write fails. It counts the failed writes and reports the total when it exits.</li>
+            <li>The rollback script covers the system defaults that mrk-defaults writes. It does not cover the browser preferences or the app preferences that <code>mrk-post-install</code> writes.</li>
           </ul>
+          <div class="callout">
+            <span class="callout-label">Note</span>
+            <div class="callout-body">To undo the defaults, run <code>bash ~/.mrk/defaults-rollback.sh</code>.</div>
+          </div>
         </div>
       </div>
 
@@ -803,7 +841,7 @@ mrk-status --help</code></pre>
           <h3>mrk-uninstall <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Conservative mrk uninstaller. Removes <code>~/bin</code> symlinks pointing into the repo and offers to run the defaults/hardening rollback scripts. Does not remove dotfile symlinks or <code>~/.mrk</code> state, and does not uninstall Homebrew packages.</p>
+          <p class="desc">mrk-uninstall deletes the <code>~/bin</code> symlinks that point into the repository. It then offers to run the defaults rollback script and the hardening rollback script. It keeps the dotfile symlinks and the <code>~/.mrk</code> directory, and it does not uninstall the Homebrew packages. To delete everything, use <code>nuke-mrk</code> instead.</p>
           <pre><code>mrk-uninstall</code></pre>
         </div>
       </div>
@@ -814,20 +852,22 @@ mrk-status --help</code></pre>
           <h3>bf <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Interactive Brewfile manager. Two-pane Bubble Tea TUI: sections (left) | packages (right). Reads and writes the mrk Brewfile directly. Built Go binary.</p>
-          <pre><code>bf</code></pre>
+          <p class="desc">bf is the Brewfile manager. It is a two-pane TUI: the sections are on the left, and the packages are on the right. bf reads the mrk Brewfile and writes to it. To use a different file, give its path as the argument. bf is a Go binary.</p>
+          <pre><code>bf [BREWFILE]
+bf --help | -h
+bf --version</code></pre>
           <ul>
-            <li><strong>j/k · ↑/↓</strong> — navigate</li>
-            <li><strong>tab · ←/→</strong> — switch panes</li>
-            <li><strong>a</strong> — add a package</li>
-            <li><strong>d</strong> — delete selected package</li>
-            <li><strong>m</strong> — move package to another section</li>
-            <li><strong>g</strong> — toggle greedy (casks only)</li>
-            <li><strong>p</strong> — prune uninstalled entries</li>
-            <li><strong>/</strong> — search packages</li>
-            <li><strong>w</strong> — write changes back to the Brewfile</li>
-            <li><strong>c</strong> — commit saved changes via git</li>
-            <li><strong>q · ctrl-c</strong> — quit</li>
+            <li><strong>j/k · ↑/↓</strong> — Move up and down.</li>
+            <li><strong>tab · ←/→</strong> — Move to the other pane.</li>
+            <li><strong>a</strong> — Add a package.</li>
+            <li><strong>d</strong> — Delete the selected package.</li>
+            <li><strong>m</strong> — Move the package to a different section.</li>
+            <li><strong>g</strong> — Turn the greedy option on or off. This applies to a cask only.</li>
+            <li><strong>p</strong> — Delete the entries for the packages that you uninstalled.</li>
+            <li><strong>/</strong> — Search the packages.</li>
+            <li><strong>w</strong> — Write your changes to the Brewfile.</li>
+            <li><strong>c</strong> — Commit the changes that you wrote.</li>
+            <li><strong>q · ctrl-c</strong> — Quit.</li>
           </ul>
         </div>
       </div>
@@ -838,16 +878,16 @@ mrk-status --help</code></pre>
           <h3>mrk-menu <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Central TUI launcher for every mrk task. Two-pane Miller-column layout grouping commands by category — Brewfile, Login items, Preferences, System state, Diagnostics, Maintenance, Nuclear options. Built Go binary.</p>
+          <p class="desc">mrk-menu starts any mrk task. It is a two-pane TUI, and it groups the commands into categories: Brewfile, Login items, Preferences, System state, Diagnostics, Maintenance, and Nuclear options. mrk-menu is a Go binary.</p>
           <pre><code>mrk-menu</code></pre>
           <ul>
-            <li><strong>j/k · ↑/↓</strong> — navigate</li>
-            <li><strong>enter · → · l</strong> — select / launch</li>
-            <li><strong>esc · ← · h</strong> — back</li>
-            <li><strong>1–9</strong> — jump to the numbered entry in the focused pane</li>
-            <li><strong>/</strong> — type-ahead filter across every item in every category</li>
-            <li><strong>?</strong> — toggle help overlay</li>
-            <li><strong>q · ctrl-c</strong> — quit</li>
+            <li><strong>j/k · ↑/↓</strong> — Move up and down.</li>
+            <li><strong>enter · → · l</strong> — Select the item, or start the command.</li>
+            <li><strong>esc · ← · h</strong> — Go back.</li>
+            <li><strong>1–9</strong> — Go to that entry in the active pane.</li>
+            <li><strong>/</strong> — Filter every item in every category as you type.</li>
+            <li><strong>?</strong> — Show or hide the help panel.</li>
+            <li><strong>q · ctrl-c</strong> — Quit.</li>
           </ul>
         </div>
       </div>
@@ -858,8 +898,16 @@ mrk-status --help</code></pre>
           <h3>mrk-picker <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Interactive Brewfile package selector. Two-pane TUI showing categories and packages with descriptions; emits selected packages on stdout as <code>formula:name</code> or <code>cask:name</code> lines for piping into other scripts. Used by <code>sync</code> for the picker UI when present. Built Go binary.</p>
-          <pre><code>mrk-picker [flags]</code></pre>
+          <p class="desc">mrk-picker selects Brewfile packages. It is a two-pane TUI, and it shows the categories, the packages and their descriptions. mrk-picker writes each package that you select to stdout as a <code>formula:name</code> line or a <code>cask:name</code> line, so another script can read them. The <code>sync</code> command uses mrk-picker when it is present. mrk-picker is a Go binary.</p>
+          <ul>
+            <li><code>--brewfile PATH</code> — Read this Brewfile. The default is <code>Brewfile</code>.</li>
+            <li><code>--installed-formulae LIST</code> — A comma-separated list of the installed formulae.</li>
+            <li><code>--installed-casks LIST</code> — A comma-separated list of the installed casks.</li>
+            <li><code>--skip-formulae</code> — Leave the formulae out of the picker.</li>
+            <li><code>--skip-casks</code> — Leave the casks out of the picker.</li>
+          </ul>
+          <pre><code>mrk-picker [--brewfile PATH] [--installed-formulae LIST] [--installed-casks LIST]
+           [--skip-formulae] [--skip-casks]</code></pre>
         </div>
       </div>
 
@@ -869,13 +917,121 @@ mrk-status --help</code></pre>
           <h3>mrk-push <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">Wrapper around <code>git commit &amp;&amp; git push</code> for the mrk repo, followed by a prune of stale GitHub Pages deployments via the GitHub CLI. Prompts for a commit message if none is given.</p>
+          <div class="callout callout-caution">
+            <span class="callout-label">Caution</span>
+            <div class="callout-body">mrk-push scans every staged file for API keys and tokens before it commits. If the scan finds a match, mrk-push stops and asks you to confirm. It does not ask when <code>NONINTERACTIVE=1</code> is set or when there is no terminal — in those two cases it aborts. Read the reported lines before you answer.</div>
+          </div>
+          <p class="desc">mrk-push commits the mrk repository and pushes it. It then deletes the old GitHub Pages deployments with the GitHub CLI. If you give no commit message, mrk-push asks you for one.</p>
           <pre><code>mrk-push "commit message"
-mrk-push                # prompts for message</code></pre>
+mrk-push                # mrk-push asks for the message</code></pre>
           <ul>
-            <li>Requires the <code>gh</code> CLI on <code>$PATH</code>.</li>
-            <li>Must be run from inside a git working tree.</li>
-            <li>Keeps only the most recent GitHub Pages deployment; older deployments are deleted.</li>
+            <li>mrk-push needs the <code>gh</code> CLI on the PATH.</li>
+            <li>Run mrk-push inside a git working tree.</li>
+            <li>mrk-push keeps the most recent GitHub Pages deployment and deletes the older ones.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="maintain">
+        <div class="proc-header">
+          <span class="proc-num">2.21</span>
+          <h3>maintain <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">maintain does the periodic housekeeping for the mrk repository. It runs four steps in order.</p>
+          <pre><code>maintain [--dry-run] [--keep=N] [--skip-check] [--help | -h]</code></pre>
+          <ol>
+            <li>Delete the old GitHub Pages deployments. maintain keeps the newest N.</li>
+            <li>Run <code>git fetch --prune</code> to delete the stale remote-tracking refs.</li>
+            <li>Run <code>make check</code> to validate the repository.</li>
+            <li>Compare each TUI binary against its source, and report the binaries that are out of date.</li>
+          </ol>
+          <ul>
+            <li><code>--dry-run</code> — Show each step. maintain makes no API call, no git call and no make call. Step 4 still runs, because it only reads.</li>
+            <li><code>--keep=N</code> — Keep the N most recent GitHub Pages deployments. The default is 10.</li>
+            <li><code>--skip-check</code> — Do not run <code>make check</code>.</li>
+            <li><code>--help</code> or <code>-h</code> — Show the usage text.</li>
+          </ul>
+          <div class="callout callout-caution">
+            <span class="callout-label">Caution</span>
+            <div class="callout-body">maintain asks you to confirm before it deletes any deployment. A low <code>--keep</code> value deletes more deployments. <code>--keep=0</code> deletes the live deployment and takes the published page offline.</div>
+          </div>
+          <ul>
+            <li>maintain needs <code>gh</code>, <code>git</code> and <code>make</code> on the PATH. It checks the <code>gh</code> login only when it will call the API.</li>
+            <li>maintain exits with status 1 when <code>make check</code> fails.</li>
+            <li>Run maintain through Make with <code>make maintain</code>. To pass an option, use <code>make maintain ARGS=--dry-run</code>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="dock-setup">
+        <div class="proc-header">
+          <span class="proc-num">2.22</span>
+          <h3>dock-setup <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <div class="callout callout-caution">
+            <span class="callout-label">Caution</span>
+            <div class="callout-body">dock-setup deletes every item from the Dock before it adds the new items. It does not ask you to confirm, and it does not save your current Dock layout.</div>
+          </div>
+          <p class="desc">dock-setup fills the Dock with the apps that the <code>DOCK_APPS</code> list names. It then adds the Applications directory and restarts the Dock.</p>
+          <pre><code>dock-setup</code></pre>
+          <ul>
+            <li>dock-setup needs <code>dockutil</code>. It installs dockutil with Homebrew when dockutil is absent.</li>
+            <li>dock-setup skips an app that is not installed, and it reports the total at the end.</li>
+            <li>To change the layout, edit the <code>DOCK_APPS</code> list in <code>scripts/dock-setup</code>.</li>
+            <li>Run dock-setup through Make with <code>make dock</code>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="ci-check">
+        <div class="proc-header">
+          <span class="proc-num">2.23</span>
+          <h3>ci-check <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">ci-check runs the local validation for the repository. GitHub Actions runs the same script.</p>
+          <pre><code>ci-check</code></pre>
+          <ol>
+            <li>Run <code>check-picker-desc</code>.</li>
+            <li>Run shellcheck on every bash script in <code>scripts/</code> and <code>bin/</code>. ci-check skips <code>scripts/adventure-prologue</code>.</li>
+            <li>Run <code>go test</code> in the five tool directories: picker, bf, mrk-status, mrk-menu and theme.</li>
+          </ol>
+          <ul>
+            <li>ci-check shows a warning and skips step 2 when shellcheck is absent. Install it with <code>brew install shellcheck</code>.</li>
+            <li>Run ci-check through Make with <code>make check</code>. To also build the TUI binaries, run <code>make ci</code>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="check-picker-desc">
+        <div class="proc-header">
+          <span class="proc-num">2.24</span>
+          <h3>check-picker-desc <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">check-picker-desc verifies that mrk-picker has a description for every Brewfile package. It compares the Brewfile against <code>tools/picker/main.go</code>.</p>
+          <pre><code>check-picker-desc</code></pre>
+          <ul>
+            <li>check-picker-desc exits with status 1 when a package has no description.</li>
+            <li><code>ci-check</code> runs check-picker-desc first, so <code>make check</code> covers it.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="adventure-prologue">
+        <div class="proc-header">
+          <span class="proc-num">2.25</span>
+          <h3>adventure-prologue <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">adventure-prologue is a text adventure. It is the prelude to the mrk installation in adventure mode. The setting is a 4.3BSD workstation in 1989. Find the setup script on the mounted floppy disk, and run it.</p>
+          <pre><code>adventure-prologue</code></pre>
+          <ul>
+            <li>adventure-prologue exits with status 0 when you run the setup script. It exits with status 1 when you quit.</li>
+            <li>adventure-prologue exits and shows nothing when stdin or stdout is not a terminal.</li>
+            <li><code>make adventure</code> runs adventure-prologue first. If you complete it, Make then runs the full installation with narration.</li>
           </ul>
         </div>
       </div>
@@ -888,7 +1044,7 @@ mrk-push                # prompts for message</code></pre>
         <h2>Shared Libraries</h2>
         <span class="section-sub">scripts/lib.sh · bin/lib/common.sh</span>
       </div>
-      <p>Two separate libraries. <code>scripts/lib.sh</code> serves the mrk install-phase scripts; <code>bin/lib/common.sh</code> serves the standalone <code>~/bin</code> tools with a minimal logging/utility surface.</p>
+      <p>mrk has two separate libraries. <code>scripts/lib.sh</code> serves the mrk install-phase scripts. <code>bin/lib/common.sh</code> serves the standalone <code>~/bin</code> tools, and it supplies a small set of logging and utility functions.</p>
 
       <table class="ref-table">
         <caption>Table 3.1-1. scripts/lib.sh — mrk install-phase scripts (setup, brew, post-install, defaults.sh, hardening.sh, sync, …)</caption>
@@ -896,21 +1052,22 @@ mrk-push                # prompts for message</code></pre>
           <tr><th>Function</th><th>Purpose</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>log() ok() warn() err() info()</code></td><td>Logging to stderr (cyan/green/yellow/red/plain)</td></tr>
-          <tr><td><code>dry() logskip() section()</code></td><td>Dry-run-aware log, skip notice, section banner</td></tr>
-          <tr><td><code>confirm()</code></td><td>Adventure-style <code>&gt;</code> prompt — <strong>default yes</strong>: proceeds on anything except <code>quit</code>/<code>exit</code>/<code>q</code>/<code>n</code>/<code>no</code>; skipped when <code>NONINTERACTIVE=1</code> or no TTY</td></tr>
-          <tr><td><code>sudo_refresh</code></td><td>Extend an active sudo session (never prompts)</td></tr>
-          <tr><td><code>check_macos</code></td><td>Exit unless running on macOS</td></tr>
-          <tr><td><code>setup_logging</code></td><td>Create <code>~/.mrk</code>, rotate <code>~/.mrk/install.log</code> past 10&nbsp;MB</td></tr>
-          <tr><td><code>mrk_mktemp / mrk_mktemp_d</code></td><td>Portable mktemp (GNU mktemp rejects BSD <code>-t mrk</code>)</td></tr>
-          <tr><td><code>scan_for_secrets / require_clean_secrets</code></td><td>Grep files for key/token patterns; gate commits/pushes</td></tr>
+          <tr><td><code>log() ok() warn() err() info()</code></td><td>Writes a log line to stderr. The colors are cyan, green, yellow, red and plain.</td></tr>
+          <tr><td><code>dry() logskip() section()</code></td><td>Writes a dry-run log line, a skip notice, or a section banner.</td></tr>
+          <tr><td><code>confirm()</code></td><td>Shows an adventure-style <code>&gt;</code> prompt. The <strong>default answer is yes</strong>: it continues for every answer except <code>quit</code>, <code>exit</code>, <code>q</code>, <code>n</code> and <code>no</code>. It returns yes when <code>NONINTERACTIVE=1</code> is set or when there is no terminal.</td></tr>
+          <tr><td><code>sudo_refresh</code></td><td>Extends an active sudo session. It never asks for a password.</td></tr>
+          <tr><td><code>check_macos</code></td><td>Exits when the operating system is not macOS.</td></tr>
+          <tr><td><code>setup_logging</code></td><td>Creates <code>~/.mrk</code>. Rotates <code>~/.mrk/install.log</code> when the log is larger than 10&nbsp;MB.</td></tr>
+          <tr><td><code>mrk_mktemp / mrk_mktemp_d</code></td><td>Creates a temporary file or directory. Uses an explicit template, because GNU mktemp rejects the BSD form <code>-t mrk</code>.</td></tr>
+          <tr><td><code>scan_for_secrets</code></td><td>Searches files for API keys, tokens and private keys. Converts a binary plist to xml1 first. Returns non-zero when it finds a match.</td></tr>
+          <tr><td><code>require_clean_secrets</code></td><td>Runs <code>scan_for_secrets</code> and gates the commit. Asks you to confirm a match. Aborts instead when <code>NONINTERACTIVE=1</code> is set or when there is no terminal.</td></tr>
         </tbody>
       </table>
       <div class="callout">
         <span class="callout-label">Note — lib.sh Environment Variables</span>
         <div class="callout-body">
-          <code>NONINTERACTIVE=1</code> — skip confirm() prompts, abort instead of asking in secret checks &nbsp;·&nbsp;
-          <code>DRY_RUN=1</code> — dry() labels actions instead of logging them as performed
+          <code>NONINTERACTIVE=1</code> — Skips the confirm() prompts. Aborts the secret check instead of asking. &nbsp;·&nbsp;
+          <code>DRY_RUN=1</code> — Makes dry() label an action instead of reporting it as complete.
         </div>
       </div>
 
@@ -920,9 +1077,9 @@ mrk-push                # prompts for message</code></pre>
           <tr><th>Function</th><th>Purpose</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>ok() warn() err() info()</code></td><td>Logging (info to stdout, the rest to stderr)</td></tr>
-          <tr><td><code>is_running</code></td><td>Check if a process matching a pattern is running</td></tr>
-          <tr><td><code>require_cmd</code></td><td>Error if any listed command is missing</td></tr>
+          <tr><td><code>ok() warn() err() info()</code></td><td>Writes a log line. info() writes to stdout, and the others write to stderr.</td></tr>
+          <tr><td><code>is_running</code></td><td>Checks whether a process that matches a pattern runs.</td></tr>
+          <tr><td><code>require_cmd</code></td><td>Reports an error when a listed command is absent.</td></tr>
         </tbody>
       </table>
     </section>
@@ -940,31 +1097,38 @@ mrk-push                # prompts for message</code></pre>
           <tr><th>Command</th><th>What it does</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>zoom-mode on</code></td><td>Enable Zoom recording mode (WiFi keepalive, no sleep, pause sync)</td></tr>
-          <tr><td><code>zoom-mode off</code></td><td>Disable Zoom recording mode and restore all services</td></tr>
-          <tr><td><code>audio-mode on --all</code></td><td>Pause all sync services for recording (without network/sleep tweaks)</td></tr>
-          <tr><td><code>audio-mode off</code></td><td>Resume sync services</td></tr>
-          <tr><td><code>snapshot</code></td><td>Export app prefs to mrk</td></tr>
-          <tr><td><code>snapshot-prefs</code></td><td>Export + push prefs to private repo</td></tr>
-          <tr><td><code>sync</code></td><td>Add new Homebrew packages to Brewfile</td></tr>
-          <tr><td><code>sync-login-items</code></td><td>Diff &amp; update tracked login items in post-install + manual</td></tr>
-          <tr><td><code>status</code></td><td>Interactive TUI health dashboard (dotfiles, tools, Homebrew, etc.)</td></tr>
-          <tr><td><code>mrk-menu</code></td><td>TUI launcher for every mrk task (filter, hotkeys, status footer)</td></tr>
-          <tr><td><code>bf</code></td><td>Interactive Brewfile manager TUI (two-pane sections + packages)</td></tr>
-          <tr><td><code>mrk-picker</code></td><td>Interactive package picker (emits selections to stdout)</td></tr>
-          <tr><td><code>mrk-push "msg"</code></td><td>Commit + push mrk repo and prune stale Pages deployments</td></tr>
-          <tr><td><code>nuke-mrk</code></td><td>Clean uninstall mrk for reinstall</td></tr>
-          <tr><td><code>hardening.sh</code></td><td>Apply macOS security tweaks</td></tr>
-          <tr><td><code>make doctor ARGS=--fix</code></td><td>Fix ~/bin PATH issues</td></tr>
-          <tr><td><code>make check</code></td><td>Local CI validation (picker descriptions, shellcheck, go tests)</td></tr>
-          <tr><td><code>make ci</code></td><td>Full CI pipeline locally (check + build all TUI binaries)</td></tr>
-          <tr><td><code>make pull</code></td><td>Fast-forward the mrk repo to origin (git pull --ff-only)</td></tr>
-          <tr><td><code>make tidy</code></td><td>Run go mod tidy across all Go tool directories</td></tr>
-          <tr><td><code>mrk-install</code></td><td>Full mrk bootstrap (all phases)</td></tr>
-          <tr><td><code>mrk-setup</code></td><td>Phase 1: dotfiles, symlinks, shell</td></tr>
-          <tr><td><code>mrk-brew</code></td><td>Phase 2: Homebrew packages</td></tr>
-          <tr><td><code>mrk-defaults [--with-trackpad]</code></td><td>Apply macOS defaults (add trackpad gestures with flag)</td></tr>
-          <tr><td><code>mrk-uninstall</code></td><td>Remove mrk ~/bin symlinks; offers rollbacks (keeps dotfiles, ~/.mrk state, Homebrew)</td></tr>
+          <tr><td><code>zoom-mode on</code></td><td>Start Zoom recording mode: WiFi keepalive, no sleep, sync paused</td></tr>
+          <tr><td><code>zoom-mode off</code></td><td>Stop Zoom recording mode and resume the services</td></tr>
+          <tr><td><code>audio-mode on --all</code></td><td>Pause the sync services for a recording, and change nothing else</td></tr>
+          <tr><td><code>audio-mode off</code></td><td>Resume the sync services</td></tr>
+          <tr><td><code>snapshot</code></td><td>Export the app preferences into the mrk repository</td></tr>
+          <tr><td><code>snapshot-prefs</code></td><td>Export the app preferences and push them to the private repository</td></tr>
+          <tr><td><code>sync</code></td><td>Add the new Homebrew packages to the Brewfile</td></tr>
+          <tr><td><code>sync-login-items</code></td><td>Compare the login items, then update post-install and the manual</td></tr>
+          <tr><td><code>status</code></td><td>Show the TUI health dashboard: dotfiles, tools, Homebrew and more</td></tr>
+          <tr><td><code>mrk-menu</code></td><td>Show the TUI launcher for every mrk task</td></tr>
+          <tr><td><code>bf</code></td><td>Manage the Brewfile in a two-pane TUI</td></tr>
+          <tr><td><code>mrk-picker</code></td><td>Select packages, and write the selections to stdout</td></tr>
+          <tr><td><code>mrk-push "msg"</code></td><td>Commit and push the mrk repository, then delete the old Pages deployments</td></tr>
+          <tr><td><code>maintain</code></td><td>Delete the old Pages deployments, fetch, validate, and check the builds</td></tr>
+          <tr><td><code>dock-setup</code></td><td>Replace the Dock contents with the preferred apps</td></tr>
+          <tr><td><code>ci-check</code></td><td>Run the local validation: picker descriptions, shellcheck and go test</td></tr>
+          <tr><td><code>check-picker-desc</code></td><td>Check that every Brewfile package has a picker description</td></tr>
+          <tr><td><code>adventure-prologue</code></td><td>Play the text-adventure prelude to the installation</td></tr>
+          <tr><td><code>nuke-mrk</code></td><td>Delete every mrk file, so that you can install mrk again</td></tr>
+          <tr><td><code>hardening.sh</code></td><td>Apply the optional macOS security settings</td></tr>
+          <tr><td><code>make doctor ARGS=--fix</code></td><td>Add ~/bin to the PATH in ~/.zshrc</td></tr>
+          <tr><td><code>make check</code></td><td>Run the local validation</td></tr>
+          <tr><td><code>make ci</code></td><td>Run the local validation, and build the TUI binaries</td></tr>
+          <tr><td><code>make pull</code></td><td>Fast-forward the mrk repository to origin (git pull --ff-only)</td></tr>
+          <tr><td><code>make tidy</code></td><td>Run go mod tidy in every Go tool directory</td></tr>
+          <tr><td><code>make maintain</code></td><td>Run the periodic housekeeping</td></tr>
+          <tr><td><code>mrk-install</code></td><td>Run the full mrk bootstrap: every phase</td></tr>
+          <tr><td><code>mrk-setup</code></td><td>Phase 1: dotfiles, symlinks and the shell</td></tr>
+          <tr><td><code>mrk-brew</code></td><td>Phase 2: the Homebrew packages</td></tr>
+          <tr><td><code>mrk-post-install</code></td><td>Phase 3: the app configuration and the login items</td></tr>
+          <tr><td><code>mrk-defaults [--with-trackpad]</code></td><td>Apply the macOS defaults. The flag adds the trackpad gestures</td></tr>
+          <tr><td><code>mrk-uninstall</code></td><td>Delete the mrk ~/bin symlinks, and offer the rollbacks. Keeps the dotfiles, ~/.mrk and Homebrew</td></tr>
         </tbody>
       </table>
     </section>
