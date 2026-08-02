@@ -77,17 +77,67 @@ setup_logging() {
 # Ensure DRY_RUN is defined (default 0 if not set by caller)
 : "${DRY_RUN:=0}"
 
+# Report plist entries where a suggestive key NAME is paired with a substantial
+# <string> value. The name alone is not evidence: Keka stores ExportPassword as
+# <false/> and iTerm2 stores AiMaxTokens as <integer>. Flagging those would
+# train the user to wave the gate through.
+# Input must be xml1. Prints "<lineno>:<key line>" for each hit.
+_scan_plist_key_values() {
+  awk '
+    /<[kK][eE][yY]>/ {
+      if (tolower($0) ~ /<key>[^<]*(api[_-]?key|token|secret|password|passphrase|credential)s?<\/key>/) {
+        keyline = $0; keyno = NR; pending = 1
+      } else { pending = 0 }
+      next
+    }
+    pending {
+      if (match($0, /<string>[^<]*<\/string>/)) {
+        # inner text = match minus "<string>" (8) and "</string>" (9)
+        if (RLENGTH - 17 >= 12) printf "%d:%s\n", keyno, keyline
+      }
+      pending = 0
+    }
+  ' "$1" 2>/dev/null || true
+}
+
 # Scan files for patterns that look like secrets (API keys, tokens, private keys).
 # Prints findings to stderr; returns 1 if any match, 0 if clean.
+#
+# Three complementary classes:
+#   1. credential material that identifies itself (private keys)
+#   2. field NAMES that conventionally hold a credential — catches a secret
+#      whose value has no recognisable shape (a bare hex string, say)
+#   3. value SHAPES with a vendor prefix — catches a secret filed under a
+#      field name we do not recognise
+#
+# Patterns must compile under BSD grep, which is what /usr/bin/grep resolves to
+# on macOS. It rejects an empty alternative such as `(RSA |EC |)` outright, and
+# every pattern is passed with `-e` because several begin with `-`. A pattern
+# that fails to compile is treated as a scan failure below, never as "clean".
 scan_for_secrets() {
   (( $# == 0 )) && return 0
-  local -a patterns=(
-    '-----BEGIN (RSA |OPENSSH |EC |)PRIVATE KEY-----'
-    '<(key)>(APIKey|apiKey|accessToken|authToken|secretKey|clientSecret|refreshToken|password)</key>'
-    '(api[_-]?key|apikey|secret[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret)[[:space:]]*[:=][[:space:]]*['\''"]?[A-Za-z0-9_./+-]{12,}'
+
+  # Case-INSENSITIVE: field names, and material that identifies itself.
+  local -a patterns_i=(
+    '-----BEGIN ([A-Z0-9]+ )?PRIVATE KEY-----'
+    '(api[_-]?key|apikey|secret[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|password|passphrase|token)['\''"]?[[:space:]]*[:=][[:space:]]*['\''"]?[A-Za-z0-9_./+-]{12,}'
     'Bearer[[:space:]]+[A-Za-z0-9._-]{20,}'
   )
-  local pat file hits=0 line target tmp_xml
+
+  # Case-SENSITIVE: vendor prefixes are defined by their exact casing, and
+  # matching them with -i turns them into base64 noise — `AIza…` folded to
+  # case-insensitive matched a <data> blob in a real BetterSnapTool.plist.
+  # Case-sensitive, these produce zero hits across all 14 exported plists here.
+  local -a patterns_s=(
+    'sk-(ant-)?[A-Za-z0-9_-]{20,}'          # OpenAI sk- / sk-proj-, Anthropic sk-ant-
+    'gh[pousr]_[A-Za-z0-9]{30,}'            # GitHub classic PAT / OAuth / refresh
+    'github_pat_[A-Za-z0-9_]{20,}'          # GitHub fine-grained PAT
+    'AKIA[0-9A-Z]{16}'                      # AWS access key id
+    'xox[baprs]-[A-Za-z0-9-]{10,}'          # Slack
+    'AIza[0-9A-Za-z_-]{35}'                 # Google API key
+  )
+  local pat file hits=0 line target tmp_xml out rc pass gflags
+  local -a active
   for file in "$@"; do
     [[ -f "$file" ]] || continue
 
@@ -109,13 +159,39 @@ scan_for_secrets() {
       fi
     fi
 
-    for pat in "${patterns[@]}"; do
-      while IFS= read -r line; do
-        [[ -z "$line" ]] && continue
-        err "possible secret in ${file}: ${line:0:120}"
-        hits=1
-      done < <(grep -Ein "$pat" "$target" 2>/dev/null || true)
+    for pass in i s; do
+      if [[ "$pass" == i ]]; then active=("${patterns_i[@]}"); gflags=-Ein
+      else                        active=("${patterns_s[@]}"); gflags=-En
+      fi
+      for pat in "${active[@]}"; do
+        # -e because several patterns begin with `-`. rc 0 = match, 1 = no
+        # match, >1 = grep could not run the pattern at all.
+        rc=0
+        out=$(grep "$gflags" -e "$pat" "$target" 2>/dev/null) || rc=$?
+        if (( rc > 1 )); then
+          # A pattern that does not compile previously reported "clean". For a
+          # gate that blocks a push, failing closed is the only safe reading.
+          err "secret scan FAILED on ${file} (grep rc=${rc}) — pattern: ${pat:0:60}"
+          hits=1
+          continue
+        fi
+        while IFS= read -r line; do
+          [[ -z "$line" ]] && continue
+          err "possible secret in ${file}: ${line:0:120}"
+          hits=1
+        done <<< "$out"
+      done
     done
+
+    # Suggestive plist key name AND a substantial <string> value. The name
+    # alone is not enough: Keka stores ExportPassword as <false/> and iTerm2
+    # stores AiMaxTokens as <integer>, and flagging those trains the user to
+    # dismiss the gate.
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      err "possible secret in ${file}: ${line:0:120}"
+      hits=1
+    done < <(_scan_plist_key_values "$target")
 
     [[ -n "$tmp_xml" ]] && rm -f "$tmp_xml"
   done
