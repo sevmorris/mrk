@@ -58,8 +58,9 @@ TEMP_ADD=""
 TEMP_REMOVE=""
 TMP_PI=""
 TMP_MD=""
+TMP_OSA_ERR=""
 cleanup() {
-  for _f in "$TEMP_ADD" "$TEMP_REMOVE" "$TMP_PI" "$TMP_MD"; do
+  for _f in "$TEMP_ADD" "$TEMP_REMOVE" "$TMP_PI" "$TMP_MD" "$TMP_OSA_ERR"; do
     [[ -n "$_f" && -f "$_f" ]] && rm -f "$_f" || true
   done
 }
@@ -74,8 +75,10 @@ declare -A system_items=()
 # Single System Events query returning "name<TAB>path" pairs, one per line.
 # The old comma-split name list broke on names containing commas, and the
 # per-name path lookup guessed /Applications/$name.app when it failed.
+TMP_OSA_ERR="$(mrk_mktemp)"
+osa_rc=0
 raw_items=$(
-  osascript 2>/dev/null <<'OSASCRIPT' || true
+  osascript 2>"$TMP_OSA_ERR" <<'OSASCRIPT'
 tell application "System Events"
   set output to ""
   repeat with li in login items
@@ -86,17 +89,32 @@ tell application "System Events"
   return output
 end tell
 OSASCRIPT
-)
+) || osa_rc=$?
 
-if [[ -z "$raw_items" ]]; then
-  warn "No login items returned from osascript (System Events may be unavailable)"
+# A failed or empty read must never reach the diff. Every tracked item would
+# be absent from an empty system_items, so section 3 would mark all of them
+# stale and offer to delete the whole add_login_item block from post-install.
+# `scripts/sync` aborts on the equivalent brew-list failure; do the same here.
+if (( osa_rc != 0 )); then
+  err "Could not read system login items — osascript exited $osa_rc."
+  [[ -s "$TMP_OSA_ERR" ]] && info "$(head -3 "$TMP_OSA_ERR")"
+  info "System Events may be unavailable, or Automation access may be denied"
+  info "(System Settings → Privacy & Security → Automation)."
+  exit 1
 fi
 
-if [[ -n "$raw_items" ]]; then
-  while IFS=$'\t' read -r name app_path; do
-    [[ -n "$name" && -n "$app_path" ]] && system_items["$name"]="$app_path"
-  done <<< "$raw_items"
+if [[ -z "${raw_items//[[:space:]]/}" ]]; then
+  err "System Events returned no login items."
+  info "'You have zero login items' and 'the read failed' are indistinguishable"
+  info "here, so this aborts rather than offering to delete every tracked item."
+  info "If the list really is empty, edit the add_login_item block in"
+  info "scripts/post-install by hand."
+  exit 1
 fi
+
+while IFS=$'\t' read -r name app_path; do
+  [[ -n "$name" && -n "$app_path" ]] && system_items["$name"]="$app_path"
+done <<< "$raw_items"
 
 # ─── 2. Parse tracked login items from post-install ──────────────────────────
 
