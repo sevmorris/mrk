@@ -7,7 +7,13 @@ set -euo pipefail
 # Sets custom format defaults for audio export/conversion.
 # Does NOT include license info — enter that manually.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts"
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")/../.." && pwd)/scripts"
 source "$SCRIPT_DIR/lib.sh"
 
 failed=0
