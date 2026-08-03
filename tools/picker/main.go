@@ -110,7 +110,6 @@ var descriptions = map[string]string{
 	"cryptomator":            "Client-side encryption for files stored in the cloud",
 	"calibre":                "E-book manager, reader, and format converter",
 	"descript":               "AI-powered audio and video editor",
-	"discord":                "Voice, video, and text chat for communities",
 	"disk-drill":             "Data recovery software and disk health monitoring",
 	"doublender":             "Guest-side double-ender podcast recorder",
 	"dropbox":                "Cloud storage and file synchronization service",
