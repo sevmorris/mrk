@@ -96,6 +96,11 @@ var descriptions = map[string]string{
 	"yt-dlp":            "Download video and audio from YouTube and 1000+ sites",
 	"gemini-cli":        "Google Gemini command-line interface",
 	"poppler":           "PDF rendering library and utilities",
+	"autoconf":          "Automatic configure script builder",
+	"flac":              "Free lossless audio codec",
+	"libpng":            "Library for manipulating PNG images",
+	"python@3.14":       "Python programming language",
+	"unbound":           "Validating, recursive, caching DNS resolver",
 	// Casks
 	"4k-video-downloader+":   "Download videos from YouTube and other platforms",
 	"a-better-finder-rename": "Powerful batch file renaming for Finder",
