@@ -66,6 +66,46 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# ─── Load persistent ignore list ─────────────────────────────────────────────
+#
+# Format of ~/.mrk/login-items-ignore:
+#   one login-item name per line (the app name, without the .app suffix)
+#   lines starting with # are ignored
+#   example:
+#     NordPass
+#     Chrono Plus
+#
+# The file is not auto-created — add it manually when you want to keep an app
+# as a system login item but never have it suggested by `sync-login-items`.
+#
+# This mirrors ~/.mrk/sync-ignore (scripts/sync:86-117) in format, load and
+# match, with one deliberate difference: sync strips *all* whitespace from a
+# rule, which is right for Brewfile tokens but would turn "Chrono Plus" into
+# "ChronoPlus" and never match. Login-item names are app names and contain
+# interior spaces, so only leading and trailing whitespace is stripped here.
+
+_LOGIN_ITEM_IGNORE=()
+if [[ -f "${STATE_DIR}/login-items-ignore" ]]; then
+  while IFS= read -r _line || [[ -n "$_line" ]]; do
+    _line="${_line%%#*}"                           # strip inline comments
+    _line="${_line#"${_line%%[![:space:]]*}"}"     # strip leading whitespace
+    _line="${_line%"${_line##*[![:space:]]}"}"     # strip trailing whitespace
+    [[ -n "$_line" ]] && _LOGIN_ITEM_IGNORE+=("$_line")
+  done < "${STATE_DIR}/login-items-ignore"
+  if (( ${#_LOGIN_ITEM_IGNORE[@]} > 0 )); then
+    log "Loaded ${#_LOGIN_ITEM_IGNORE[@]} ignore rule(s) from ~/.mrk/login-items-ignore"
+  fi
+fi
+
+_login_item_ignored() {
+  local _name="$1"
+  local _item
+  for _item in "${_LOGIN_ITEM_IGNORE[@]}"; do
+    [[ "$_item" == "$_name" ]] && return 0
+  done
+  return 1
+}
+
 # ─── 1. Get system login items (name -> path) ────────────────────────────────
 
 log "Reading system login items..."
@@ -134,14 +174,31 @@ done < "$POST_INSTALL"
 
 new_items_arr=()
 stale_items_arr=()
+ignored_arr=()
 
+# The ignore list filters the ADD candidates only. A tracked item that is also
+# ignored still counts as tracked, so the stale set below is untouched: an
+# already-tracked item stays tracked until you delete it by hand.
 for name in "${!system_items[@]}"; do
-  [[ -z "${tracked_items[$name]+x}" ]] && new_items_arr+=("$name")
+  [[ -z "${tracked_items[$name]+x}" ]] || continue
+  if _login_item_ignored "$name"; then
+    ignored_arr+=("$name")
+    continue
+  fi
+  new_items_arr+=("$name")
 done
 
 for name in "${!tracked_items[@]}"; do
   [[ -z "${system_items[$name]+x}" ]] && stale_items_arr+=("$name")
 done
+
+# Report the skips by name so it is transparent why an item is not offered.
+# Sorted, because the loop above walks an associative array in hash order.
+if (( ${#ignored_arr[@]} > 0 )); then
+  while IFS= read -r name; do
+    log "Ignoring $name per ~/.mrk/login-items-ignore"
+  done < <(printf '%s\n' "${ignored_arr[@]}" | sort)
+fi
 
 if (( ${#new_items_arr[@]} > 0 )); then
   mapfile -t new_items_arr < <(printf '%s\n' "${new_items_arr[@]}" | sort)
