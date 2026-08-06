@@ -44,11 +44,20 @@ fix the stale `docs/audit/` prefix at the same time. Then
 `3fe44dd`; `43c4d55` reintroduced it and it has been present ever since, now at
 `Brewfile:5`. The mechanism matters more than the entry: `make sync` re-offers anything
 installed but absent from the Brewfile, and the `~/.mrk/sync-ignore` opt-out
-(`scripts/sync:86-96`) is not auto-created and does not exist on this machine. Any
+(`scripts/sync:86-117`) is not auto-created and does not exist on this machine. Any
 deliberate Brewfile removal can be silently re-added on a later sync. Documented in
 `12-fresh-audit-2026-08.md N-17`.
 → To close: decide whether it stays. If it stays, that is the answer. If it goes, also
 uninstall it or add it to `~/.mrk/sync-ignore`, and document the round-trip.
+
+**Scope note (2026-08-05).** N-17 named one entry but described a class: a deliberate
+untrack can be silently re-added by a later sync, because "installed but not tracked" and
+"never tracked" are indistinguishable to the diff. That class had two halves. The
+login-item half is now closed — `~/.mrk/login-items-ignore` gives `sync-login-items` the
+opt-out that `sync` already had (see Closed below). The Brewfile half is still open and is
+what remains of N-17: it needs the `bash-completion@2` decision, and `~/.mrk/sync-ignore`
+still does not exist on this machine. Neither ignore file is auto-created, so both opt-outs
+stay inert until you write the file.
 
 **N-9 — oh-my-zsh and zsh plugins are cloned unpinned.** `scripts/setup:612,626` clone
 `ohmyzsh/ohmyzsh` and two `zsh-users` plugins at `--depth=1` from the default branch,
@@ -181,6 +190,38 @@ no production risk. Documented in `03-shell-hygiene.md L3`.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the login-items ignore-list feature, branch `feat/login-items-ignore`, 2026-08-05
+
+- **Login-item silent return (the login-item half of the N-17 class)** — `6c0501a`.
+  `sync-login-items` had no ignore mechanism, so an app that re-registers itself as a
+  login item after a deliberate untrack came back as an add candidate on every run.
+  NordPass, untracked in `673622b`, is the live case; `bash-completion@2` is the same
+  class on the Brewfile side. `~/.mrk/login-items-ignore` now drops matching names
+  before the up-to-date check and the select UI, so an ignored item is never offered
+  (`scripts/sync-login-items:69-107` loader and match, `:177-201` filter stage).
+  The file mirrors `~/.mrk/sync-ignore` in format, loader and match, with one recorded
+  difference: `sync` strips all whitespace from a rule, which is right for Brewfile
+  tokens but would turn `Chrono Plus` into `ChronoPlus` and never match, so the
+  login-items loader strips only leading and trailing whitespace.
+  Scope is deliberate: the filter is a new upstream stage and the stale set and the whole
+  apply/generator path are unchanged. It stops a re-add; it does not retroactively untrack
+  an already-tracked item, which stays a manual edit of the `add_login_item` block.
+  Like `sync-ignore`, the file is not auto-created.
+  Verified with a stubbed `osascript` and a throwaway `$HOME` and repo: an ignored,
+  present, untracked NordPass is dropped and the run reports "up to date"; a non-ignored
+  item is still offered; with no ignore file the output is byte-identical to the
+  pre-change script; comments, blank lines, inline comments and surrounding whitespace
+  parse per `sync`'s semantics; and ignoring a tracked-but-absent item still lists it as
+  stale. The N-1 generator was re-checked in the same run — driving the write path through
+  a pty produces `post-install` and `docs/manual.md` byte-identical to the pre-change
+  script's output, adding one line in the safe `|| failed=$(( failed + 1 ))` form with
+  column alignment, the `", "`-separated manual sentence and the 755/644 modes preserved.
+- **Documentation** — `d7696cc`. `docs/manual.md` and `docs/bin/mrk-usage.html` §2.10
+  document the file in STE. Both also gained the `~/.mrk/sync-ignore` line that neither
+  had carried: the manual's state-files table listed no ignore file at all, and the usage
+  page never mentioned `sync-ignore`. `docs/STE-CONVERSION.md` registers "drop" as the
+  chosen term for the action.
 
 ### Closed by Phase B (documentation), branch `docs/ste-phase-b`, 2026-08-02
 
