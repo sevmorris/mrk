@@ -106,6 +106,36 @@ _login_item_ignored() {
   return 1
 }
 
+# Append one name to the ignore file, and create the file if it is absent.
+# Append-only: existing lines are never rewritten or reordered. The name goes
+# in verbatim, interior spaces intact, because the loader trims only the ends.
+_append_login_item_ignore() {
+  local _name="$1"
+  local _f="${STATE_DIR}/login-items-ignore"
+
+  if [[ ! -f "$_f" ]]; then
+    mkdir -p "$STATE_DIR"
+    cat > "$_f" <<'IGNOREHEADER'
+# mrk login-items ignore list
+#
+# One login-item name per line: the app name, without the .app suffix.
+# A # character starts a comment. Leading and trailing spaces are trimmed,
+# so a name with interior spaces (for example: Chrono Plus) works as written.
+#
+# sync-login-items drops these names, so it never offers them as new items.
+IGNOREHEADER
+  fi
+
+  # A file whose last line has no newline would otherwise absorb the append.
+  # The loader tolerates a missing final newline, so this state is reachable.
+  if [[ -s "$_f" && -n "$(tail -c 1 "$_f")" ]]; then
+    printf '\n' >> "$_f"
+  fi
+
+  printf '%s\n' "$_name" >> "$_f"
+  _LOGIN_ITEM_IGNORE+=("$_name")   # keep the in-memory list authoritative
+}
+
 # ─── 1. Get system login items (name -> path) ────────────────────────────────
 
 log "Reading system login items..."
@@ -278,6 +308,59 @@ fi
 
 n_add=${#add_items[@]}
 n_remove=${#remove_items[@]}
+
+# ─── 5b. Offer to ignore the declined items ──────────────────────────────────
+#
+# The candidates the user did not select come back every run. Offer to write
+# them to the ignore file, so the file populates itself instead of needing a
+# hand edit. This stage touches ONLY the ignore file: it never adds, deletes
+# or retracks anything in post-install or docs/manual.md.
+#
+# It must run before the "nothing selected" exit below, because declining
+# every candidate is exactly the case this is for.
+
+declined_arr=()
+for name in "${new_items_arr[@]}"; do
+  [[ -z "${add_items[$name]+x}" ]] && declined_arr+=("$name")
+done
+
+if (( ${#declined_arr[@]} > 0 )); then
+  declare -A ignore_selected=()
+
+  if command -v gum >/dev/null 2>&1; then
+    gum_out=$(gum choose --no-limit \
+      --cursor.foreground=214 \
+      --selected.foreground=214 \
+      --header="Select declined items to add to the ignore list, so they stop reappearing (space to toggle, enter to confirm):" \
+      "${declined_arr[@]}" < /dev/tty 2>/dev/tty) || true
+    while IFS= read -r name; do
+      [[ -n "$name" ]] && ignore_selected["$name"]=1
+    done <<< "$gum_out"
+  else
+    printf "Add all %d declined item(s) to ~/.mrk/login-items-ignore? [y/N] " "${#declined_arr[@]}"
+    read -r answer </dev/tty
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+      for name in "${declined_arr[@]}"; do ignore_selected["$name"]=1; done
+    fi
+  fi
+
+  if (( ${#ignore_selected[@]} > 0 )); then
+    while IFS= read -r name; do
+      # Defensive: a selected name cannot already be in the list, because the
+      # drop stage removed those before the candidates were shown.
+      if _login_item_ignored "$name"; then
+        log "$name is already in ~/.mrk/login-items-ignore"
+        continue
+      fi
+      if (( DRY_RUN )); then
+        dry "Would add $name to ~/.mrk/login-items-ignore"
+        continue
+      fi
+      _append_login_item_ignore "$name"
+      log "Added $name to ~/.mrk/login-items-ignore"
+    done < <(printf '%s\n' "${!ignore_selected[@]}" | sort)
+  fi
+fi
 
 if (( n_add == 0 && n_remove == 0 )); then
   log "No changes selected. Nothing to do."
