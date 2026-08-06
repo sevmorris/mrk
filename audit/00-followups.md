@@ -56,8 +56,13 @@ untrack can be silently re-added by a later sync, because "installed but not tra
 login-item half is now closed — `~/.mrk/login-items-ignore` gives `sync-login-items` the
 opt-out that `sync` already had (see Closed below). The Brewfile half is still open and is
 what remains of N-17: it needs the `bash-completion@2` decision, and `~/.mrk/sync-ignore`
-still does not exist on this machine. Neither ignore file is auto-created, so both opt-outs
-stay inert until you write the file.
+still does not exist on this machine.
+
+Updated 2026-08-05: `sync-login-items` now creates and populates
+`~/.mrk/login-items-ignore` itself, when the user accepts its offer to ignore a declined
+item. `~/.mrk/sync-ignore` has no equivalent offer and is still hand-created only, which
+is the likeliest reason it has never existed here. Porting the offer to `scripts/sync`
+would close the rest of N-17's mechanism half.
 
 **N-9 — oh-my-zsh and zsh plugins are cloned unpinned.** `scripts/setup:612,626` clone
 `ohmyzsh/ohmyzsh` and two `zsh-users` plugins at `--depth=1` from the default branch,
@@ -222,6 +227,43 @@ the audit artifacts have the full detail.
   had carried: the manual's state-files table listed no ignore file at all, and the usage
   page never mentioned `sync-ignore`. `docs/STE-CONVERSION.md` registers "drop" as the
   chosen term for the action.
+
+### Closed by the self-populating ignore list, branch `feat/login-items-ignore-selfpopulate`, 2026-08-05
+
+- **Ignore-list discoverability — the file was inert until hand-created** — `f4f2ab1`.
+  The ignore mechanism above only helped someone who already knew the file existed, which
+  is the same reason `~/.mrk/sync-ignore` has never existed on this machine (see N-17).
+  `sync-login-items` now offers the candidates you declined and writes the ones you select
+  to `~/.mrk/login-items-ignore`, creating the file with a documented header. The file
+  populates itself at the exact moment the user expresses the intent.
+  The offer runs before the "No changes selected" exit, because declining every candidate
+  is the case it exists for. It touches only the ignore file. Appends are append-only and
+  keep existing comments, blank lines and order; names go in verbatim so interior spaces
+  survive the trim-ends-only loader; a file with no final newline gets one first;
+  `--dry-run` asks but writes nothing.
+  **The same gap is still open on the Brewfile side.** `scripts/sync` has no equivalent
+  offer, so `~/.mrk/sync-ignore` remains hand-created only. That is now the sole remaining
+  half of the N-17 class, and porting this offer to `sync` would close it.
+- **Ignored-but-tracked was invisible** — `94e2ed9`. A name both tracked in `post-install`
+  and present in the ignore list appeared in neither the new set nor the stale set, so
+  `post-install` kept adding the app at install time while the ignore rule did nothing.
+  These are now shown under their own heading, "Ignored, but still tracked", and offered
+  for deletion through the existing remove path. Deliberately not folded into the stale
+  set: the apps are on the system, so "not on system" would be false. Scoped to tracked
+  AND ignored AND present, so a tracked, ignored, absent item stays stale-only and is
+  never listed twice.
+- **Documentation** — `318b787`. Corrects the two statements this work made false: "mrk
+  does not create this file", and the note that an already-tracked item stays tracked and
+  needs a hand edit. `docs/STE-CONVERSION.md` registers "decline", the only new term.
+- **Verification.** 13/13 across the core, offer and ignored-but-tracked cases, with a
+  stubbed `osascript`, a throwaway `$HOME` and repo, gum hidden to force the deterministic
+  path, and the write path driven through a pty. The end-to-end proof is one loop: an item
+  is offered, the add is declined, the offer is accepted, the name is appended, and a fresh
+  re-run drops it without a prompt. The generator was re-checked in its strongest form — a
+  run where the offer fires and writes while the generator also deletes a stale entry
+  produces `post-install` and `docs/manual.md` byte-identical to the pre-change script's
+  output, with the safe `|| failed=$(( failed + 1 ))` form, the column alignment and the
+  `", "` separated manual sentence all preserved.
 
 ### Closed by Phase B (documentation), branch `docs/ste-phase-b`, 2026-08-02
 
