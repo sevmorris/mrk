@@ -184,9 +184,10 @@ sync -p               # Delete the entries for the packages you uninstalled
 3. sync compares the two lists and finds the packages that the Brewfile does not have.
 4. sync drops the names that `~/.mrk/sync-ignore` lists, so those packages never reach the picker.
 5. sync starts the **mrk-picker** TUI. Press `space` to select a package, `enter` to confirm, and `q` to quit.
-6. sync asks you, through `gum`, which Brewfile section each formula belongs to.
-7. sync puts every cask in the existing cask section.
-8. sync adds each entry to its section in alphabetical order.
+6. sync offers to add the packages you declined to `~/.mrk/sync-ignore`.
+7. sync asks you, through `gum`, which Brewfile section each formula belongs to.
+8. sync puts every cask in the existing cask section.
+9. sync adds each entry to its section in alphabetical order.
 
 If `brew list` fails, sync stops. An empty package list would make `-p` mark every Brewfile entry for deletion.
 
@@ -194,9 +195,17 @@ If `brew list` fails, sync stops. An empty package list would make `-p` mark eve
 
 **The ignore list (`~/.mrk/sync-ignore`)** holds one formula name or cask name per line. Do not add a `brew` or `cask` prefix. A `#` character starts a comment.
 
-sync drops these names on every run, so a package that you keep installed but do not want in the Brewfile stops appearing. mrk does not create this file. To start one, run `touch ~/.mrk/sync-ignore`.
+sync drops these names on every run, so a package that you keep installed but do not want in the Brewfile stops appearing.
 
-> **Note:** `make sync` can add back a package that you deleted from the Brewfile on purpose, because the package is still installed. To stop this, add the name to `~/.mrk/sync-ignore`, or uninstall the package.
+**How the file is created.** sync creates the file when you accept the offer described below. You can also write the file yourself. To start an empty one, run `touch ~/.mrk/sync-ignore`.
+
+**The offer to ignore a declined package.** sync shows the new packages in the picker, and you select the ones to add. It then offers the packages you declined, and you select the ones to ignore. sync adds each name you select to `~/.mrk/sync-ignore`, and shows the name it added.
+
+The offer changes only the ignore list. It does not change the Brewfile. If you decline the offer, sync writes nothing, and it offers the same packages again on the next run. With `--dry-run`, sync shows the names but writes no file.
+
+sync only adds to the file. It keeps your comments, your blank lines and your order, and it adds each new name at the end.
+
+> **Note:** `make sync` can add back a package that you deleted from the Brewfile on purpose, because the package is still installed. To stop this, accept the offer to ignore the package, add the name to `~/.mrk/sync-ignore` yourself, or uninstall the package.
 
 ## How to keep the app preferences current
 
@@ -616,7 +625,7 @@ mrk writes its state to `~/.mrk/`. gitignore excludes this directory.
 | `~/.mrk/backups/` | The timestamped backups of the dotfiles that setup replaced |
 | `~/.mrk/defaults-rollback.sh` | Undoes the macOS system defaults that `make defaults` wrote, and the app plists that post-install imported. It does **not** cover the app-preference scripts that Phase 3 runs for Safari, Helium, AlDente, Audio Hijack, Fission and Rogue Amoeba. Those scripts write their defaults directly |
 | `~/.mrk/hardening-rollback.sh` | Undoes the security hardening |
-| `~/.mrk/sync-ignore` | The formula names and cask names that `sync` does not offer. One name per line. mrk does not create this file |
+| `~/.mrk/sync-ignore` | The formula names and cask names that `sync` does not offer. One name per line. sync creates this file when you accept its offer to ignore a declined package |
 | `~/.mrk/login-items-ignore` | The login-item names that `sync-login-items` does not offer. One name per line. sync-login-items creates this file when you accept its offer to ignore a declined item |
 
 To undo the macOS defaults that mrk applied, run this command:

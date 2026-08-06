@@ -732,7 +732,9 @@ mrk-status --help</code></pre>
             <li><code>--commit</code> — Commits the Brewfile after sync updates it.</li>
             <li><code>--prune</code> — Deletes the Brewfile entries for the packages that you uninstalled. You select which entries to delete.</li>
             <li>sync uses mrk-picker for the selection. If mrk-picker is absent, sync uses gum.</li>
-            <li>sync drops the names that <code>~/.mrk/sync-ignore</code> lists. The file holds one formula name or cask name per line, and a <code>#</code> character starts a comment. mrk does not create this file.</li>
+            <li>sync drops the names that <code>~/.mrk/sync-ignore</code> lists. The file holds one formula name or cask name per line, and a <code>#</code> character starts a comment.</li>
+            <li>After you select the new packages in the picker, sync offers the packages you declined, so you can add them to the ignore list. It creates <code>~/.mrk/sync-ignore</code> when you accept, and you can also write the file yourself. The offer changes only the ignore list, never the Brewfile. If you decline it, sync writes nothing and offers the same packages again on the next run. With <code>--dry-run</code> it shows the names but writes no file.</li>
+            <li>sync only adds to the ignore list. It keeps your comments, your blank lines and your order, and it adds each new name at the end.</li>
             <li>If <code>brew list</code> fails, sync stops. An empty package list would make <code>--prune</code> mark every Brewfile entry for deletion.</li>
             <li>sync writes the Brewfile to a temporary file first, and then moves it into place.</li>
           </ul>
