@@ -732,6 +732,7 @@ mrk-status --help</code></pre>
             <li><code>--commit</code> — Commits the Brewfile after sync updates it.</li>
             <li><code>--prune</code> — Deletes the Brewfile entries for the packages that you uninstalled. You select which entries to delete.</li>
             <li>sync uses mrk-picker for the selection. If mrk-picker is absent, sync uses gum.</li>
+            <li>sync drops the names that <code>~/.mrk/sync-ignore</code> lists. The file holds one formula name or cask name per line, and a <code>#</code> character starts a comment. mrk does not create this file.</li>
             <li>If <code>brew list</code> fails, sync stops. An empty package list would make <code>--prune</code> mark every Brewfile entry for deletion.</li>
             <li>sync writes the Brewfile to a temporary file first, and then moves it into place.</li>
           </ul>
@@ -751,6 +752,8 @@ mrk-status --help</code></pre>
             <li><code>--commit</code> — Commits the changed files. The commit message has the form <code>login-items: add X; remove Y</code>.</li>
             <li>sync-login-items uses <code>gum</code> for the multiple-selection list. If gum is absent, it asks a y/N question for each group.</li>
             <li>sync-login-items reads the login items from System Events with AppleScript.</li>
+            <li>sync-login-items drops the names that <code>~/.mrk/login-items-ignore</code> lists. The file holds one login-item name per line, without the <code>.app</code> suffix, and a <code>#</code> character starts a comment. mrk does not create this file.</li>
+            <li>sync-login-items drops the ignored names from the new items only. An item that <code>post-install</code> already tracks stays tracked. Some apps add themselves back to the login items after an update, and the ignore list stops sync-login-items from offering them again.</li>
           </ul>
           <div class="callout callout-caution">
             <span class="callout-label">Caution</span>

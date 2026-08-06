@@ -258,11 +258,20 @@ sync-login-items -c       # Commit the changes after the update
 
 1. sync-login-items reads the system login items with AppleScript.
 2. sync-login-items reads the tracked `add_login_item` lines in `scripts/post-install`.
-3. sync-login-items shows the differences in both directions.
-4. sync-login-items starts a `gum` selector, so you can choose the items.
-5. sync-login-items updates `scripts/post-install` and `docs/manual.md`.
+3. sync-login-items drops the new items that `~/.mrk/login-items-ignore` lists.
+4. sync-login-items shows the differences in both directions.
+5. sync-login-items starts a `gum` selector, so you can choose the items.
+6. sync-login-items updates `scripts/post-install` and `docs/manual.md`.
 
 > **Caution:** If System Events returns no login items, or if the AppleScript fails, sync-login-items stops and shows an error. It does not continue, because an empty list looks the same as a complete list of deletions, and sync-login-items would then offer to delete every tracked item. Give Automation access in System Settings → Privacy & Security → Automation, and then run the command again.
+
+**The ignore list (`~/.mrk/login-items-ignore`)** holds one login-item name per line. Use the app name, and do not add the `.app` suffix. A `#` character starts a comment.
+
+sync-login-items drops these names on every run. An app that you keep as a login item, but do not want in `post-install`, stops appearing. mrk does not create this file. To start one, run `touch ~/.mrk/login-items-ignore`.
+
+> **Note:** Some apps add themselves back to the login items after an update. sync-login-items then offers the app again. A later sync can track it again. To stop this, add the name to `~/.mrk/login-items-ignore`.
+
+> **Note:** sync-login-items drops the ignored names from the new items only. An item that `post-install` already tracks stays tracked. To delete it, edit the `add_login_item` block in `scripts/post-install`.
 
 ## How to check the installation health
 
@@ -598,6 +607,8 @@ mrk writes its state to `~/.mrk/`. gitignore excludes this directory.
 | `~/.mrk/backups/` | The timestamped backups of the dotfiles that setup replaced |
 | `~/.mrk/defaults-rollback.sh` | Undoes the macOS system defaults that `make defaults` wrote, and the app plists that post-install imported. It does **not** cover the app-preference scripts that Phase 3 runs for Safari, Helium, AlDente, Audio Hijack, Fission and Rogue Amoeba. Those scripts write their defaults directly |
 | `~/.mrk/hardening-rollback.sh` | Undoes the security hardening |
+| `~/.mrk/sync-ignore` | The formula names and cask names that `sync` does not offer. One name per line. mrk does not create this file |
+| `~/.mrk/login-items-ignore` | The login-item names that `sync-login-items` does not offer. One name per line. mrk does not create this file |
 
 To undo the macOS defaults that mrk applied, run this command:
 
