@@ -116,6 +116,34 @@ _sync_ignored() {
   return 1
 }
 
+# Append one package name to the ignore file, and create the file if it is
+# absent. Append-only: existing lines are never rewritten or reordered.
+# Mirrors _append_login_item_ignore in scripts/sync-login-items.
+_append_sync_ignore() {
+  local _pkg="$1"
+  local _f="${STATE_DIR}/sync-ignore"
+
+  if [[ ! -f "$_f" ]]; then
+    mkdir -p "$STATE_DIR"
+    cat > "$_f" <<'IGNOREHEADER'
+# mrk sync ignore list
+#
+# One formula name or cask name per line, with no brew or cask prefix.
+# A # character starts a comment.
+#
+# sync drops these names, so it never offers them as new packages.
+IGNOREHEADER
+  fi
+
+  # A file whose last line has no newline would otherwise absorb the append.
+  if [[ -s "$_f" && -n "$(tail -c 1 "$_f")" ]]; then
+    printf '\n' >> "$_f"
+  fi
+
+  printf '%s\n' "$_pkg" >> "$_f"
+  _SYNC_IGNORE+=("$_pkg")   # keep the in-memory list authoritative
+}
+
 # ─── 1. Parse Brewfile entries ───────────────────────────────────────────────
 
 declare -A brewfile_formulae=()
@@ -413,6 +441,62 @@ if (( ${#selected_casks[@]} > 0 )); then
   for pkg in "${!selected_casks[@]}"; do
     (( selected_casks["$pkg"] == 1 )) && ((n_selected_casks++)) || true
   done
+fi
+
+# ─── 4b. Offer to ignore the declined packages ───────────────────────────────
+#
+# The candidates the user did not select come back every run. Offer to write
+# them to the ignore file, so the file populates itself instead of needing a
+# hand edit. This stage touches ONLY the ignore file: it never changes the
+# Brewfile. It must run before the "nothing selected" exit below, because
+# declining every candidate is exactly the case this is for.
+# Mirrors section 5b of scripts/sync-login-items.
+
+declined_pkgs=()
+for pkg in "${new_formulae_arr[@]}"; do
+  [[ -n "${selected_formulae[$pkg]+x}" ]] || declined_pkgs+=("$pkg")
+done
+for pkg in "${new_casks_arr[@]}"; do
+  [[ -n "${selected_casks[$pkg]+x}" ]] || declined_pkgs+=("$pkg")
+done
+
+if (( ${#declined_pkgs[@]} > 0 )); then
+  declare -A ignore_selected=()
+
+  if command -v gum >/dev/null 2>&1; then
+    echo "" > /dev/tty
+    gum_out=$(gum choose --no-limit \
+      --cursor.foreground=214 \
+      --selected.foreground=214 \
+      --header="Select declined packages to add to the ignore list, so they stop reappearing (space to toggle, enter to confirm):" \
+      "${declined_pkgs[@]}" < /dev/tty 2>/dev/tty) || true
+    while IFS= read -r pkg; do
+      [[ -n "$pkg" ]] && ignore_selected["$pkg"]=1
+    done <<< "$gum_out"
+  else
+    printf "Add all %d declined package(s) to ~/.mrk/sync-ignore? [y/N] " "${#declined_pkgs[@]}"
+    read -r answer </dev/tty
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+      for pkg in "${declined_pkgs[@]}"; do ignore_selected["$pkg"]=1; done
+    fi
+  fi
+
+  if (( ${#ignore_selected[@]} > 0 )); then
+    while IFS= read -r pkg; do
+      # Defensive: a selected name cannot already be in the list, because the
+      # drop stage removed those before the candidates were shown.
+      if _sync_ignored "$pkg"; then
+        log "$pkg is already in ~/.mrk/sync-ignore"
+        continue
+      fi
+      if (( DRY_RUN )); then
+        dry "Would add $pkg to ~/.mrk/sync-ignore"
+        continue
+      fi
+      _append_sync_ignore "$pkg"
+      log "Added $pkg to ~/.mrk/sync-ignore"
+    done < <(printf '%s\n' "${!ignore_selected[@]}" | sort)
+  fi
 fi
 
 if (( n_selected_formulae == 0 && n_selected_casks == 0 )); then
