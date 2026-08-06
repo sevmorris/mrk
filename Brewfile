@@ -113,7 +113,6 @@ cask "macwhisper", greedy: true
 cask "mdrp", greedy: true
 cask "mediainfo", greedy: true
 cask "minecraft", greedy: true
-cask "nordpass", greedy: true
 cask "nordvpn", greedy: true
 cask "omnidisksweeper", greedy: true
 cask "onyx", greedy: true
