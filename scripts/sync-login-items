@@ -205,10 +205,11 @@ done < "$POST_INSTALL"
 new_items_arr=()
 stale_items_arr=()
 ignored_arr=()
+conflict_items_arr=()
 
-# The ignore list filters the ADD candidates only. A tracked item that is also
+# The ignore list drops the ADD candidates only. A tracked item that is also
 # ignored still counts as tracked, so the stale set below is untouched: an
-# already-tracked item stays tracked until you delete it by hand.
+# already-tracked item stays tracked until you delete it.
 for name in "${!system_items[@]}"; do
   [[ -z "${tracked_items[$name]+x}" ]] || continue
   if _login_item_ignored "$name"; then
@@ -220,6 +221,15 @@ done
 
 for name in "${!tracked_items[@]}"; do
   [[ -z "${system_items[$name]+x}" ]] && stale_items_arr+=("$name")
+done
+
+# A name that is BOTH tracked and ignored is a contradiction: post-install
+# still adds the app at install time, so the ignore rule does nothing for it.
+# Surface it as its own set, because it is not stale — the app IS on the
+# system — and reporting it under "not on system" would be false.
+for name in "${!tracked_items[@]}"; do
+  [[ -n "${system_items[$name]+x}" ]] || continue
+  _login_item_ignored "$name" && conflict_items_arr+=("$name")
 done
 
 # Report the skips by name so it is transparent why an item is not offered.
@@ -236,8 +246,12 @@ fi
 if (( ${#stale_items_arr[@]} > 0 )); then
   mapfile -t stale_items_arr < <(printf '%s\n' "${stale_items_arr[@]}" | sort)
 fi
+if (( ${#conflict_items_arr[@]} > 0 )); then
+  mapfile -t conflict_items_arr < <(printf '%s\n' "${conflict_items_arr[@]}" | sort)
+fi
 
-if (( ${#new_items_arr[@]} == 0 && ${#stale_items_arr[@]} == 0 )); then
+if (( ${#new_items_arr[@]} == 0 && ${#stale_items_arr[@]} == 0 \
+      && ${#conflict_items_arr[@]} == 0 )); then
   log "Login items are up to date. Nothing to do."
   exit 0
 fi
@@ -259,6 +273,12 @@ if (( ${#stale_items_arr[@]} > 0 )); then
   echo ""
   echo "  Stale (tracked, not on system):"
   for name in "${stale_items_arr[@]}"; do printf "    - %s\n" "$name"; done
+fi
+
+if (( ${#conflict_items_arr[@]} > 0 )); then
+  echo ""
+  echo "  Ignored, but still tracked (post-install keeps adding these):"
+  for name in "${conflict_items_arr[@]}"; do printf "    - %s\n" "$name"; done
 fi
 
 echo ""
@@ -289,6 +309,16 @@ if command -v gum >/dev/null 2>&1; then
       [[ -n "$name" ]] && remove_items["$name"]=1
     done <<< "$gum_out"
   fi
+  if (( ${#conflict_items_arr[@]} > 0 )); then
+    gum_out=$(gum choose --no-limit \
+      --cursor.foreground=196 \
+      --selected.foreground=196 \
+      --header="These are in the ignore list but post-install still adds them. Select the items to REMOVE from tracking (space to toggle, enter to confirm):" \
+      "${conflict_items_arr[@]}" < /dev/tty 2>/dev/tty) || true
+    while IFS= read -r name; do
+      [[ -n "$name" ]] && remove_items["$name"]=1
+    done <<< "$gum_out"
+  fi
 else
   if (( ${#new_items_arr[@]} > 0 )); then
     printf "Add all %d new item(s)? [y/N] " "${#new_items_arr[@]}"
@@ -302,6 +332,14 @@ else
     read -r answer </dev/tty
     if [[ "$answer" =~ ^[Yy]$ ]]; then
       for name in "${stale_items_arr[@]}"; do remove_items["$name"]=1; done
+    fi
+  fi
+  if (( ${#conflict_items_arr[@]} > 0 )); then
+    printf "Remove all %d ignored-but-tracked item(s) from tracking? [y/N] " \
+      "${#conflict_items_arr[@]}"
+    read -r answer </dev/tty
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+      for name in "${conflict_items_arr[@]}"; do remove_items["$name"]=1; done
     fi
   fi
 fi
