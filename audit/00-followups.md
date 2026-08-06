@@ -42,27 +42,26 @@ fix the stale `docs/audit/` prefix at the same time. Then
 
 **N-17 — `bash-completion@2` is back in the Brewfile (reopened B6).** B6 removed it in
 `3fe44dd`; `43c4d55` reintroduced it and it has been present ever since, now at
-`Brewfile:5`. The mechanism matters more than the entry: `make sync` re-offers anything
-installed but absent from the Brewfile, and the `~/.mrk/sync-ignore` opt-out
-(`scripts/sync:86-117`) is not auto-created and does not exist on this machine. Any
-deliberate Brewfile removal can be silently re-added on a later sync. Documented in
+`Brewfile:5`. The mechanism mattered more than the entry: `make sync` re-offers anything
+installed but absent from the Brewfile, and **at audit time** the `~/.mrk/sync-ignore`
+opt-out was not auto-created and did not exist on this machine. Any deliberate Brewfile
+removal could be silently re-added on a later sync. Documented in
 `12-fresh-audit-2026-08.md N-17`.
-→ To close: decide whether it stays. If it stays, that is the answer. If it goes, also
-uninstall it or add it to `~/.mrk/sync-ignore`, and document the round-trip.
+→ To close: decide whether `bash-completion@2` stays. If it stays, that is the answer. If
+it goes, uninstall it or decline it once at the picker and accept the offer to ignore it.
 
-**Scope note (2026-08-05).** N-17 named one entry but described a class: a deliberate
-untrack can be silently re-added by a later sync, because "installed but not tracked" and
-"never tracked" are indistinguishable to the diff. That class had two halves. The
-login-item half is now closed — `~/.mrk/login-items-ignore` gives `sync-login-items` the
-opt-out that `sync` already had (see Closed below). The Brewfile half is still open and is
-what remains of N-17: it needs the `bash-completion@2` decision, and `~/.mrk/sync-ignore`
-still does not exist on this machine.
+**Scope note, rewritten 2026-08-05.** N-17 named one entry but described a class: a
+deliberate untrack can be silently re-added by a later sync, because "installed but not
+tracked" and "never tracked" are indistinguishable to the diff. The class had two halves,
+and **both are now closed** (see Closed below). `sync-login-items` gained the ignore list
+it never had, and both commands now offer the candidates you declined and write the ones
+you select, creating the file if it is absent. Neither ignore file is hand-created-only
+any more — which was the reason `~/.mrk/sync-ignore` had never existed here, and so the
+reason the opt-out was never reached for.
 
-Updated 2026-08-05: `sync-login-items` now creates and populates
-`~/.mrk/login-items-ignore` itself, when the user accepts its offer to ignore a declined
-item. `~/.mrk/sync-ignore` has no equivalent offer and is still hand-created only, which
-is the likeliest reason it has never existed here. Porting the offer to `scripts/sync`
-would close the rest of N-17's mechanism half.
+What remains of N-17 is only the decision it opened with: whether `bash-completion@2`
+stays in the Brewfile. That is a choice, not a defect. If it goes, the mechanism to keep
+it gone now exists and takes one decline.
 
 **N-9 — oh-my-zsh and zsh plugins are cloned unpinned.** `scripts/setup:612,626` clone
 `ohmyzsh/ohmyzsh` and two `zsh-users` plugins at `--depth=1` from the default branch,
@@ -241,9 +240,20 @@ the audit artifacts have the full detail.
   keep existing comments, blank lines and order; names go in verbatim so interior spaces
   survive the trim-ends-only loader; a file with no final newline gets one first;
   `--dry-run` asks but writes nothing.
-  **The same gap is still open on the Brewfile side.** `scripts/sync` has no equivalent
-  offer, so `~/.mrk/sync-ignore` remains hand-created only. That is now the sole remaining
-  half of the N-17 class, and porting this offer to `sync` would close it.
+  The same offer was then ported to `scripts/sync` — see below — so both commands behave
+  the same way.
+- **The Brewfile side of the same gap** — `7e526c9`. `scripts/sync` had the older, inert
+  half of the pattern: `~/.mrk/sync-ignore` only helped someone who already knew it
+  existed, and it had never existed on this machine. sync now offers the candidates you
+  declined at the picker and writes the ones you select, mirroring section 5b of
+  `sync-login-items` — before the "No packages selected" exit, touching only the ignore
+  file and never the Brewfile, append-only, with the same `--dry-run` behavior.
+  This closes the mechanism half of N-17 on both sides. Verified 10/10 with a stubbed
+  brew: decline both at the picker and accept, and a re-run reports "Skipping 2 ignored
+  package(s)"; on a partial selection only the declined package is offered while the
+  selected one is added; the Brewfile is byte-identical to the pre-change script's output
+  given the same picker input. Two test seams are disclosed in the commit message, because
+  sync resolves Homebrew from hardcoded paths and has no non-TUI selection fallback.
 - **Ignored-but-tracked was invisible** — `94e2ed9`. A name both tracked in `post-install`
   and present in the ignore list appeared in neither the new set nor the stale set, so
   `post-install` kept adding the app at install time while the ignore rule did nothing.
