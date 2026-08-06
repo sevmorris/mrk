@@ -67,6 +67,7 @@ concept has exactly one word across all the converted files.
 | absent | missing, not present | "✗ absent" in status output |
 | more than once | idempotent | The property is described, not named |
 | drop | filter, exclude, skip, suppress | The act of an ignore list holding a name back from a picker. Distinct from "delete", which changes a file. "filter mode" survives only as the mrk-menu `/` UI literal |
+| decline | refuse, reject, say no, pass over, skip | The user's negative answer to an offer. Paired with the existing "accept". Distinct from "drop": the tool drops, the user declines |
 
 ### Technical Names — unrestricted nouns
 
@@ -99,8 +100,8 @@ meaning without loss.
 
 | File | Degree | State |
 |---|---|---|
-| `docs/bin/mrk-usage.html` | Full STE on all prose. HTML structure and callout classes kept. | Done — commit `89fd1af`; ignore-list prose added in the `login-items-ignore` feature |
-| `docs/manual.md` | Full STE. Procedures strict; descriptions STE-descriptive. | Done — commit `292485f`; ignore-list prose added in the `login-items-ignore` feature |
+| `docs/bin/mrk-usage.html` | Full STE on all prose. HTML structure and callout classes kept. | Done — commit `89fd1af`; ignore-list and self-populate prose added in the `login-items-ignore` work |
+| `docs/manual.md` | Full STE. Procedures strict; descriptions STE-descriptive. | Done — commit `292485f`; ignore-list and self-populate prose added in the `login-items-ignore` work |
 | `scripts/sync-login-items` | The doc-emitting template only. | Done — commit `292485f` |
 | `docs/defaults/script.js` | Data reconcile + STE on the 18 newly authored entries. | Partial — commit `7f3d8de` |
 | `README.md`, `docs/index.html` | Optional, low priority. | Not started |

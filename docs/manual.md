@@ -261,17 +261,26 @@ sync-login-items -c       # Commit the changes after the update
 3. sync-login-items drops the new items that `~/.mrk/login-items-ignore` lists.
 4. sync-login-items shows the differences in both directions.
 5. sync-login-items starts a `gum` selector, so you can choose the items.
-6. sync-login-items updates `scripts/post-install` and `docs/manual.md`.
+6. sync-login-items offers to add the new items you declined to `~/.mrk/login-items-ignore`.
+7. sync-login-items updates `scripts/post-install` and `docs/manual.md`.
 
 > **Caution:** If System Events returns no login items, or if the AppleScript fails, sync-login-items stops and shows an error. It does not continue, because an empty list looks the same as a complete list of deletions, and sync-login-items would then offer to delete every tracked item. Give Automation access in System Settings → Privacy & Security → Automation, and then run the command again.
 
 **The ignore list (`~/.mrk/login-items-ignore`)** holds one login-item name per line. Use the app name, and do not add the `.app` suffix. A `#` character starts a comment.
 
-sync-login-items drops these names on every run. An app that you keep as a login item, but do not want in `post-install`, stops appearing. mrk does not create this file. To start one, run `touch ~/.mrk/login-items-ignore`.
+sync-login-items drops these names on every run. An app that you keep as a login item, but do not want in `post-install`, stops appearing.
 
-> **Note:** Some apps add themselves back to the login items after an update. sync-login-items then offers the app again. A later sync can track it again. To stop this, add the name to `~/.mrk/login-items-ignore`.
+**How the file is created.** sync-login-items creates the file when you accept the offer described below. You can also write the file yourself. To start an empty one, run `touch ~/.mrk/login-items-ignore`.
 
-> **Note:** sync-login-items drops the ignored names from the new items only. An item that `post-install` already tracks stays tracked. To delete it, edit the `add_login_item` block in `scripts/post-install`.
+**The offer to ignore a declined item.** sync-login-items shows the new items, and you select the ones to add. It then offers the items you declined, and you select the ones to ignore. sync-login-items adds each name you select to `~/.mrk/login-items-ignore`, and shows the name it added.
+
+The offer changes only the ignore list. It does not add, delete or track anything in `scripts/post-install`. If you decline the offer, sync-login-items writes nothing, and it offers the same items again on the next run. With `--dry-run`, sync-login-items shows the names but writes no file.
+
+sync-login-items only adds to the file. It keeps your comments, your blank lines and your order, and it adds each new name at the end.
+
+> **Note:** Some apps add themselves back to the login items after an update. sync-login-items then offers the app again. A later sync can track it again. To stop this, accept the offer to ignore the app, or add the name to `~/.mrk/login-items-ignore` yourself.
+
+> **Note:** sync-login-items drops the ignored names from the new items only. A name in the ignore list does not delete an item that `post-install` already tracks. If an app is both tracked and in the ignore list, `post-install` still adds the app at install time. sync-login-items shows these apps under "Ignored, but still tracked", and it offers to delete them from `scripts/post-install`.
 
 ## How to check the installation health
 
@@ -608,7 +617,7 @@ mrk writes its state to `~/.mrk/`. gitignore excludes this directory.
 | `~/.mrk/defaults-rollback.sh` | Undoes the macOS system defaults that `make defaults` wrote, and the app plists that post-install imported. It does **not** cover the app-preference scripts that Phase 3 runs for Safari, Helium, AlDente, Audio Hijack, Fission and Rogue Amoeba. Those scripts write their defaults directly |
 | `~/.mrk/hardening-rollback.sh` | Undoes the security hardening |
 | `~/.mrk/sync-ignore` | The formula names and cask names that `sync` does not offer. One name per line. mrk does not create this file |
-| `~/.mrk/login-items-ignore` | The login-item names that `sync-login-items` does not offer. One name per line. mrk does not create this file |
+| `~/.mrk/login-items-ignore` | The login-item names that `sync-login-items` does not offer. One name per line. sync-login-items creates this file when you accept its offer to ignore a declined item |
 
 To undo the macOS defaults that mrk applied, run this command:
 

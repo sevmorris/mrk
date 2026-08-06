@@ -75,8 +75,8 @@ trap cleanup EXIT INT TERM
 #     NordPass
 #     Chrono Plus
 #
-# The file is not auto-created — add it manually when you want to keep an app
-# as a system login item but never have it suggested by `sync-login-items`.
+# The file is created when the user accepts the offer to ignore a declined
+# item (section 5b), and can also be written by hand.
 #
 # This mirrors ~/.mrk/sync-ignore (scripts/sync:86-117) in format, load and
 # match, with one deliberate difference: sync strips *all* whitespace from a

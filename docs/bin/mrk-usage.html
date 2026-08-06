@@ -752,8 +752,10 @@ mrk-status --help</code></pre>
             <li><code>--commit</code> — Commits the changed files. The commit message has the form <code>login-items: add X; remove Y</code>.</li>
             <li>sync-login-items uses <code>gum</code> for the multiple-selection list. If gum is absent, it asks a y/N question for each group.</li>
             <li>sync-login-items reads the login items from System Events with AppleScript.</li>
-            <li>sync-login-items drops the names that <code>~/.mrk/login-items-ignore</code> lists. The file holds one login-item name per line, without the <code>.app</code> suffix, and a <code>#</code> character starts a comment. mrk does not create this file.</li>
-            <li>sync-login-items drops the ignored names from the new items only. An item that <code>post-install</code> already tracks stays tracked. Some apps add themselves back to the login items after an update, and the ignore list stops sync-login-items from offering them again.</li>
+            <li>sync-login-items drops the names that <code>~/.mrk/login-items-ignore</code> lists. The file holds one login-item name per line, without the <code>.app</code> suffix, and a <code>#</code> character starts a comment. Some apps add themselves back to the login items after an update, and the ignore list stops sync-login-items from offering them again.</li>
+            <li>After you select the new items to add, sync-login-items offers the items you declined, so you can add them to the ignore list. It creates <code>~/.mrk/login-items-ignore</code> when you accept, and you can also write the file yourself. The offer changes only the ignore list. If you decline it, sync-login-items writes nothing and offers the same items again on the next run. With <code>--dry-run</code> it shows the names but writes no file.</li>
+            <li>sync-login-items only adds to the ignore list. It keeps your comments, your blank lines and your order, and it adds each new name at the end.</li>
+            <li>sync-login-items drops the ignored names from the new items only. A name in the ignore list does not delete an item that <code>post-install</code> already tracks. sync-login-items shows an app that is both tracked and ignored under "Ignored, but still tracked", and it offers to delete the app from <code>scripts/post-install</code>.</li>
           </ul>
           <div class="callout callout-caution">
             <span class="callout-label">Caution</span>
