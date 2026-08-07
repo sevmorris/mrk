@@ -263,13 +263,14 @@ const DEFAULT_DESCRIPTIONS = {
     // Desktop Services
     'com.apple.desktopservices.DSDontWriteNetworkStores': {
         title: 'No .DS_Store Files on Network Volumes',
-        description: 'Prevents Finder from creating .DS_Store and ._ (AppleDouble) sidecar files on network volumes (AFP, SMB, NFS, WebDAV). .DS_Store files store folder view preferences; on network shares they appear as clutter to non-macOS users and can slow SMB browsing. Apple has an official support article (HT208209) recommending this setting for enterprise SMB environments. Does not delete existing .DS_Store files retroactively.',
+        description: 'Stops Finder from creating .DS_Store and ._ (AppleDouble) sidecar files on a network volume. This covers AFP, SMB, NFS and WebDAV. A .DS_Store file stores the view preferences of a directory, and on a network share it can also slow SMB browsing. The key does not delete the .DS_Store files that already exist.',
         category: 'File Management',
-        why: '.DS_Store files expose directory metadata and appear as visible clutter to Windows and Linux users on shared volumes.'
+        why: '.DS_Store files expose directory metadata and appear as visible clutter to Windows and Linux users on shared volumes.',
+        background: 'Apple has an official support article (HT208209) recommending this setting for enterprise SMB environments.'
     },
     'com.apple.desktopservices.DSDontWriteUSBStores': {
         title: 'No .DS_Store Files on USB Volumes',
-        description: 'Prevents .DS_Store and ._ (AppleDouble) sidecar files from being written to USB drives, SD cards, and other removable media. Eliminates the notorious cross-platform friction where USB drives inserted into Windows PCs show up littered with invisible macOS metadata files.',
+        description: 'Stops macOS from writing .DS_Store and ._ (AppleDouble) sidecar files to a USB drive, an SD card and other removable media.',
         category: 'File Management',
         why: 'Portable drives are frequently shared across OSes. .DS_Store files are invisible on macOS but show up as junk on Windows and Linux.'
     },
@@ -277,25 +278,27 @@ const DEFAULT_DESCRIPTIONS = {
     // Disk images
     'com.apple.frameworks.diskimages.skip-verify': {
         title: 'Skip DMG Checksum Verification',
-        description: 'Skips checksum verification when mounting disk image (.dmg) files. Likely ineffective since OS X 10.11.3 El Capitan — community reports indicate DiskImageMounter ignores these keys as of that release, though they write without error. DMG verification exists to detect corruption or tampering; skipping it for downloaded images in particular is a security trade-off.',
+        description: 'Skips the checksum check when macOS mounts a disk image (.dmg) file. This key is probably not effective on current macOS: DiskImageMounter appears to ignore it, but it writes without an error. The checksum check finds corruption and tampering, so skipping it for a downloaded image is a security trade-off.',
         category: 'Performance',
-        why: 'Verification is redundant when the source is trusted and skips multi-second delays on large installers. Note: likely a no-op since El Capitan.'
+        why: 'Verification is redundant when the source is trusted and skips multi-second delays on large installers. Note: likely a no-op since El Capitan.',
+        background: 'Community reports indicate DiskImageMounter has ignored these keys since OS X 10.11.3 El Capitan, although they still write without an error.'
     },
     'com.apple.frameworks.diskimages.skip-verify-locked': {
         title: 'Skip Locked DMG Verification',
-        description: 'Skips checksum verification for locked disk images. Like skip-verify, this key is likely non-functional since OS X 10.11.3 El Capitan.',
+        description: 'Skips the checksum check for a locked disk image. Like skip-verify, this key is probably not effective on current macOS.',
         category: 'Performance'
     },
     'com.apple.frameworks.diskimages.skip-verify-remote': {
         title: 'Skip Remote DMG Verification',
-        description: 'Skips the "Verifying..." spinner for disk images downloaded from the internet — historically the most user-visible of the three verify keys. Like the others, likely non-functional since OS X 10.11.3 El Capitan.',
-        category: 'Performance'
+        description: 'Skips the "Verifying..." spinner for a disk image that you downloaded from the internet. Like the other two verify keys, this key is probably not effective on current macOS.',
+        category: 'Performance',
+        background: 'Of the three verify keys, this one was historically the most visible to the user.'
     },
 
     // Time Machine
     'com.apple.TimeMachine.DoNotOfferNewDisksForBackup': {
         title: 'Suppress Time Machine New Disk Prompt',
-        description: 'Suppresses the "Do you want to use [disk] to back up with Time Machine?" dialog when a blank external drive is connected. Only prevents the prompt — does not disable Time Machine or affect existing backup destinations. Normally, clicking "Don\'t Use" writes an invisible .com.apple.timemachine.donotpresent marker file to that specific volume; this preference suppresses the prompt globally for all new disks.',
+        description: 'Stops the "Do you want to use [disk] to back up with Time Machine?" dialog that appears when you connect a blank external drive. The key hides the prompt only. It does not turn Time Machine off, and it does not change an existing backup destination. Clicking "Don\'t Use" normally writes an invisible .com.apple.timemachine.donotpresent marker file to that one volume. This key instead hides the prompt for every new disk.',
         category: 'System',
         why: 'Prevents Time Machine dialogs from interrupting when external drives are connected for other purposes — archiving, file transfers, etc.'
     },
@@ -303,29 +306,32 @@ const DEFAULT_DESCRIPTIONS = {
     // Software Update & App Store
     'com.apple.SoftwareUpdate.AutomaticCheckEnabled': {
         title: 'Check for Updates Automatically',
-        description: 'Enables background checking for macOS software updates. Corresponds to "Automatically keep my Mac up to date" in System Settings → General → Software Update.',
+        description: 'Turns on the background check for macOS software updates. It matches "Automatically keep my Mac up to date" in System Settings → General → Software Update.',
         category: 'Security',
         why: 'Security patches are applied automatically without waiting for manual intervention. The risk of an unpatched vulnerability outweighs the risk of an automatic update.'
     },
     'com.apple.SoftwareUpdate.AutomaticDownload': {
         title: 'Download Updates Automatically',
-        description: 'Enables background downloading of available updates when found. Downloads proceed silently but installation is not automatic unless other installation keys (CriticalUpdateInstall, etc.) are also enabled.',
+        description: 'Turns on the background download of an available update. The download is silent. macOS does not install the update unless you also turn on an installation key, such as CriticalUpdateInstall.',
         category: 'Security'
     },
     'com.apple.SoftwareUpdate.ConfigDataInstall': {
         title: 'Install System Data Files Automatically',
-        description: 'Enables automatic installation of Apple\'s security data files: XProtect malware signature database, MRT (Malware Removal Tool), and Gatekeeper compatibility data. These are security-critical and pushed silently by Apple. The CIS macOS benchmark specifically recommends leaving this enabled — disabling it means XProtect will not receive malware signature updates.',
-        category: 'Security'
+        description: 'Turns on the automatic installation of the Apple security data files. These are the XProtect malware signature database, the Malware Removal Tool (MRT) and the Gatekeeper compatibility data. Apple pushes them silently. If you turn this key off, XProtect gets no new malware signatures.',
+        category: 'Security',
+        background: 'The CIS macOS benchmark specifically recommends leaving this enabled.'
     },
     'com.apple.SoftwareUpdate.CriticalUpdateInstall': {
         title: 'Install Critical Security Updates Automatically',
-        description: 'Enables automatic installation of critical security patches, including Apple\'s Rapid Security Responses (RSRs) introduced in macOS Ventura — streamlined security-only updates that can be deployed without a full OS update, typically within hours of a critical vulnerability disclosure.',
-        category: 'Security'
+        description: 'Turns on the automatic installation of the critical security patches. These include the Apple Rapid Security Responses (RSRs).',
+        category: 'Security',
+        background: 'Apple introduced Rapid Security Responses in macOS Ventura. They are streamlined security-only updates that can be deployed without a full OS update, typically within hours of a critical vulnerability disclosure.'
     },
     'com.apple.commerce.AutoUpdate': {
         title: 'Auto-Update App Store Apps',
-        description: 'Enables automatic updates for App Store apps. This key lives in com.apple.commerce (the App Store\'s purchase/commerce engine domain) rather than com.apple.SoftwareUpdate, reflecting the historically separate lineage of App Store and OS-level update pipelines.',
-        category: 'System'
+        description: 'Turns on the automatic updates for the App Store apps.',
+        category: 'System',
+        background: 'This key lives in com.apple.commerce, the purchase and commerce engine domain of the App Store, rather than in com.apple.SoftwareUpdate. The split reflects the historically separate lineage of the App Store and the OS-level update pipelines.'
     },
 
     // Activity Monitor
