@@ -40,29 +40,6 @@ reference it (this file, `11-test-results.md:3,264`, `syncall-removal.md:67-78`)
 fix the stale `docs/audit/` prefix at the same time. Then
 `tart clone mrk-audit-clean-prepared mrk-test-N` and run.
 
-**N-17 — `bash-completion@2` is back in the Brewfile (reopened B6).** B6 removed it in
-`3fe44dd`; `43c4d55` reintroduced it and it has been present ever since, now at
-`Brewfile:5`. The mechanism mattered more than the entry: `make sync` re-offers anything
-installed but absent from the Brewfile, and **at audit time** the `~/.mrk/sync-ignore`
-opt-out was not auto-created and did not exist on this machine. Any deliberate Brewfile
-removal could be silently re-added on a later sync. Documented in
-`12-fresh-audit-2026-08.md N-17`.
-→ To close: decide whether `bash-completion@2` stays. If it stays, that is the answer. If
-it goes, uninstall it or decline it once at the picker and accept the offer to ignore it.
-
-**Scope note, rewritten 2026-08-05.** N-17 named one entry but described a class: a
-deliberate untrack can be silently re-added by a later sync, because "installed but not
-tracked" and "never tracked" are indistinguishable to the diff. The class had two halves,
-and **both are now closed** (see Closed below). `sync-login-items` gained the ignore list
-it never had, and both commands now offer the candidates you declined and write the ones
-you select, creating the file if it is absent. Neither ignore file is hand-created-only
-any more — which was the reason `~/.mrk/sync-ignore` had never existed here, and so the
-reason the opt-out was never reached for.
-
-What remains of N-17 is only the decision it opened with: whether `bash-completion@2`
-stays in the Brewfile. That is a choice, not a defect. If it goes, the mechanism to keep
-it gone now exists and takes one decline.
-
 **N-9 — oh-my-zsh and zsh plugins are cloned unpinned.** `scripts/setup:612,626` clone
 `ohmyzsh/ohmyzsh` and two `zsh-users` plugins at `--depth=1` from the default branch,
 with no tag, commit pin, or verification. The result is sourced by every interactive
@@ -226,6 +203,25 @@ the audit artifacts have the full detail.
   had carried: the manual's state-files table listed no ignore file at all, and the usage
   page never mentioned `sync-ignore`. `docs/STE-CONVERSION.md` registers "drop" as the
   chosen term for the action.
+
+### N-17 closed in full, 2026-08-06
+
+- **N-17 — `bash-completion@2` in the Brewfile (reopened B6)** — `5d9db62`. B6 removed it
+  in `3fe44dd`; `43c4d55` reintroduced it. It is now removed again, and this time the
+  removal holds.
+  **N-17 named one entry but described a class:** a deliberate untrack can be silently
+  re-added by a later sync, because "installed but not tracked" and "never tracked" are
+  indistinguishable to the diff. The class had two halves and both closed first — see the
+  two sections below — after which only the decision remained. Both ignore files now exist
+  on this machine and are in use, which had never been true before: `~/.mrk/sync-ignore`
+  holds `bash-completion@2` and `~/.mrk/login-items-ignore` holds `NordPass`.
+  **What keeps the package out is the ignore entry, not transitivity.** The commit that
+  removed it first said "transitive dep"; that was wrong and the message was corrected
+  before it was pushed. `brew leaves --installed-on-request` lists `bash-completion@2`, and
+  `brew uses --installed bash-completion@2` reports nothing, so Homebrew has it as an
+  explicitly requested top-level formula that nothing pulls in. The package stays
+  installed. Delete the `~/.mrk/sync-ignore` line and the next `make sync` re-offers it.
+  That line is load-bearing, and this is the round-trip N-17 asked to have documented.
 
 ### Closed by the self-populating ignore list, branch `feat/login-items-ignore-selfpopulate`, 2026-08-05
 
