@@ -26,19 +26,32 @@ None. N-1 is fixed — see Closed below.
 
 Items that require a real choice before they can be closed in either direction.
 
-**Tests 1C, 2, 3, and 4 in the test plan — BLOCKED: the plan does not exist.**
-Idempotency (Test 2), order-independence (Test 3), and re-entry recovery (Test 4) were
-not executed. Test 1C (combined `make defaults` + `make harden` rollback) was also not
-run; static analysis predicts a PARTIAL verdict because ~40 browser and app-preference
-keys have no rollback coverage. **`10-test-plan.md` was never committed at any path** —
-`git log --all --diff-filter=A` over both `docs/audit/*` and `audit/*` shows modules
-00–09, 11 and `syncall-removal` added, and no 10. The `docs/audit/` prefix is separately
-stale: the tree moved to `audit/` in `b3ad0d0`. These tests cannot be run from the repo
-as it stands. Documented in `12-fresh-audit-2026-08.md N-19`.
-→ To close: write and commit `audit/10-test-plan.md`, or amend the three files that
-reference it (this file, `11-test-results.md:3,264`, `syncall-removal.md:67-78`) and
-fix the stale `docs/audit/` prefix at the same time. Then
-`tart clone mrk-audit-clean-prepared mrk-test-N` and run.
+**Tests 1C, 2, 3, and 4 — UNBLOCKED: the plan now exists; the tests have not run.**
+`audit/10-test-plan.md` is written and committed. It specifies Test 1C (combined
+`make defaults` + `make harden` rollback), Test 2 (idempotency), Test 3
+(order-independence) and Test 4 (re-entry recovery), each with its VM setup, a shared
+state-capture method derived from the module-02 write set, a procedure, an expected
+result and explicit pass/fail criteria. Expectations are derived from the scripts as they
+stand after the N-1/N-2/N-3 fixes.
+
+The two broken cross-references are fixed: `11-test-results.md:3,264` pointed at
+`docs/audit/10-test-plan.md` and now point at `audit/10-test-plan.md`. The
+`syncall-removal.md:67-78` pointer named in the previous version of this entry was
+**wrong** — that table does not reference the test plan at all; it is a record of edits to
+other audit modules, whose `docs/audit/` paths were correct when written. It carries a
+dated path note instead of being rewritten.
+
+**Two corrections to the earlier prediction, both from reading the current scripts.**
+First, the predicted PARTIAL verdict for 1C does not apply at that test's scope: the ~40
+uncovered browser and app-preference keys are written by `assets/browsers/` and
+`assets/preferences/` from `scripts/post-install`, and neither `make defaults` nor
+`make harden` invokes them, so those keys are never written during 1C. The uncovered-
+rollback limitation belongs to a full-install rollback test, which does not exist and
+would need its own ID. Second, `make harden` is not part of `make all`, so 1C must apply
+it explicitly. Documented in `12-fresh-audit-2026-08.md N-19`.
+→ To close: run the four tests per the plan —
+`tart clone mrk-audit-clean-prepared mrk-test-N` — and record the results in
+`11-test-results.md`. Tests 3 and 4 need more than one VM.
 
 **N-9 — oh-my-zsh and zsh plugins are cloned unpinned.** `scripts/setup:612,626` clone
 `ohmyzsh/ohmyzsh` and two `zsh-users` plugins at `--depth=1` from the default branch,
