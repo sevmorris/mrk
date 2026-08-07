@@ -337,32 +337,33 @@ const DEFAULT_DESCRIPTIONS = {
     // Activity Monitor
     'com.apple.ActivityMonitor.IconType': {
         title: 'Activity Monitor Dock Icon Display',
-        description: 'Sets what the Activity Monitor Dock icon shows while the app is running. Value 2 = network usage (mirrored line graphs). All options: 0 = standard icon (default), 2 = network usage, 3 = disk usage, 5 = CPU meter bar, 6 = CPU history graph. Most dotfiles use 5 (CPU meter) for at-a-glance load visibility; this script uses 2 (network).',
+        description: 'Sets what the Activity Monitor Dock icon shows while the app runs. The values are 0 for the standard icon, 2 for the network usage and 3 for the disk usage. Value 5 gives the CPU meter bar, and value 6 gives the CPU history graph. This script uses 2, which shows mirrored network line graphs.',
         category: 'System Monitoring',
         why: 'Makes system activity visible at a glance in the Dock without needing to switch windows.',
-        systemDefault: '0 (standard app icon)'
+        systemDefault: '0 (standard app icon)',
+        background: 'Most dotfiles use 5, the CPU meter, for at-a-glance load visibility.'
     },
     'com.apple.ActivityMonitor.ShowCategory': {
         title: 'Activity Monitor Default Process Filter',
-        description: 'Sets the default process filter. Value 100 = All Processes. Other values: 101 = My Processes, 102 = System Processes, 103 = Other Processes, 106 = Active Processes, 107 = Windowed Processes.',
+        description: 'Sets the default process filter. Value 100 shows All Processes. The other values are 101 for My Processes, 102 for System Processes and 103 for Other Processes. Value 106 shows Active Processes, and value 107 shows Windowed Processes.',
         category: 'System Monitoring',
         why: 'The default "My Processes" view hides background and system processes that may be consuming significant resources.',
         systemDefault: '101 (My Processes only)'
     },
     'com.apple.ActivityMonitor.SortColumn': {
         title: 'Activity Monitor Sort Column',
-        description: 'Sets the default sort column. CPUUsage sorts by CPU consumption — most useful for spotting runaway processes at the top. Other valid values include CPUTime, PID, ProcessName, RealPrivateMemory, PhysicalMemory.',
+        description: 'Sets the default sort column. CPUUsage sorts by CPU consumption, which puts a runaway process at the top. The other values include CPUTime, PID, ProcessName, RealPrivateMemory and PhysicalMemory.',
         category: 'System Monitoring',
         why: 'Surfaces the highest-load process immediately on open, without manually clicking a column header each time.'
     },
     'com.apple.ActivityMonitor.SortDirection': {
         title: 'Activity Monitor Sort Direction',
-        description: 'Sets the sort direction. 0 = descending (highest values first), 1 = ascending. Descending with CPUUsage puts the most CPU-hungry processes at the top — the most useful configuration for diagnosing slowdowns.',
+        description: 'Sets the sort direction. Value 0 sorts descending, which puts the highest values first, and value 1 sorts ascending. Value 0 with CPUUsage puts the most CPU-hungry processes at the top.',
         category: 'System Monitoring'
     },
     'com.apple.ActivityMonitor.UpdatePeriod': {
         title: 'Activity Monitor Refresh Rate',
-        description: 'Sets Activity Monitor\'s data refresh interval in seconds. Value 1 = every second (most responsive), 2 = every 2 seconds, 5 = every 5 seconds (default). More frequent updates add a small amount of CPU overhead from the monitoring process itself.',
+        description: 'Sets the refresh interval of Activity Monitor in seconds. Value 1 refreshes every second and is the most responsive. Value 2 refreshes every 2 seconds, and value 5 every 5 seconds. A more frequent refresh adds a small amount of CPU overhead from the monitoring process.',
         category: 'System Monitoring',
         why: 'The 5s default misses short-lived CPU spikes. A runaway process can max out a core and settle down before the display refreshes.',
         systemDefault: '5 (seconds)'
@@ -371,30 +372,32 @@ const DEFAULT_DESCRIPTIONS = {
     // TextEdit
     'com.apple.TextEdit.RichText': {
         title: 'Default to Plain Text',
-        description: 'Makes new TextEdit documents open as plain text (.txt) by default instead of rich text (.rtf). TextEdit\'s default RTF mode has confused many users who expected a plain text editor — pasting code into an RTF document silently corrupts formatting with invisible markup. One of the most commonly cited macOS developer setup tips; has existed as a preference since early Mac OS X.',
+        description: 'Makes a new TextEdit document open as plain text (.txt) instead of rich text (.rtf).',
         category: 'Applications',
         why: 'RTF creates binary files that can\'t be read by other editors, diffed in git, or inspected as plain text. TextEdit is most useful as a scratch-pad for plain text.',
-        systemDefault: '1 (Rich Text / RTF)'
+        systemDefault: '1 (Rich Text / RTF)',
+        background: 'The default RTF mode has confused many users who expected a plain text editor — pasting code into an RTF document silently corrupts formatting with invisible markup. This is one of the most commonly cited macOS developer setup tips, and it has existed as a preference since early Mac OS X.'
     },
 
     // Terminal
     'com.apple.Terminal.FocusFollowsMouse': {
         title: 'Terminal Focus Follows Mouse',
-        description: 'Enables X11/Unix-style focus-follows-mouse for Terminal windows: any Terminal window under the cursor accepts keyboard input without needing to click to bring it forward. The window is not raised — focus shifts silently. Useful for multi-terminal workflows but can cause unexpected input if the cursor drifts over a Terminal window while typing elsewhere.',
+        description: 'Take care with this key: if the cursor drifts over a Terminal window while you type elsewhere, that window takes the input. The key turns on X11-style focus-follows-mouse for Terminal. A Terminal window under the cursor accepts keyboard input without a click. macOS does not raise the window, so the focus moves silently.',
         category: 'Terminal',
         why: 'Avoids needing to click to focus a terminal window when working across multiple panes, reducing hand movement.',
         systemDefault: 'false (click to focus)'
     },
     'com.apple.Terminal.SecureKeyboardEntry': {
         title: 'Secure Keyboard Entry',
-        description: 'Prevents other processes — screen readers, accessibility tools, TextExpander, and potential keyloggers — from intercepting keystrokes typed into Terminal. This is a Level 1 recommendation in the CIS Apple macOS benchmarks (control 6.4.1 in the Ventura benchmark and equivalents in earlier versions). Trade-off: breaks TextExpander and similar keyboard-monitoring utilities in Terminal windows.',
+        description: 'Stops other processes from reading the keystrokes that you type into Terminal. These processes include the screen readers, the accessibility tools, TextExpander and a possible keylogger. The trade-off is that TextExpander and similar keyboard-monitoring utilities stop working in a Terminal window.',
         category: 'Terminal',
         why: 'Prevents other processes from intercepting keystrokes typed into Terminal — including passwords, private keys, and API tokens.',
-        systemDefault: 'false (not secure)'
+        systemDefault: 'false (not secure)',
+        background: 'This is a Level 1 recommendation in the CIS Apple macOS benchmarks — control 6.4.1 in the Ventura benchmark, with equivalents in earlier versions.'
     },
     'com.apple.Terminal.ShowLineMarks': {
         title: 'Hide Terminal Line Marks',
-        description: 'Disables the line mark gutter — small arrow indicators in Terminal\'s left margin marking the start of each shell prompt, intended to help navigate between command outputs. Setting false removes them for a cleaner appearance.',
+        description: 'Turns off the line mark gutter. The gutter shows a small arrow in the left margin of Terminal, at the start of each shell prompt. The arrows help you move between command outputs. A value of false hides them.',
         category: 'Terminal',
         preference: true,
         systemDefault: 'true (line marks shown)'
@@ -403,27 +406,29 @@ const DEFAULT_DESCRIPTIONS = {
     // Menu bar clock
     'com.apple.menuextra.clock.IsAnalog': {
         title: 'Digital Clock (not Analog)',
-        description: 'Sets the menu bar clock to digital (false) or analog circular face (true). Important: since macOS Big Sur (11.0), changes to com.apple.menuextra.clock require killall ControlCenter to take effect — killall SystemUIServer no longer works for clock settings. Using the wrong process will have no visible effect.',
+        description: 'Run killall ControlCenter for a clock change to take effect. killall SystemUIServer does not work for the clock keys, and the wrong process leaves no visible change. This key sets the menu bar clock to digital with false, or to an analog circular face with true.',
         category: 'Menu Bar',
-        preference: true
+        preference: true,
+        background: 'The clock keys moved to ControlCenter in macOS Big Sur (11.0). Before that, killall SystemUIServer applied them.'
     },
     'com.apple.menuextra.clock.ShowAMPM': {
         title: 'Show AM/PM Indicator',
-        description: 'Shows the AM/PM designator in the menu bar clock for 12-hour time. Requires killall ControlCenter (not SystemUIServer) on Big Sur and later to take effect.',
+        description: 'Shows the AM/PM designator in the menu bar clock for 12-hour time. Run killall ControlCenter for the change to take effect, not killall SystemUIServer.',
         category: 'Menu Bar',
         preference: true
     },
     'com.apple.menuextra.clock.ShowDayOfWeek': {
         title: 'Show Day of Week',
-        description: 'Shows the abbreviated day of the week (e.g., "Thu") in the menu bar clock. Requires killall ControlCenter (not SystemUIServer) on Big Sur and later.',
+        description: 'Shows the abbreviated day of the week, such as "Thu", in the menu bar clock. Run killall ControlCenter for the change to take effect, not killall SystemUIServer.',
         category: 'Menu Bar',
         preference: true
     },
     'com.apple.menuextra.clock.ShowDate': {
         title: 'Show Date in Menu Bar Clock',
-        description: 'Controls date display in the menu bar clock. Values: 0 = never show date, 1 = always show, 2 = show when space allows. Introduced in macOS 12.4 Monterey as a replacement for the older boolean ShowDayOfMonth key, which lacked the "when space allows" middle option. Dotfiles using ShowDayOfMonth are using its deprecated predecessor.',
+        description: 'Sets when the menu bar clock shows the date. Value 0 never shows it, value 1 always shows it, and value 2 shows it when space allows. Run killall ControlCenter for the change to take effect, not killall SystemUIServer.',
         category: 'Menu Bar',
-        preference: true
+        preference: true,
+        background: 'macOS 12.4 Monterey introduced this key to replace the older boolean ShowDayOfMonth key, which had no "when space allows" middle option. A dotfile that still sets ShowDayOfMonth uses the deprecated predecessor.'
     },
 
     // kept for compatibility — not in defaults.sh
