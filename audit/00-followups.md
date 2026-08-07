@@ -40,16 +40,6 @@ reference it (this file, `11-test-results.md:3,264`, `syncall-removal.md:67-78`)
 fix the stale `docs/audit/` prefix at the same time. Then
 `tart clone mrk-audit-clean-prepared mrk-test-N` and run.
 
-**N-17 — `bash-completion@2` is back in the Brewfile (reopened B6).** B6 removed it in
-`3fe44dd`; `43c4d55` reintroduced it and it has been present ever since, now at
-`Brewfile:5`. The mechanism matters more than the entry: `make sync` re-offers anything
-installed but absent from the Brewfile, and the `~/.mrk/sync-ignore` opt-out
-(`scripts/sync:86-96`) is not auto-created and does not exist on this machine. Any
-deliberate Brewfile removal can be silently re-added on a later sync. Documented in
-`12-fresh-audit-2026-08.md N-17`.
-→ To close: decide whether it stays. If it stays, that is the answer. If it goes, also
-uninstall it or add it to `~/.mrk/sync-ignore`, and document the round-trip.
-
 **N-9 — oh-my-zsh and zsh plugins are cloned unpinned.** `scripts/setup:612,626` clone
 `ohmyzsh/ohmyzsh` and two `zsh-users` plugins at `--depth=1` from the default branch,
 with no tag, commit pin, or verification. The result is sourced by every interactive
@@ -181,6 +171,105 @@ no production risk. Documented in `03-shell-hygiene.md L3`.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the login-items ignore-list feature, branch `feat/login-items-ignore`, 2026-08-05
+
+- **Login-item silent return (the login-item half of the N-17 class)** — `6c0501a`.
+  `sync-login-items` had no ignore mechanism, so an app that re-registers itself as a
+  login item after a deliberate untrack came back as an add candidate on every run.
+  NordPass, untracked in `673622b`, is the live case; `bash-completion@2` is the same
+  class on the Brewfile side. `~/.mrk/login-items-ignore` now drops matching names
+  before the up-to-date check and the select UI, so an ignored item is never offered
+  (`scripts/sync-login-items:69-107` loader and match, `:177-201` filter stage).
+  The file mirrors `~/.mrk/sync-ignore` in format, loader and match, with one recorded
+  difference: `sync` strips all whitespace from a rule, which is right for Brewfile
+  tokens but would turn `Chrono Plus` into `ChronoPlus` and never match, so the
+  login-items loader strips only leading and trailing whitespace.
+  Scope is deliberate: the filter is a new upstream stage and the stale set and the whole
+  apply/generator path are unchanged. It stops a re-add; it does not retroactively untrack
+  an already-tracked item, which stays a manual edit of the `add_login_item` block.
+  Like `sync-ignore`, the file is not auto-created.
+  Verified with a stubbed `osascript` and a throwaway `$HOME` and repo: an ignored,
+  present, untracked NordPass is dropped and the run reports "up to date"; a non-ignored
+  item is still offered; with no ignore file the output is byte-identical to the
+  pre-change script; comments, blank lines, inline comments and surrounding whitespace
+  parse per `sync`'s semantics; and ignoring a tracked-but-absent item still lists it as
+  stale. The N-1 generator was re-checked in the same run — driving the write path through
+  a pty produces `post-install` and `docs/manual.md` byte-identical to the pre-change
+  script's output, adding one line in the safe `|| failed=$(( failed + 1 ))` form with
+  column alignment, the `", "`-separated manual sentence and the 755/644 modes preserved.
+- **Documentation** — `d7696cc`. `docs/manual.md` and `docs/bin/mrk-usage.html` §2.10
+  document the file in STE. Both also gained the `~/.mrk/sync-ignore` line that neither
+  had carried: the manual's state-files table listed no ignore file at all, and the usage
+  page never mentioned `sync-ignore`. `docs/STE-CONVERSION.md` registers "drop" as the
+  chosen term for the action.
+
+### N-17 closed in full, 2026-08-06
+
+- **N-17 — `bash-completion@2` in the Brewfile (reopened B6)** — `5d9db62`. B6 removed it
+  in `3fe44dd`; `43c4d55` reintroduced it. It is now removed again, and this time the
+  removal holds.
+  **N-17 named one entry but described a class:** a deliberate untrack can be silently
+  re-added by a later sync, because "installed but not tracked" and "never tracked" are
+  indistinguishable to the diff. The class had two halves and both closed first — see the
+  two sections below — after which only the decision remained. Both ignore files now exist
+  on this machine and are in use, which had never been true before: `~/.mrk/sync-ignore`
+  holds `bash-completion@2` and `~/.mrk/login-items-ignore` holds `NordPass`.
+  **What keeps the package out is the ignore entry, not transitivity.** The commit that
+  removed it first said "transitive dep"; that was wrong and the message was corrected
+  before it was pushed. `brew leaves --installed-on-request` lists `bash-completion@2`, and
+  `brew uses --installed bash-completion@2` reports nothing, so Homebrew has it as an
+  explicitly requested top-level formula that nothing pulls in. The package stays
+  installed. Delete the `~/.mrk/sync-ignore` line and the next `make sync` re-offers it.
+  That line is load-bearing, and this is the round-trip N-17 asked to have documented.
+
+### Closed by the self-populating ignore list, branch `feat/login-items-ignore-selfpopulate`, 2026-08-05
+
+- **Ignore-list discoverability — the file was inert until hand-created** — `f4f2ab1`.
+  The ignore mechanism above only helped someone who already knew the file existed, which
+  is the same reason `~/.mrk/sync-ignore` has never existed on this machine (see N-17).
+  `sync-login-items` now offers the candidates you declined and writes the ones you select
+  to `~/.mrk/login-items-ignore`, creating the file with a documented header. The file
+  populates itself at the exact moment the user expresses the intent.
+  The offer runs before the "No changes selected" exit, because declining every candidate
+  is the case it exists for. It touches only the ignore file. Appends are append-only and
+  keep existing comments, blank lines and order; names go in verbatim so interior spaces
+  survive the trim-ends-only loader; a file with no final newline gets one first;
+  `--dry-run` asks but writes nothing.
+  The same offer was then ported to `scripts/sync` — see below — so both commands behave
+  the same way.
+- **The Brewfile side of the same gap** — `7e526c9`. `scripts/sync` had the older, inert
+  half of the pattern: `~/.mrk/sync-ignore` only helped someone who already knew it
+  existed, and it had never existed on this machine. sync now offers the candidates you
+  declined at the picker and writes the ones you select, mirroring section 5b of
+  `sync-login-items` — before the "No packages selected" exit, touching only the ignore
+  file and never the Brewfile, append-only, with the same `--dry-run` behavior.
+  This closes the mechanism half of N-17 on both sides. Verified 10/10 with a stubbed
+  brew: decline both at the picker and accept, and a re-run reports "Skipping 2 ignored
+  package(s)"; on a partial selection only the declined package is offered while the
+  selected one is added; the Brewfile is byte-identical to the pre-change script's output
+  given the same picker input. Two test seams are disclosed in the commit message, because
+  sync resolves Homebrew from hardcoded paths and has no non-TUI selection fallback.
+- **Ignored-but-tracked was invisible** — `94e2ed9`. A name both tracked in `post-install`
+  and present in the ignore list appeared in neither the new set nor the stale set, so
+  `post-install` kept adding the app at install time while the ignore rule did nothing.
+  These are now shown under their own heading, "Ignored, but still tracked", and offered
+  for deletion through the existing remove path. Deliberately not folded into the stale
+  set: the apps are on the system, so "not on system" would be false. Scoped to tracked
+  AND ignored AND present, so a tracked, ignored, absent item stays stale-only and is
+  never listed twice.
+- **Documentation** — `318b787`. Corrects the two statements this work made false: "mrk
+  does not create this file", and the note that an already-tracked item stays tracked and
+  needs a hand edit. `docs/STE-CONVERSION.md` registers "decline", the only new term.
+- **Verification.** 13/13 across the core, offer and ignored-but-tracked cases, with a
+  stubbed `osascript`, a throwaway `$HOME` and repo, gum hidden to force the deterministic
+  path, and the write path driven through a pty. The end-to-end proof is one loop: an item
+  is offered, the add is declined, the offer is accepted, the name is appended, and a fresh
+  re-run drops it without a prompt. The generator was re-checked in its strongest form — a
+  run where the offer fires and writes while the generator also deletes a stale entry
+  produces `post-install` and `docs/manual.md` byte-identical to the pre-change script's
+  output, with the safe `|| failed=$(( failed + 1 ))` form, the column alignment and the
+  `", "` separated manual sentence all preserved.
 
 ### Closed by Phase B (documentation), branch `docs/ste-phase-b`, 2026-08-02
 

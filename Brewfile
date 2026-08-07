@@ -2,7 +2,6 @@
 
 ## CLI Tools - General Utilities & Power User Tools
 brew "bash"
-brew "bash-completion@2"
 brew "bat"
 brew "cliclick"
 brew "autoconf"

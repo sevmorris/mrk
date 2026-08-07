@@ -66,6 +66,76 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# ─── Load persistent ignore list ─────────────────────────────────────────────
+#
+# Format of ~/.mrk/login-items-ignore:
+#   one login-item name per line (the app name, without the .app suffix)
+#   lines starting with # are ignored
+#   example:
+#     NordPass
+#     Chrono Plus
+#
+# The file is created when the user accepts the offer to ignore a declined
+# item (section 5b), and can also be written by hand.
+#
+# This mirrors ~/.mrk/sync-ignore (scripts/sync:86-117) in format, load and
+# match, with one deliberate difference: sync strips *all* whitespace from a
+# rule, which is right for Brewfile tokens but would turn "Chrono Plus" into
+# "ChronoPlus" and never match. Login-item names are app names and contain
+# interior spaces, so only leading and trailing whitespace is stripped here.
+
+_LOGIN_ITEM_IGNORE=()
+if [[ -f "${STATE_DIR}/login-items-ignore" ]]; then
+  while IFS= read -r _line || [[ -n "$_line" ]]; do
+    _line="${_line%%#*}"                           # strip inline comments
+    _line="${_line#"${_line%%[![:space:]]*}"}"     # strip leading whitespace
+    _line="${_line%"${_line##*[![:space:]]}"}"     # strip trailing whitespace
+    [[ -n "$_line" ]] && _LOGIN_ITEM_IGNORE+=("$_line")
+  done < "${STATE_DIR}/login-items-ignore"
+  if (( ${#_LOGIN_ITEM_IGNORE[@]} > 0 )); then
+    log "Loaded ${#_LOGIN_ITEM_IGNORE[@]} ignore rule(s) from ~/.mrk/login-items-ignore"
+  fi
+fi
+
+_login_item_ignored() {
+  local _name="$1"
+  local _item
+  for _item in "${_LOGIN_ITEM_IGNORE[@]}"; do
+    [[ "$_item" == "$_name" ]] && return 0
+  done
+  return 1
+}
+
+# Append one name to the ignore file, and create the file if it is absent.
+# Append-only: existing lines are never rewritten or reordered. The name goes
+# in verbatim, interior spaces intact, because the loader trims only the ends.
+_append_login_item_ignore() {
+  local _name="$1"
+  local _f="${STATE_DIR}/login-items-ignore"
+
+  if [[ ! -f "$_f" ]]; then
+    mkdir -p "$STATE_DIR"
+    cat > "$_f" <<'IGNOREHEADER'
+# mrk login-items ignore list
+#
+# One login-item name per line: the app name, without the .app suffix.
+# A # character starts a comment. Leading and trailing spaces are trimmed,
+# so a name with interior spaces (for example: Chrono Plus) works as written.
+#
+# sync-login-items drops these names, so it never offers them as new items.
+IGNOREHEADER
+  fi
+
+  # A file whose last line has no newline would otherwise absorb the append.
+  # The loader tolerates a missing final newline, so this state is reachable.
+  if [[ -s "$_f" && -n "$(tail -c 1 "$_f")" ]]; then
+    printf '\n' >> "$_f"
+  fi
+
+  printf '%s\n' "$_name" >> "$_f"
+  _LOGIN_ITEM_IGNORE+=("$_name")   # keep the in-memory list authoritative
+}
+
 # ─── 1. Get system login items (name -> path) ────────────────────────────────
 
 log "Reading system login items..."
@@ -134,14 +204,41 @@ done < "$POST_INSTALL"
 
 new_items_arr=()
 stale_items_arr=()
+ignored_arr=()
+conflict_items_arr=()
 
+# The ignore list drops the ADD candidates only. A tracked item that is also
+# ignored still counts as tracked, so the stale set below is untouched: an
+# already-tracked item stays tracked until you delete it.
 for name in "${!system_items[@]}"; do
-  [[ -z "${tracked_items[$name]+x}" ]] && new_items_arr+=("$name")
+  [[ -z "${tracked_items[$name]+x}" ]] || continue
+  if _login_item_ignored "$name"; then
+    ignored_arr+=("$name")
+    continue
+  fi
+  new_items_arr+=("$name")
 done
 
 for name in "${!tracked_items[@]}"; do
   [[ -z "${system_items[$name]+x}" ]] && stale_items_arr+=("$name")
 done
+
+# A name that is BOTH tracked and ignored is a contradiction: post-install
+# still adds the app at install time, so the ignore rule does nothing for it.
+# Surface it as its own set, because it is not stale — the app IS on the
+# system — and reporting it under "not on system" would be false.
+for name in "${!tracked_items[@]}"; do
+  [[ -n "${system_items[$name]+x}" ]] || continue
+  _login_item_ignored "$name" && conflict_items_arr+=("$name")
+done
+
+# Report the skips by name so it is transparent why an item is not offered.
+# Sorted, because the loop above walks an associative array in hash order.
+if (( ${#ignored_arr[@]} > 0 )); then
+  while IFS= read -r name; do
+    log "Ignoring $name per ~/.mrk/login-items-ignore"
+  done < <(printf '%s\n' "${ignored_arr[@]}" | sort)
+fi
 
 if (( ${#new_items_arr[@]} > 0 )); then
   mapfile -t new_items_arr < <(printf '%s\n' "${new_items_arr[@]}" | sort)
@@ -149,8 +246,12 @@ fi
 if (( ${#stale_items_arr[@]} > 0 )); then
   mapfile -t stale_items_arr < <(printf '%s\n' "${stale_items_arr[@]}" | sort)
 fi
+if (( ${#conflict_items_arr[@]} > 0 )); then
+  mapfile -t conflict_items_arr < <(printf '%s\n' "${conflict_items_arr[@]}" | sort)
+fi
 
-if (( ${#new_items_arr[@]} == 0 && ${#stale_items_arr[@]} == 0 )); then
+if (( ${#new_items_arr[@]} == 0 && ${#stale_items_arr[@]} == 0 \
+      && ${#conflict_items_arr[@]} == 0 )); then
   log "Login items are up to date. Nothing to do."
   exit 0
 fi
@@ -172,6 +273,12 @@ if (( ${#stale_items_arr[@]} > 0 )); then
   echo ""
   echo "  Stale (tracked, not on system):"
   for name in "${stale_items_arr[@]}"; do printf "    - %s\n" "$name"; done
+fi
+
+if (( ${#conflict_items_arr[@]} > 0 )); then
+  echo ""
+  echo "  Ignored, but still tracked (post-install keeps adding these):"
+  for name in "${conflict_items_arr[@]}"; do printf "    - %s\n" "$name"; done
 fi
 
 echo ""
@@ -202,6 +309,16 @@ if command -v gum >/dev/null 2>&1; then
       [[ -n "$name" ]] && remove_items["$name"]=1
     done <<< "$gum_out"
   fi
+  if (( ${#conflict_items_arr[@]} > 0 )); then
+    gum_out=$(gum choose --no-limit \
+      --cursor.foreground=196 \
+      --selected.foreground=196 \
+      --header="These are in the ignore list but post-install still adds them. Select the items to REMOVE from tracking (space to toggle, enter to confirm):" \
+      "${conflict_items_arr[@]}" < /dev/tty 2>/dev/tty) || true
+    while IFS= read -r name; do
+      [[ -n "$name" ]] && remove_items["$name"]=1
+    done <<< "$gum_out"
+  fi
 else
   if (( ${#new_items_arr[@]} > 0 )); then
     printf "Add all %d new item(s)? [y/N] " "${#new_items_arr[@]}"
@@ -217,10 +334,71 @@ else
       for name in "${stale_items_arr[@]}"; do remove_items["$name"]=1; done
     fi
   fi
+  if (( ${#conflict_items_arr[@]} > 0 )); then
+    printf "Remove all %d ignored-but-tracked item(s) from tracking? [y/N] " \
+      "${#conflict_items_arr[@]}"
+    read -r answer </dev/tty
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+      for name in "${conflict_items_arr[@]}"; do remove_items["$name"]=1; done
+    fi
+  fi
 fi
 
 n_add=${#add_items[@]}
 n_remove=${#remove_items[@]}
+
+# ─── 5b. Offer to ignore the declined items ──────────────────────────────────
+#
+# The candidates the user did not select come back every run. Offer to write
+# them to the ignore file, so the file populates itself instead of needing a
+# hand edit. This stage touches ONLY the ignore file: it never adds, deletes
+# or retracks anything in post-install or docs/manual.md.
+#
+# It must run before the "nothing selected" exit below, because declining
+# every candidate is exactly the case this is for.
+
+declined_arr=()
+for name in "${new_items_arr[@]}"; do
+  [[ -z "${add_items[$name]+x}" ]] && declined_arr+=("$name")
+done
+
+if (( ${#declined_arr[@]} > 0 )); then
+  declare -A ignore_selected=()
+
+  if command -v gum >/dev/null 2>&1; then
+    gum_out=$(gum choose --no-limit \
+      --cursor.foreground=214 \
+      --selected.foreground=214 \
+      --header="Select declined items to add to the ignore list, so they stop reappearing (space to toggle, enter to confirm):" \
+      "${declined_arr[@]}" < /dev/tty 2>/dev/tty) || true
+    while IFS= read -r name; do
+      [[ -n "$name" ]] && ignore_selected["$name"]=1
+    done <<< "$gum_out"
+  else
+    printf "Add all %d declined item(s) to ~/.mrk/login-items-ignore? [y/N] " "${#declined_arr[@]}"
+    read -r answer </dev/tty
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+      for name in "${declined_arr[@]}"; do ignore_selected["$name"]=1; done
+    fi
+  fi
+
+  if (( ${#ignore_selected[@]} > 0 )); then
+    while IFS= read -r name; do
+      # Defensive: a selected name cannot already be in the list, because the
+      # drop stage removed those before the candidates were shown.
+      if _login_item_ignored "$name"; then
+        log "$name is already in ~/.mrk/login-items-ignore"
+        continue
+      fi
+      if (( DRY_RUN )); then
+        dry "Would add $name to ~/.mrk/login-items-ignore"
+        continue
+      fi
+      _append_login_item_ignore "$name"
+      log "Added $name to ~/.mrk/login-items-ignore"
+    done < <(printf '%s\n' "${!ignore_selected[@]}" | sort)
+  fi
+fi
 
 if (( n_add == 0 && n_remove == 0 )); then
   log "No changes selected. Nothing to do."
