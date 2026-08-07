@@ -103,7 +103,7 @@ meaning without loss.
 | `docs/bin/mrk-usage.html` | Full STE on all prose. HTML structure and callout classes kept. | Done — commit `89fd1af`; ignore-list and self-populate prose added in the `login-items-ignore` work |
 | `docs/manual.md` | Full STE. Procedures strict; descriptions STE-descriptive. | Done — commit `292485f`; ignore-list and self-populate prose added in the `login-items-ignore` work |
 | `scripts/sync-login-items` | The doc-emitting template only. | Done — commit `292485f` |
-| `docs/defaults/script.js` | Data reconcile + STE on the 18 newly authored entries. | Partial — commit `7f3d8de` |
+| `docs/defaults/script.js` | Data reconcile + full STE on all 77 entries. | Done — reconcile `7f3d8de`; the 59 legacy entries split across five batches |
 | `README.md`, `docs/index.html` | Optional, low priority. | Not started |
 
 ### `docs/bin/mrk-usage.html`
@@ -125,20 +125,32 @@ the old wording, so an STE rewrite of that sentence alone would have made the ne
 fail its drift guard and exit 1. The sentence, the template and the regex were changed
 together, and the round trip was verified by driving the real script through a pty.
 
-### `docs/defaults/script.js` — reconcile done, prose split outstanding
+### `docs/defaults/script.js` — reconcile and prose split both done
 
 The reconcile is complete: 77 parsed keys, 77 descriptions, 0 keys without a
 description, 0 orphans, and no command containing an unexpanded variable.
 
-The 18 entries authored during the reconcile (2 Terminal keys, 16 trackpad keys) are
-written in STE, with Background notes where there was historical material to keep. They
-are the worked example of the intended split.
+The 18 entries authored during the reconcile (2 Terminal keys, 16 trackpad keys) were
+the worked example of the intended split: functional text in `description`, historical
+aside in `background`, which renders in a block labelled "Background — not Simplified
+Technical English".
 
-**The 59 pre-existing descriptions have not been converted.** Each one mixes functional
-text with historical and editorial material in a single paragraph, so the split is a
-per-entry authoring task rather than a mechanical pass. The rendering support for it is
-already in place: an entry may carry a `background` field, which renders in a block
-labelled "Background — not Simplified Technical English".
+**The 59 legacy descriptions are now converted**, in five batches by subject area:
+General UI/UX (12), Sound and Keyboard (11), Dock, Finder and Screenshots (12), storage
+and updates (11), and Activity Monitor, TextEdit, Terminal and the menu bar clock (13).
+No `description` field now mixes functional and historical text.
+
+`background` fields stand at 34 of 77 entries: the 3 original worked examples and 31
+added by the split. An entry with no historical material did not get one — a `background`
+block exists to keep material worth reading, not to pad every entry.
+
+Verified across all 77 entries, not per batch: `node --check` passes, the parser finds
+77 entries, every entry has a description, no description contains a historical marker,
+no sentence exceeds 25 words, and no description uses a perfect, progressive or passive
+construction. `scripts/defaults.sh` was not touched, so the page still resolves 77/77
+keys with 0 orphans against the copy on `main`.
+
+Three judgement calls are recorded as deviations 9, 10 and 11 below.
 
 ---
 
@@ -178,6 +190,28 @@ Every deliberate departure from the ruleset.
 8. **British spelling "Centre" in one new entry.** `Notification Centre` follows the
    surrounding entries' existing style. The rest of the documentation uses US spelling.
 
+9. **A live caveat stays in `description`, even when it names a macOS version.** The
+   split sends history to `background`, but some material names a version while telling
+   you what the key does *now*: the macOS 15 Sequoia bug that resets
+   `screencapture.show-thumbnail`, the three disk-image verify keys that current macOS
+   appears to ignore, and `killall ControlCenter` for the four menu bar clock keys. Each
+   changes what you should expect the key to do, so each stays functional. Only the
+   version number, the attribution and the citation moved. Where the caveat is a hazard
+   it leads the description, following the rule that a caution precedes its content —
+   `InitialKeyRepeat`, `Terminal.FocusFollowsMouse` and `clock.IsAnalog`.
+
+10. **An editorial aside that restated the entry's own `why` was deleted, not moved.**
+    Five entries carried one: the smart-dashes, double-space and smart-quotes keys, and
+    both `.DS_Store` keys. A `background` block exists to keep material worth reading, and
+    a near-duplicate of the adjacent field is not that. Where such an aside also carried a
+    fact `why` did not state — the SMB browsing slowdown on `DSDontWriteNetworkStores` —
+    that fact was kept in `description`.
+
+11. **A citation shared by several entries is written once.** All three disk-image verify
+    keys rest on the same El Capitan report. It sits in `background` on `skip-verify`;
+    `skip-verify-locked` points at that entry rather than repeating it a second and third
+    time.
+
 ---
 
 ## How to check this work
@@ -193,9 +227,21 @@ grep -rnE '^#{1,3} .*\b[A-Za-z]+ing\b' docs/manual.md
 
 All three are clean, except the "Troubleshooting" heading recorded as deviation 2.
 
-Widening the first grep to all of `docs/` still reports hits. They come from the 59
-unconverted descriptions in `docs/defaults/script.js` — for example "approximately
-16–128" in the Dock icon-size entry. That is expected until the defaults-page prose
-split is done, and it is a useful marker of what remains.
+Widening the first grep to all of `docs/` is now clean too. It previously reported hits
+from the 59 unconverted descriptions in `docs/defaults/script.js` — the note here named
+"approximately 16–128" in the Dock icon-size entry, which now reads "about 16 to 128".
+
+The defaults page carries prose in a data structure rather than in Markdown, so these
+greps check it too:
+
+```bash
+node --check docs/defaults/script.js
+grep -c "approximately" docs/defaults/script.js          # 0
+```
+
+Sentence length, one-idea-per-sentence and voice need a human read. For the defaults
+page the split itself needs one as well: whether a given sentence is functional or
+historical is an authoring judgement, and only deviations 9 to 11 record where that call
+was close.
 
 Sentence length, one-idea-per-sentence and voice need a human read.

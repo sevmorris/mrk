@@ -54,15 +54,6 @@ this is inconsistent with its own precedent. Not a live defect. Documented in
 
 Items the audit identified that are real but classified as acceptable.
 
-**Defaults-page prose split is outstanding.** `docs/defaults/script.js` is reconciled
-(77/77 keys, 0 orphans) and the 18 newly authored entries are in Simplified Technical
-English, but the 59 pre-existing descriptions still mix functional text and historical
-material in one paragraph. The rendering support for the split is in place: an entry may
-carry a `background` field, which renders in a block labelled as not-STE. Documented in
-`docs/STE-CONVERSION.md`.
-→ To close: per entry, move the historical and editorial material into `background` and
-convert the functional sentence to STE. A per-entry authoring task, not a mechanical pass.
-
 **~40 browser and app-preference writes have NO ROLLBACK FOUND.** Safari, Helium, Audio
 Hijack, Fission, AlDente, and all six Rogue Amoeba update-suppression domains are written
 by `assets/browsers/` and `assets/preferences/` scripts with no rollback entries
@@ -203,6 +194,31 @@ the audit artifacts have the full detail.
   had carried: the manual's state-files table listed no ignore file at all, and the usage
   page never mentioned `sync-ignore`. `docs/STE-CONVERSION.md` registers "drop" as the
   chosen term for the action.
+
+### Defaults-page prose split closed, branch `docs/ste-defaults-split`, 2026-08-07
+
+- **Defaults-page prose split** — `8aec5fc`, `5084d9a`, `b76d741`, `b6e1daa`, `6a0e9cf`.
+  This was the last item carried from the Phase B STE conversion, and the largest
+  documentation item on the board. The 59 legacy `DEFAULT_DESCRIPTIONS` entries each mixed
+  functional text with historical and editorial material in one paragraph; all 59 are now
+  split, in five commits by subject area. Functional text stays in `description`, in STE;
+  the historical aside moves to `background`, which renders in a block labelled as not-STE.
+  `background` fields stand at 34 of 77 entries — the 3 original worked examples plus 31
+  added here. An entry with no historical material did not get one.
+  Verified across all 77 entries rather than per batch: `node --check` passes, the parser
+  finds 77 entries, every entry has a description, no description contains a historical
+  marker, no sentence exceeds 25 words, and no description uses a perfect, progressive or
+  passive construction. `scripts/defaults.sh` was not touched, so the page still resolves
+  77/77 keys with 0 orphans against the copy on `main` — no URL repoint was needed.
+  This also closes the last "approximately" in the repository, which
+  `docs/STE-CONVERSION.md` had named as the marker of what remained.
+  Three judgement calls are recorded as deviations 9 to 11 in `docs/STE-CONVERSION.md`:
+  a live caveat stays in `description` even when it names a macOS version; an editorial
+  aside that restated the entry's own `why` was deleted rather than moved; and a citation
+  shared by several entries is written once.
+  With this closed, `docs/defaults/script.js` moves to Done in the per-file scope table,
+  and the only STE work left is the optional, low-priority `README.md` and
+  `docs/index.html`.
 
 ### N-17 closed in full, 2026-08-06
 
