@@ -44,7 +44,6 @@ type category struct {
 var descriptions = map[string]string{
 	// Formulae
 	"bash":              "Modern shell (Bash 5.x) with improved features",
-	"bash-completion@2": "Programmable tab completion for Bash 4.1+",
 	"bat":               "cat clone with syntax highlighting and Git integration",
 	"cliclick":          "Emulate mouse and keyboard events from the command line",
 	"coreutils":         "GNU core utilities — enhanced versions of standard Unix tools",
@@ -145,7 +144,6 @@ var descriptions = map[string]string{
 	"mdrp":                   "Mac DVDRipper Pro — rip and back up DVDs on macOS",
 	"mediainfo":              "Display technical information about media files",
 	"minecraft":              "Sandbox construction video game",
-	"nordpass":               "Password manager with encrypted vault sync",
 	"nordvpn":                "NordVPN client for macOS",
 	"omnidisksweeper":        "Disk usage analyzer for macOS",
 	"onyx":                   "System maintenance, tweaking, and cleaning for macOS",
