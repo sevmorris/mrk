@@ -1,6 +1,6 @@
 # Audit Module 5 — Runtime Verification Results
 **Branch:** `main` | **Date:** 2026-04-26
-**Test plan:** `docs/audit/10-test-plan.md`
+**Test plan:** `audit/10-test-plan.md`
 **Environment:** Tart sandbox, macOS 26.3 (Tahoe), Darwin 25.3.0, ARM64
 **VM source:** `mrk-audit-clean-prepared` snapshot (Tart, copy-on-write clone per test)
 
@@ -261,7 +261,7 @@ tracked rolls back correctly.
 
 ## Tests Deferred
 
-Tests 2, 3, and 4 from `docs/audit/10-test-plan.md` were not executed in this
+Tests 2, 3, and 4 from `audit/10-test-plan.md` were not executed in this
 session. They remain runnable from the test plan.
 
 **Test 2 — Idempotency (`make all` twice, same VM).** Would measure full filesystem

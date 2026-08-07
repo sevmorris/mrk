@@ -62,6 +62,10 @@ repo itself, `bin/mrk-push` remains available (no make target, direct invocation
 Audit artifacts retain the original findings as historical record. A removal note was
 added at the top of each affected section:
 
+> **Path note (2026-08-07).** The `docs/audit/` paths in the table below were correct when
+> this was written. The tree moved to `audit/` in `b3ad0d0`. The paths are left as written
+> because the table is a record of edits made at that time; read them as `audit/…`.
+
 | File | Location | Change |
 |------|----------|--------|
 | `docs/audit/01-callgraph.md` | `## Target: syncall` | Added removal note |
