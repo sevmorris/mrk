@@ -3,77 +3,87 @@ const DEFAULT_DESCRIPTIONS = {
     // General UI / UX
     'NSGlobalDomain.AppleInterfaceStyle': {
         title: 'Dark Mode',
-        description: 'Enables system-wide Dark Mode, affecting the menu bar, Dock, window frames, and most built-in apps. Introduced in macOS 10.14 Mojave (2018). The key accepts only the string "Dark" — there is no "Light" value. To revert to Light Mode you must delete the key entirely: defaults delete NSGlobalDomain AppleInterfaceStyle. A partial dark menu bar existed since Yosemite (10.10) but used a different mechanism.',
+        description: 'Turns on Dark Mode for the whole system. It changes the menu bar, the Dock, the window frames and most built-in apps. The key accepts only the string "Dark". There is no "Light" value, so you delete the key to go back to Light Mode: defaults delete NSGlobalDomain AppleInterfaceStyle.',
         category: 'Appearance',
         preference: true,
-        systemDefault: 'Key absent (Light Mode)'
+        systemDefault: 'Key absent (Light Mode)',
+        background: 'macOS 10.14 Mojave introduced Dark Mode in 2018. A partial dark menu bar existed from Yosemite (10.10), but it used a different mechanism.'
     },
     'NSGlobalDomain.AppleShowScrollBars': {
         title: 'Always Show Scrollbars',
-        description: 'Controls scrollbar visibility. "Always" keeps scrollbars permanently visible; "Automatic" lets macOS decide based on input device (trackpad = hidden, mouse = visible); "WhenScrolling" hides them until you scroll. Scrollbars were always visible before OS X 10.7 Lion, which ported the iOS overlay-scrollbar paradigm to the Mac. Setting "Always" overrides the automatic device-detection logic.',
+        description: 'Sets when macOS shows the scrollbars. "Always" keeps them visible. "Automatic" lets macOS decide from the input device: hidden for a trackpad, visible for a mouse. "WhenScrolling" hides them until you scroll. "Always" overrides the automatic device detection.',
         category: 'Interface',
         why: 'Overlay scrollbars appear and disappear dynamically, shifting layout and moving click targets. Always-visible scrollbars provide a consistent, predictable interface.',
-        systemDefault: '"Automatic"'
+        systemDefault: '"Automatic"',
+        background: 'Scrollbars were always visible before OS X 10.7 Lion, which ported the iOS overlay-scrollbar paradigm to the Mac.'
     },
     'NSGlobalDomain.AppleShowAllExtensions': {
         title: 'Show All File Extensions',
-        description: 'Forces Finder to display file extensions for all files, including types macOS normally hides (.jpg, .txt, .mov). Improves security by preventing files from disguising themselves with misleading names. Also a CIS Benchmark recommendation for macOS hardening (control 6.2). Individual files can still override this with a per-file "Hide extension" attribute.',
+        description: 'Makes Finder show the file extension for every file. This includes the types that macOS hides by default, such as .jpg, .txt and .mov. A single file can still override this with its own "Hide extension" attribute.',
         category: 'Security',
-        why: 'Hidden extensions can make malicious files appear harmless — a macOS app bundle named "invoice.pdf.app" displays as "invoice.pdf" with extensions hidden.'
+        why: 'Hidden extensions can make malicious files appear harmless — a macOS app bundle named "invoice.pdf.app" displays as "invoice.pdf" with extensions hidden.',
+        background: 'This setting is also CIS Benchmark control 6.2 for macOS hardening.'
     },
     'NSGlobalDomain.NSAutomaticWindowAnimationsEnabled': {
         title: 'Disable Window Open Animations',
-        description: 'Disables the scale-up animation when windows first appear, making them open instantly. Introduced in OS X 10.7 Lion. Only affects apps launched after the setting is applied; running apps must be relaunched. Some animations in newer macOS are handled by the compositor and may not be affected.',
+        description: 'Turns off the scale-up animation that plays when a window first appears, so a window opens at once. It applies only to the apps that you start after you apply it. Start a running app again for the change to reach it. The compositor handles some animations in newer macOS, and this key does not change those.',
         category: 'Performance',
-        why: 'Eliminates visual delay when rapidly switching or tiling windows.'
+        why: 'Eliminates visual delay when rapidly switching or tiling windows.',
+        background: 'OS X 10.7 Lion introduced this key.'
     },
     'NSGlobalDomain.NSWindowResizeTime': {
         title: 'Sheet (Dialog) Animation Duration',
-        description: 'Despite its name, this key controls sheet animation speed — how quickly Save and Print dialogs roll down from a window\'s title bar. It does not affect general window resizing. The default is 0.2 seconds; 0.001 makes dialogs appear near-instantly. Robservatory.com measured a 47% time reduction for repeated Save dialog workflows. Many dotfiles misidentify this as a window-resize setting.',
+        description: 'Sets the speed of the sheet animation, not the window resize speed that the key name suggests. A sheet is a dialog that rolls down from the title bar of a window, such as Save or Print. The default is 0.2 seconds. A value of 0.001 makes a dialog appear almost at once.',
         category: 'Performance',
         why: 'The default 0.2s delay is perceptible and compounds across dozens of daily Save/Print interactions.',
-        systemDefault: '0.2'
+        systemDefault: '0.2',
+        background: 'Despite its name, this key does not affect general window resizing, and many dotfiles misidentify it as a window-resize setting. Robservatory.com measured a 47% time reduction for repeated Save dialog workflows.'
     },
     'NSGlobalDomain.NSQuitAlwaysKeepsWindows': {
         title: 'Disable Window Restoration (Resume)',
-        description: 'Disables Resume — the OS X 10.7 Lion feature that restores all windows from the previous session when an app relaunches. Resume was immediately controversial on release; "how do I disable Resume?" was among the most-searched Lion questions in 2011. Setting false is equivalent to checking "Close windows when quitting an app" in System Settings → Desktop & Dock, which Apple finally surfaced as a visible toggle in Ventura.',
+        description: 'Turns off Resume. Resume restores all the windows from your last session when you start an app again. A value of false matches "Close windows when quitting an app" in System Settings → Desktop & Dock.',
         category: 'Performance',
         why: 'Stale windows from a previous session can cause confusion after crashes or updates — apps reopen to whatever state they were in, which is rarely useful.',
-        systemDefault: 'true (window restoration enabled)'
+        systemDefault: 'true (window restoration enabled)',
+        background: 'Resume arrived in OS X 10.7 Lion and was immediately controversial; "how do I disable Resume?" was among the most-searched Lion questions in 2011. Apple finally surfaced it as a visible toggle in Ventura.'
     },
     'NSGlobalDomain.NSNavPanelExpandedStateForSaveMode': {
         title: 'Expanded Save Dialogs',
-        description: 'Forces Save dialogs to open in expanded mode showing the full folder browser, rather than the simplified collapsed view Apple introduced in OS X 10.7 Lion (before which Save dialogs always showed the full hierarchy). Both this key and its "2" variant are required — the second covers additional Save panel contexts added for document-scoped saving.',
+        description: 'Makes a Save dialog open in expanded mode, which shows the full directory browser. Set this key together with its "2" variant. The second key covers the other Save panel contexts that document-scoped saving added.',
         category: 'Interface',
-        why: 'The collapsed panel hides the destination path. Files frequently end up saved to the wrong location because the user accepted a default they couldn\'t see.'
+        why: 'The collapsed panel hides the destination path. Files frequently end up saved to the wrong location because the user accepted a default they couldn\'t see.',
+        background: 'Apple introduced the simplified collapsed Save dialog in OS X 10.7 Lion. Before that, Save dialogs always showed the full hierarchy.'
     },
     'NSGlobalDomain.NSNavPanelExpandedStateForSaveMode2': {
         title: 'Expanded Save Dialogs (Extended)',
-        description: 'Companion to NSNavPanelExpandedStateForSaveMode. Covers additional document-saving contexts that use a separate code path. Set both keys together for consistent behavior across all apps.',
+        description: 'Works with NSNavPanelExpandedStateForSaveMode. It covers the other document-saving contexts, which use a separate code path. Set both keys together, so all apps behave the same way.',
         category: 'Interface'
     },
     'NSGlobalDomain.PMPrintingExpandedStateForPrint': {
         title: 'Expanded Print Dialogs',
-        description: 'Forces Print dialogs to open fully expanded, showing paper size, orientation, quality, and other options immediately. The simplified collapsed Print dialog arrived in OS X 10.7 Lion alongside the collapsed Save dialog and was equally unpopular. Both this key and the "2" variant should be set together.',
-        category: 'Interface'
+        description: 'Makes a Print dialog open fully expanded. The expanded dialog shows the paper size, the orientation, the quality and the other options at once. Set this key together with its "2" variant.',
+        category: 'Interface',
+        background: 'The simplified collapsed Print dialog arrived in OS X 10.7 Lion alongside the collapsed Save dialog, and was equally unpopular.'
     },
     'NSGlobalDomain.PMPrintingExpandedStateForPrint2': {
         title: 'Expanded Print Dialogs (Extended)',
-        description: 'Companion to PMPrintingExpandedStateForPrint. Covers additional print dialog contexts. Set both keys together for consistent behavior across all apps.',
+        description: 'Works with PMPrintingExpandedStateForPrint. It covers the other print dialog contexts. Set both keys together, so all apps behave the same way.',
         category: 'Interface'
     },
     'NSGlobalDomain.NSDocumentSaveNewDocumentsToCloud': {
         title: 'Default New Documents to Local Storage',
-        description: 'Prevents iCloud-aware apps (TextEdit, Pages, Preview, Numbers, Keynote) from defaulting to iCloud Drive for new document saves. Apple introduced iCloud document storage in OS X Mountain Lion (10.8, 2012) and set it as the default save location — a decision that surprised many users who later found their documents "missing" (stored in iCloud, not locally). Setting false keeps local storage as the default while still allowing manual saves to iCloud.',
+        description: 'Stops the iCloud-aware apps from using iCloud Drive as the default location for a new document. These apps include TextEdit, Pages, Preview, Numbers and Keynote. A value of false keeps local storage as the default. You can still save to iCloud by hand.',
         category: 'File Management',
         why: 'Avoids accidental sync of sensitive or work-in-progress files to iCloud without explicit intent.',
-        systemDefault: 'true (saves to iCloud by default)'
+        systemDefault: 'true (saves to iCloud by default)',
+        background: 'Apple introduced iCloud document storage in OS X Mountain Lion (10.8, 2012) and set it as the default save location — a decision that surprised many users who later found their documents "missing" (stored in iCloud, not locally).'
     },
     'NSGlobalDomain.QLPanelAnimationDuration': {
         title: 'Quick Look Animation Duration',
-        description: 'Controls the Quick Look preview panel animation speed. Available since Quick Look debuted in Mac OS X 10.5 Leopard (2007). Setting 0 removes the animation — but only partially: since El Capitan (10.11) this key affects only the close (zoom-out) animation. The open (zoom-in) animation is unaffected. Community reports from 2016 confirmed this is intentional, not a bug.',
+        description: 'Sets the speed of the Quick Look panel animation. A value of 0 stops the animation, but only for the close (zoom-out) step. The open (zoom-in) animation does not change.',
         category: 'Performance',
-        preference: true
+        preference: true,
+        background: 'Quick Look debuted in Mac OS X 10.5 Leopard (2007). The close-only behaviour dates from El Capitan (10.11); community reports from 2016 confirmed it is intentional, not a bug.'
     },
 
     // Sound
