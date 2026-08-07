@@ -166,49 +166,52 @@ const DEFAULT_DESCRIPTIONS = {
     // Dock
     'com.apple.dock.orientation': {
         title: 'Dock Position',
-        description: 'Sets the Dock position on screen. Valid values: "left", "bottom" (default), "right". Requires killall Dock to take effect. On multi-display setups, the Dock appears on the display designated as primary in System Settings → Displays → Arrangement.',
+        description: 'Sets the position of the Dock on the screen. The values are "left", "bottom" and "right". Run killall Dock for the change to take effect. With more than one display, the Dock appears on the display that System Settings → Displays → Arrangement makes primary.',
         category: 'Dock',
         preference: true,
         systemDefault: '"bottom"'
     },
     'com.apple.dock.tilesize': {
         title: 'Dock Icon Size',
-        description: 'Sets Dock icon size in pixels. Valid range is approximately 16–128; the System Settings slider default is around 36–48 depending on display resolution. Requires killall Dock.',
+        description: 'Sets the size of the Dock icons in pixels. The range is about 16 to 128. The System Settings slider starts near 36 to 48, which depends on the display resolution. Run killall Dock for the change to take effect.',
         category: 'Dock',
         preference: true,
         systemDefault: '~48px (varies by display resolution)'
     },
     'com.apple.dock.mineffect': {
         title: 'Window Minimize Effect',
-        description: 'Sets the window minimize animation. "genie" (default) uses the stretchy drain-into-Dock effect; "scale" shrinks the window in place. There is also a hidden third value "suck" — a vacuum-like animation that has existed since macOS 10.0 (reportedly even in pre-release builds) but has never appeared in System Preferences. The popular theory is Apple kept it hidden because of the name. All three values work on macOS 15.',
+        description: 'Sets the window minimize animation. "genie" uses the stretchy drain-into-Dock effect. "scale" shrinks the window in place. A third value, "suck", also works, but it never appears in System Settings.',
         category: 'Dock',
         preference: true,
-        systemDefault: '"genie"'
+        systemDefault: '"genie"',
+        background: 'The "suck" value is a vacuum-like animation. It has existed since macOS 10.0, reportedly even in pre-release builds, but has never appeared in System Preferences; the popular theory is that Apple kept it hidden because of the name. All three values work on macOS 15.'
     },
     'com.apple.dock.minimize-to-application': {
         title: 'Minimize Windows into App Icon',
-        description: 'Minimized windows shrink into the app\'s Dock icon rather than creating a separate thumbnail in the minimized-windows area of the Dock. Keeps the Dock clean and uncluttered when many windows are minimized.',
+        description: 'Makes a minimized window shrink into the Dock icon of its app. The window does not become a separate thumbnail in the minimized-windows area of the Dock.',
         category: 'Dock',
         why: 'Minimized windows otherwise accumulate as separate thumbnails in the Dock, cluttering it. This keeps the Dock layout stable regardless of how many windows are minimized.',
         systemDefault: 'false (minimized windows appear as separate thumbnails)'
     },
     'com.apple.dock.no-bouncing': {
         title: 'Disable Dock Icon Bouncing',
-        description: 'Disables both types of Dock icon bouncing: the launch bounce (when clicking an icon while an app loads) and the alert bounce (when an app wants your attention). In macOS 10.3 Panther these were two separate keys — launchanim controlled launch bouncing and had a UI checkbox in Dock preferences; no-bouncing controlled notification bouncing. Both remain independently settable today.',
+        description: 'Turns off both kinds of Dock icon bounce. These are the launch bounce, which plays while an app starts, and the alert bounce, which plays when an app wants your attention.',
         category: 'Dock',
         why: 'Eliminates attention-hijacking animations during focused work. If an app needs attention, the notification will still appear — it just won\'t be accompanied by a bouncing icon.',
-        systemDefault: 'false (bouncing enabled)'
+        systemDefault: 'false (bouncing enabled)',
+        background: 'In macOS 10.3 Panther these were two separate keys: launchanim controlled the launch bounce and had a UI checkbox in Dock preferences, while no-bouncing controlled the notification bounce. Both remain independently settable today.'
     },
     'com.apple.dock.show-recents': {
         title: 'Hide Recent Apps in Dock',
-        description: 'Hides the "Recent Applications" section — the area separated by a divider showing recently used apps not permanently pinned. This section was introduced in macOS 10.14 Mojave (2018) and is enabled by default. Power users with curated Dock layouts typically disable it.',
+        description: 'Hides the "Recent Applications" section of the Dock. A divider separates this section, and it shows the apps that you used recently but did not pin.',
         category: 'Dock',
         preference: true,
-        systemDefault: 'true (recent apps shown)'
+        systemDefault: 'true (recent apps shown)',
+        background: 'macOS 10.14 Mojave introduced this section in 2018 and turns it on by default. Power users with curated Dock layouts typically disable it.'
     },
     'com.apple.dock.autohide-delay': {
         title: 'Dock Auto-Hide Delay',
-        description: 'Sets the delay before a hidden Dock reappears when the cursor approaches the screen edge. Default is ~0.5 seconds; 0 makes it appear immediately on hover. This setting only has visible effect if Dock auto-hide is enabled — auto-hide is not enabled by this script, but the preference will apply if you enable it later.',
+        description: 'Sets the delay before a hidden Dock appears again when the cursor reaches the screen edge. The default is about 0.5 seconds, and a value of 0 shows the Dock at once. The delay is visible only when Dock auto-hide is on. This script does not turn auto-hide on, but the value applies if you turn it on later.',
         category: 'Dock',
         preference: true,
         systemDefault: '0.5 (seconds)'
@@ -218,39 +221,43 @@ const DEFAULT_DESCRIPTIONS = {
     // Finder
     'com.apple.finder.DisableAllAnimations': {
         title: 'Disable Finder Animations',
-        description: 'Disables Finder animations including Get Info window open/close, icon movement, and scroll overscroll bounce. One of the earliest macOS performance tips, documented since ~2007. Requires killall Finder. Some animations in newer macOS use compositor layers and may not be affected.',
+        description: 'Turns off the Finder animations. These include the Get Info window, the icon movement and the scroll overscroll bounce. Run killall Finder for the change to take effect. Some animations in newer macOS use compositor layers, and this key does not change those.',
         category: 'Finder',
-        why: 'Makes file operations feel instant. Each animation adds visible latency per action, which compounds across a day of file management.'
+        why: 'Makes file operations feel instant. Each animation adds visible latency per action, which compounds across a day of file management.',
+        background: 'This is one of the earliest macOS performance tips, documented since about 2007.'
     },
     // kept for compatibility — not in defaults.sh
 
     // Screenshots
     'com.apple.screencapture.disable-shadow': {
         title: 'Disable Screenshot Window Shadow',
-        description: 'Removes the drop shadow added to window screenshots (Cmd+Shift+4 then Space). The shadow adds transparent padding around the image and was a celebrated feature of Mac screenshots since the Leopard era. Setting true produces clean PNG files without shadow padding. Only affects window-mode captures; region and full-screen captures never have shadows. Requires killall SystemUIServer.',
+        description: 'Turns off the drop shadow that macOS adds to a window screenshot, which you take with Cmd+Shift+4 and then Space. A value of true gives a clean PNG file with no shadow padding. The key changes the window captures only. A region capture and a full-screen capture never have a shadow. Run killall SystemUIServer for the change to take effect.',
         category: 'Screenshots',
         why: 'Shadows add invisible padding around the image canvas and visual noise in documentation, where a clean window edge is more useful than a soft drop shadow.',
-        systemDefault: 'false (shadow enabled)'
+        systemDefault: 'false (shadow enabled)',
+        background: 'The shadow adds transparent padding around the image, and it was a celebrated feature of Mac screenshots from the Leopard era.'
     },
     'com.apple.screencapture.show-thumbnail': {
         title: 'Disable Screenshot Thumbnail Preview',
-        description: 'Hides the floating thumbnail preview that appears after taking a screenshot, introduced in macOS 10.14 Mojave. Known bug in macOS 15 Sequoia: multiple reports (including MacRumors forum threads specific to 15.3.2) confirm this setting spontaneously resets itself, sometimes multiple times per day. The preference may not persist reliably on Sequoia.',
+        description: 'On macOS 15 Sequoia this preference may not persist, because it can reset itself without warning. The key hides the floating thumbnail preview that appears after you take a screenshot.',
         category: 'Screenshots',
         why: 'The thumbnail overlays the screen for several seconds after each capture and delays access to the file path — it adds friction without adding information.',
-        systemDefault: 'true (thumbnail shown)'
+        systemDefault: 'true (thumbnail shown)',
+        background: 'macOS 10.14 Mojave introduced the thumbnail. Multiple reports, including MacRumors forum threads specific to 15.3.2, confirm the setting spontaneously resets itself on Sequoia, sometimes multiple times per day.'
     },
     'com.apple.screencapture.include-date': {
         title: 'Exclude Date from Screenshot Filenames',
-        description: 'Controls whether the capture date and time appear in the screenshot filename. Default (true) produces names like "Screenshot 2025-03-20 at 13.27.20.png." Setting false produces "Screenshot.png" with deduplication numbering for subsequent captures. Requires killall SystemUIServer.',
+        description: 'Sets whether the capture date and time appear in the screenshot filename. A value of true gives a name such as "Screenshot 2025-03-20 at 13.27.20.png". A value of false gives "Screenshot.png", and adds a number to each later capture. Run killall SystemUIServer for the change to take effect.',
         category: 'Screenshots',
         why: 'Predictable, date-free filenames are easier to reference in scripts, automation, and documentation without needing to know the exact capture time.',
         systemDefault: 'true (date included)'
     },
     'com.apple.screencapture.location': {
         title: 'Screenshot Save Location',
-        description: 'Sets the default save location for all screenshots. Before macOS 10.14 Mojave, this was only changeable via defaults write — no UI option existed. Mojave finally added the location picker to the Shift-Cmd-5 screenshot toolbar. If the specified directory does not exist, screenshots may fail silently. Requires killall SystemUIServer.',
+        description: 'Sets the default save location for every screenshot. Make sure that the directory exists: if it is absent, a screenshot can fail without a message. Run killall SystemUIServer for the change to take effect.',
         category: 'Screenshots',
-        preference: true
+        preference: true,
+        background: 'Before macOS 10.14 Mojave you could change this only with defaults write, because no UI option existed. Mojave added the location picker to the Shift-Cmd-5 screenshot toolbar.'
     },
 
     // Desktop Services
