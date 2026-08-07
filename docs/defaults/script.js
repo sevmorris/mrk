@@ -89,13 +89,13 @@ const DEFAULT_DESCRIPTIONS = {
     // Sound
     'NSGlobalDomain.com.apple.sound.beep.volume': {
         title: 'System Alert Volume',
-        description: 'Sets the system alert beep volume to 0 (silent). This key controls only the alert audio channel — error sounds, notification chimes, volume-limit feedback — without affecting media playback in apps like Spotify or Safari. The alert channel is routed separately from the main output volume at the Core Audio mixer layer.',
+        description: 'Sets the system alert volume. A value of 0 makes the alert silent. The key changes only the alert audio channel: the error sounds, the notification chimes and the volume-limit feedback. It does not change media playback in an app such as Spotify or Safari. Core Audio routes the alert channel separately from the main output volume.',
         category: 'Audio',
         preference: true
     },
     'NSGlobalDomain.com.apple.sound.uiaudio.enabled': {
         title: 'UI Sound Effects',
-        description: 'Disables interface sound effects: the drag-to-trash swoosh, empty trash rumble, and other UI interaction sounds. Corresponds to "Play user interface sound effects" in System Settings → Sound. Setting 0 is equivalent to unchecking that option.',
+        description: 'Turns off the interface sound effects. These include the drag-to-trash swoosh, the empty-trash rumble and the other interaction sounds. A value of 0 matches "Play user interface sound effects" turned off in System Settings → Sound.',
         category: 'Audio',
         preference: true
     },
@@ -103,59 +103,62 @@ const DEFAULT_DESCRIPTIONS = {
     // Keyboard & input
     'NSGlobalDomain.KeyRepeat': {
         title: 'Key Repeat Rate',
-        description: 'Sets the interval between repeated characters when a key is held, in units of ~16.7 ms. Value 2 = ~33 ms (very fast). The System Settings slider exposes a limited range, but defaults write can set values below the UI minimum — value 1 (~16.7 ms) is faster than anything achievable through System Settings. Requires logout/restart to take effect.',
+        description: 'Sets the interval between repeated characters when you hold a key. The unit is about 16.7 ms, so a value of 2 gives about 33 ms. The System Settings slider covers a limited range, and defaults write accepts a value below that minimum. A value of 1 is faster than System Settings can set. Log out and log in again for the change to take effect.',
         category: 'Keyboard',
         preference: true,
         systemDefault: '6 (~100ms)'
     },
     'NSGlobalDomain.InitialKeyRepeat': {
         title: 'Key Repeat Delay',
-        description: 'Sets the delay before key repeat begins when a key is held, in units of ~16.7 ms. Value 15 = ~250 ms, which is shorter than the System Settings UI minimum of 25 (~420 ms). Caution: do not set below 10 (~167 ms) — values that low risk accidental character repetition. Requires logout/restart to take effect.',
+        description: 'Do not set a value below 10, which is about 167 ms: a delay that short repeats characters by accident. This key sets the delay before key repeat starts when you hold a key. The unit is about 16.7 ms, so a value of 15 gives about 250 ms. That is shorter than the System Settings minimum of 25, which is about 420 ms. Log out and log in again for the change to take effect.',
         category: 'Keyboard',
         preference: true,
         systemDefault: '25 (~420ms)'
     },
     'NSGlobalDomain.ApplePressAndHoldEnabled': {
         title: 'Disable Accent Picker, Restore Key Repeat',
-        description: 'Restores traditional key-repeat behavior by disabling the iOS-style accent character picker that appears when holding a key. This popup was introduced in OS X 10.7 Lion as a direct port of iOS keyboard behavior, replacing decades of key-repeat defaults. It was one of the first popular Lion customization tips (osxdaily.com covered it within days of Lion\'s July 2011 release). As of 2024, Apple still provides no System Settings toggle — defaults write or a third-party tool like TinkerTool remain the only options.',
+        description: 'Turns off the accent-character picker that appears when you hold a key, and restores the traditional key repeat. macOS gives no System Settings toggle for this key. Use defaults write, or a third-party tool such as TinkerTool.',
         category: 'Keyboard',
         why: 'The accent picker interrupts keyboard-driven navigation and editing. Holding j or k in a text editor should repeat the character, not open a popup.',
-        systemDefault: 'true (accent picker enabled)'
+        systemDefault: 'true (accent picker enabled)',
+        background: 'The popup arrived in OS X 10.7 Lion as a direct port of iOS keyboard behavior, replacing decades of key-repeat defaults. It was one of the first popular Lion customization tips — osxdaily.com covered it within days of Lion\'s July 2011 release — and as of 2024 Apple still provides no System Settings toggle.'
     },
     'NSGlobalDomain.AppleKeyboardUIMode': {
         title: 'Full Keyboard Navigation',
-        description: 'Enables full keyboard navigation so Tab moves focus to all UI controls — buttons, checkboxes, radio buttons — not just text fields and lists. Value 2 enables this; values 2 and 3 appear equivalent on modern macOS. The UI toggle is System Settings → Keyboard → "Keyboard navigation." The shortcut Control-F7 toggles this live without a settings change.',
+        description: 'Turns on full keyboard navigation, so Tab moves the focus to every control. This includes the buttons, the checkboxes and the radio buttons, not only the text fields and the lists. A value of 2 turns it on, and values 2 and 3 behave the same way on current macOS. The System Settings toggle is Keyboard → "Keyboard navigation". Press Control-F7 to toggle it without a settings change.',
         category: 'Keyboard',
         why: 'Allows Tab to cycle through all controls — buttons, radio buttons, checkboxes — without reaching for the mouse.',
         systemDefault: '0 (text fields and lists only)'
     },
     'NSGlobalDomain.NSAutomaticCapitalizationEnabled': {
         title: 'Disable Auto-Capitalization',
-        description: 'Disables automatic capitalization of the first word after a sentence-ending period. Part of the NSAutomatic* family of text-correction features ported from iOS keyboard intelligence to macOS. Corresponds to "Capitalize words automatically" in System Settings → Keyboard → Text Replacements.',
+        description: 'Turns off the automatic capitalization of the first word after a period. It matches "Capitalize words automatically" turned off in System Settings → Keyboard → Text Replacements.',
         category: 'Keyboard',
-        why: 'Breaks commands, code, and domain names entered in text fields outside terminals.'
+        why: 'Breaks commands, code, and domain names entered in text fields outside terminals.',
+        background: 'This key belongs to the NSAutomatic* family of text-correction features, ported from iOS keyboard intelligence to macOS.'
     },
     'NSGlobalDomain.NSAutomaticDashSubstitutionEnabled': {
         title: 'Disable Smart Dashes',
-        description: 'Disables automatic replacement of -- with an en-dash (–) and --- with an em-dash (—). Particularly disruptive when writing shell commands, markdown, code comments, or any structured text where literal hyphens are meaningful.',
+        description: 'Turns off the automatic dash substitution. macOS otherwise replaces two hyphens with an en dash (–), and three hyphens with an em dash (—).',
         category: 'Keyboard',
         why: 'Silently converts "--" to an em dash, breaking markdown, CLI flags, and code pasted into apps with smart dashes enabled.'
     },
     'NSGlobalDomain.NSAutomaticPeriodSubstitutionEnabled': {
         title: 'Disable Double-Space Period',
-        description: 'Disables the double-space to period substitution ported from iOS: typing two spaces normally inserts a period and a space. Most desktop users find this unwanted, especially when writing code or structured prose where sentence spacing is intentional.',
+        description: 'Turns off the double-space substitution. macOS otherwise inserts a period and a space when you type two spaces.',
         category: 'Keyboard',
-        why: 'Interferes with intentional double-spacing in code, indentation, and command entry.'
+        why: 'Interferes with intentional double-spacing in code, indentation, and command entry.',
+        background: 'The gesture is a port of the iOS keyboard behavior.'
     },
     'NSGlobalDomain.NSAutomaticQuoteSubstitutionEnabled': {
         title: 'Disable Smart Quotes',
-        description: 'Disables smart quote substitution — replacement of straight apostrophes and quotation marks with typographically correct curly variants. Critical for developers: smart quotes silently break code, JSON, YAML, shell scripts, and configuration files when pasted from an app that substituted them.',
+        description: 'Turns off the smart-quote substitution. macOS otherwise replaces the straight apostrophes and quotation marks with curly typographic ones.',
         category: 'Keyboard',
         why: 'Curly quotes break shell scripts, JSON, code snippets, and command-line arguments. The substitution is invisible until something fails.'
     },
     'NSGlobalDomain.NSAutomaticSpellingCorrectionEnabled': {
         title: 'Disable Autocorrect',
-        description: 'Disables automatic on-the-fly spelling correction. Corresponds to "Correct spelling automatically" in System Settings → Keyboard → Text Replacements.',
+        description: 'Turns off the automatic spelling correction. It matches "Correct spelling automatically" turned off in System Settings → Keyboard → Text Replacements.',
         category: 'Keyboard',
         why: 'Mangles technical terms, hostnames, variable names, and other domain-specific vocabulary that the system dictionary doesn\'t recognize.'
     },
