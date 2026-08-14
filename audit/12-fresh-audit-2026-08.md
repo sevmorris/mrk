@@ -37,18 +37,18 @@ affecting 114 call sites across the two largest install-phase scripts.
 | N-2 | ~~**HIGH**~~ **FIXED** | Secret-scan patterns miss every common API-key token format |
 | N-3 | ~~MEDIUM~~ **FIXED** | `sync-login-items` empty-list path still only warns |
 | N-4 | ~~MEDIUM~~ **FIXED** | Secret scan reads binary plists in `config/` and `app-support/` |
-| N-5 | MEDIUM | Deleted config files are never staged, so they persist in `mrk-prefs` |
+| N-5 | ~~MEDIUM~~ **FIXED** | Deleted config files are never staged, so they persist in `mrk-prefs` |
 | N-6 | ~~MEDIUM~~ **FIXED** | Defaults reference renders 18 keys with a broken parse |
 | N-7 | ~~MEDIUM~~ **FIXED** | BIN-1 nav index stops at 2.16; five `~/bin` commands undocumented |
 | N-8 | ~~MEDIUM~~ **FIXED** | `manual.md` states a false relationship between `snapshot` and `post-install` |
 | N-9 | MEDIUM | oh-my-zsh and plugin clones are unpinned |
-| N-10 | LOW | `maintain` build-freshness ignores the shared `tools/theme` module |
-| N-11 | LOW | Calibre restore sentinel is a single file; `cp -R` can overwrite siblings |
+| N-10 | ~~LOW~~ **FIXED** | `maintain` build-freshness ignores the shared `tools/theme` module |
+| N-11 | ~~LOW~~ **FIXED** | Calibre restore sentinel is a single file; `cp -R` can overwrite siblings |
 | N-12 | ~~LOW~~ **FIXED** | 24 dead `DEFAULT_DESCRIPTIONS` entries |
-| N-13 | LOW | Latent Brewfile truncation in the `sync` python3 block |
-| N-14 | LOW | `sync` does not restore file mode before the atomic replace |
-| N-15 | LOW | `mrk-push` prunes deployments in every environment, not just Pages |
-| N-16 | LOW | `maintain --keep=0` will delete the live Pages deployment |
+| N-13 | ~~LOW~~ **FIXED** | Latent Brewfile truncation in the `sync` python3 block |
+| N-14 | ~~LOW~~ **FIXED** | `sync` does not restore file mode before the atomic replace |
+| N-15 | ~~LOW~~ **FIXED** | `mrk-push` prunes deployments in every environment, not just Pages |
+| N-16 | ~~LOW~~ **FIXED** | `maintain --keep=0` will delete the live Pages deployment |
 | N-17 | INFO | `bash-completion@2` regression; ledger item B6 reopened |
 | N-18 | INFO | F08 listed as Closed, but the dead variable is still present |
 | N-19 | INFO | `10-test-plan.md` was never committed; `docs/audit/` paths are stale |

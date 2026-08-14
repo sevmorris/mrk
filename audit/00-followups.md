@@ -9,10 +9,11 @@ open?" has a single answer without grepping the whole audit directory.
 For each item: what it is, where it's documented, why it was deferred, what action
 would close it.
 
-**Last re-verified:** 2026-08-02 against `a17ba54`, in `12-fresh-audit-2026-08.md`.
-That pass closed 9 items, reopened 2, and added new findings — including one HIGH
-(`N-1`) that modules 1–11 did not catch. Line numbers below are current as of that
-verification.
+**Last re-verified:** 2026-08-14 against `c362d90`. The 2026-08-02 pass
+(`12-fresh-audit-2026-08.md`) closed 9 items, reopened 2, and added new findings —
+including one HIGH (`N-1`) that modules 1–11 did not catch. Every open item below was
+re-checked against current code on 2026-08-14, and the five tractable ones were fixed;
+see "Closed by the follow-up batch".
 
 ---
 
@@ -87,15 +88,6 @@ current ARGS values trigger the problem. Documented in `04-makefile-audit.md L1`
 multi-flag use, a proper argument-splitting approach or documented workaround would
 also help.
 
-**N-5 — deleted config files are never staged, so they persist in mrk-prefs.**
-`scripts/snapshot-prefs:140-141` claims the dest is cleared "so files removed from the
-source don't linger in the backup". `rm -rf` at `:154` clears the local tree, but staging
-at `:194-210` collects only files that exist and runs `git add -- <paths>` — a tracked
-file that vanished is never staged as a deletion, so it stays in `HEAD` and in the pushed
-repo. Documented in `12-fresh-audit-2026-08.md N-5`.
-→ To close: stage deletions (`git add -A -- <trees>` scoped to the snapshot outputs), or
-correct the comment.
-
 **make doctor --fix bare form (Make limitation).** `make doctor --fix` is interpreted
 by Make as passing `--fix` as a Make option and produces `make: invalid option -- -`.
 The documented canonical form is `make doctor ARGS=--fix` (Makefile has `$(ARGS)`
@@ -105,38 +97,6 @@ passthrough at `:121`). Fixing the bare form would require MAKEFLAGS manipulatio
 The bare form had regressed into `docs/manual.md`; Phase B corrected it in `292485f`,
 and BIN-1 §2.2 now states the limitation explicitly.
 → To close: no-op unless the bare-form UX is specifically desired.
-
-**N-10 — maintain build-freshness ignores tools/theme.** `bin/maintain:193` compares each
-binary only against its own `tools/<name>` directory (`:188`). All four TUIs import the
-shared `tools/theme` module, so editing `tools/theme/theme.go` leaves every binary stale
-while Step 4 reports all four "up to date". Documented in
-`12-fresh-audit-2026-08.md N-10`.
-→ To close: include `tools/theme/*.go` in the `-newer` comparison for every binary.
-
-**N-11 — Calibre restore sentinel is a single file.** `scripts/post-install:537` skips
-only when `gui.json` exists. If `gui.json` is absent but the directory holds other files,
-`cp -R "$src_dir/."` at `:544` overwrites matching siblings. Documented in
-`12-fresh-audit-2026-08.md N-11`. The manual previously claimed "Every restore is
-non-destructive"; Phase B narrowed that claim to what the guard provides (`292485f`), so
-only the code side is open.
-→ To close: widen the guard to "directory is empty or sentinel absent".
-
-**N-13 / N-14 — sync write-path hardening.** `scripts/sync:571-572` calls `sys.exit(0)`
-without writing `out_path` when the insertions payload is empty, and `:649` then `mv`s
-the zero-byte temp file over the Brewfile. Currently unreachable (guards at `:418-421`
-and `:495-498`) but the same class as the already-fixed `F01`. Separately, `mktemp`
-creates 0600 and neither `:304` nor `:649` restores the mode before the replace;
-`scripts/sync-login-items:367-370` does, with a comment explaining why. Documented in
-`12-fresh-audit-2026-08.md N-13, N-14`.
-→ To close: guard the `mv` on a non-empty temp file; `chmod 644` before the replace.
-
-**N-15 / N-16 — deployment-pruning edges.** `bin/mrk-push:87` queries
-`/repos/$repo/deployments` with no environment filter, so it would delete deployments in
-any environment; `bin/maintain:101` correctly scopes to `?environment=github-pages`.
-`bin/maintain:70` accepts `--keep=0`, which selects every deployment including the live
-one at `:110` (interactive confirm at `:114-116` stands between). Documented in
-`12-fresh-audit-2026-08.md N-15, N-16`.
-→ To close: scope the `mrk-push` query; reject `--keep=0`.
 
 ---
 
@@ -175,6 +135,42 @@ no production risk. Documented in `03-shell-hygiene.md L3`.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the follow-up batch, branch `fix/audit-followups-batch`, 2026-08-14
+
+Five small ledger items, each with an adversarial reproduction run against the pre-fix
+code for contrast.
+
+- **N-13 / N-14 — sync write-path hardening** — `f5d9e1f`. Both replace sites now go
+  through `replace_brewfile()`, which refuses a zero-byte temp and chmods 644 before the
+  swap. The python3 block also writes the source through unchanged when the insertions
+  payload is empty, instead of exiting without producing `out_path`. Verified: empty
+  payload writes 3694 bytes through; an empty temp is refused with the target unchanged;
+  a 0600 temp lands as 0644 (a plain `mv` left 0600).
+- **N-10 — maintain build-freshness ignored tools/theme** — `f0b55c3`. All four TUIs
+  carry `replace mrk-theme => ../theme`, so a theme edit staled every binary while Step 4
+  reported them current. The find now spans the tool's sources and `tools/theme`.
+  Verified by touching `tools/theme/theme.go`: pre-fix all four said "up to date",
+  post-fix all four said "source newer than binary".
+- **N-15 / N-16 — deployment-pruning edges** — `9bc2416`. `bin/mrk-push` now scopes its
+  deployment query to `?environment=github-pages`, matching `bin/maintain`; unscoped it
+  would delete deployments in environments it does not own. `--keep` now requires at
+  least 1, because 0 selected the live deployment and took the published page offline.
+  Verified: `--keep=0`, `-1` and `abc` all rejected with exit 2; `1` and `10` accepted;
+  scoped and unscoped queries return the same 10 deployments on this repo today.
+- **N-5 — deleted config files persisted in mrk-prefs** — `087c5a2`. Staging listed
+  files found on disk, and a list of existing files cannot express a deletion, so a
+  dropped file stayed in HEAD and kept being pushed. Now uses pathspecs with
+  `git add -A`, still never `git add .`; `:(glob)` keeps the plist pattern top-level as
+  the old shell glob did. Verified on a git fixture simulating an uninstalled Calibre
+  plugin: old logic staged nothing and the file stayed in HEAD; new logic staged
+  `D config/calibre/plugins/dedrm.json` and the unrelated top-level plist stayed tracked.
+- **N-11 — Calibre restore sentinel was a single file** — `e32629d`. `cp -R` overwrote
+  every matching file when the sentinel was absent but the directory held others.
+  Restore now requires an absent or empty directory. Verified across four states;
+  in the part-initialised case the pre-fix version overwrote the live file with the
+  backup copy and the fixed version preserves it. `docs/manual.md:240` described the old
+  guard and was corrected in the same commit.
 
 ### Closed by the login-items ignore-list feature, branch `feat/login-items-ignore`, 2026-08-05
 
