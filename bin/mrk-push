@@ -84,7 +84,9 @@ push_log "Fetching deployments for $repo..."
 # Check gh's exit status directly — mapfile from a process substitution
 # always succeeds, so a gh auth/network failure used to slip through as
 # "No deployments found".
-if gh_out=$(gh api --paginate "/repos/$repo/deployments" --jq '.[].id' 2>/dev/null); then
+# Scoped to the github-pages environment. An unscoped query returns every
+# environment, so this would delete deployments it does not own.
+if gh_out=$(gh api --paginate "/repos/$repo/deployments?environment=github-pages" --jq '.[].id' 2>/dev/null); then
   ids=()
   [[ -n "$gh_out" ]] && mapfile -t ids <<< "$gh_out"
 else

@@ -45,7 +45,7 @@ maintain — periodic mrk housekeeping
 
 Usage: maintain [options]
   --dry-run      Preview all operations; make no changes (no API/git/make calls)
-  --keep=N       Number of GitHub Pages deployments to retain (default: 10)
+  --keep=N       Number of GitHub Pages deployments to retain (min 1, default: 10)
   --skip-check   Skip the 'make check' validation step
   --help, -h     Show this help
 
@@ -68,7 +68,13 @@ for arg in "$@"; do
 done
 
 if [[ ! "$KEEP" =~ ^[0-9]+$ ]]; then
-  err "--keep must be a non-negative integer (got: '$KEEP')"
+  err "--keep must be a positive integer (got: '$KEEP')"
+  exit 2
+fi
+# 0 would select every deployment including the live one, which takes the
+# published page offline until the next push.
+if (( KEEP < 1 )); then
+  err "--keep must be at least 1 — 0 would delete the live deployment."
   exit 2
 fi
 
