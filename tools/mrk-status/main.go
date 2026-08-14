@@ -762,13 +762,9 @@ func (m model) viewRight(inner, height int) string {
 		sb.WriteString(icon + " " + styleNorm.Render(text) + "\n")
 	}
 
-	// Scroll indicator
+	// Scroll indicator, rendered into the header row as "start–end / total".
 	if len(g.lines) > vh {
-		shown := end
 		total := len(g.lines)
-		indicator := styleDim.Render(fmt.Sprintf(" %d/%d", shown, total))
-		// replace last char of header row with indicator — simpler: append as last line
-		_ = indicator // we'll embed it in the header instead
 		header = styleTitle.Render(g.name)
 		if g.fix != "" {
 			header += styleDim.Render("  [f] " + g.fix)

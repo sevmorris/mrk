@@ -27,6 +27,12 @@ are fresh as of `a17ba54`. Nothing was modified during the audit itself.
 resolved. But this pass found one HIGH defect that the prior audit missed entirely,
 affecting 114 call sites across the two largest install-phase scripts.
 
+> **All 19 findings in this module are now closed.** N-1 through N-16 were fixed across
+> three sessions; N-17 and N-19 closed on their own terms (a populated
+> `~/.mrk/sync-ignore`, and `audit/10-test-plan.md` committed in `8c11737`); N-18 was
+> fixed on 2026-08-14. What remains open in `00-followups.md` predates this module or is
+> explicitly out of scope.
+
 ---
 
 ## Severity summary
@@ -49,9 +55,9 @@ affecting 114 call sites across the two largest install-phase scripts.
 | N-14 | ~~LOW~~ **FIXED** | `sync` does not restore file mode before the atomic replace |
 | N-15 | ~~LOW~~ **FIXED** | `mrk-push` prunes deployments in every environment, not just Pages |
 | N-16 | ~~LOW~~ **FIXED** | `maintain --keep=0` will delete the live Pages deployment |
-| N-17 | INFO | `bash-completion@2` regression; ledger item B6 reopened |
-| N-18 | INFO | F08 listed as Closed, but the dead variable is still present |
-| N-19 | INFO | `10-test-plan.md` was never committed; `docs/audit/` paths are stale |
+| N-17 | ~~INFO~~ **CLOSED** | `bash-completion@2` regression; ledger item B6 reopened |
+| N-18 | ~~INFO~~ **FIXED** | F08 listed as Closed, but the dead variable is still present |
+| N-19 | ~~INFO~~ **CLOSED** | `10-test-plan.md` was never committed; `docs/audit/` paths are stale |
 
 ---
 
