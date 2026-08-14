@@ -83,6 +83,19 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# Belt-and-braces for the replace: mktemp creates the file 0600, and any writer
+# path that produced nothing would otherwise truncate the Brewfile. Refuse to
+# install an empty file, and restore the expected mode before the swap.
+replace_brewfile() {
+  if [[ ! -s "$BREWFILE_TMP" ]]; then
+    err "Refusing to replace the Brewfile with an empty file — aborting."
+    return 1
+  fi
+  chmod 644 "$BREWFILE_TMP"
+  mv "$BREWFILE_TMP" "$BREWFILE"
+  BREWFILE_TMP=""
+}
+
 # ─── Load persistent ignore list ─────────────────────────────────────────────
 #
 # Format of ~/.mrk/sync-ignore:
@@ -329,8 +342,7 @@ if (( PRUNE && n_stale > 0 )); then
       done
 
       sed "${local_sed_args[@]}" "$BREWFILE" > "$BREWFILE_TMP"
-      mv "$BREWFILE_TMP" "$BREWFILE"
-      BREWFILE_TMP=""
+      replace_brewfile || exit 1
 
       log "Removed $n_prune stale entr(ies) from Brewfile."
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -653,6 +665,13 @@ with open(insertions_path) as f:
     raw = f.read().strip()
 
 if not raw:
+    # Nothing to insert. Still write the file through unchanged: the caller
+    # mv's out_path over the Brewfile unconditionally, so exiting without
+    # writing would truncate it to zero bytes.
+    with open(src_path) as f:
+        out = f.read()
+    with open(out_path, 'w') as f:
+        f.write(out)
     sys.exit(0)
 
 insertions = []
@@ -730,8 +749,7 @@ total = len(to_insert) + sum(len(v) for v in new_sections.values())
 print(f'Added {total} entr{"ies" if total != 1 else "y"} to Brewfile.')
 PYEOF
 
-mv "$BREWFILE_TMP" "$BREWFILE"
-BREWFILE_TMP=""
+replace_brewfile || exit 1
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
