@@ -176,6 +176,8 @@ fi
 step "Step 4: TUI build freshness"
 
 # Binary name → tools/ source subdirectory (picker source lives in tools/picker).
+THEME_DIR="$REPO_ROOT/tools/theme"
+
 declare -A TOOL_DIR=(
   [bf]=bf
   [mrk-picker]=picker
@@ -190,7 +192,10 @@ for binname in bf mrk-picker mrk-status mrk-menu; do
     warn "$binname: not installed — run make build-tools"
     continue
   fi
-  newer=$(find "$src_dir" -name '*.go' -newer "$bin_path" -print -quit 2>/dev/null || true)
+  # All four TUIs import the shared mrk-theme module (tools/*/go.mod has
+  # `replace mrk-theme => ../theme`), so a change there makes every binary
+  # stale. Compare against the tool's own sources and against tools/theme.
+  newer=$(find "$src_dir" "$THEME_DIR" -name '*.go' -newer "$bin_path" -print -quit 2>/dev/null || true)
   if [[ -n "$newer" ]]; then
     warn "$binname: source newer than binary — run make build-tools"
   else
