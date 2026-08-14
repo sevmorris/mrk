@@ -54,14 +54,6 @@ it explicitly. Documented in `12-fresh-audit-2026-08.md N-19`.
 `tart clone mrk-audit-clean-prepared mrk-test-N` — and record the results in
 `11-test-results.md`. Tests 3 and 4 need more than one VM.
 
-**N-9 — oh-my-zsh and zsh plugins are cloned unpinned.** `scripts/setup:612,626` clone
-`ohmyzsh/ohmyzsh` and two `zsh-users` plugins at `--depth=1` from the default branch,
-with no tag, commit pin, or verification. The result is sourced by every interactive
-shell. The project pins its other network-installed dependency (nvm at `v0.40.4`), so
-this is inconsistent with its own precedent. Not a live defect. Documented in
-`12-fresh-audit-2026-08.md N-9`.
-→ To close: pin to a tag or commit, or record the decision to track upstream.
-
 ---
 
 ## Known limitations (documented, not blocking)
@@ -138,8 +130,19 @@ the audit artifacts have the full detail.
 
 ### Closed by the follow-up batch, branch `fix/audit-followups-batch`, 2026-08-14
 
-Five small ledger items, each with an adversarial reproduction run against the pre-fix
+Six ledger items, each with an adversarial reproduction run against the pre-fix
 code for contrast.
+
+- **N-9 — unpinned oh-my-zsh and zsh plugin clones** — `0593bb2`. Checking upstream
+  split the item in two, with opposite answers. The two zsh-users plugins tag releases
+  and `omz update` does not touch custom plugins, so an unpinned clone was
+  nondeterministic on install day and then frozen forever — this machine had plugin code
+  from 2023-09 and 2024-01 against an oh-my-zsh from 2025-11. They are now pinned to
+  v0.7.1 and 0.8.0. oh-my-zsh is deliberately left unpinned and the reason is recorded
+  at the clone: it publishes no tags, and `.zshrc` sets `zstyle ':omz:update' mode auto`,
+  so it would leave any pin within days. Verified in a sandboxed HOME: correct tags, a
+  re-run skips, a bad tag warns and continues, and the git detached-HEAD advice is
+  suppressed. `docs/manual.md` records how to bump a plugin.
 
 - **N-13 / N-14 — sync write-path hardening** — `f5d9e1f`. Both replace sites now go
   through `replace_brewfile()`, which refuses a zero-byte temp and chmods 644 before the

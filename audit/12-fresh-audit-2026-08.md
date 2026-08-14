@@ -41,7 +41,7 @@ affecting 114 call sites across the two largest install-phase scripts.
 | N-6 | ~~MEDIUM~~ **FIXED** | Defaults reference renders 18 keys with a broken parse |
 | N-7 | ~~MEDIUM~~ **FIXED** | BIN-1 nav index stops at 2.16; five `~/bin` commands undocumented |
 | N-8 | ~~MEDIUM~~ **FIXED** | `manual.md` states a false relationship between `snapshot` and `post-install` |
-| N-9 | MEDIUM | oh-my-zsh and plugin clones are unpinned |
+| N-9 | ~~MEDIUM~~ **FIXED** | oh-my-zsh and plugin clones are unpinned |
 | N-10 | ~~LOW~~ **FIXED** | `maintain` build-freshness ignores the shared `tools/theme` module |
 | N-11 | ~~LOW~~ **FIXED** | Calibre restore sentinel is a single file; `cp -R` can overwrite siblings |
 | N-12 | ~~LOW~~ **FIXED** | 24 dead `DEFAULT_DESCRIPTIONS` entries |
