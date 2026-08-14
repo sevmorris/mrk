@@ -197,23 +197,31 @@ snapshot_pref_dir "$HOME/Library/Preferences/calibre" "calibre" "Calibre" \
 cd "$LOCAL_PREFS_DIR"
 
 # Stage only snapshot outputs — never `git add .`
-shopt -s nullglob
-stage_files=( *.plist )
-shopt -u nullglob
+#
+# Pathspecs, not a list of existing files: `git add -A` over a pathspec also
+# stages DELETIONS. Listing found files could only ever stage adds and
+# modifications, so a file dropped from the source (an uninstalled Calibre
+# plugin, say) stayed in HEAD and kept being pushed, even though
+# snapshot_pref_dir had already cleared it from the working tree.
+#
+# `:(glob)` keeps *.plist to the top level, matching the old shell glob.
+add_specs=()
+if compgen -G '*.plist' >/dev/null 2>&1 || \
+   git ls-files --error-unmatch -- ':(glob)*.plist' >/dev/null 2>&1; then
+  add_specs+=(':(glob)*.plist')
+fi
 for tree in app-support config; do
-  if [[ -d "$tree" ]]; then
-    while IFS= read -r -d '' f; do
-      stage_files+=("$f")
-    done < <(find "$tree" -type f -print0 2>/dev/null)
+  if [[ -d "$tree" ]] || git ls-files --error-unmatch -- "$tree" >/dev/null 2>&1; then
+    add_specs+=("$tree")
   fi
 done
 
-if (( ${#stage_files[@]} == 0 )); then
+if (( ${#add_specs[@]} == 0 )); then
   log "No preference files to stage."
   exit 0
 fi
 
-git add -- "${stage_files[@]}"
+git add -A -- "${add_specs[@]}"
 
 if git diff --cached --quiet; then
   log "No changes to push."
