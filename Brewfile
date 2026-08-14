@@ -1,4 +1,6 @@
 ## Taps
+# Required for doublender, fl2601 and waxonwaxoff below.
+tap "sevmorris/tap"
 
 ## CLI Tools - General Utilities & Power User Tools
 brew "bash"
@@ -89,6 +91,7 @@ cask "etrecheckpro", greedy: true
 cask "farrago", greedy: true
 cask "firefox", greedy: true
 cask "fission", greedy: true
+cask "fl2601", greedy: true
 cask "gcloud-cli"
 cask "github", greedy: true
 cask "google-chrome", greedy: true
@@ -138,5 +141,6 @@ cask "utm", greedy: true
 cask "veracrypt", greedy: true
 cask "vlc", greedy: true
 cask "waves-central", greedy: true
+cask "waxonwaxoff", greedy: true
 cask "whatsapp", greedy: true
 cask "zoom", greedy: true
