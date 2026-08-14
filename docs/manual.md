@@ -237,7 +237,7 @@ pull-prefs
 
 `pull-prefs` only fetches the data. `post-install` does the restore. It imports each defaults-domain plist with `defaults import`, restores the Application Support files, and copies the config directories back into `~/Library/Preferences/`.
 
-`post-install` skips an app that it finds already configured, so it does not overwrite your live settings. It decides this from one file for each app: the preferences plist for a defaults domain, and `gui.json` for Calibre. If that one file is absent but other files exist, the restore overwrites them. Quit an app before you restore it.
+`post-install` skips an app that it finds already configured, so it does not overwrite your live settings. For a defaults domain, it skips when the preferences plist exists. For a config directory such as Calibre, it skips when `gui.json` exists, and it also skips when the directory holds any other file. To restore into a directory that already has files, delete the directory first. Quit an app before you restore it.
 
 > **Note:** `make post-install` runs `pull-prefs` for you when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
 

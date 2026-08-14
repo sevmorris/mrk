@@ -538,6 +538,15 @@ restore_pref_dir(){
     logskip "$name config" "exists — skipping (won't overwrite)"
     return 0
   fi
+  # The sentinel alone is too narrow: `cp -R` below overwrites every matching
+  # file, so a part-initialised config (sentinel absent, other files present —
+  # an app launched once and quit) would lose those files. Restore only into an
+  # absent or empty directory.
+  if [[ -d "$dest_dir" ]] && [[ -n "$(ls -A "$dest_dir" 2>/dev/null)" ]]; then
+    logskip "$name config" "directory not empty and $sentinel absent — skipping"
+    info "Restore by hand from $src_dir, or delete $dest_dir first."
+    return 0
+  fi
 
   mkdir -p "$dest_dir"
   # Trailing /. copies the tree's contents (incl. dotfiles) into dest_dir.
