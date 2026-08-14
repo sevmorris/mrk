@@ -14,6 +14,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
+          # The Go modules live in tools/*, not at the repo root. setup-go
+          # caches by default and looks for ./go.sum, so without this the
+          # restore failed every run with "Dependencies file is not found".
+          cache-dependency-path: tools/*/go.sum
 
       - name: Install shellcheck
         run: brew install shellcheck
