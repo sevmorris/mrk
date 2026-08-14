@@ -58,6 +58,7 @@ Phase 1 configures the shell environment. It runs on a new machine or on an exis
 - Applies the macOS system preferences with `scripts/defaults.sh`.
 - Sets zsh as the login shell.
 - Clones oh-my-zsh and two zsh plugins: zsh-autosuggestions and zsh-syntax-highlighting. Phase 1 skips a clone when the directory exists. A failed clone gives a warning, and Phase 1 continues.
+- The two plugins are pinned to release tags, because `omz update` does not update a custom plugin. To move to a newer plugin release, change the tag in `scripts/setup` and delete the plugin directory. oh-my-zsh itself is not pinned: it publishes no tags, and `.zshrc` sets it to update itself.
 - Writes a rollback script to `~/.mrk/defaults-rollback.sh`.
 
 > **Note:** `scripts/defaults.sh` continues when a write fails. It counts the failed writes and reports the total at the end. The rollback script covers the writes that succeeded.

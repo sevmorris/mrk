@@ -604,6 +604,12 @@ phase_shell() {
   # oh-my-zsh + non-bundled plugins. dotfiles/.zshrc sources OMZ and lists
   # them in plugins=(); its guard tolerates absence — this installs them.
   # Clone failures warn and continue: a network hiccup must not abort setup.
+  #
+  # oh-my-zsh is deliberately NOT pinned (audit 12 N-9). It publishes no tags at
+  # all, so a pin would have to be a commit SHA; and dotfiles/.zshrc sets
+  # `zstyle ':omz:update' mode auto`, so OMZ updates itself on a schedule and
+  # would move off any pin within days. A pin here would be maintenance burden
+  # that buys nothing. The plugins below are a different case — see there.
   local omz_dir="$HOME/.oh-my-zsh"
   if [[ -d "$omz_dir" ]]; then
     logskip "oh-my-zsh" "already installed"
@@ -616,17 +622,25 @@ phase_shell() {
     return 0  # custom plugins live inside OMZ; nothing more to do here
   fi
 
+  # Pinned to release tags (audit 12 N-9). Unlike oh-my-zsh, both repos tag
+  # releases, and `omz update` does not touch custom plugins — so an unpinned
+  # clone took whatever HEAD happened to be that day and then never moved
+  # again. Note the tag spelling differs: zsh-autosuggestions prefixes with v,
+  # zsh-syntax-highlighting does not. Bump these deliberately.
   local plugin_dir="${ZSH_CUSTOM:-$omz_dir/custom}/plugins"
-  local plugin
-  for plugin in zsh-autosuggestions zsh-syntax-highlighting; do
+  local plugin_spec plugin plugin_tag
+  for plugin_spec in "zsh-autosuggestions:v0.7.1" "zsh-syntax-highlighting:0.8.0"; do
+    plugin="${plugin_spec%%:*}"
+    plugin_tag="${plugin_spec##*:}"
     if [[ -d "$plugin_dir/$plugin" ]]; then
       logskip "$plugin" "already installed"
     elif (( DRY_RUN )); then
-      dry "Would clone $plugin -> $plugin_dir/$plugin"
-    elif git clone -q --depth=1 "https://github.com/zsh-users/$plugin" "$plugin_dir/$plugin"; then
-      log "Installed $plugin -> $plugin_dir/$plugin"
+      dry "Would clone $plugin $plugin_tag -> $plugin_dir/$plugin"
+    elif git -c advice.detachedHead=false clone -q --depth=1 --branch "$plugin_tag" \
+         "https://github.com/zsh-users/$plugin" "$plugin_dir/$plugin" 2>/dev/null; then
+      log "Installed $plugin $plugin_tag -> $plugin_dir/$plugin"
     else
-      warn "$plugin clone failed — install manually: git clone https://github.com/zsh-users/$plugin"
+      warn "$plugin clone failed — install manually: git clone --depth=1 --branch $plugin_tag https://github.com/zsh-users/$plugin"
     fi
   done
 }
