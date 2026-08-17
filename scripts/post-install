@@ -609,6 +609,38 @@ add_login_item "/Applications/SoundSource.app"      || failed=$(( failed + 1 ))
 add_login_item "/Applications/Stats.app"            || failed=$(( failed + 1 ))
 
 ###############################################################################
+# Launch Agents                                                               #
+###############################################################################
+
+install_launch_agent(){
+  local plist_name="$1"
+  local src_plist="$REPO_ROOT/assets/launchagents/$plist_name"
+  local dest_dir="$HOME/Library/LaunchAgents"
+  local dest_plist="$dest_dir/$plist_name"
+
+  if [[ ! -f "$src_plist" ]]; then
+    return 0
+  fi
+
+  mkdir -p "$dest_dir"
+
+  if [[ -f "$dest_plist" ]] && cmp -s "$src_plist" "$dest_plist"; then
+    logskip "LaunchAgent $plist_name" "already installed"
+    return 0
+  fi
+
+  cp "$src_plist" "$dest_plist"
+
+  # Ensure loaded
+  launchctl load "$dest_plist" >/dev/null 2>&1 || true
+
+  ok "Installed LaunchAgent → $plist_name"
+}
+
+install_launch_agent "com.user.clear_app_caches.plist" || failed=$(( failed + 1 ))
+install_launch_agent "com.user.clear_derived_data.plist" || failed=$(( failed + 1 ))
+
+###############################################################################
 # Summary                                                                     #
 ###############################################################################
 
