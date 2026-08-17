@@ -1,0 +1,3 @@
+#!/bin/bash
+# Remove everything inside DerivedData but keep the folder
+rm -rf "$HOME/Library/Developer/Xcode/DerivedData/"*

@@ -346,6 +346,8 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 | Command | Purpose |
 |---|---|
 | `audio-mode` | Pauses and resumes the sync clients for a recording session or a mixing session |
+| `clear-app-caches` | Clears cache directories for common apps (Helium, Slack, Discord, VS Code, Spotify, Chrome) |
+| `clear-derived-data` | Clears the Xcode DerivedData directory |
 | `zoom-mode` | Keeps the Wi-Fi awake and stops sleep during a long Zoom session; `zoom-mode on \| off \| status` |
 | `mrk-push` | Commits and pushes `~/mrk`, then deletes the old GitHub Pages deployments. Scans the staged files for secrets first |
 | `hide_tm.sh` | Hides the Time Machine volumes from the Finder sidebar. The default name is `TimeMachine`. Give the volume names, or set `TM_VOLUMES` |
