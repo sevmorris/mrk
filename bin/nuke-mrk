@@ -227,36 +227,6 @@ if [[ -d "$HOME/.oh-my-zsh" ]]; then
   fi
 fi
 
-# Offer to remove audio-mode / zoom-mode state (written by the standalone
-# ~/bin tools, not by the core bootstrap)
-audio_zoom_files=(
-  "$HOME/.audio_mode_state.json"
-  "$HOME/.audio_mode_active"
-  "$HOME/.zoom_mode_pids"
-  "$HOME/.zoom_mode_active"
-  "$HOME/Library/Logs/audio-mode.log"
-  "$HOME/Library/Logs/zoom-mode.log"
-)
-have_audio_zoom=0
-for f in "${audio_zoom_files[@]}"; do
-  if [[ -e "$f" ]]; then have_audio_zoom=1; break; fi
-done
-if (( have_audio_zoom )); then
-  echo ""
-  printf "${_B}Remove audio-mode and zoom-mode state (state files + logs)? [y/N]:${_R} "
-  read -r remove_audio_zoom
-  if [[ "$remove_audio_zoom" =~ ^[Yy]$ ]]; then
-    for f in "${audio_zoom_files[@]}"; do
-      if [[ -e "$f" ]]; then
-        rm -f "$f"
-        ok "$(basename "$f")"
-      fi
-    done
-  else
-    dim "Keeping audio-mode/zoom-mode state"
-  fi
-fi
-
 # Offer to remove the openjdk symlink created by post-install.
 # System path — removed explicitly via sudo, never by a general rm block.
 JDK_LINK="/Library/Java/JavaVirtualMachines/openjdk.jdk"

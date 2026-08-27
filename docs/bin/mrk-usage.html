@@ -438,10 +438,8 @@
     <span class="nav-title">~/bin<br>Cmd Reference</span>
   </div>
   <a class="section-head">Sect. 1 — Standalone</a>
-  <a href="#audio-mode">1.1 audio-mode</a>
-  <a href="#zoom-mode">1.2 zoom-mode</a>
-  <a href="#nuke-mrk">1.3 nuke-mrk</a>
-  <a href="#snapshot">1.4 snapshot</a>
+  <a href="#nuke-mrk">1.1 nuke-mrk</a>
+  <a href="#snapshot">1.2 snapshot</a>
   <a class="section-head">Sect. 2 — mrk</a>
   <a href="#check-updates">2.1 check-updates</a>
   <a href="#doctor">2.2 doctor</a>
@@ -496,49 +494,9 @@
         <span class="section-sub">no external dependency</span>
       </div>
 
-      <div class="proc" id="audio-mode">
-        <div class="proc-header">
-          <span class="proc-num">1.1</span>
-          <h3>audio-mode <span class="tag tag-standalone">standalone</span></h3>
-        </div>
-        <div class="proc-body">
-          <p class="desc">audio-mode pauses the cloud sync services during a recording session. This prevents disk noise and latency.</p>
-          <pre><code>audio-mode on [--icloud] [--gdrive] [--all]
-audio-mode off
-audio-mode status</code></pre>
-          <ul>
-            <li><strong>on</strong> — Pauses Dropbox. The flags also pause iCloud and Google Drive. audio-mode first records which services run.</li>
-            <li><strong>off</strong> — Resumes the services. audio-mode resumes only the services that ran before you gave the <code>on</code> command.</li>
-            <li><strong>status</strong> — Shows the state of audio-mode and the state of each service.</li>
-            <li>audio-mode keeps its state in <code>~/.audio_mode_state.json</code>. It uses jq to read and write this file.</li>
-            <li>audio-mode writes a log to <code>~/Library/Logs/audio-mode.log</code>.</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="proc" id="zoom-mode">
-        <div class="proc-header">
-          <span class="proc-num">1.2</span>
-          <h3>zoom-mode <span class="tag tag-standalone">standalone</span></h3>
-        </div>
-        <div class="proc-body">
-          <p class="desc">zoom-mode prepares the Mac for a Zoom recording session. It keeps the WiFi access point awake, stops sleep, stops a Time Machine backup, and starts <code>audio-mode</code>.</p>
-          <pre><code>zoom-mode on
-zoom-mode off
-zoom-mode status</code></pre>
-          <ul>
-            <li><strong>on</strong> — Does four things. It pings the default gateway every 30 seconds in the background, which stops the access point from dropping an idle connection. It falls back to 8.8.8.8. It runs <code>caffeinate -d</code> to stop display sleep and system sleep. It stops an active Time Machine backup. It then runs <code>audio-mode on --all</code>.</li>
-            <li><strong>off</strong> — Stops the keepalive process and the caffeinate process. It then runs <code>audio-mode off</code> to resume the sync services.</li>
-            <li><strong>status</strong> — Shows whether zoom-mode is active. It then runs <code>audio-mode status</code>.</li>
-            <li>zoom-mode keeps the background process IDs in <code>~/.zoom_mode_pids</code>.</li>
-            <li>zoom-mode writes a log to <code>~/Library/Logs/zoom-mode.log</code>.</li>
-          </ul>
-        </div>
-      </div>
-
       <div class="proc" id="nuke-mrk">
         <div class="proc-header">
-          <span class="proc-num">1.3</span>
+          <span class="proc-num">1.1</span>
           <h3>nuke-mrk <span class="tag tag-standalone">standalone</span></h3>
         </div>
         <div class="proc-body">
@@ -556,7 +514,7 @@ zoom-mode status</code></pre>
 
       <div class="proc" id="snapshot">
         <div class="proc-header">
-          <span class="proc-num">1.4</span>
+          <span class="proc-num">1.2</span>
           <h3>snapshot <span class="tag tag-standalone">standalone</span></h3>
         </div>
         <div class="proc-body">
@@ -1079,7 +1037,7 @@ mrk-push                # mrk-push asks for the message</code></pre>
       </div>
 
       <table class="ref-table">
-        <caption>Table 3.1-2. bin/lib/common.sh — standalone bin/ tools (audio-mode, zoom-mode, …)</caption>
+        <caption>Table 3.1-2. bin/lib/common.sh — standalone bin/ tools (nuke-mrk, snapshot, maintain, …)</caption>
         <thead>
           <tr><th>Function</th><th>Purpose</th></tr>
         </thead>
@@ -1104,10 +1062,6 @@ mrk-push                # mrk-push asks for the message</code></pre>
           <tr><th>Command</th><th>What it does</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>zoom-mode on</code></td><td>Start Zoom recording mode: WiFi keepalive, no sleep, sync paused</td></tr>
-          <tr><td><code>zoom-mode off</code></td><td>Stop Zoom recording mode and resume the services</td></tr>
-          <tr><td><code>audio-mode on --all</code></td><td>Pause the sync services for a recording, and change nothing else</td></tr>
-          <tr><td><code>audio-mode off</code></td><td>Resume the sync services</td></tr>
           <tr><td><code>snapshot</code></td><td>Export the app preferences into the mrk repository</td></tr>
           <tr><td><code>snapshot-prefs</code></td><td>Export the app preferences and push them to the private repository</td></tr>
           <tr><td><code>sync</code></td><td>Add the new Homebrew packages to the Brewfile</td></tr>

@@ -350,10 +350,8 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 
 | Command | Purpose |
 |---|---|
-| `audio-mode` | Pauses and resumes the sync clients for a recording session or a mixing session |
 | `clear-app-caches` | Clears cache directories for common apps (Helium, Slack, Discord, VS Code, Spotify, Chrome) |
 | `clear-derived-data` | Clears the Xcode DerivedData directory |
-| `zoom-mode` | Keeps the Wi-Fi awake and stops sleep during a long Zoom session; `zoom-mode on \| off \| status` |
 | `mrk-push` | Commits and pushes `~/mrk`, then deletes the old GitHub Pages deployments. Scans the staged files for secrets first |
 | `prune-deployments` | Deletes the old GitHub Pages deployments and keeps the newest. It finds the repository from the origin remote, or use `--repo OWNER/NAME`. It always protects the deployment that serves the site, so a failed deploy cannot cause it to delete the live one. Use `--dry-run` first |
 | `pushall` | Commits and pushes each repository in `~/Projects`, and then syncs `~/mrk`. Scans the staged files for secrets before each commit. It stages only the tracked files. Use `pushall --dry-run` to run the scan and change nothing |
