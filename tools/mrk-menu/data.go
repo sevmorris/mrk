@@ -77,6 +77,8 @@ var categories = []category{
 			{"pushall --dry-run", "scan and report; commit and push nothing", cmdBin, "pushall", []string{"--dry-run"}, false},
 			{"clean-ds", "remove .DS_Store files from local volumes", cmdBin, "clean-ds", nil, false},
 			{"clean-ds --dry-run", "list .DS_Store files, delete nothing", cmdBin, "clean-ds", []string{"--dry-run"}, false},
+			{"prune-deployments --dry-run", "list old Pages deployments, delete nothing", cmdBin, "prune-deployments", []string{"--dry-run"}, false},
+			{"prune-deployments", "delete old Pages deployments, keep the live one", cmdBin, "prune-deployments", nil, false},
 		},
 	},
 	{

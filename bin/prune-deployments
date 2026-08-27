@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+
+# prune-deployments — delete old GitHub Pages deployments, keep the newest
+#
+# Every push to a Pages branch creates a deployment, and they accumulate
+# forever. bin/mrk-push already prunes them, but only for the mrk repo and
+# only as part of a push. This is the same logic as a standalone command
+# that works in any repository.
+#
+# Scoped to the github-pages environment. An unscoped query returns every
+# environment, so an unscoped delete would remove deployments it does not
+# own.
+#
+# "Keep the newest N" is not sufficient on its own. When a deploy fails, the
+# newest deployment is the broken one and an older deployment is still
+# serving the site — keeping only the newest would delete the live one. So
+# the most recent deployment whose status is "success" is always protected,
+# whether or not it falls inside --keep.
+#
+# Usage:
+#   prune-deployments [--repo OWNER/NAME] [--keep N] [--dry-run]
+
+# Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2)
+if (( BASH_VERSINFO[0] < 4 )); then
+  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
+  done
+  echo "error: bash 4+ required (system bash is ${BASH_VERSION}; install via 'brew install bash')" >&2
+  exit 1
+fi
+
+set -euo pipefail
+
+# Resolve this script's real path (works when invoked via ~/bin symlink)
+_src="${BASH_SOURCE[0]}"
+while [[ -L "$_src" ]]; do
+  _dir="$(cd "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  [[ "$_src" != /* ]] && _src="$_dir/$_src"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+REPO=""
+KEEP=1
+DRY_RUN=0
+ENVIRONMENT="github-pages"
+
+usage() {
+  cat <<'EOF'
+prune-deployments — delete old GitHub Pages deployments, keep the newest
+
+Usage:
+  prune-deployments [--repo OWNER/NAME] [--keep N] [--dry-run]
+
+Options:
+  --repo OWNER/NAME   Target repository (default: the origin remote here)
+  --keep N            Keep the N most recent deployments (default: 1)
+  --environment ENV   Deployment environment (default: github-pages)
+  --dry-run           List what would be deleted; delete nothing
+  -h, --help          Show this help
+
+Deployments are marked inactive before deletion, which the API requires.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repo)         REPO="${2:?--repo needs OWNER/NAME}"; shift 2 ;;
+    --keep)         KEEP="${2:?--keep needs a number}"; shift 2 ;;
+    --environment)  ENVIRONMENT="${2:?--environment needs a name}"; shift 2 ;;
+    --dry-run)      DRY_RUN=1; shift ;;
+    -h|--help)      usage; exit 0 ;;
+    *)              err "Unknown option: $1"; echo >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+require_cmd gh || exit 1
+
+if ! [[ "$KEEP" =~ ^[0-9]+$ ]] || (( KEEP < 1 )); then
+  err "--keep must be a positive integer (got: $KEEP)"
+  exit 1
+fi
+
+# Derive the repo from the origin remote when not given
+if [[ -z "$REPO" ]]; then
+  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    err "Not inside a git repository. Pass --repo OWNER/NAME."
+    exit 1
+  fi
+  remote_url="$(git remote get-url origin 2>/dev/null || true)"
+  if [[ -z "$remote_url" ]]; then
+    err "No 'origin' remote found. Pass --repo OWNER/NAME."
+    exit 1
+  fi
+  REPO="$(echo "$remote_url" | sed 's|git@github.com:||; s|https://github.com/||; s|\.git$||')"
+fi
+
+if [[ ! "$REPO" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
+  err "Repo '$REPO' does not match the expected OWNER/NAME format"
+  exit 1
+fi
+
+info "Repository: $REPO  ·  environment: $ENVIRONMENT  ·  keeping $KEEP"
+
+# Check gh's exit status directly: mapfile from a process substitution always
+# succeeds, so an auth or network failure would otherwise read as "none found".
+if ! gh_out="$(gh api --paginate "/repos/$REPO/deployments?environment=$ENVIRONMENT" --jq '.[].id' 2>/dev/null)"; then
+  err "Failed to fetch deployments for $REPO"
+  exit 1
+fi
+
+ids=()
+[[ -n "$gh_out" ]] && mapfile -t ids <<< "$gh_out"
+
+if (( ${#ids[@]} == 0 )); then
+  warn "No deployments found."
+  exit 0
+fi
+
+info "Found ${#ids[@]} deployment(s). Newest: #${ids[0]}"
+
+# Find the live deployment: the most recent one whose status is "success".
+# Walk newest-first and stop at the first hit, so this is normally 1-2 calls.
+LIVE=""
+for id in "${ids[@]}"; do
+  state="$(gh api "/repos/$REPO/deployments/$id/statuses" --jq '.[0].state // "none"' 2>/dev/null || echo "none")"
+  if [[ "$state" == "success" ]]; then
+    LIVE="$id"
+    break
+  fi
+done
+
+if [[ -n "$LIVE" ]]; then
+  if [[ "$LIVE" == "${ids[0]}" ]]; then
+    info "Live deployment: #$LIVE"
+  else
+    warn "Newest deployment #${ids[0]} is not successful; #$LIVE is serving the site."
+    warn "#$LIVE is protected from deletion."
+  fi
+else
+  warn "No successful deployment found — nothing is protected."
+fi
+
+to_delete=()
+for id in "${ids[@]:$KEEP}"; do
+  [[ -n "$LIVE" && "$id" == "$LIVE" ]] && continue
+  to_delete+=("$id")
+done
+if (( ${#to_delete[@]} == 0 )); then
+  ok "Nothing to prune — ${#ids[@]} deployment(s), keeping $KEEP."
+  exit 0
+fi
+
+if (( DRY_RUN )); then
+  info "Would delete ${#to_delete[@]} deployment(s):"
+  printf '    #%s\n' "${to_delete[@]}"
+  ok "Dry run — nothing was deleted."
+  exit 0
+fi
+
+info "Pruning ${#to_delete[@]} older deployment(s)..."
+deleted=0
+failed=0
+for id in "${to_delete[@]}"; do
+  [[ -z "$id" ]] && continue
+  # The API requires a deployment be inactive before it can be deleted
+  gh api -X POST "/repos/$REPO/deployments/$id/statuses" \
+    -f state=inactive >/dev/null 2>&1 || true
+  if gh api -X DELETE "/repos/$REPO/deployments/$id" >/dev/null 2>&1; then
+    deleted=$((deleted + 1))
+  else
+    warn "Could not delete #$id (it may already be gone)"
+    failed=$((failed + 1))
+  fi
+done
+
+if (( failed > 0 )); then
+  warn "Deleted $deleted, could not delete $failed."
+else
+  ok "Deleted $deleted deployment(s). Kept $KEEP."
+fi
