@@ -226,7 +226,7 @@ snapshot-prefs
 
 You can run snapshot-prefs more than once. When nothing changed, it reports "No changes to push."
 
-> **Caution:** snapshot-prefs scans every staged file for API keys and tokens before it commits. If the scan finds a match, snapshot-prefs stops and asks you to confirm. It does not ask when `NONINTERACTIVE=1` is set or when there is no terminal — in those two cases it aborts. Read the reported lines before you answer. `mrk-push` applies the same gate to the mrk repository.
+> **Caution:** snapshot-prefs scans every staged file for API keys and tokens before it commits. If the scan finds a match, snapshot-prefs stops and asks you to confirm. It does not ask when `NONINTERACTIVE=1` is set or when there is no terminal — in those two cases it aborts. Read the reported lines before you answer. `mrk-push` applies the same gate to the mrk repository, and `pushall` applies it to every repository it commits.
 
 ## How to pull the app preferences
 
@@ -350,6 +350,9 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 | `clear-derived-data` | Clears the Xcode DerivedData directory |
 | `zoom-mode` | Keeps the Wi-Fi awake and stops sleep during a long Zoom session; `zoom-mode on \| off \| status` |
 | `mrk-push` | Commits and pushes `~/mrk`, then deletes the old GitHub Pages deployments. Scans the staged files for secrets first |
+| `pushall` | Commits and pushes each repository in `~/Projects`, and then syncs `~/mrk`. Scans the staged files for secrets before each commit. It stages only the tracked files. Use `pushall --dry-run` to run the scan and change nothing |
+| `update-full` | Full update pass: pulls mrk, quits the applications, runs the macOS and package updates, builds the Go tools again, runs `clean-ds` and `brew doctor`, and then offers a reboot. It stops with an error when there is no terminal, unless you give `--yes`. The `update --full` command is the same command |
+| `clean-ds` | Removes the `.DS_Store` files from the local disk. It does not examine `~/Library`, `~/Desktop`, the network volumes, or the external volumes. Use `clean-ds --dry-run` to see the files first |
 | `hide_tm.sh` | Hides the Time Machine volumes from the Finder sidebar. The default name is `TimeMachine`. Give the volume names, or set `TM_VOLUMES` |
 | `nuke-mrk` | Moves `~/mrk` and `~/.mrk` to the Trash, deletes the `~/bin` symlinks and the dotfile symlinks, and offers the rollbacks. It does NOT change Homebrew. `mrk-menu` lists it under Nuclear options |
 

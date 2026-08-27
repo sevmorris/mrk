@@ -72,6 +72,11 @@ var categories = []category{
 			{"make maintain", "prune deployments, fetch --prune, validate, check builds", cmdMake, "maintain", nil, false},
 			{"make tidy", "go mod tidy in all tool directories", cmdMake, "tidy", nil, false},
 			{"make fix-exec", "make all scripts and bin files executable", cmdMake, "fix-exec", nil, false},
+			{"update-full", "full pass: quits apps, updates, rebuilds, offers reboot", cmdBin, "update-full", nil, false},
+			{"pushall", "commit and push every repo in ~/Projects, then sync mrk", cmdBin, "pushall", nil, false},
+			{"pushall --dry-run", "scan and report; commit and push nothing", cmdBin, "pushall", []string{"--dry-run"}, false},
+			{"clean-ds", "remove .DS_Store files from local volumes", cmdBin, "clean-ds", nil, false},
+			{"clean-ds --dry-run", "list .DS_Store files, delete nothing", cmdBin, "clean-ds", []string{"--dry-run"}, false},
 		},
 	},
 	{
