@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+
+# update-full — full system update pass
+#
+# Pulls mrk, quits running applications, runs macOS software updates and
+# topgrade, rebuilds the mrk Go tools, clears .DS_Store files, runs
+# brew doctor, then offers a reboot.
+#
+# Migrated from a shell function in dotfiles/.aliases. A function could only
+# ever be called from an interactive shell; a script cannot, so this refuses
+# to run without a TTY unless --yes is given. It quits every running
+# application and can reboot the machine.
+#
+# Usage:
+#   update-full [--yes] [--no-reboot]
+
+# Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2)
+if (( BASH_VERSINFO[0] < 4 )); then
+  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
+  done
+  echo "error: bash 4+ required (system bash is ${BASH_VERSION}; install via 'brew install bash')" >&2
+  exit 1
+fi
+
+set -euo pipefail
+
+# Resolve this script's real path (works when invoked via ~/bin symlink)
+_src="${BASH_SOURCE[0]}"
+while [[ -L "$_src" ]]; do
+  _dir="$(cd "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  [[ "$_src" != /* ]] && _src="$_dir/$_src"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+ASSUME_YES=0
+NO_REBOOT=0
+
+usage() {
+  cat <<'EOF'
+update-full — full system update pass
+
+Usage:
+  update-full [--yes] [--no-reboot]
+
+Options:
+  -y, --yes     Skip the confirmation prompt
+      --no-reboot  Never offer a reboot at the end
+  -h, --help    Show this help
+
+Steps, in order:
+  1. git pull the mrk repo
+  2. Quit every running application except Finder, Dock, SystemUIServer,
+     loginwindow, and the terminal you are running in
+  3. macOS software updates
+  4. topgrade
+  5. Rebuild the mrk Go tools
+  6. clean-ds
+  7. brew doctor
+  8. Offer a reboot
+
+This quits every running application and can reboot the machine, so it
+refuses to run without a TTY unless --yes is given.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -y|--yes)     ASSUME_YES=1; shift ;;
+    --no-reboot)  NO_REBOOT=1; shift ;;
+    -h|--help)    usage; exit 0 ;;
+    *)            err "Unknown option: $1"; echo >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+MRK_ROOT="${MRK_ROOT:-$HOME/mrk}"
+
+# Detect the current terminal so it is not quit along with everything else
+case "${TERM_PROGRAM:-}" in
+  iTerm.app)      CURRENT_TERM="iTerm2" ;;
+  Apple_Terminal) CURRENT_TERM="Terminal" ;;
+  WarpTerminal)   CURRENT_TERM="Warp" ;;
+  Ghostty)        CURRENT_TERM="Ghostty" ;;
+  *)              CURRENT_TERM="" ;;
+esac
+
+echo "This will pull mrk, quit running applications, run macOS and package"
+echo "updates, rebuild the mrk tools, run cleanup, then offer a reboot."
+
+if (( ! ASSUME_YES )); then
+  if [[ ! -t 0 ]]; then
+    err "Refusing to run non-interactively without --yes."
+    err "This quits every running application and can reboot the machine."
+    exit 1
+  fi
+  reply=""
+  read -r -p "Continue? [Y/n] " reply || true
+  if [[ -n "$reply" && ! "$reply" =~ ^[Yy]$ ]]; then
+    exit 0
+  fi
+fi
+
+if [[ -z "$CURRENT_TERM" ]]; then
+  warn "Unrecognized terminal (TERM_PROGRAM='${TERM_PROGRAM:-unset}')."
+  warn "It is not protected and will be quit with the other applications."
+fi
+
+# ── 1. Pull mrk ───────────────────────────────────────────────────────────────
+if [[ -d "$MRK_ROOT/.git" ]]; then
+  info "Pulling mrk repo..."
+  make -C "$MRK_ROOT" pull || warn "mrk pull failed — continuing."
+else
+  warn "Skipping mrk pull — not a git repo: $MRK_ROOT"
+fi
+
+# ── 2. Quit applications ──────────────────────────────────────────────────────
+info "Quitting running applications..."
+
+declare -A KEEP=([Finder]=1 [Dock]=1 [SystemUIServer]=1 [loginwindow]=1)
+if [[ -n "$CURRENT_TERM" ]]; then
+  KEEP["$CURRENT_TERM"]=1
+fi
+
+# One System Events call, linefeed-delimited so app names containing a
+# comma-space can never be split apart.
+procs=()
+while IFS= read -r app; do
+  [[ -n "$app" ]] && procs+=("$app")
+done < <(
+  osascript \
+    -e 'set text item delimiters to linefeed' \
+    -e 'tell application "System Events" to set n to name of every process' \
+    -e 'return n as text' 2>/dev/null || true
+)
+
+for app in ${procs[@]+"${procs[@]}"}; do
+  if [[ -n "${KEEP[$app]:-}" ]]; then
+    continue
+  fi
+  bundle_path=""
+  for dir in /Applications /System/Applications "$HOME/Applications"; do
+    if [[ -d "$dir/$app.app" ]]; then
+      bundle_path="$dir/$app.app"
+      break
+    fi
+  done
+  if [[ -z "$bundle_path" ]]; then
+    continue
+  fi
+  # Target by path, not name — this can never raise a "Where is X?" dialog
+  osascript -e "tell application (POSIX file \"$bundle_path\" as text) to quit saving yes" 2>/dev/null \
+    || osascript -e "tell application (POSIX file \"$bundle_path\" as text) to quit" 2>/dev/null \
+    || true
+done
+
+sleep 2
+
+# ── 3. macOS software updates ─────────────────────────────────────────────────
+if [[ -d "$MRK_ROOT/.git" ]]; then
+  info "Running macOS software updates..."
+  make -C "$MRK_ROOT" updates || warn "macOS software updates failed — continuing."
+elif command -v softwareupdate >/dev/null 2>&1; then
+  info "Running macOS software updates..."
+  sudo softwareupdate -ia || true
+fi
+
+# ── 4. Package updates ────────────────────────────────────────────────────────
+if command -v topgrade >/dev/null 2>&1; then
+  topgrade || warn "topgrade reported errors — continuing."
+else
+  warn "topgrade not installed — skipping package updates."
+fi
+
+# ── 5. Rebuild the mrk Go tools ───────────────────────────────────────────────
+if [[ -d "$MRK_ROOT/.git" ]]; then
+  info "Rebuilding mrk Go tools..."
+  make -C "$MRK_ROOT" build-tools || warn "build-tools failed — continuing."
+fi
+
+# ── 6. Cleanup ────────────────────────────────────────────────────────────────
+if command -v clean-ds >/dev/null 2>&1; then
+  clean-ds || warn "clean-ds failed — continuing."
+elif [[ -x "$SCRIPT_DIR/clean-ds" ]]; then
+  "$SCRIPT_DIR/clean-ds" || warn "clean-ds failed — continuing."
+else
+  warn "clean-ds not found — skipping .DS_Store cleanup."
+fi
+
+# ── 7. brew doctor ────────────────────────────────────────────────────────────
+if command -v brew >/dev/null 2>&1; then
+  info "Running brew doctor..."
+  brew doctor || true
+fi
+
+# ── 8. Reboot ─────────────────────────────────────────────────────────────────
+if (( NO_REBOOT )); then
+  ok "Update complete. Reboot skipped (--no-reboot)."
+  exit 0
+fi
+
+if [[ ! -t 0 ]]; then
+  ok "Update complete. Not a TTY — not offering a reboot."
+  exit 0
+fi
+
+echo
+reply=""
+read -r -p "Reboot now? [y/N] " reply || true
+if [[ "$reply" =~ ^[Yy]$ ]]; then
+  sudo shutdown -r now
+fi
+
+ok "Update complete."

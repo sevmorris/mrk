@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+
+# clean-ds — remove .DS_Store files from local internal volumes
+#
+# Scans only top-level $HOME directories that live on the same device as
+# $HOME itself, so network shares and external volumes are never touched.
+# Skips ~/Library, ~/Desktop (to preserve icon layout), and dotfile dirs.
+#
+# Migrated from a shell function in dotfiles/.aliases so it can be
+# linted, scheduled, and called from other scripts. Follows the bin/
+# conventions (sources lib/common.sh, bash<4 re-exec).
+#
+# Usage:
+#   clean-ds [--dry-run]
+
+# Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2)
+if (( BASH_VERSINFO[0] < 4 )); then
+  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
+  done
+  echo "error: bash 4+ required (system bash is ${BASH_VERSION}; install via 'brew install bash')" >&2
+  exit 1
+fi
+
+set -euo pipefail
+
+# Resolve this script's real path (works when invoked via ~/bin symlink)
+_src="${BASH_SOURCE[0]}"
+while [[ -L "$_src" ]]; do
+  _dir="$(cd "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  [[ "$_src" != /* ]] && _src="$_dir/$_src"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+DRY_RUN=0
+
+usage() {
+  cat <<'EOF'
+clean-ds — remove .DS_Store files from local internal volumes
+
+Usage:
+  clean-ds [--dry-run]
+
+Options:
+  --dry-run    List the files that would be removed; delete nothing
+  -h, --help   Show this help
+
+Scans only top-level $HOME directories on the same device as $HOME.
+Skips ~/Library, ~/Desktop, and dotfile directories. Network and
+external volumes are never scanned.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)  DRY_RUN=1; shift ;;
+    -h|--help)  usage; exit 0 ;;
+    *)          err "Unknown option: $1"; echo >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+if (( DRY_RUN )); then
+  info "Scanning for .DS_Store files (dry run — nothing is deleted)"
+else
+  info "Starting .DS_Store cleanup (local only; Desktop and Library excluded)"
+fi
+
+TMPFILE="$(mktemp "${TMPDIR:-/tmp}/mrk-clean-ds.XXXXXX")"
+trap 'rm -f "$TMPFILE"' EXIT
+
+# Collect top-level $HOME dirs that sit on the same device as $HOME
+HOME_DEV="$(df -P "$HOME" | tail -1 | awk '{print $1}')"
+SAFE_DIRS=()
+for d in "$HOME"/*; do
+  [[ -d "$d" && ! -L "$d" ]] || continue
+  base="${d##*/}"
+  case "$base" in Library|Desktop|.*) continue ;; esac
+  dev="$(df -P "$d" | tail -1 | awk '{print $1}')"
+  if [[ "$dev" == "$HOME_DEV" ]]; then
+    SAFE_DIRS+=("$d")
+  fi
+done
+
+if (( ${#SAFE_DIRS[@]} == 0 )); then
+  warn "No eligible local folders."
+  exit 0
+fi
+
+find_args=(-xdev -type f -name ".DS_Store"
+           -not -path "*/Library/*"
+           -not -path "$HOME/Desktop/*"
+           -print)
+(( DRY_RUN )) || find_args+=(-delete)
+
+# Run the scan in the background so a spinner can run in the foreground.
+# Job-control messages are not a concern here: a non-interactive script has
+# job control off, which is why the function version needed set +m/disown.
+(
+  for d in "${SAFE_DIRS[@]}"; do
+    find "$d" "${find_args[@]}" || true
+  done > "$TMPFILE"
+) >/dev/null 2>&1 &
+FINDPID=$!
+
+if [[ -t 1 ]]; then
+  spin=$'|/-\\'
+  i=0
+  while kill -0 "$FINDPID" 2>/dev/null; do
+    printf "\r%s" "${spin:$(( i++ % 4 )):1}"
+    sleep 0.2
+  done
+  printf "\r"
+fi
+wait "$FINDPID" || true
+
+COUNT="$(wc -l < "$TMPFILE" | tr -d ' ')"
+noun="files"
+(( COUNT == 1 )) && noun="file"
+
+if (( DRY_RUN )); then
+  (( COUNT > 0 )) && cat "$TMPFILE"
+  ok "$COUNT $noun would be removed."
+else
+  ok ".DS_Store cleanup complete — removed $COUNT $noun."
+fi
+
+info "Searched only on: $HOME_DEV"
+info "Folders scanned:"
+for d in "${SAFE_DIRS[@]}"; do
+  printf "  • %s\n" "${d/#$HOME/\~}"
+done

@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+
+# pushall — commit and push every git repo in ~/Projects, then sync mrk
+#
+# Adopted into the repo from an untracked ~/bin script. Two changes on
+# adoption: every commit is now gated behind the same secret scan mrk-push
+# uses, and --dry-run reports what would happen without touching anything.
+#
+# Only tracked changes are staged (git add -u). Untracked files are never
+# swept in — same rule as bin/mrk-push.
+#
+# Unlike mrk-push, this resolves the mrk repo from its own location rather
+# than from `git rev-parse`, so the secret scanner stays available while it
+# operates on other repositories.
+#
+# Usage:
+#   pushall [--dry-run] [--projects DIR]
+
+# Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2)
+if (( BASH_VERSINFO[0] < 4 )); then
+  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
+  done
+  echo "error: bash 4+ required (system bash is ${BASH_VERSION}; install via 'brew install bash')" >&2
+  exit 1
+fi
+
+set -euo pipefail
+
+# Resolve this script's real path (works when invoked via ~/bin symlink)
+_src="${BASH_SOURCE[0]}"
+while [[ -L "$_src" ]]; do
+  _dir="$(cd "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  [[ "$_src" != /* ]] && _src="$_dir/$_src"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# scripts/lib.sh (not bin/lib/common.sh) — it owns require_clean_secrets.
+# bin/mrk-push sources it for the same reason.
+# shellcheck source=../scripts/lib.sh
+source "$REPO_ROOT/scripts/lib.sh"
+
+DRY_RUN=0
+PROJECTS_DIR="${PROJECTS_DIR:-$HOME/Projects}"
+PROJECTS_OVERRIDDEN=0
+MRK_DIR="$REPO_ROOT"
+SKIP_MRK=0
+FAILED=0
+
+usage() {
+  cat <<'EOF'
+pushall — commit and push every git repo in ~/Projects, then sync mrk
+
+Usage:
+  pushall [--dry-run] [--projects DIR]
+
+Options:
+      --dry-run       Report what would be committed and pushed; change nothing.
+                      The secret scan still runs, so this doubles as an audit.
+      --projects DIR  Directory of repos to sweep (default: ~/Projects).
+                      Giving this also skips the implicit mrk sweep — pass a
+                      directory and only that directory is touched.
+      --no-mrk        Skip the mrk repo even on a default sweep
+  -h, --help          Show this help
+
+A repo is skipped when it has no remote or no upstream tracking branch.
+Only tracked changes are staged; untracked files are never committed.
+Every commit is gated behind the mrk secret scan.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)   DRY_RUN=1; shift ;;
+    --projects)  PROJECTS_DIR="${2:?--projects needs a directory}"
+                 PROJECTS_OVERRIDDEN=1; shift 2 ;;
+    --no-mrk)    SKIP_MRK=1; shift ;;
+    -h|--help)   usage; exit 0 ;;
+    *)           err "Unknown option: $1"; echo >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+# process_repo PATH LABEL [PULL_FIRST]
+process_repo() {
+  local repo="${1%/}" label="$2" pull_first="${3:-0}"
+  printf '\n%s\n' "$label" >&2
+
+  if ! git -C "$repo" remote | grep -q .; then
+    logskip "$label" "no remote configured"
+    return 0
+  fi
+  if ! git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+    logskip "$label" "no upstream tracking branch"
+    return 0
+  fi
+
+  local dirty=0
+  if ! git -C "$repo" diff --quiet || ! git -C "$repo" diff --cached --quiet; then
+    dirty=1
+  fi
+
+  if (( dirty )); then
+    local -a changed=()
+    if (( DRY_RUN )); then
+      mapfile -t changed < <(
+        { git -C "$repo" diff --name-only --diff-filter=AM
+          git -C "$repo" diff --cached --name-only --diff-filter=AM; } | sort -u
+      )
+    else
+      git -C "$repo" add -u
+      mapfile -t changed < <(git -C "$repo" diff --cached --name-only --diff-filter=AM)
+    fi
+
+    # Absolute paths: the scanner stats each file, and we are not inside $repo.
+    local -a staged_abs=()
+    local f
+    for f in ${changed[@]+"${changed[@]}"}; do
+      [[ -n "$f" ]] && staged_abs+=("$repo/$f")
+    done
+
+    if (( ${#staged_abs[@]} > 0 )); then
+      if ! require_clean_secrets "${staged_abs[@]}"; then
+        err "$label: secret scan not cleared — skipping this repo"
+        if (( ! DRY_RUN )); then
+          warn "$label: changes left staged for review (git -C '$repo' reset to unstage)"
+        fi
+        FAILED=$((FAILED + 1))
+        return 0
+      fi
+    fi
+
+    if (( DRY_RUN )); then
+      info "would commit ${#staged_abs[@]} file(s)"
+    else
+      if git -C "$repo" commit -m "snapshot $(date '+%Y-%m-%d %H:%M')" >/dev/null 2>&1; then
+        ok "committed ${#staged_abs[@]} file(s)"
+      else
+        err "commit failed"
+        FAILED=$((FAILED + 1))
+        return 0
+      fi
+    fi
+  fi
+
+  if (( pull_first )); then
+    if (( DRY_RUN )); then
+      info "would pull"
+    elif git -C "$repo" pull >/dev/null 2>&1; then
+      ok "pulled"
+    else
+      err "pull failed"
+      FAILED=$((FAILED + 1))
+      return 0
+    fi
+  fi
+
+  # Nothing to push when the branch is already level with its upstream
+  local ahead
+  ahead="$(git -C "$repo" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)"
+  if (( ahead == 0 )) && (( ! dirty )); then
+    logskip "$label" "up to date"
+    return 0
+  fi
+
+  if (( DRY_RUN )); then
+    info "would push"
+  elif git -C "$repo" push >/dev/null 2>&1; then
+    ok "pushed"
+  else
+    err "push failed"
+    FAILED=$((FAILED + 1))
+  fi
+}
+
+if (( DRY_RUN )); then
+  log "Dry run — nothing will be committed or pushed"
+fi
+
+if [[ ! -d "$PROJECTS_DIR" ]]; then
+  err "Projects directory not found: $PROJECTS_DIR"
+  exit 1
+fi
+
+for repo in "$PROJECTS_DIR"/*/; do
+  [[ -d "$repo/.git" ]] || continue
+  process_repo "$repo" "$(basename "$repo")"
+done
+
+# The mrk sweep is implicit, so it must not fire when the caller has aimed
+# this at a specific directory — otherwise `--projects /tmp/x` still commits
+# and pushes mrk, which is not what the flag says it does.
+if (( SKIP_MRK )); then
+  logskip "mrk" "--no-mrk"
+elif (( PROJECTS_OVERRIDDEN )); then
+  logskip "mrk" "--projects given; sweeping only $PROJECTS_DIR"
+elif [[ -d "$MRK_DIR/.git" ]]; then
+  process_repo "$MRK_DIR" "mrk (installed copy)" 1
+fi
+
+printf '\n' >&2
+if (( FAILED > 0 )); then
+  err "Done — $FAILED repo(s) failed or were skipped"
+  exit 1
+fi
+ok "Done"

@@ -115,22 +115,8 @@ c() {
   clear && exec zsh
 }
 
-# Commit, pull --rebase, and push helper. Usage: pushit "message"
-pushit() {
-  local commit_message
-  commit_message="${1:-Auto-commit on $(date '+%Y-%m-%d %H:%M')}"
-
-  echo "Syncing with remote..."
-  git pull --rebase || return 1
-
-  git add .
-  if git diff --cached --quiet; then
-    echo "No changes to commit."
-  else
-    git commit -m "$commit_message"
-    git push
-  fi
-}
+# pushit removed: it was the only helper that ran `git add .` (staging
+# untracked files) with no secret scan. Use pushall, or plain git.
 
 
 # --- Empty Directory Utilities (loops until fully pruned) ---
