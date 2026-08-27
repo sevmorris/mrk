@@ -156,18 +156,7 @@ To skip every confirmation prompt, pass `--yes` or set `NONINTERACTIVE=1`. This 
 
 ## How to keep the Brewfile current
 
-Two tools manage the Brewfile.
-
-**`bf`** is a TUI. Use it to read, add, delete and move the Brewfile entries.
-
-```bash
-bf                    # Start the Brewfile manager TUI
-bf --help             # Show the keys and the options
-```
-
-Keys: **a** add · **d** delete · **m** move · **g** greedy on or off · **p** delete uninstalled · **/** search · **w** write · **c** commit
-
-**Prune mode** (`p`) runs `brew list` and shows every Brewfile entry that you no longer have installed. Press `space` to mark an entry, `a` to mark all of them, and `enter` to delete the marked entries.
+Two tools manage the Brewfile: `sync` on the command line, and Barkeep in a window.
 
 **`sync`** reads the installed packages, compares them against the Brewfile, and adds the packages that are absent.
 
@@ -546,7 +535,6 @@ exec zsh
 | Command | Description |
 |---|---|
 | `make picker` | Build the mrk-picker TUI binary |
-| `make bf` | Build the bf TUI binary |
 | `make mrk-status` | Build the mrk-status TUI binary |
 | `make mrk-menu` | Build the mrk-menu TUI binary |
 | `make build-tools` | Build all four TUI binaries |

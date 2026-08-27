@@ -13,7 +13,7 @@ func TestViewRendersAtVariousSizes(t *testing.T) {
 		wantSubstr string
 	}{
 		{"big terminal cat focus", 200, 60, stateFocusCat, "Brewfile"},
-		{"big terminal item focus", 200, 60, stateFocusItem, "bf"},
+		{"big terminal item focus", 200, 60, stateFocusItem, "sync"},
 		{"exact preferred", 100, 30, stateFocusCat, "Brewfile"},
 		{"min size", 80, 22, stateFocusCat, "Brewfile"},
 		{"too small width", 60, 30, stateFocusCat, "Terminal too small"},

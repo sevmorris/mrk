@@ -482,15 +482,14 @@
   <a href="#mrk-post-install">2.14 mrk-post-install</a>
   <a href="#mrk-defaults">2.15 mrk-defaults</a>
   <a href="#mrk-uninstall">2.16 mrk-uninstall</a>
-  <a href="#bf">2.17 bf</a>
-  <a href="#mrk-menu">2.18 mrk-menu</a>
-  <a href="#mrk-picker">2.19 mrk-picker</a>
-  <a href="#mrk-push">2.20 mrk-push</a>
-  <a href="#maintain">2.21 maintain</a>
-  <a href="#dock-setup">2.22 dock-setup</a>
-  <a href="#ci-check">2.23 ci-check</a>
-  <a href="#check-picker-desc">2.24 check-picker-desc</a>
-  <a href="#adventure-prologue">2.25 adventure-prologue</a>
+  <a href="#mrk-menu">2.17 mrk-menu</a>
+  <a href="#mrk-picker">2.18 mrk-picker</a>
+  <a href="#mrk-push">2.19 mrk-push</a>
+  <a href="#maintain">2.20 maintain</a>
+  <a href="#dock-setup">2.21 dock-setup</a>
+  <a href="#ci-check">2.22 ci-check</a>
+  <a href="#check-picker-desc">2.23 check-picker-desc</a>
+  <a href="#adventure-prologue">2.24 adventure-prologue</a>
   <a class="section-head">Sect. 3 — Reference</a>
   <a href="#lib">3.1 Shared Libraries</a>
   <a href="#quick-ref">3.2 Quick Reference</a>
@@ -836,35 +835,9 @@ mrk-status --help</code></pre>
         </div>
       </div>
 
-      <div class="proc" id="bf">
-        <div class="proc-header">
-          <span class="proc-num">2.17</span>
-          <h3>bf <span class="tag tag-mrk">mrk</span></h3>
-        </div>
-        <div class="proc-body">
-          <p class="desc">bf is the Brewfile manager. It is a two-pane TUI: the sections are on the left, and the packages are on the right. bf reads the mrk Brewfile and writes to it. To use a different file, give its path as the argument. bf is a Go binary.</p>
-          <pre><code>bf [BREWFILE]
-bf --help | -h
-bf --version</code></pre>
-          <ul>
-            <li><strong>j/k · ↑/↓</strong> — Move up and down.</li>
-            <li><strong>tab · ←/→</strong> — Move to the other pane.</li>
-            <li><strong>a</strong> — Add a package.</li>
-            <li><strong>d</strong> — Delete the selected package.</li>
-            <li><strong>m</strong> — Move the package to a different section.</li>
-            <li><strong>g</strong> — Turn the greedy option on or off. This applies to a cask only.</li>
-            <li><strong>p</strong> — Delete the entries for the packages that you uninstalled.</li>
-            <li><strong>/</strong> — Search the packages.</li>
-            <li><strong>w</strong> — Write your changes to the Brewfile.</li>
-            <li><strong>c</strong> — Commit the changes that you wrote.</li>
-            <li><strong>q · ctrl-c</strong> — Quit.</li>
-          </ul>
-        </div>
-      </div>
-
       <div class="proc" id="mrk-menu">
         <div class="proc-header">
-          <span class="proc-num">2.18</span>
+          <span class="proc-num">2.17</span>
           <h3>mrk-menu <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -884,7 +857,7 @@ bf --version</code></pre>
 
       <div class="proc" id="mrk-picker">
         <div class="proc-header">
-          <span class="proc-num">2.19</span>
+          <span class="proc-num">2.18</span>
           <h3>mrk-picker <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -903,7 +876,7 @@ bf --version</code></pre>
 
       <div class="proc" id="mrk-push">
         <div class="proc-header">
-          <span class="proc-num">2.20</span>
+          <span class="proc-num">2.19</span>
           <h3>mrk-push <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -924,7 +897,7 @@ mrk-push                # mrk-push asks for the message</code></pre>
 
       <div class="proc" id="maintain">
         <div class="proc-header">
-          <span class="proc-num">2.21</span>
+          <span class="proc-num">2.20</span>
           <h3>maintain <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -956,7 +929,7 @@ mrk-push                # mrk-push asks for the message</code></pre>
 
       <div class="proc" id="dock-setup">
         <div class="proc-header">
-          <span class="proc-num">2.22</span>
+          <span class="proc-num">2.21</span>
           <h3>dock-setup <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -977,7 +950,7 @@ mrk-push                # mrk-push asks for the message</code></pre>
 
       <div class="proc" id="ci-check">
         <div class="proc-header">
-          <span class="proc-num">2.23</span>
+          <span class="proc-num">2.22</span>
           <h3>ci-check <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -986,7 +959,7 @@ mrk-push                # mrk-push asks for the message</code></pre>
           <ol>
             <li>Run <code>check-picker-desc</code>.</li>
             <li>Run shellcheck on every bash script in <code>scripts/</code> and <code>bin/</code>. ci-check skips <code>scripts/adventure-prologue</code>.</li>
-            <li>Run <code>go test</code> in the five tool directories: picker, bf, mrk-status, mrk-menu and theme.</li>
+            <li>Run <code>go test</code> in the four tool directories: picker, mrk-status, mrk-menu and theme.</li>
           </ol>
           <ul>
             <li>ci-check shows a warning and skips step 2 when shellcheck is absent. Install it with <code>brew install shellcheck</code>.</li>
@@ -997,7 +970,7 @@ mrk-push                # mrk-push asks for the message</code></pre>
 
       <div class="proc" id="check-picker-desc">
         <div class="proc-header">
-          <span class="proc-num">2.24</span>
+          <span class="proc-num">2.23</span>
           <h3>check-picker-desc <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1012,7 +985,7 @@ mrk-push                # mrk-push asks for the message</code></pre>
 
       <div class="proc" id="adventure-prologue">
         <div class="proc-header">
-          <span class="proc-num">2.25</span>
+          <span class="proc-num">2.24</span>
           <h3>adventure-prologue <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1098,7 +1071,6 @@ mrk-push                # mrk-push asks for the message</code></pre>
           <tr><td><code>sync-login-items</code></td><td>Compare the login items, then update post-install and the manual</td></tr>
           <tr><td><code>status</code></td><td>Show the TUI health dashboard: dotfiles, tools, Homebrew and more</td></tr>
           <tr><td><code>mrk-menu</code></td><td>Show the TUI launcher for every mrk task</td></tr>
-          <tr><td><code>bf</code></td><td>Manage the Brewfile in a two-pane TUI</td></tr>
           <tr><td><code>mrk-picker</code></td><td>Select packages, and write the selections to stdout</td></tr>
           <tr><td><code>mrk-push "msg"</code></td><td>Commit and push the mrk repository, then delete the old Pages deployments</td></tr>
           <tr><td><code>maintain</code></td><td>Delete the old Pages deployments, fetch, validate, and check the builds</td></tr>

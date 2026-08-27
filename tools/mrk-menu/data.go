@@ -25,7 +25,6 @@ var categories = []category{
 	{
 		name: "Brewfile",
 		items: []item{
-			{"bf", "interactive Brewfile manager", cmdBin, "bf", nil, false},
 			{"sync", "diff installed packages, add missing to Brewfile", cmdBin, "sync", nil, false},
 			{"sync --prune", "remove Brewfile entries for uninstalled packages", cmdBin, "sync", []string{"--prune"}, false},
 			{"sync --dry-run", "show what sync would do, no changes", cmdBin, "sync", []string{"--dry-run"}, false},

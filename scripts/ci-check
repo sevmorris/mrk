@@ -35,7 +35,7 @@ else
   warn "shellcheck not installed — skipping (brew install shellcheck)"
 fi
 
-for dir in picker bf mrk-status mrk-menu theme; do
+for dir in picker mrk-status mrk-menu theme; do
   log "go test: tools/$dir"
   (cd "$REPO_ROOT/tools/$dir" && go test ./...)
 done

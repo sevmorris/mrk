@@ -10,7 +10,7 @@ define link-home-bin
 	@ln -sf "$(BIN_DIR)/$(1)" "$(INSTALL_BIN)/$(1)"
 endef
 
-.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker bf mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs dock help check ci maintain
+.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs dock help check ci maintain
 
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
 define go-build
@@ -60,10 +60,10 @@ adventure: ## Full install in narrative adventure mode
 
 build-tools: ## Build all Go TUI binaries (requires Go)
 	@printf '\n\033[1;34m══ Phase 4: TUI Tools\033[0m\n\n'
-	@$(MAKE) --no-print-directory picker bf mrk-status mrk-menu
+	@$(MAKE) --no-print-directory picker mrk-status mrk-menu
 
 tidy: ## Run go mod tidy in all tool directories
-	@for dir in picker bf mrk-status mrk-menu; do \
+	@for dir in picker mrk-status mrk-menu; do \
 		printf '  \033[36m▸\033[0m go mod tidy: tools/$$dir\n'; \
 		cd "$(REPO_ROOT)/tools/$$dir" && go mod tidy; \
 	done
@@ -119,11 +119,6 @@ status: ## Show installation status
 
 doctor: ## Run diagnostics
 	@"$(SCRIPTS)/doctor" $(ARGS)
-
-bf: ## Build the bf Brewfile manager TUI binary
-	$(call go-build,bf,bf)
-	$(call link-home-bin,bf)
-	@printf '  \033[32m✓\033[0m bf → ~/bin/bf\n'
 
 picker: ## Build the mrk-picker TUI binary
 	$(call go-build,mrk-picker,picker)
