@@ -67,61 +67,7 @@ alias decrypt='gpg --decrypt ' # Trailing space enables filename completion.
 
 # Use 'se' (showempties) or 'ce' (cleanempties) functions defined below
 
-# Clean .DS_Store files only on your local internal volume (no network/external),
-# skipping ~/Library and ~/Desktop (to preserve Desktop layout), with a quiet spinner + count.
-clean-ds() {
-  echo "🧹 Starting .DS_Store cleanup (local-only; Desktop & Library excluded)…"
-
-  local TMPFILE COUNT
-  # Portable template (GNU mktemp in gnubin rejects `mktemp -t mrk`; zsh has no trap RETURN)
-  TMPFILE=$(mktemp "${TMPDIR:-/tmp}/mrk-clean-ds.XXXXXX") || return 1
-  trap "rm -f '$TMPFILE'" EXIT
-
-  # Build safe local dirs on the same device as $HOME
-  local HOME_DEV SAFE_DIRS=() d base dev
-  HOME_DEV=$(df -P "$HOME" | tail -1 | awk '{print $1}')
-  for d in "$HOME"/*; do
-    [[ -d "$d" && ! -L "$d" ]] || continue
-    base=${d##*/}
-    case "$base" in Library|Desktop|.*) continue ;; esac
-    dev=$(df -P "$d" | tail -1 | awk '{print $1}')
-    [[ "$dev" == "$HOME_DEV" ]] && SAFE_DIRS+=("$d")
-  done
-  [[ ${#SAFE_DIRS[@]} -eq 0 ]] && { echo "ℹ️ No eligible local folders."; return 0; }
-
-  # Launch the cleanup in the BACKGROUND quietly, then disown it (no job-control messages).
-  local restore_monitor=false
-  [[ -o monitor ]] && restore_monitor=true
-  set +m  # temporarily silence job control output
-  (
-    for d in "${SAFE_DIRS[@]}"; do
-      find "$d" -xdev -type f -name ".DS_Store" \
-        -not -path "*/Library/*" \
-        -not -path "$HOME/Desktop/*" \
-        -print -delete
-    done > "$TMPFILE"
-  ) >/dev/null 2>&1 &
-  local FINDPID=$!
-  disown -h "$FINDPID" 2>/dev/null || disown %+
-
-  # Foreground spinner that watches the background PID without generating job messages
-  {
-    local spin='|/-\' i=0
-    while kill -0 "$FINDPID" 2>/dev/null; do
-      printf "\r%s" "${spin:$(( (i++) % 4 )):1}"
-      sleep 0.2
-    done
-    printf "\r"
-  }
-  $restore_monitor && set -m
-
-  COUNT=$(wc -l < "$TMPFILE" | tr -d ' ')
-  rm -f "$TMPFILE"
-
-  printf "✅ .DS_Store cleanup complete — removed %s file%s.\n" "$COUNT" "$( [ "$COUNT" -eq 1 ] || echo 's' )"
-  echo "🔒 Searched only on: $HOME_DEV"
-  echo "📁 Folders scanned:"; for d in "${SAFE_DIRS[@]}"; do printf " • %s\n" "${d/$HOME/~}"; done
-}
+# clean-ds moved to bin/clean-ds (linted, schedulable, supports --dry-run).
 
 # ==============================================================================
 #  Homebrew & Development Aliases / Functions
@@ -145,95 +91,18 @@ fixbrewperms() {
 
 if command -v topgrade >/dev/null 2>&1; then
   # Lightweight update: just run topgrade, no app closing or reboot prompt.
+  # `update --full` is accepted as a spelling of `update-full`. Any other
+  # arguments are passed through to topgrade instead of being silently dropped.
   update() {
-    topgrade
+    if [[ "${1:-}" == "--full" ]]; then
+      shift
+      update-full "$@"
+      return
+    fi
+    topgrade "$@"
   }
 
-  # Full update: pull mrk, close apps, macOS + package updates, rebuild tools,
-  # cleanup, then offer a reboot.
-  update-full() {
-    local mrk_root="${MRK_ROOT:-$HOME/mrk}"
-
-    # Detect current terminal so we don't close it
-    local current_term
-    case "${TERM_PROGRAM:-}" in
-      iTerm.app)      current_term="iTerm2" ;;
-      Apple_Terminal) current_term="Terminal" ;;
-      WarpTerminal)   current_term="Warp" ;;
-      Ghostty)        current_term="Ghostty" ;;
-      *)              current_term="" ;;
-    esac
-
-    echo "This will pull mrk, close running apps, run macOS and package updates,"
-    echo "rebuild mrk tools, run cleanup, then offer a reboot."
-    read -r "reply?Continue? [Y/n] "
-    [[ -z "$reply" || "$reply" =~ ^[Yy]$ ]] || return 0
-
-    if [[ -d "$mrk_root/.git" ]]; then
-      echo "Pulling mrk repo..."
-      make -C "$mrk_root" pull
-    else
-      echo "Skipping mrk pull — not a git repo: $mrk_root" >&2
-    fi
-
-    echo "Closing running applications..."
-    local -a keep=("Finder" "Dock" "SystemUIServer" "loginwindow")
-    [[ -n "$current_term" ]] && keep+=("$current_term")
-
-    # Get running process names (single, minimal System Events call)
-    local raw
-    raw=$(osascript -e 'tell application "System Events" to get name of every process' 2>/dev/null) || true
-
-    # Split on ", " into array
-    local -a procs=("${(@s:, :)raw}")
-
-    local bundle_path
-    for app in "${procs[@]}"; do
-      (( ${keep[(Ie)$app]} )) && continue
-      # Find bundle in standard app directories; skip if not found
-      bundle_path=""
-      for dir in /Applications /System/Applications "$HOME/Applications"; do
-        [[ -d "$dir/$app.app" ]] && bundle_path="$dir/$app.app" && break
-      done
-      [[ -z "$bundle_path" ]] && continue
-      # Target by path, not name — can never trigger "Where is X?" dialog
-      osascript -e "tell application (POSIX file \"$bundle_path\" as text) to quit saving yes" 2>/dev/null \
-        || osascript -e "tell application (POSIX file \"$bundle_path\" as text) to quit" 2>/dev/null \
-        || true
-    done
-
-    sleep 2
-
-    if [[ -d "$mrk_root/.git" ]]; then
-      echo "Running macOS software updates..."
-      make -C "$mrk_root" updates
-    elif command -v softwareupdate >/dev/null 2>&1; then
-      echo "Running macOS software updates..."
-      sudo softwareupdate -ia || true
-    fi
-
-    topgrade
-
-    if [[ -d "$mrk_root/.git" ]]; then
-      echo "Rebuilding mrk Go tools..."
-      make -C "$mrk_root" build-tools
-    fi
-
-    if (( ${+functions[clean-ds]} )); then
-      clean-ds
-    fi
-
-    if command -v brew >/dev/null 2>&1; then
-      echo "Running brew doctor..."
-      brew doctor || true
-    fi
-
-    echo
-    read -r "reply?Reboot now? [y/N] "
-    if [[ "$reply" =~ ^[Yy]$ ]]; then
-      sudo shutdown -r now
-    fi
-  }
+  # update-full moved to bin/update-full (linted; refuses to run without a TTY).
 fi
 
 # ==============================================================================
