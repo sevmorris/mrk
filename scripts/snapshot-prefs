@@ -187,10 +187,29 @@ snapshot_pref_dir(){
   log "Saved $name config ($saved item(s)) → $dest_dir"
 }
 
-# Calibre stores settings as JSON/plist files plus conversion presets and
-# installed plugins under ~/Library/Preferences/calibre/ (not a defaults domain).
+# Calibre stores settings as JSON/plist files plus conversion presets under
+# ~/Library/Preferences/calibre/ (not a defaults domain).
+#
+# The plugins/ directory is deliberately NOT taken wholesale. It is ~5 MB of
+# which ~8 KB is settings: the rest is plugin .zip files and vendored
+# third-party source (DeACSM ships copies of asn1crypto and oscrypto). All of
+# that reinstalls from Calibre's plugin manager, and scanning it produced a
+# dozen false "possible secret" hits on lines like `password = password.encode(...)`
+# in the crypto libraries, plus null-byte warnings from grepping the .zips.
+#
+# Two things under plugins/ are worth keeping:
+#   plugins/*.json      — per-plugin settings (deacsm.json, dedrm.json)
+#   plugins/*/account   — DeACSM's Adobe Digital Editions activation:
+#                         activation.xml (contains <adept:privateLicenseKey>),
+#                         device.xml, and devicesalt.
+#
+# That account directory is real key material, kept on purpose: Adobe caps how
+# many times an account can be activated, so losing it costs a re-authorization.
+# It is why sevmorris/mrk-prefs must stay private. The secret scanner does not
+# flag it — the namespaced <adept:...> tags match none of its patterns — so this
+# comment is the only thing recording that a private key lives in this repo.
 snapshot_pref_dir "$HOME/Library/Preferences/calibre" "calibre" "Calibre" \
-  "*.json" "*.plist" "conversion" "plugins"
+  "*.json" "*.plist" "conversion" "plugins/*.json" "plugins/*/account"
 
 # ── Commit and push ───────────────────────────────────────────────────────────
 
