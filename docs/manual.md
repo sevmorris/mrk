@@ -219,12 +219,17 @@ snapshot-prefs
 **How snapshot-prefs works**
 
 1. snapshot-prefs exports the preference plist for each managed app with `defaults export`.
-2. snapshot-prefs copies the config directories that are not defaults domains into `config/`. Calibre is one example: its settings, conversion presets and plugins live in `~/Library/Preferences/calibre/`.
+2. snapshot-prefs copies the config directories that are not defaults domains into `config/`. Calibre is one example: its settings and conversion presets live in `~/Library/Preferences/calibre/`. It does not copy the plugin code, which reinstalls from Calibre's plugin manager. It copies only `plugins/*.json` (the per-plugin settings) and `plugins/*/account` (the DeACSM Adobe activation, which cannot be recreated without a re-authorization).
 3. snapshot-prefs converts each binary plist to xml1, and then scans every file for secrets.
 4. snapshot-prefs commits the changes in `~/.mrk/preferences/` with a timestamped message.
 5. snapshot-prefs pushes to `sevmorris/mrk-prefs` on GitHub.
 
 You can run snapshot-prefs more than once. When nothing changed, it reports "No changes to push."
+
+> **Caution:** `config/calibre/plugins/DeACSM/account/` holds real key material — `activation.xml` contains an Adobe
+> `<adept:privateLicenseKey>`, alongside `device.xml` and `devicesalt`. It is kept on purpose, because Adobe limits how often
+> an account can be re-activated. The secret scanner does not flag it: the namespaced `<adept:…>` tags match none of its
+> patterns. This is the reason `sevmorris/mrk-prefs` must stay private.
 
 > **Caution:** snapshot-prefs scans every staged file for API keys and tokens before it commits. If the scan finds a match, snapshot-prefs stops and asks you to confirm. It does not ask when `NONINTERACTIVE=1` is set or when there is no terminal — in those two cases it aborts. Read the reported lines before you answer. `mrk-push` applies the same gate to the mrk repository, and `pushall` applies it to every repository it commits.
 
