@@ -10,6 +10,7 @@
   <style>
     :root {
       --color-primary:              #0066cc;
+      --color-accent:               #6d28d9;
       --color-text:                 #333333;
       --color-text-secondary:       #666666;
       --color-text-tertiary:        #999999;
@@ -139,7 +140,7 @@
       font-size: 0.875rem;
       font-weight: 500;
       letter-spacing: 0.025em;
-      border-bottom: 1px solid #2d3748;
+      border-bottom: 3px solid var(--color-accent);
     }
     .masthead-org { flex: 1; text-align: left; }
     .masthead-center {
@@ -173,6 +174,7 @@
     .content {
       padding: 2rem 3rem 5rem;
       flex: 1;
+      max-width: 1200px;
     }
 
     section { margin-bottom: 3rem; }
@@ -245,13 +247,13 @@
       margin-left: 6px;
       border-radius: 2px;
     }
-    .tag-standalone { background: var(--color-primary); color: #fff; }
+    .tag-standalone { background: var(--color-accent); color: #fff; }
     .tag-mrk        { background: var(--color-text-secondary); color: #fff; }
 
     /* ─── Procedure blocks ────────────────────────────────────── */
     .proc {
       border: 1px solid #aaa;
-      border-top: 3px solid var(--color-primary);
+      border-top: 3px solid var(--color-accent);
       margin-bottom: 2rem;
       border-radius: 0 0 3px 3px;
       overflow: hidden;
@@ -318,6 +320,17 @@
     .callout-caution { border-left-color: #e6a800; }
     .callout-caution .callout-label { background: #fffdf0; color: var(--color-warning-dark); }
 
+    /* ─── Wide-table scroll container ─────────────────────────── */
+    /* Tables can exceed the viewport on narrow screens. body has
+       overflow-x:hidden, so an overflowing table is clipped with no way to
+       reach the cut-off columns. Each table scrolls inside its own box. */
+    .table-scroll {
+      overflow-x: auto;
+      margin-bottom: 1rem;
+      -webkit-overflow-scrolling: touch;
+    }
+    .table-scroll > .ref-table { margin-bottom: 0; }
+
     /* ─── Tables ──────────────────────────────────────────────── */
     .ref-table {
       width: 100%;
@@ -364,6 +377,18 @@
       font-size: 0.85rem;
       white-space: nowrap;
       font-weight: 500;
+    }
+
+    .ref-table .tbl-cat td {
+      font-family: var(--font-family-mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--color-text-secondary);
+      background: var(--color-background-tertiary);
+      padding: 5px 14px;
+      border-bottom: 1px solid var(--color-border);
     }
 
     /* ─── Footer ──────────────────────────────────────────────── */
@@ -1011,7 +1036,8 @@ mrk-push                # mrk-push asks for the message</code></pre>
       </div>
       <p>mrk has two separate libraries. <code>scripts/lib.sh</code> serves the mrk install-phase scripts. <code>bin/lib/common.sh</code> serves the standalone <code>~/bin</code> tools, and it supplies a small set of logging and utility functions.</p>
 
-      <table class="ref-table">
+      <div class="table-scroll">
+<table class="ref-table">
         <caption>Table 3.1-1. scripts/lib.sh — mrk install-phase scripts (setup, brew, post-install, defaults.sh, hardening.sh, sync, …)</caption>
         <thead>
           <tr><th>Function</th><th>Purpose</th></tr>
@@ -1028,6 +1054,7 @@ mrk-push                # mrk-push asks for the message</code></pre>
           <tr><td><code>require_clean_secrets</code></td><td>Runs <code>scan_for_secrets</code> and gates the commit. Asks you to confirm a match. Aborts instead when <code>NONINTERACTIVE=1</code> is set or when there is no terminal.</td></tr>
         </tbody>
       </table>
+        </div>
       <div class="callout">
         <span class="callout-label">Note — lib.sh Environment Variables</span>
         <div class="callout-body">
@@ -1036,7 +1063,8 @@ mrk-push                # mrk-push asks for the message</code></pre>
         </div>
       </div>
 
-      <table class="ref-table">
+      <div class="table-scroll">
+<table class="ref-table">
         <caption>Table 3.1-2. bin/lib/common.sh — standalone bin/ tools (nuke-mrk, snapshot, maintain, …)</caption>
         <thead>
           <tr><th>Function</th><th>Purpose</th></tr>
@@ -1047,6 +1075,7 @@ mrk-push                # mrk-push asks for the message</code></pre>
           <tr><td><code>require_cmd</code></td><td>Reports an error when a listed command is absent.</td></tr>
         </tbody>
       </table>
+        </div>
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
@@ -1056,7 +1085,8 @@ mrk-push                # mrk-push asks for the message</code></pre>
         <h2>Quick Reference</h2>
         <span class="section-sub">all commands</span>
       </div>
-      <table class="ref-table">
+      <div class="table-scroll">
+<table class="ref-table">
         <caption>Table 3.2-1. Command Summary</caption>
         <thead>
           <tr><th>Command</th><th>What it does</th></tr>
@@ -1092,6 +1122,7 @@ mrk-push                # mrk-push asks for the message</code></pre>
           <tr><td><code>mrk-uninstall</code></td><td>Delete the mrk ~/bin symlinks, and offer the rollbacks. Keeps the dotfiles, ~/.mrk and Homebrew</td></tr>
         </tbody>
       </table>
+        </div>
     </section>
 
   </div><!-- /content -->
