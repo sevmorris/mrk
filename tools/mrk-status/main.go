@@ -217,7 +217,11 @@ func checkHardening(stateDir string) group {
 	}, ""}
 }
 
-// checkBackups reports what setup displaced, not the health of anything.
+// checkBackups reports what setup displaced, not the health of anything. It
+// returns false when there is nothing to report, and the caller omits the
+// panel entirely: this is the only check that can neither fail nor be fixed,
+// so on a clean install it would otherwise occupy a slot in a health
+// dashboard to say "None" and offer no action.
 // When linking a dotfile, setup MOVES a pre-existing non-symlink out of the
 // way into ~/.mrk/backups/<timestamp>/ instead of deleting it. So an empty
 // directory means setup never had to displace a file — the normal outcome of
@@ -226,12 +230,11 @@ func checkHardening(stateDir string) group {
 // Nothing reads these back: no restore path exists in uninstall or anywhere
 // else. They are an inert archive of what the machine had before mrk. Hence
 // no fix on this group — there is nothing to repair.
-func checkBackups(stateDir string) group {
+func checkBackups(stateDir string) (group, bool) {
 	backupDir := filepath.Join(stateDir, "backups")
 	entries, err := os.ReadDir(backupDir)
 	if err != nil {
-		return group{"Backups", sevInfo,
-			[]statusLine{sl(sevInfo, "None — setup has not replaced any dotfiles")}, ""}
+		return group{}, false
 	}
 	var dirs []string
 	for _, e := range entries {
@@ -240,15 +243,14 @@ func checkBackups(stateDir string) group {
 		}
 	}
 	if len(dirs) == 0 {
-		return group{"Backups", sevInfo,
-			[]statusLine{sl(sevInfo, "None — setup found no dotfiles to replace")}, ""}
+		return group{}, false
 	}
 	sort.Sort(sort.Reverse(sort.StringSlice(dirs)))
 	return group{"Backups", sevOK, []statusLine{
 		sl(sevOK, fmt.Sprintf("%d backup(s)", len(dirs))),
 		sl(sevInfo, "Latest:   "+dirs[0]),
 		sl(sevInfo, "Location: "+backupDir),
-	}, ""}
+	}, ""}, true
 }
 
 func checkShell() group {
@@ -389,17 +391,22 @@ type fixDoneMsg struct{ err error }
 func runChecks(repoRoot, home, binDir string) tea.Cmd {
 	return func() tea.Msg {
 		stateDir := filepath.Join(home, ".mrk")
-		return checksMsg([]group{
+		groups := []group{
 			checkDotfiles(repoRoot, home),
 			checkTools(repoRoot, binDir),
 			checkDefaults(stateDir),
 			checkHardening(stateDir),
-			checkBackups(stateDir),
+		}
+		if g, ok := checkBackups(stateDir); ok {
+			groups = append(groups, g)
+		}
+		groups = append(groups,
 			checkShell(),
 			checkPATH(binDir),
 			checkHomebrew(),
 			checkBrewfile(repoRoot),
-		})
+		)
+		return checksMsg(groups)
 	}
 }
 

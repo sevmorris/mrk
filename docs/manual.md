@@ -599,13 +599,13 @@ To use narrative mode for one phase, pass `ARGS=--adventure` to that target. To 
 
 # What `make status` checks
 
-`make status` checks the whole installation and shows nine results:
+`make status` checks the whole installation and shows eight results, plus Backups when there is a backup to report:
 
 - **Dotfiles** — The files that mrk symlinked into `~/`, and the files that are absent.
 - **Tools** — The `~/bin` symlinks that work, and the symlinks that are broken.
 - **macOS Defaults** — Whether mrk applied the defaults. The rollback script is the evidence.
 - **Security Hardening** — Whether mrk applied the hardening.
-- **Backups** — The number of dotfile backups in `~/.mrk/backups/`. This panel is a report, not a health check, so it has no fix. See [What the backups are](#what-the-backups-are).
+- **Backups** — Shown *only when backups exist*: how many, where, and the most recent. This is a report, not a health check — it can neither fail nor be fixed — so with nothing to report it is omitted rather than shown empty. See [What the backups are](#what-the-backups-are).
 - **Shell** — Your login shell. It must be zsh.
 - **PATH** — Whether `~/bin` is on the PATH.
 - **Homebrew** — The installed version.

@@ -150,27 +150,23 @@ echo ""
 
 # Reports what setup displaced when linking dotfiles: a pre-existing
 # non-symlink is moved into $STATE_DIR/backups/<timestamp>/ rather than
-# deleted. Empty means nothing needed displacing, which is normal on a
-# clean install. Nothing restores from these, so there is no remedy to
-# suggest here.
-echo "Backups:"
+# deleted. The section is printed only when a backup exists — this is the
+# one report here that can neither fail nor be acted on, so with nothing to
+# show it is omitted rather than printed empty.
+backup_count=0
 if [[ -d "$STATE_DIR/backups" ]]; then
   backup_count=$(find "$STATE_DIR/backups" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
-  if (( backup_count > 0 )); then
-    ok "  $backup_count backup(s) found"
-    info "  Location: $STATE_DIR/backups"
-    # Show most recent
-    latest=$(find "$STATE_DIR/backups" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -r | head -n1)
-    if [[ -n "$latest" ]]; then
-      info "  Latest: $(basename "$latest")"
-    fi
-  else
-    info "  None — setup found no dotfiles to replace"
-  fi
-else
-  info "  None — setup has not replaced any dotfiles"
 fi
-echo ""
+if (( backup_count > 0 )); then
+  echo "Backups:"
+  ok "  $backup_count backup(s) found"
+  info "  Location: $STATE_DIR/backups"
+  latest=$(find "$STATE_DIR/backups" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -r | head -n1)
+  if [[ -n "$latest" ]]; then
+    info "  Latest: $(basename "$latest")"
+  fi
+  echo ""
+fi
 
 ###############################################################################
 # Shell                                                                       #
