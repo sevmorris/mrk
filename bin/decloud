@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# decloud — git for DoublEnder's private Cloud overlay.
+#
+# The overlay (project.cloud.yml, scripts/, DoublEnderCloud/) is interleaved
+# with the public DoublEnder tree and gitignored there, so it is versioned in a
+# bare repo that shares that working tree. The two repos never see each other's
+# files. A pre-commit hook in the bare repo refuses to commit the GCS
+# service-account key or ingest.env; stage overlay files by name rather than
+# with `add .`, for the reason pushit was removed from .aliases.
+#
+# Usage: decloud <any git command>
+#   decloud status
+#   decloud commit -am "Tighten the release preflight"
+#   decloud push
+set -euo pipefail
+
+GIT_DIR_PATH="${DECLOUD_GIT_DIR:-$HOME/DoublEnder-cloud.git}"
+WORK_TREE="${DECLOUD_WORK_TREE:-$HOME/Projects/DoublEnder}"
+
+if [[ ! -d "$GIT_DIR_PATH" ]]; then
+    echo "decloud: no overlay repo at $GIT_DIR_PATH" >&2
+    exit 1
+fi
+if [[ ! -d "$WORK_TREE" ]]; then
+    echo "decloud: no working tree at $WORK_TREE" >&2
+    exit 1
+fi
+
+exec git --git-dir="$GIT_DIR_PATH" --work-tree="$WORK_TREE" "$@"

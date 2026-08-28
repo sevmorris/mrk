@@ -196,3 +196,6 @@ cleanempties() {
 # Short aliases
 alias se='showempties'
 alias ce='cleanempties'
+
+# decloud moved to bin/decloud — a git wrapper has to work in non-interactive
+# shells too, and this file returns early for those.
