@@ -147,6 +147,32 @@ else
 fi
 
 ###############################################################################
+# Projects CLAUDE.md                                                          #
+###############################################################################
+
+# Guidance Claude Code reads for everything under ~/Projects. It lived only in
+# ~/Projects/CLAUDE.md, which is not inside any repository, so it had no
+# history and no backup. Tracked here and linked into place like any dotfile.
+CLAUDEMD_SRC="$REPO_ROOT/assets/CLAUDE.md"
+CLAUDEMD_DST="$HOME/Projects/CLAUDE.md"
+
+if [[ -f "$CLAUDEMD_SRC" && -d "$HOME/Projects" ]]; then
+  if [[ -L "$CLAUDEMD_DST" ]] && [[ "$(readlink "$CLAUDEMD_DST")" == "$CLAUDEMD_SRC" ]]; then
+    logskip "Projects CLAUDE.md" "linked"
+  else
+    [[ -f "$CLAUDEMD_DST" && ! -L "$CLAUDEMD_DST" ]] && mv "$CLAUDEMD_DST" "${CLAUDEMD_DST}.bak"
+    if ln -sfn "$CLAUDEMD_SRC" "$CLAUDEMD_DST"; then
+      ok "Linked Projects CLAUDE.md → $CLAUDEMD_DST"
+    else
+      log "Warning: failed to link Projects CLAUDE.md"
+      ((++failed))
+    fi
+  fi
+else
+  logskip "Projects CLAUDE.md" "$HOME/Projects not found"
+fi
+
+###############################################################################
 # Browser preferences                                                        #
 ###############################################################################
 

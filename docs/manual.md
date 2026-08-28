@@ -215,10 +215,9 @@ snapshot-prefs
 
 You can run snapshot-prefs more than once. When nothing changed, it reports "No changes to push."
 
-> **Caution:** `config/calibre/plugins/DeACSM/account/` holds real key material — `activation.xml` contains an Adobe
-> `<adept:privateLicenseKey>`, alongside `device.xml` and `devicesalt`. It is kept on purpose, because Adobe limits how often
-> an account can be re-activated. The secret scanner does not flag it: the namespaced `<adept:…>` tags match none of its
-> patterns. This is the reason `sevmorris/mrk-prefs` must stay private.
+> **Caution:** `config/calibre/plugins/DeACSM/account/` holds real key material. It is kept deliberately — it cannot be
+> regenerated without a re-authorization — and the secret scanner does not flag it, because its XML element names match none
+> of the scanner's patterns. Nothing else will warn you it is there. This is why `sevmorris/mrk-prefs` must stay private.
 
 > **Caution:** snapshot-prefs scans every staged file for API keys and tokens before it commits. If the scan finds a match, snapshot-prefs stops and asks you to confirm. It does not ask when `NONINTERACTIVE=1` is set or when there is no terminal — in those two cases it aborts. Read the reported lines before you answer. `mrk-push` applies the same gate to the mrk repository, and `pushall` applies it to every repository it commits.
 
@@ -621,6 +620,7 @@ mrk writes its state to `~/.mrk/`. gitignore excludes this directory.
 |---|---|
 | `~/.mrk/preferences/` | The clone of `sevmorris/mrk-prefs`. Holds the app plists, the Application Support files and the config directories |
 | `~/.mrk/backups/` | The timestamped backups of the dotfiles that setup replaced |
+| `~/Projects/CLAUDE.md` | Symlink to `assets/CLAUDE.md`. Guidance Claude Code reads for the whole `~/Projects` tree; linked by `make post-install` |
 | `~/.mrk/defaults-rollback.sh` | Undoes the macOS system defaults that `make defaults` wrote, and the app plists that post-install imported. It does **not** cover the app-preference scripts that Phase 3 runs for Safari, Helium, AlDente, Audio Hijack, Fission and Rogue Amoeba. Those scripts write their defaults directly |
 | `~/.mrk/hardening-rollback.sh` | Undoes the security hardening |
 | `~/.mrk/sync-ignore` | The formula names and cask names that `sync` does not offer. One name per line. sync creates this file when you accept its offer to ignore a declined package |

@@ -199,15 +199,13 @@ snapshot_pref_dir(){
 #
 # Two things under plugins/ are worth keeping:
 #   plugins/*.json      — per-plugin settings (deacsm.json, dedrm.json)
-#   plugins/*/account   — DeACSM's Adobe Digital Editions activation:
-#                         activation.xml (contains <adept:privateLicenseKey>),
-#                         device.xml, and devicesalt.
+#   plugins/*/account   — DeACSM's activation state. Real key material: it
+#                         cannot be regenerated without a re-authorization.
 #
-# That account directory is real key material, kept on purpose: Adobe caps how
-# many times an account can be activated, so losing it costs a re-authorization.
-# It is why sevmorris/mrk-prefs must stay private. The secret scanner does not
-# flag it — the namespaced <adept:...> tags match none of its patterns — so this
-# comment is the only thing recording that a private key lives in this repo.
+# That directory is kept on purpose: losing it costs a re-authorization. It is
+# why sevmorris/mrk-prefs must stay private. The secret scanner does not flag
+# it — its XML element names match none of the scanner's patterns — so this
+# comment is the only thing recording that key material lives in that repo.
 snapshot_pref_dir "$HOME/Library/Preferences/calibre" "calibre" "Calibre" \
   "*.json" "*.plist" "conversion" "plugins/*.json" "plugins/*/account"
 
