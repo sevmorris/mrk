@@ -19,7 +19,7 @@ This is a collection of independent macOS-focused projects, not a monorepo. Each
 - **Magic Backup Machine** — rsync-based backup/restore of application settings and presets. Xcode project lives in `BackupRestore/`.
 - **Cypher** — Passphrase-based text encryption, with a matching web implementation under `web/`.
 - **PasswordGen** — "Perfect Passwords Grabber", fetches random passwords from GRC.com. SwiftPM, not Xcode. **Its git remote is `sevmorris/ppg`.**
-- **KeyVault** — SSH, GPG, Age, and API key manager. `io.github.sevmorris.KeyVault`, macOS 15.0+. **Not under version control** — no `.git`.
+- **KeyVault** — SSH, GPG, Age, and API key manager, plus a `Note` type for secrets it owns outright. `io.github.sevmorris.KeyVault`, macOS 15.0+. Being adapted as the store for personal secrets that NordPass isn't the right home for (it keeps passwords and passkeys), so `SecretStore` items are self-describing in the Keychain rather than indexed from UserDefaults. Backup and migration go through a passphrase-encrypted OpenPGP archive (`VaultExportService`, armored, AES-256) — readable by any `gpg` without KeyVault, which is the point. `AgeService` is dormant: `age` is not installed and not in the Brewfile.
 
 ### Sites and docs
 - **sevmac** — macOS setup guide, published to Pages. Two pages: `docs/index.html` (SMAC-1, full reference) and `docs/daily.html` (SMAC-2, day-to-day commands), cross-linked. Hand-written HTML with `.nojekyll` — do not add Jekyll.
@@ -31,6 +31,7 @@ This is a collection of independent macOS-focused projects, not a monorepo. Each
 - **Shared files.** WaxOnWaxOff, ClipHack, DoublEnder and FilmStrip keep some files byte-identical (`tools/dmg/`, `scripts/check-shared.sh`, and `FFmpegProcess.swift` in the two that need it). Any file carrying the header comment "Shared verbatim across the sibling app repos" is compared by `scripts/check-shared.sh`, which runs in each release preflight and fails on drift. Registration is by that marker, not a manifest.
 - **Vendored binaries** are fetched, not committed: a pinned GitHub release asset plus SHA-256s in `Vendor/ffmpeg-manifest.env`, fetched by `scripts/fetch-ffmpeg.sh`. Those deps releases must stay published and flagged as prereleases — an ordinary release becomes `/releases/latest` and breaks README download links.
 - **release.sh prunes release pages, never git tags.** A page is a convenience; a tag is the record.
+- **DoublEnder's private Cloud overlay is versioned separately.** `project.cloud.yml`, `scripts/` and `DoublEnderCloud/` are gitignored in the public repo and tracked in `sevmorris/DoublEnder-cloud` (private), via a bare repo at `~/DoublEnder-cloud.git` sharing the same working tree — the overlay is interleaved with the public tree, so a submodule can't span it. Use `decloud` (mrk's `bin/`, on PATH) instead of `git` for it. The GCS service-account key and `ingest.env` are **not** in that repo and never should be; a pre-commit hook refuses them.
 - **Pages deployments accumulate.** Every push to a Pages repo creates a deployment that is never cleaned up. Run `prune-deployments` (mrk's `bin/`, on PATH) from inside the repo — it reads the repo from the origin remote, paginates, and always protects the deployment currently serving the site, so a failed deploy cannot make it delete the live one. `--dry-run` first, `--keep N` to retain more. Applies to sevmac, mrk, dead-city-sf and raspi-time-machine-guide. `mrk-push` already does this for mrk as part of pushing.
 
 ## Build Commands
@@ -68,7 +69,7 @@ npm ci && npx vitest run
 - SwiftUI + AVFoundation for the audio apps; KeyVault uses the Security framework (Keychain).
 - Deployment targets: 14.0 for WaxOnWaxOff, ClipHack, FilmStrip, WireHack and Barkeep; 13.0 for DoublEnder and JustLoop; 15.0 for KeyVault.
 - MVVM with `@Observable` / `@MainActor`, actor-based services.
-- `PBXFileSystemSynchronizedRootGroup` in WaxOnWaxOff, ClipHack, FilmStrip and JustLoop — new files in a synced folder are picked up with no project edit. Barkeep, WireHack and DoublEnder do **not** use it, so adding or removing a file there means editing `project.pbxproj` (or `project.yml`, for DoublEnder).
+- `PBXFileSystemSynchronizedRootGroup` in WaxOnWaxOff, ClipHack, FilmStrip, JustLoop and KeyVault — new files in a synced folder are picked up with no project edit. Barkeep, WireHack and DoublEnder do **not** use it, so adding or removing a file there means editing `project.pbxproj` (or `project.yml`, for DoublEnder).
 - A consequence of synced groups worth knowing: Xcode decides what to bundle when it *plans* the build, so a build-phase script that downloads a resource runs too late for the first build on a fresh clone. That is why `release.sh` fetches FFmpeg before invoking `xcodebuild` rather than relying on the phase alone.
 - App sandbox disabled where system tool access is needed (KeyVault, WaxOnWaxOff, ClipHack).
 - Build output lands in `build/Build/Products/Release/<AppName>.app`.
