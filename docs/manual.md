@@ -605,7 +605,7 @@ To use narrative mode for one phase, pass `ARGS=--adventure` to that target. To 
 - **Tools** — The `~/bin` symlinks that work, and the symlinks that are broken.
 - **macOS Defaults** — Whether mrk applied the defaults. The rollback script is the evidence.
 - **Security Hardening** — Whether mrk applied the hardening.
-- **Backups** — The number of dotfile backups in `~/.mrk/backups/`.
+- **Backups** — The number of dotfile backups in `~/.mrk/backups/`. This panel is a report, not a health check, so it has no fix. See [What the backups are](#what-the-backups-are).
 - **Shell** — Your login shell. It must be zsh.
 - **PATH** — Whether `~/bin` is on the PATH.
 - **Homebrew** — The installed version.
@@ -625,6 +625,35 @@ mrk writes its state to `~/.mrk/`. gitignore excludes this directory.
 | `~/.mrk/hardening-rollback.sh` | Undoes the security hardening |
 | `~/.mrk/sync-ignore` | The formula names and cask names that `sync` does not offer. One name per line. sync creates this file when you accept its offer to ignore a declined package |
 | `~/.mrk/login-items-ignore` | The login-item names that `sync-login-items` does not offer. One name per line. sync-login-items creates this file when you accept its offer to ignore a declined item |
+
+### What the backups are
+
+When `make setup` links a dotfile into `~`, it checks the destination first. If
+a file is already there and it is **not** a symlink — a `.zshrc` you wrote
+before mrk existed — setup **moves** it into `~/.mrk/backups/<timestamp>/`
+rather than deleting it. If the destination is already the correct symlink,
+setup skips the file and no backup is made.
+
+So the directory holds the machine's *pre-mrk* dotfiles. The repository is the
+source of truth for mrk's dotfiles; the backup is the one copy of what those
+files replaced, which the repository never had.
+
+Two consequences:
+
+1. **An empty directory is the normal result of a clean install.** It means
+   setup never found a file to displace. It is not a fault, and running
+   `make install` again will not create one: setup skips destinations that are
+   already correct symlinks.
+
+2. **Nothing restores them.** No script reads a backup back into place —
+   `make uninstall` does not, and neither does anything else. They are an inert
+   archive you would copy from by hand. `nuke-mrk` moves the whole `~/.mrk`
+   directory to the Trash, backups included.
+
+Once a new machine is working, the backups have served their purpose. Keep them
+only if you still want the option of reading what a dotfile looked like before
+mrk replaced it.
+
 
 To undo the macOS defaults that mrk applied, run this command:
 

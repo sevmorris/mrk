@@ -29,9 +29,9 @@ type severity int
 
 const (
 	sevOK   severity = iota // ✓
-	sevInfo                  // ·
-	sevWarn                  // ⚠
-	sevErr                   // ✗
+	sevInfo                 // ·
+	sevWarn                 // ⚠
+	sevErr                  // ✗
 )
 
 func (s severity) icon() string {
@@ -217,12 +217,21 @@ func checkHardening(stateDir string) group {
 	}, ""}
 }
 
+// checkBackups reports what setup displaced, not the health of anything.
+// When linking a dotfile, setup MOVES a pre-existing non-symlink out of the
+// way into ~/.mrk/backups/<timestamp>/ instead of deleting it. So an empty
+// directory means setup never had to displace a file — the normal outcome of
+// installing onto a clean home directory, not a problem.
+//
+// Nothing reads these back: no restore path exists in uninstall or anywhere
+// else. They are an inert archive of what the machine had before mrk. Hence
+// no fix on this group — there is nothing to repair.
 func checkBackups(stateDir string) group {
 	backupDir := filepath.Join(stateDir, "backups")
 	entries, err := os.ReadDir(backupDir)
 	if err != nil {
 		return group{"Backups", sevInfo,
-			[]statusLine{sl(sevInfo, "No backups directory")}, ""}
+			[]statusLine{sl(sevInfo, "None — setup has not replaced any dotfiles")}, ""}
 	}
 	var dirs []string
 	for _, e := range entries {
@@ -232,7 +241,7 @@ func checkBackups(stateDir string) group {
 	}
 	if len(dirs) == 0 {
 		return group{"Backups", sevInfo,
-			[]statusLine{sl(sevInfo, "No backups found")}, ""}
+			[]statusLine{sl(sevInfo, "None — setup found no dotfiles to replace")}, ""}
 	}
 	sort.Sort(sort.Reverse(sort.StringSlice(dirs)))
 	return group{"Backups", sevOK, []statusLine{

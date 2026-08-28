@@ -148,6 +148,11 @@ else
 fi
 echo ""
 
+# Reports what setup displaced when linking dotfiles: a pre-existing
+# non-symlink is moved into $STATE_DIR/backups/<timestamp>/ rather than
+# deleted. Empty means nothing needed displacing, which is normal on a
+# clean install. Nothing restores from these, so there is no remedy to
+# suggest here.
 echo "Backups:"
 if [[ -d "$STATE_DIR/backups" ]]; then
   backup_count=$(find "$STATE_DIR/backups" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
@@ -160,10 +165,10 @@ if [[ -d "$STATE_DIR/backups" ]]; then
       info "  Latest: $(basename "$latest")"
     fi
   else
-    info "  No backups found — run: make install (creates a backup automatically)"
+    info "  None — setup found no dotfiles to replace"
   fi
 else
-  info "  No backups directory — run: make install (creates a backup automatically)"
+  info "  None — setup has not replaced any dotfiles"
 fi
 echo ""
 
