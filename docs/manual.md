@@ -640,10 +640,11 @@ files replaced, which the repository never had.
 
 Two consequences:
 
-1. **An empty directory is the normal result of a clean install.** It means
-   setup never found a file to displace. It is not a fault, and running
-   `make install` again will not create one: setup skips destinations that are
-   already correct symlinks.
+1. **On a clean install the directory does not exist at all.** It is created
+   only at the moment setup actually displaces a file, so its absence means
+   setup never found one. That is not a fault, and running `make install`
+   again will not create it: setup skips destinations that are already correct
+   symlinks.
 
 2. **Nothing restores them.** No script reads a backup back into place —
    `make uninstall` does not, and neither does anything else. They are an inert

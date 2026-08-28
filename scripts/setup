@@ -113,10 +113,11 @@ if ! mkdir -p "$INSTALL_BIN"; then
   err "Failed to create bin directory: $INSTALL_BIN"
   exit 1
 fi
-if ! mkdir -p "$(dirname "$BACKUP_DIR")"; then
-  err "Failed to create backup parent directory"
-  exit 1
-fi
+# $STATE_DIR/backups is deliberately NOT created here. A backup only happens
+# when linking finds a real file where a symlink should go, and the mkdir -p
+# at that point creates the whole path. Creating the parent up front produced
+# an always-empty ~/.mrk/backups on every clean install, which then showed up
+# in `status` as a Backups panel with nothing to report and no fix to offer.
 
 # Ensure rollback script exists (don't truncate — defaults.sh manages its own content)
 if ! touch "$ROLLBACK" || ! chmod +x "$ROLLBACK"; then
