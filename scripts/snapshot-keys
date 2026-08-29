@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk snapshot-keys — bundle ~/.ssh and ~/.gnupg into one passphrase-encrypted
+# OpenPGP archive, for carrying private key material to a new machine.
+#
+# Why this exists, and why it is not snapshot-prefs:
+#
+#   snapshot-prefs pushes to the mrk-prefs git repo. Private keys must never go
+#   there, so this writes a single encrypted file to a path you choose and
+#   pushes nothing anywhere. The two scripts deliberately share no destination.
+#
+#   KeyVault's own export covers the secrets KeyVault owns — its API keys and
+#   its notes. It does not cover SSH or GPG keys: those live as files in ~/.ssh
+#   and ~/.gnupg, and KeyVault only indexes them. This script is the other half.
+#
+# Format is symmetric OpenPGP, AES-256, ASCII-armored — the same shape KeyVault
+# exports, so both halves of a transfer open with a plain `gpg -d` on any
+# machine, years from now, with no mrk and no KeyVault present.
+
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+check_macos
+
+# Every file this script creates holds key material. 077 before anything else,
+# so there is no window where the output is world-readable.
+umask 077
+
+DRY_RUN=0
+FORCE=0
+OUTPUT=""
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: snapshot-keys [-o PATH] [-n] [-f]
+
+Bundle ~/.ssh and ~/.gnupg into one passphrase-encrypted OpenPGP archive.
+
+  -o, --output PATH   Where to write the archive
+                      (default: ~/Desktop/mrk-keys-<timestamp>.asc)
+  -n, --dry-run       Show what would be bundled, write nothing
+  -f, --force         Overwrite an existing output file
+  -h, --help          Show this help
+
+Restore with: restore-keys <archive>
+Read without mrk: gpg -d <archive> | tar -tvf -
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -o|--output)  OUTPUT="${2:-}"; shift 2 || { err "--output needs a path"; exit 1; } ;;
+    -n|--dry-run) DRY_RUN=1; shift ;;
+    -f|--force)   FORCE=1; shift ;;
+    -h|--help)    usage; exit 0 ;;
+    *)            err "Unknown option: $1"; usage; exit 1 ;;
+  esac
+done
+
+section "Snapshot keys"
+
+command -v gpg >/dev/null 2>&1 || {
+  err "gpg not found — install it with: brew install gnupg"
+  exit 1
+}
+
+# ── Choose and vet the destination ────────────────────────────────────────────
+
+if [[ -z "$OUTPUT" ]]; then
+  OUTPUT="$HOME/Desktop/mrk-keys-$(date +%Y%m%d-%H%M%S).asc"
+fi
+
+# Resolve to an absolute path without requiring the file to exist yet.
+out_dir="$(cd "$(dirname "$OUTPUT")" 2>/dev/null && pwd)" || {
+  err "Directory does not exist: $(dirname "$OUTPUT")"
+  exit 1
+}
+OUTPUT="$out_dir/$(basename "$OUTPUT")"
+
+# The archive must outlive a wipe. Everything below is deleted by nuke-mrk or
+# by make uninstall, and the repo path would additionally put private keys in
+# reach of a stray `git add`. Refusing here is the whole safety property of this
+# script, so it is a hard error rather than a warning.
+for forbidden in "$HOME/mrk" "$HOME/.mrk"; do
+  if [[ "$OUTPUT" == "$forbidden"/* ]]; then
+    err "Refusing to write inside $forbidden"
+    info "nuke-mrk and make uninstall delete that directory — the archive must survive them."
+    info "Write it to an encrypted external disk, or leave the default (~/Desktop)."
+    exit 1
+  fi
+done
+
+if [[ -e "$OUTPUT" ]] && (( ! FORCE )); then
+  err "Output already exists: $OUTPUT"
+  info "Pass --force to overwrite it, or choose another path with --output."
+  exit 1
+fi
+
+# ── Collect what exists ───────────────────────────────────────────────────────
+
+sources=()
+[[ -d "$HOME/.ssh"   ]] && sources+=(".ssh")
+[[ -d "$HOME/.gnupg" ]] && sources+=(".gnupg")
+
+if (( ${#sources[@]} == 0 )); then
+  err "Neither ~/.ssh nor ~/.gnupg exists — nothing to bundle."
+  exit 1
+fi
+
+for s in "${sources[@]}"; do
+  count=$(find "$HOME/$s" -type f 2>/dev/null | wc -l | tr -d ' ')
+  # shellcheck disable=SC2088  # Literal "~/" for the reader, not a path to expand
+  log "~/$s ($count files)"
+done
+
+# gpg-agent sockets are live endpoints, not data. tar cannot store them and
+# would warn on each one. Lock files are equally worthless in a restore.
+tar_excludes=(
+  --exclude='.gnupg/S.*'
+  --exclude='.gnupg/.#*'
+  --exclude='.gnupg/*.lock'
+)
+
+if (( DRY_RUN )); then
+  echo "" >&2
+  dry "Would bundle: ${sources[*]}"
+  dry "Would write:  $OUTPUT"
+  echo "" >&2
+  info "Contents that would be included:"
+  tar -czf - -C "$HOME" "${tar_excludes[@]}" "${sources[@]}" 2>/dev/null \
+    | tar -tvf - 2>/dev/null | sed 's/^/    /' >&2 || true
+  exit 0
+fi
+
+# ── Bundle and encrypt ────────────────────────────────────────────────────────
+
+echo "" >&2
+warn "This archive will hold your private keys."
+info "Choose a strong passphrase, and store it in your password manager."
+info "Losing the passphrase means losing the archive — there is no recovery."
+echo "" >&2
+
+# tar streams straight into gpg. The plaintext tarball is never a file, so an
+# interrupt or a crash cannot leave unencrypted key material behind.
+tmp_out="$(mrk_mktemp)"
+cleanup() { rm -f "$tmp_out"; }
+trap cleanup EXIT
+
+if ! tar -czf - -C "$HOME" "${tar_excludes[@]}" "${sources[@]}" 2>/dev/null \
+   | gpg --symmetric --cipher-algo AES256 --armor --yes -o "$tmp_out"; then
+  err "Encryption failed — no archive written."
+  exit 1
+fi
+
+if [[ ! -s "$tmp_out" ]]; then
+  err "gpg produced an empty archive — no archive written."
+  exit 1
+fi
+
+# Structural check before the file is put in place: confirm gpg really wrote a
+# symmetrically-encrypted message. This needs no passphrase, so it verifies the
+# container without a second prompt. It does not prove the passphrase is what
+# you meant to type — nothing except a real decrypt can prove that.
+if ! gpg --list-packets --batch "$tmp_out" 2>&1 | grep -q "symkey enc packet"; then
+  err "Output is not a symmetrically-encrypted OpenPGP message — no archive written."
+  exit 1
+fi
+
+mv "$tmp_out" "$OUTPUT"
+chmod 600 "$OUTPUT"
+trap - EXIT
+
+size=$(du -h "$OUTPUT" | cut -f1 | tr -d ' ')
+echo "" >&2
+ok "Wrote $OUTPUT ($size)"
+echo "" >&2
+info "Next steps:"
+info "  1. Copy the archive to an encrypted external disk."
+info "  2. Store the passphrase in your password manager."
+info "  3. On the new machine: restore-keys <archive>"
+echo "" >&2
+info "The archive is plain OpenPGP. To read it without mrk:"
+info "  gpg -d $(basename "$OUTPUT") | tar -tvf -"

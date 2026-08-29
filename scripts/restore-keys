@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk restore-keys — restore ~/.ssh and ~/.gnupg from a snapshot-keys archive.
+#
+# The counterpart to snapshot-keys, the way pull-prefs is the counterpart to
+# snapshot-prefs. Takes the passphrase-encrypted OpenPGP archive and puts the
+# key material back where SSH, GPG and KeyVault expect to find it.
+#
+# Two properties matter more than convenience here:
+#
+#   Nothing is clobbered silently. An existing ~/.ssh or ~/.gnupg is moved
+#   aside with a timestamp first, so a restore onto a machine that already has
+#   keys is recoverable.
+#
+#   Plaintext key material is never written to a temporary file. gpg decrypts
+#   straight into tar, which extracts to the final location. There is no
+#   window in which an unencrypted copy exists somewhere else on disk.
+
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+check_macos
+umask 077
+
+LIST_ONLY=0
+ARCHIVE=""
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: restore-keys [-l] <archive>
+
+Restore ~/.ssh and ~/.gnupg from a snapshot-keys archive.
+
+  -l, --list    List the archive contents, restore nothing
+  -h, --help    Show this help
+
+An existing ~/.ssh or ~/.gnupg is moved aside with a timestamp before the
+restore, never overwritten in place.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -l|--list) LIST_ONLY=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    -*)        err "Unknown option: $1"; usage; exit 1 ;;
+    *)         ARCHIVE="$1"; shift ;;
+  esac
+done
+
+section "Restore keys"
+
+command -v gpg >/dev/null 2>&1 || {
+  err "gpg not found — install it with: brew install gnupg"
+  exit 1
+}
+
+if [[ -z "$ARCHIVE" ]]; then
+  err "No archive given."
+  usage
+  exit 1
+fi
+
+if [[ ! -f "$ARCHIVE" ]]; then
+  err "Archive not found: $ARCHIVE"
+  exit 1
+fi
+
+if ! gpg --list-packets --batch "$ARCHIVE" 2>&1 | grep -q "symkey enc packet"; then
+  err "Not a snapshot-keys archive: $ARCHIVE"
+  info "Expected a symmetrically-encrypted OpenPGP message."
+  exit 1
+fi
+
+# ── List mode ─────────────────────────────────────────────────────────────────
+
+if (( LIST_ONLY )); then
+  log "Reading $ARCHIVE..."
+  echo "" >&2
+  gpg -d -q "$ARCHIVE" 2>/dev/null | tar -tvf - | sed 's/^/    /' >&2
+  exit 0
+fi
+
+# ── Move aside whatever is already there ──────────────────────────────────────
+
+log "Reading $ARCHIVE..."
+
+stamp="$(date +%Y%m%d-%H%M%S)"
+# Parallel arrays rather than deriving the original path back out of the backup
+# name: the rollback below runs on the failure path, which is the worst place to
+# be doing string surgery on a filename.
+moved=()
+moved_orig=()
+
+for d in .ssh .gnupg; do
+  if [[ -e "$HOME/$d" ]]; then
+    backup="$HOME/${d}.before-restore-${stamp}"
+    mv "$HOME/$d" "$backup"
+    moved+=("$backup")
+    moved_orig+=("$HOME/$d")
+    warn "Moved existing ~/$d → $(basename "$backup")"
+  fi
+done
+
+# If the extract fails after a move, put the originals back rather than leaving
+# the machine with no keys at all.
+restore_originals() {
+  local rc=$? i
+  if (( rc != 0 )) && (( ${#moved[@]} > 0 )); then
+    err "Restore failed — putting the original directories back."
+    for i in "${!moved[@]}"; do
+      rm -rf "${moved_orig[$i]}"
+      mv "${moved[$i]}" "${moved_orig[$i]}" && ok "Restored ${moved_orig[$i]}"
+    done
+  fi
+  return $rc
+}
+trap restore_originals EXIT
+
+# ── Decrypt straight into place ───────────────────────────────────────────────
+
+if ! gpg -d -q "$ARCHIVE" 2>/dev/null | tar -xpf - -C "$HOME"; then
+  err "Decryption or extraction failed — wrong passphrase, or a damaged archive."
+  exit 1
+fi
+
+trap - EXIT
+
+# ── Correct the permissions ───────────────────────────────────────────────────
+
+# tar -p preserves the recorded modes, but an archive built elsewhere, or one
+# that travelled through a filesystem without POSIX permissions, can arrive
+# with modes that ssh and gpg reject outright. Setting them is cheap; debugging
+# "Permissions are too open" on a new machine is not.
+if [[ -d "$HOME/.ssh" ]]; then
+  chmod 700 "$HOME/.ssh"
+  find "$HOME/.ssh" -type f -exec chmod 600 {} +
+  find "$HOME/.ssh" -type f -name '*.pub' -exec chmod 644 {} +
+  # shellcheck disable=SC2088  # Literal "~/" for the reader, not a path to expand
+  ok "~/.ssh restored (700, keys 600)"
+fi
+
+if [[ -d "$HOME/.gnupg" ]]; then
+  chmod 700 "$HOME/.gnupg"
+  find "$HOME/.gnupg" -type d -exec chmod 700 {} +
+  find "$HOME/.gnupg" -type f -exec chmod 600 {} +
+  # shellcheck disable=SC2088  # Literal "~/" for the reader, not a path to expand
+  ok "~/.gnupg restored (700)"
+fi
+
+# ── Report ────────────────────────────────────────────────────────────────────
+
+echo "" >&2
+if [[ -d "$HOME/.gnupg" ]]; then
+  # The agent holds state from before the restore, including a cached view of a
+  # keyring that no longer exists. Restarting it is what makes the imported
+  # secret keys visible to gpg without a logout.
+  gpgconf --kill gpg-agent 2>/dev/null || true
+  log "Restarted gpg-agent"
+fi
+
+ok "Restore complete"
+echo "" >&2
+info "Check the result:"
+info "  ssh-add -l                 # SSH keys"
+info "  gpg --list-secret-keys     # GPG secret keys"
+info "  ssh -T git@github.com      # GitHub authentication"
+
+if (( ${#moved[@]} > 0 )); then
+  echo "" >&2
+  warn "Your previous directories were kept, not deleted:"
+  for b in "${moved[@]}"; do
+    info "  $b"
+  done
+  info "Delete them once you have checked the restore."
+fi

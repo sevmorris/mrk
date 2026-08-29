@@ -109,8 +109,9 @@ snapshot_plist "com.goodsnooze.MacWhisper"              "MacWhisper.plist"      
 # and GPG keys are not in the Keychain at all: KeyVault indexes ~/.ssh and
 # ~/.gnupg, so those never had anything to do with a defaults export either.
 # Nothing here can back up a KeyVault vault, and nothing here should try.
-# See "How to prepare for a new machine" in docs/manual.md for the transfer
-# routes. Same call already made for Bitwarden, NordPass and 1Password.
+# The key files have their own script — snapshot-keys — which writes one
+# encrypted archive to a path outside every directory a wipe deletes, and
+# pushes nowhere. Same call already made for Bitwarden, NordPass and 1Password.
 
 # ── Application Support files ─────────────────────────────────────────────────
 

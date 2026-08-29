@@ -101,6 +101,12 @@ Two native macOS apps ship alongside mrk. `make post-install` installs both from
 
 Both installs are one-shot: post-install skips an app that is already in `/Applications`, so it never overwrites a newer copy. To update, use the app itself, or delete it and re-run the phase.
 
+### Moving keys to a new machine
+
+`make snapshot-keys` bundles `~/.ssh` and `~/.gnupg` into one passphrase-encrypted OpenPGP archive; `make restore-keys ARGS=<archive>` puts them back and fixes the permissions. The archive goes to a path you choose (`~/Desktop` by default) and is pushed nowhere — `mrk-prefs` is a git repo and never carries private keys. `snapshot-keys` refuses to write inside `~/mrk` or `~/.mrk`, since `nuke-mrk` deletes both.
+
+That covers the key *files*. KeyVault's own export covers the secrets KeyVault owns — its API keys and notes, which live in the login Keychain. You need both archives for a complete transfer; neither contains the other's contents.
+
 ## License
 
 MIT — Seven Morris

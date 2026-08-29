@@ -45,6 +45,14 @@ var categories = []category{
 		},
 	},
 	{
+		name: "Keys",
+		items: []item{
+			{"snapshot-keys", "bundle ~/.ssh and ~/.gnupg into an encrypted archive", cmdBin, "snapshot-keys", nil, false},
+			{"snapshot-keys --dry-run", "show what would be bundled, write nothing", cmdBin, "snapshot-keys", []string{"--dry-run"}, false},
+			{"restore-keys", "restore ~/.ssh and ~/.gnupg from an archive", cmdBin, "restore-keys", nil, false},
+		},
+	},
+	{
 		name: "System state",
 		items: []item{
 			{"make defaults", "apply macOS defaults", cmdMake, "defaults", nil, false},

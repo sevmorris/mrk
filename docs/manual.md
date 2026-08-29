@@ -342,9 +342,9 @@ Two native macOS apps come with mrk. `make post-install` installs both apps. Eac
 
 A KeyVault backup goes out as one passphrase-encrypted OpenPGP archive. Any `gpg` reads that archive, so the backup does not need KeyVault.
 
-> **Caution:** The KeyVault archive holds the API keys and the notes only. It does not hold your SSH keys, and it does not hold your GPG keys. Move those files yourself. See "How to prepare for a new machine".
+> **Caution:** The KeyVault archive holds the API keys and the notes only. It does not hold your SSH keys, and it does not hold your GPG keys. Use `make snapshot-keys` for those. See "How to prepare for a new machine".
 
-> **Caution:** `snapshot-prefs` does not export the KeyVault preferences, and it must not. Use the KeyVault export for the API keys and the notes.
+> **Caution:** `snapshot-prefs` does not export the KeyVault preferences, and it must not. Use the KeyVault export for the API keys and the notes, and `make snapshot-keys` for the key files.
 
 ## Standalone Utilities
 
@@ -382,7 +382,7 @@ GitHub renders this file in the repository, so the [link in the README](../READM
 
 # How to prepare for a new machine
 
-Do these six steps on the **old machine** before you transfer.
+Do these seven steps on the **old machine** before you transfer.
 
 **1. Sync the Brewfile**
 
@@ -400,30 +400,27 @@ make snapshot-prefs
 
 This command exports the 14 app preference plists, the Application Support files and the config directories. It then pushes them. Check that the push succeeded: the output ends with "Pushed to git@github.com:sevmorris/mrk-prefs.git".
 
-**3. Export your secrets**
+**3. Bundle your SSH and GPG keys**
 
-> **Caution:** `snapshot-prefs` carries no secret of any kind. Your secrets move by three different routes. The KeyVault archive is only one of the three, and it is not the one that carries your keys.
-
-*API keys and notes.* Start KeyVault, and export the vault. KeyVault writes one passphrase-encrypted OpenPGP archive. Put the archive on the transfer disk. Keep the passphrase in your password manager. Any `gpg` reads the archive, so the new machine does not need KeyVault to open it.
-
-*SSH keys.* The KeyVault archive does not hold these. KeyVault only reads the files in `~/.ssh`. Copy that directory to the transfer disk:
+> **Caution:** `snapshot-prefs` carries no private key, and it must not. `mrk-prefs` is a git repository. Keys go into their own encrypted archive instead.
 
 ```bash
-cp -a ~/.ssh /Volumes/<transfer-disk>/ssh-backup
+make snapshot-keys
 ```
 
-You can also skip this, generate a new key on the new machine, and add the new public key to GitHub. Step 3 of the setup shows the commands.
+`snapshot-keys` bundles `~/.ssh` and `~/.gnupg` into one passphrase-encrypted OpenPGP archive. It writes the archive to `~/Desktop` and pushes it nowhere. Use `ARGS="-o PATH"` to write it somewhere else, and `ARGS=-n` to see what it would bundle first.
 
-*GPG keys.* The KeyVault archive does not hold these either, and KeyVault exports public keys only. Export the secret keys with `gpg`:
+The script refuses to write inside `~/mrk` or `~/.mrk`, because `nuke-mrk` deletes both. Copy the archive to an encrypted external disk, and keep the passphrase in your password manager.
 
-```bash
-gpg --export-secret-keys --armor > gpg-secret-keys.asc
-gpg --export-ownertrust > gpg-ownertrust.txt
-```
+**4. Export the KeyVault vault**
 
-> **Caution:** `gpg-secret-keys.asc` is your private key material in the clear. Put it on an encrypted disk. Delete it from that disk after the import.
+`snapshot-keys` covers the key files. It does not cover the secrets KeyVault owns.
 
-**4. Push any pending mrk changes**
+Start KeyVault, and export the vault. KeyVault writes its own passphrase-encrypted OpenPGP archive, which holds the API keys and the notes. Put that archive on the transfer disk too.
+
+> **Note:** The two archives hold different things, and you need both. `snapshot-keys` holds the files in `~/.ssh` and `~/.gnupg`. The KeyVault export holds the API keys and the notes from the login Keychain. Neither one holds the other's contents.
+
+**5. Push any pending mrk changes**
 
 ```bash
 cd ~/mrk
@@ -431,7 +428,7 @@ git status
 git push
 ```
 
-**5. Verify SSH authentication**
+**6. Verify SSH authentication**
 
 ```bash
 ssh -T git@github.com
@@ -440,7 +437,7 @@ ssh -T git@github.com
 
 The new machine needs your SSH key. `make post-install` uses it to pull mrk-prefs.
 
-**6. Note anything not covered by mrk**
+**7. Note anything not covered by mrk**
 
 Write down the apps, the license keys and the settings that mrk does not manage:
 
@@ -524,36 +521,36 @@ make post-install   # Run it again to import the plists
 
 ## Step 6 — Restore your secrets
 
-Phase 3 installs KeyVault. Your secrets are not on the new machine yet, because `mrk-prefs` carries none of them. Restore each kind by its own route. Skip any kind that you do not use.
+Phase 3 installs KeyVault. Your secrets are not on the new machine yet, because `mrk-prefs` carries none of them. You made two archives on the old machine, and each one restores by its own route. Skip either one that you do not use.
+
+**SSH and GPG keys**
+
+```bash
+make restore-keys ARGS=~/Desktop/mrk-keys-<timestamp>.asc
+```
+
+`restore-keys` decrypts the archive, puts `~/.ssh` and `~/.gnupg` back, and corrects the permissions that SSH and GPG demand. To see the contents first, add `-l`:
+
+```bash
+make restore-keys ARGS="-l ~/Desktop/mrk-keys-<timestamp>.asc"
+```
+
+`restore-keys` never overwrites in place. It moves an existing `~/.ssh` or `~/.gnupg` aside with a timestamp first, and it puts them back if the restore fails.
 
 **API keys and notes**
 
-1. Copy the OpenPGP archive from the transfer disk.
+1. Copy the KeyVault archive from the transfer disk.
 2. Start KeyVault.
 3. Import the archive, and give it the passphrase.
 
-KeyVault writes each item back into the login Keychain.
+KeyVault writes each item back into the login Keychain. KeyVault reads `~/.ssh` and `~/.gnupg` directly, so your SSH and GPG keys show in KeyVault as soon as `restore-keys` puts the files in place.
 
-**SSH keys**
-
-Copy the directory back, and then correct the permissions:
+Check the result:
 
 ```bash
-cp -a /Volumes/<transfer-disk>/ssh-backup ~/.ssh
-chmod 700 ~/.ssh
-chmod 600 ~/.ssh/id_*
+ssh -T git@github.com      # GitHub authentication
+gpg --list-secret-keys     # GPG secret keys
 ```
-
-SSH refuses a private key that other accounts can read, so do not skip the `chmod` commands. KeyVault reads `~/.ssh` directly. Your keys show in KeyVault as soon as the files are in place.
-
-**GPG keys**
-
-```bash
-gpg --import gpg-secret-keys.asc
-gpg --import-ownertrust gpg-ownertrust.txt
-```
-
-Check the import with `gpg --list-secret-keys`. Then delete `gpg-secret-keys.asc` from the transfer disk.
 
 ## Step 7 — Check the installation
 
@@ -599,6 +596,20 @@ exec zsh
 >
 > `snapshot-prefs` writes to the private mrk-prefs repository, and it pushes. `pull-prefs` and `post-install` use that data to restore your preferences on a new machine.
 
+**Keys**
+
+| Command | Description |
+|---|---|
+| `make snapshot-keys` | Bundle `~/.ssh` and `~/.gnupg` into a passphrase-encrypted OpenPGP archive (`ARGS="-o PATH"` · `ARGS=-n` dry run · `ARGS=-f` overwrite) |
+| `make restore-keys ARGS=<archive>` | Restore `~/.ssh` and `~/.gnupg` from that archive (`ARGS="-l <archive>"` lists the contents) |
+
+> No preferences command touches a private key.
+>
+> `snapshot-prefs` pushes to a git repository, so a private key must never reach it. `snapshot-keys` writes one encrypted file to a path you choose, and it pushes nowhere. The two share no destination, on purpose.
+>
+> `snapshot-keys` refuses to write inside `~/mrk` or `~/.mrk`. `nuke-mrk` and `make uninstall` delete both directories, and an archive that a wipe deletes is not a backup.
+>
+> The archive is ordinary OpenPGP. `gpg -d <archive> | tar -tvf -` reads it on any machine, with no mrk installed.
 
 **Build Tools**
 

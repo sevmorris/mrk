@@ -76,6 +76,32 @@ else
   dim "Skipping pre-nuke snapshot"
 fi
 
+# Keys are a separate offer, and default to no. nuke-mrk does not touch ~/.ssh
+# or ~/.gnupg, so this is not protection against nuke-mrk — it is for the case
+# where the nuke is a rehearsal for wiping the machine. It also prompts for a
+# passphrase and writes a file, which is not something to do on a bare Enter.
+echo ""
+printf "  ${_B}Key material${_R}\n\n"
+printf "  nuke-mrk leaves ~/.ssh and ~/.gnupg alone. If you are about to wipe\n"
+printf "  the machine, bundle them now — mrk-prefs never carries private keys.\n"
+echo ""
+printf "${_B}Bundle ~/.ssh + ~/.gnupg to an encrypted archive? [y/N]:${_R} "
+read -r do_keys
+if [[ "$do_keys" =~ ^[Yy]$ ]]; then
+  if [[ -f "$MRK_DIR/Makefile" ]]; then
+    echo ""
+    if make -C "$MRK_DIR" snapshot-keys; then
+      ok "Keys bundled"
+    else
+      warn "make snapshot-keys exited with errors"
+    fi
+  else
+    warn "Makefile not found at $MRK_DIR — skipping"
+  fi
+else
+  dim "Skipping key bundle"
+fi
+
 echo ""
 # Remove ~/bin symlinks that point into mrk
 if [[ -d "$BIN_DIR" ]]; then
