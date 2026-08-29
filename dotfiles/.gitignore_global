@@ -1,0 +1,12 @@
+**/.claude/settings.local.json
+
+# macOS filesystem metadata — every repo, forever.
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Editor and OS cruft that has no business in any repo.
+*.swp
+*~
+.idea/
