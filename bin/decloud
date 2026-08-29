@@ -26,4 +26,17 @@ if [[ ! -d "$WORK_TREE" ]]; then
     exit 1
 fi
 
+# The pre-commit hook that refuses the GCS key and ingest.env is tracked at
+# scripts/hooks/ and used via core.hooksPath. That config is repo-local, so a
+# fresh clone of the overlay has the hook file but is not pointing at it —
+# leaving the repo unprotected in exactly the state where someone is most
+# likely to be re-establishing it from scratch. Set it if it is missing.
+if [[ -x "$WORK_TREE/scripts/hooks/pre-commit" ]]; then
+    current=$(git --git-dir="$GIT_DIR_PATH" config --get core.hooksPath 2>/dev/null || true)
+    if [[ "$current" != "scripts/hooks" ]]; then
+        git --git-dir="$GIT_DIR_PATH" config core.hooksPath scripts/hooks
+        echo "decloud: enabled the tracked pre-commit hook (core.hooksPath)" >&2
+    fi
+fi
+
 exec git --git-dir="$GIT_DIR_PATH" --work-tree="$WORK_TREE" "$@"

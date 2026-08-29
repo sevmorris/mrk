@@ -580,6 +580,48 @@ if [[ -d "$LOCAL_PREFS_DIR" ]]; then
 fi
 
 ###############################################################################
+# GPG pinentry                                                                #
+###############################################################################
+
+# The Brewfile installs pinentry-mac, but nothing pointed gpg-agent at it, so
+# gpg fell back to Homebrew's default pinentry — the curses build, which needs
+# a terminal. That fails outright wherever gpg's stdin is not a tty: inside
+# snapshot-keys' tar|gpg pipeline it died with "Inappropriate ioctl for
+# device" before it could prompt at all. pinentry-mac raises a native dialog
+# instead, so it works from a pipeline, a Makefile or a GUI app, and can cache
+# the passphrase in the login Keychain.
+#
+# Append-only and idempotent: gpg-agent.conf is the user's, and restore-keys
+# may have just put a whole ~/.gnupg back. Never rewrite the file.
+configure_pinentry(){
+  local pinentry
+  pinentry="$(command -v pinentry-mac 2>/dev/null)" || true
+  if [[ -z "$pinentry" ]]; then
+    logskip "gpg pinentry" "pinentry-mac not installed"
+    return 0
+  fi
+
+  local conf="$HOME/.gnupg/gpg-agent.conf"
+  mkdir -p "$HOME/.gnupg"
+  chmod 700 "$HOME/.gnupg"
+
+  if [[ -f "$conf" ]] && grep -q '^[[:space:]]*pinentry-program' "$conf"; then
+    logskip "gpg pinentry" "already configured"
+    return 0
+  fi
+
+  # A conf with no trailing newline would otherwise splice onto the last line.
+  if [[ -s "$conf" ]] && [[ -n "$(tail -c 1 "$conf")" ]]; then
+    printf '\n' >> "$conf"
+  fi
+  printf 'pinentry-program %s\n' "$pinentry" >> "$conf"
+  gpgconf --kill gpg-agent 2>/dev/null || true
+  ok "gpg pinentry → $pinentry"
+}
+
+configure_pinentry || failed=$(( failed + 1 ))
+
+###############################################################################
 # Preference directories (file trees, not defaults domains)                   #
 ###############################################################################
 
