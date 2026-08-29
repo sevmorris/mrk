@@ -80,7 +80,8 @@ GitHub · GitHub Pages · git · gum · dockutil · shellcheck · API key · tok
 Product and script names are also Technical Names and appear verbatim: `mrk`,
 `mrk-picker`, `mrk-menu`, `mrk-status`, `bf`, `maintain`, `snapshot`, `snapshot-prefs`,
 `pull-prefs`, `sync`, `sync-login-items`, `nuke-mrk`, `audio-mode`, `zoom-mode`,
-`Barkeep`, `Calibre`, `Raycast`, `MacWhisper`, and the rest of the managed app list.
+`Barkeep`, `KeyVault`, `Calibre`, `Raycast`, `MacWhisper`, and the rest of the managed app
+list. `Keychain` and `OpenPGP` are Technical Names too.
 
 ### Technical Verbs — the approved domain set
 

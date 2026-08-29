@@ -92,9 +92,14 @@ Setup is split into phases so you can:
 
 mrk's bookkeeping (rollback scripts, backups) lives in `~/.mrk`. Configuration changes are written to their canonical macOS locations — system preferences via `defaults`, app symlinks in `~/bin`, and so on. Rollback scripts are generated automatically for defaults and hardening changes.
 
-## Barkeep
+## Companion apps
 
-**[Barkeep](https://github.com/sevmorris/Barkeep)** is a native macOS app for visually managing your Homebrew Brewfile. It's a companion app to mrk and is installed automatically by `make post-install`.
+Two native macOS apps ship alongside mrk. `make post-install` installs both from their latest GitHub release.
+
+- **[Barkeep](https://github.com/sevmorris/Barkeep)** — visually manage your Homebrew Brewfile, and adopt packages the Brewfile doesn't track yet.
+- **[KeyVault](https://github.com/sevmorris/KeyVault)** — manage SSH keys, GPG keys, API keys, and secure notes. API keys and notes are KeyVault's own: they live in the login Keychain and back up to a passphrase-encrypted OpenPGP archive that plain `gpg` can read. SSH and GPG keys stay in `~/.ssh` and `~/.gnupg` — KeyVault reads and generates them, but never copies the private keys into the Keychain or the archive.
+
+Both installs are one-shot: post-install skips an app that is already in `/Applications`, so it never overwrites a newer copy. To update, use the app itself, or delete it and re-run the phase.
 
 ## License
 

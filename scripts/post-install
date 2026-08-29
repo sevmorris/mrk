@@ -325,7 +325,7 @@ install_github_app(){
   local app_path="$1" repo="$2" name="$3"
   # Install-only: skips if the app is already present.
   # This is intentional — mrk bootstraps a new machine, it doesn't manage updates.
-  # To update Barkeep, use Barkeep itself or re-run after removing the app.
+  # To update one of these apps, use the app itself, or delete it and re-run.
   if [[ -d "$app_path" ]]; then
     logskip "$name" "installed — skipping"
     return 0
@@ -370,6 +370,7 @@ install_github_app(){
 }
 
 install_github_app "/Applications/Barkeep.app" "sevmorris/Barkeep" "Barkeep" || failed=$(( failed + 1 ))
+install_github_app "/Applications/KeyVault.app" "sevmorris/KeyVault" "KeyVault" || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Application preferences — defaults write scripts                            #

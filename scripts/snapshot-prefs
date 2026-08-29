@@ -102,6 +102,16 @@ snapshot_plist "com.aone.keka"                          "Keka.plist"            
 snapshot_plist "com.tclementdev.timemachineeditor.application" "TimeMachineEditor.plist" "/Applications/TimeMachineEditor.app" "TimeMachineEditor"
 snapshot_plist "com.goodsnooze.MacWhisper"              "MacWhisper.plist"        "/Applications/MacWhisper.app"       "MacWhisper"
 
+# KeyVault (io.github.sevmorris.KeyVault) is deliberately absent, and must stay
+# absent. It is a secrets manager. Its API keys and notes are self-describing
+# Keychain items, not UserDefaults, so a plist export would carry no secret —
+# but it would put a manifest of what the vault holds into mrk-prefs. Its SSH
+# and GPG keys are not in the Keychain at all: KeyVault indexes ~/.ssh and
+# ~/.gnupg, so those never had anything to do with a defaults export either.
+# Nothing here can back up a KeyVault vault, and nothing here should try.
+# See "How to prepare for a new machine" in docs/manual.md for the transfer
+# routes. Same call already made for Bitwarden, NordPass and 1Password.
+
 # ── Application Support files ─────────────────────────────────────────────────
 
 snapshot_app_support(){

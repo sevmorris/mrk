@@ -214,6 +214,26 @@ if [[ -d "/Applications/Barkeep.app" ]]; then
   fi
 fi
 
+# Offer to remove KeyVault (installed by mrk post-install).
+# KeyVault has no Homebrew cask, so the app is trashed directly.
+if [[ -d "/Applications/KeyVault.app" ]]; then
+  echo ""
+  printf "  ${_YLW}nuke-mrk never touches your secrets.${_R}\n"
+  printf "  ${_D}KeyVault's API keys and notes stay in the login Keychain. Your SSH\n"
+  printf "  and GPG keys stay in ~/.ssh and ~/.gnupg — KeyVault only indexes those,\n"
+  printf "  so trashing the app leaves all three where they are.${_R}\n"
+  echo ""
+  printf "${_B}Remove KeyVault.app from /Applications? [y/N]:${_R} "
+  read -r remove_keyvault
+  if [[ "$remove_keyvault" =~ ^[Yy]$ ]]; then
+    log "Removing KeyVault.app..."
+    trash_item "/Applications/KeyVault.app"
+    ok "Moved /Applications/KeyVault.app to Trash"
+  else
+    dim "Keeping KeyVault.app"
+  fi
+fi
+
 # Offer to remove oh-my-zsh (installed by make setup's shell phase)
 if [[ -d "$HOME/.oh-my-zsh" ]]; then
   echo ""

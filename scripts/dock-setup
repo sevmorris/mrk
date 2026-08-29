@@ -31,6 +31,7 @@ DOCK_APPS=(
   "/Applications/iTerm.app"
   "/Applications/Typora.app"
   "/Applications/Barkeep.app"
+  "/Applications/KeyVault.app"
   "/Applications/Audio Hijack.app"
   "/Applications/Loopback.app"
   "/Applications/SoundSource.app"
