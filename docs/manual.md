@@ -112,6 +112,7 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 - **Barkeep:** Installs Barkeep from the most recent GitHub release. Phase 3 skips this step when `/Applications/Barkeep.app` exists. To update Barkeep, use Barkeep, or delete the app first.
 - **KeyVault:** Installs KeyVault from the most recent GitHub release. Phase 3 skips this step when `/Applications/KeyVault.app` exists. To update KeyVault, use KeyVault, or delete the app first.
 - **Application Support restore:** Restores the Loopback and SoundSource configuration files. Phase 3 skips a file that exists.
+- **Fonts:** Restores the fonts captured by `snapshot-prefs` into `~/Library/Fonts`. Phase 3 skips a font that is already installed.
 - **Config directory restore:** Restores the Calibre configuration into `~/Library/Preferences/calibre/`. Phase 3 skips this step when `gui.json` exists.
 - **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dropbox, Ice, Raycast, SoundSource, Stats
 
@@ -398,7 +399,7 @@ This command adds the packages that you installed since the last sync. It then c
 make snapshot-prefs
 ```
 
-This command exports the 14 app preference plists, the Application Support files and the config directories. It then pushes them. Check that the push succeeded: the output ends with "Pushed to git@github.com:sevmorris/mrk-prefs.git".
+This command exports the 14 app preference plists, the Application Support files, the config directories, your installed fonts and a manifest of your git repositories. It then pushes them. Check that the push succeeded: the output ends with "Pushed to git@github.com:sevmorris/mrk-prefs.git".
 
 **3. Bundle your SSH and GPG keys**
 
@@ -552,6 +553,16 @@ ssh -T git@github.com      # GitHub authentication
 gpg --list-secret-keys     # GPG secret keys
 ```
 
+**Your repositories**
+
+`snapshot-prefs` recorded which repositories this machine had, and `pull-prefs` brought that manifest down in Phase 3. Clone them all back:
+
+```bash
+make restore-repos          # ARGS=-n to see what it would clone first
+```
+
+`restore-repos` skips any repository already on disk. It lists bare repositories but never clones one: a bare overlay shares its working tree with another repository, so a plain clone puts the files in the wrong shape. Set those up by hand.
+
 ## Step 7 — Check the installation
 
 ```bash
@@ -602,6 +613,7 @@ exec zsh
 |---|---|
 | `make snapshot-keys` | Bundle `~/.ssh` and `~/.gnupg` into a passphrase-encrypted OpenPGP archive (`ARGS="-o PATH"` · `ARGS=-n` dry run · `ARGS=-f` overwrite) |
 | `make restore-keys ARGS=<archive>` | Restore `~/.ssh` and `~/.gnupg` from that archive (`ARGS="-l <archive>"` lists the contents) |
+| `make restore-repos` | Clone the repositories listed in the mrk-prefs manifest (`ARGS=-n` dry run) |
 
 > No preferences command touches a private key.
 >

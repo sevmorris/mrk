@@ -42,6 +42,8 @@ var categories = []category{
 		items: []item{
 			{"snapshot-prefs", "export and push app prefs to mrk-prefs", cmdBin, "snapshot-prefs", nil, false},
 			{"pull-prefs", "clone or update app prefs from mrk-prefs", cmdBin, "pull-prefs", nil, false},
+			{"restore-repos", "clone the repos listed in the mrk-prefs manifest", cmdBin, "restore-repos", nil, false},
+			{"restore-repos --dry-run", "show which repos would be cloned", cmdBin, "restore-repos", []string{"--dry-run"}, false},
 		},
 	},
 	{

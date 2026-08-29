@@ -1,6 +1,6 @@
 MRK := $(HOME)/mrk
 
-.PHONY: sync snapshot-prefs pull-prefs snapshot-keys restore-keys picker help
+.PHONY: sync snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos picker help
 
 help: ## Show available make commands
 	@echo ""
@@ -28,6 +28,9 @@ snapshot-keys: ## Bundle ~/.ssh and ~/.gnupg into an encrypted archive
 
 restore-keys: ## Restore ~/.ssh and ~/.gnupg from a snapshot-keys archive
 	@$(MAKE) -C $(MRK) restore-keys ARGS="$(ARGS)"
+
+restore-repos: ## Clone the repositories recorded in the mrk-prefs manifest
+	@$(MAKE) -C $(MRK) restore-repos ARGS="$(ARGS)"
 
 picker: ## Build the mrk-picker TUI binary
 	@$(MAKE) -C $(MRK) picker

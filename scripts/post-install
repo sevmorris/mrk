@@ -542,6 +542,44 @@ if [[ -d "$LOCAL_PREFS_DIR" ]]; then
 fi
 
 ###############################################################################
+# Fonts                                                                       #
+###############################################################################
+
+# Hand-installed fonts captured by snapshot-prefs. None come from a cask, so
+# Phase 2 cannot put them back. Install-only, like every other restore here: a
+# font already present is left alone rather than overwritten.
+restore_fonts(){
+  local src_dir="$LOCAL_PREFS_DIR/fonts"
+  local dest_dir="$HOME/Library/Fonts"
+
+  if [[ ! -d "$src_dir" ]]; then
+    logskip "fonts" "not in preferences — run: make snapshot-prefs"
+    return 0
+  fi
+
+  mkdir -p "$dest_dir"
+  local restored=0 skipped=0 f base
+  while IFS= read -r -d '' f; do
+    base="$(basename "$f")"
+    if [[ -f "$dest_dir/$base" ]]; then
+      skipped=$(( skipped + 1 ))
+      continue
+    fi
+    cp "$f" "$dest_dir/$base" && restored=$(( restored + 1 ))
+  done < <(find "$src_dir" -maxdepth 1 -type f -print0 2>/dev/null)
+
+  if (( restored > 0 )); then
+    ok "Fonts restored ($restored new, $skipped already installed)"
+  else
+    logskip "fonts" "$skipped already installed"
+  fi
+}
+
+if [[ -d "$LOCAL_PREFS_DIR" ]]; then
+  restore_fonts || failed=$(( failed + 1 ))
+fi
+
+###############################################################################
 # Preference directories (file trees, not defaults domains)                   #
 ###############################################################################
 

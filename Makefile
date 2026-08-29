@@ -10,7 +10,7 @@ define link-home-bin
 	@ln -sf "$(BIN_DIR)/$(1)" "$(INSTALL_BIN)/$(1)"
 endef
 
-.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs snapshot-keys restore-keys dock help check ci maintain
+.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos dock help check ci maintain
 
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
 define go-build
@@ -160,6 +160,9 @@ snapshot-keys: ## Bundle ~/.ssh and ~/.gnupg into an encrypted archive  (pass AR
 
 restore-keys: ## Restore ~/.ssh and ~/.gnupg from a snapshot-keys archive  (pass ARGS=<archive>)
 	@"$(SCRIPTS)/restore-keys" $(ARGS)
+
+restore-repos: ## Clone the repositories recorded in the mrk-prefs manifest  (ARGS=-n for dry run)
+	@"$(SCRIPTS)/restore-repos" $(ARGS)
 
 dock: ## Populate the Dock with preferred apps (requires dockutil)
 	@"$(SCRIPTS)/dock-setup"

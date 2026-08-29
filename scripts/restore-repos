@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk restore-repos — re-clone the repositories recorded by snapshot-prefs.
+#
+# Reads ~/.mrk/preferences/repos.tsv, which snapshot-prefs writes and pull-prefs
+# brings down onto a new machine. Clones anything named there that is not
+# already on disk, and leaves anything that is alone.
+#
+# Bare repositories are listed but never cloned. The one that matters is
+# DoublEnder's private Cloud overlay: it shares a working tree with the public
+# DoublEnder repo, so a plain clone puts the files in the wrong shape. That one
+# is set up by hand, with `decloud` as its git wrapper afterwards.
+
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+check_macos
+
+MANIFEST="$HOME/.mrk/preferences/repos.tsv"
+DRY_RUN=0
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: restore-repos [-n]
+
+Clone the repositories listed in ~/.mrk/preferences/repos.tsv.
+Run `make pull-prefs` first if that file is not present.
+
+  -n, --dry-run   Show what would be cloned, clone nothing
+  -h, --help      Show this help
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -n|--dry-run) DRY_RUN=1; shift ;;
+    -h|--help)    usage; exit 0 ;;
+    *)            err "Unknown option: $1"; usage; exit 1 ;;
+  esac
+done
+
+section "Restore repositories"
+
+if [[ ! -f "$MANIFEST" ]]; then
+  err "No manifest at $MANIFEST"
+  info "Run 'make pull-prefs' first — snapshot-prefs writes the manifest, and"
+  info "pull-prefs brings it down from mrk-prefs."
+  exit 1
+fi
+
+command -v git >/dev/null 2>&1 || { err "git not found"; exit 1; }
+
+cloned=0
+skipped=0
+failed=0
+bare=()
+
+# Field order is fixed by snapshot_repos: name, remote, path-under-HOME, kind.
+while IFS=$'\t' read -r name remote relpath kind; do
+  [[ -z "${name:-}" || "$name" == \#* ]] && continue
+  [[ -n "${remote:-}" && -n "${relpath:-}" ]] || continue
+
+  dest="$HOME/$relpath"
+
+  if [[ "${kind:-work}" == "bare" ]]; then
+    bare+=("$name — $remote → ~/$relpath")
+    continue
+  fi
+
+  if [[ -d "$dest/.git" ]]; then
+    logskip "$name" "already cloned"
+    skipped=$(( skipped + 1 ))
+    continue
+  fi
+
+  if [[ -e "$dest" ]]; then
+    warn "$name — ~/$relpath exists but is not a git repository; leaving it alone"
+    failed=$(( failed + 1 ))
+    continue
+  fi
+
+  if (( DRY_RUN )); then
+    dry "Would clone $remote → ~/$relpath"
+    cloned=$(( cloned + 1 ))
+    continue
+  fi
+
+  log "Cloning $name..."
+  mkdir -p "$(dirname "$dest")"
+  if git clone "$remote" "$dest"; then
+    ok "$name → ~/$relpath"
+    cloned=$(( cloned + 1 ))
+  else
+    err "Failed to clone $name from $remote"
+    failed=$(( failed + 1 ))
+  fi
+done < "$MANIFEST"
+
+# ── Report ────────────────────────────────────────────────────────────────────
+
+echo "" >&2
+if (( DRY_RUN )); then
+  ok "Would clone $cloned repo(s); $skipped already present"
+else
+  ok "Cloned $cloned repo(s); $skipped already present"
+fi
+(( failed > 0 )) && warn "$failed repo(s) had problems — see above"
+
+if (( ${#bare[@]} > 0 )); then
+  echo "" >&2
+  warn "Bare repositories are recorded but not cloned:"
+  for b in "${bare[@]}"; do
+    info "  $b"
+  done
+  info "A bare overlay shares a working tree with another repo, so cloning it"
+  info "normally puts the files in the wrong place. Set it up by hand."
+fi
+
+exit 0
