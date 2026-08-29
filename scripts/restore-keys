@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# mrk restore-keys — restore ~/.ssh and ~/.gnupg from a snapshot-keys archive.
+# mrk restore-keys — restore ~/.ssh, ~/.gnupg and the code-signing identities
+# from a snapshot-keys archive.
 #
 # The counterpart to snapshot-keys, the way pull-prefs is the counterpart to
 # snapshot-prefs. Takes the passphrase-encrypted OpenPGP archive and puts the
@@ -37,7 +38,8 @@ usage() {
   cat >&2 <<'EOF'
 Usage: restore-keys [-l] <archive>
 
-Restore ~/.ssh and ~/.gnupg from a snapshot-keys archive.
+Restore ~/.ssh, ~/.gnupg and any code-signing identities from a
+snapshot-keys archive.
 
   -l, --list    List the archive contents, restore nothing
   -h, --help    Show this help
@@ -156,6 +158,32 @@ if [[ -d "$HOME/.gnupg" ]]; then
   ok "~/.gnupg restored (700)"
 fi
 
+# ── Code-signing identities ───────────────────────────────────────────────────
+
+# The .p12 rides in the archive alongside .ssh and .gnupg, so it extracts into
+# $HOME. Import it and delete it: leaving a bundle of private keys sitting in
+# the home directory is exactly the state this whole script exists to avoid,
+# and the removal runs whether or not the import succeeds.
+P12="$HOME/signing-identities.p12"
+if [[ -f "$P12" ]]; then
+  echo "" >&2
+  log "Archive contains code-signing identities"
+  info "macOS will ask for the .p12 passphrase — the second one you were told"
+  info "to store, not the archive passphrase."
+  echo "" >&2
+  # -T pre-authorises the two tools that actually use the key, so signing a
+  # build later does not raise a keychain dialog per invocation.
+  if security import "$P12" -k "$HOME/Library/Keychains/login.keychain-db" \
+       -T /usr/bin/codesign -T /usr/bin/security 2>/dev/null; then
+    ok "Signing identities imported"
+  else
+    warn "Signing identity import failed or was cancelled."
+    info "The archive still holds them. Re-run restore-keys, or import by hand:"
+    info "  security import <file>.p12 -k ~/Library/Keychains/login.keychain-db"
+  fi
+  rm -f "$P12"
+fi
+
 # ── Report ────────────────────────────────────────────────────────────────────
 
 echo "" >&2
@@ -170,9 +198,10 @@ fi
 ok "Restore complete"
 echo "" >&2
 info "Check the result:"
-info "  ssh-add -l                 # SSH keys"
-info "  gpg --list-secret-keys     # GPG secret keys"
-info "  ssh -T git@github.com      # GitHub authentication"
+info "  ssh-add -l                                 # SSH keys"
+info "  gpg --list-secret-keys                     # GPG secret keys"
+info "  ssh -T git@github.com                      # GitHub authentication"
+info "  security find-identity -v -p codesigning   # signing identities"
 
 if (( ${#moved[@]} > 0 )); then
   echo "" >&2

@@ -155,10 +155,10 @@ snapshot-prefs: ## Export app preferences to ~/.mrk/preferences/ and push to mrk
 pull-prefs: ## Clone or pull app preferences from mrk-prefs into ~/.mrk/preferences/
 	@"$(SCRIPTS)/pull-prefs"
 
-snapshot-keys: ## Bundle ~/.ssh and ~/.gnupg into an encrypted archive  (pass ARGS="-o PATH", ARGS=-n for dry run)
+snapshot-keys: ## Bundle ~/.ssh, ~/.gnupg and signing identities into an encrypted archive  (ARGS="-o PATH" · ARGS=-n dry run · ARGS=--no-signing)
 	@"$(SCRIPTS)/snapshot-keys" $(ARGS)
 
-restore-keys: ## Restore ~/.ssh and ~/.gnupg from a snapshot-keys archive  (pass ARGS=<archive>)
+restore-keys: ## Restore ~/.ssh, ~/.gnupg and signing identities from an archive  (pass ARGS=<archive>)
 	@"$(SCRIPTS)/restore-keys" $(ARGS)
 
 restore-repos: ## Clone the repositories recorded in the mrk-prefs manifest  (ARGS=-n for dry run)

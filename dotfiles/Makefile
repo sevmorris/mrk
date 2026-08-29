@@ -23,10 +23,10 @@ snapshot-prefs: ## Export app preferences and push to mrk-prefs
 pull-prefs: ## Clone or pull app preferences from mrk-prefs
 	@$(MAKE) -C $(MRK) pull-prefs
 
-snapshot-keys: ## Bundle ~/.ssh and ~/.gnupg into an encrypted archive
+snapshot-keys: ## Bundle ~/.ssh, ~/.gnupg and signing identities into an encrypted archive
 	@$(MAKE) -C $(MRK) snapshot-keys ARGS="$(ARGS)"
 
-restore-keys: ## Restore ~/.ssh and ~/.gnupg from a snapshot-keys archive
+restore-keys: ## Restore ~/.ssh, ~/.gnupg and signing identities from an archive
 	@$(MAKE) -C $(MRK) restore-keys ARGS="$(ARGS)"
 
 restore-repos: ## Clone the repositories recorded in the mrk-prefs manifest

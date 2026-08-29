@@ -409,7 +409,11 @@ This command exports the 14 app preference plists, the Application Support files
 make snapshot-keys
 ```
 
-`snapshot-keys` bundles `~/.ssh` and `~/.gnupg` into one passphrase-encrypted OpenPGP archive. It writes the archive to `~/Desktop` and pushes it nowhere. Use `ARGS="-o PATH"` to write it somewhere else, and `ARGS=-n` to see what it would bundle first.
+`snapshot-keys` bundles `~/.ssh`, `~/.gnupg` and your code-signing identities into one passphrase-encrypted OpenPGP archive. It writes the archive to `~/Desktop` and pushes it nowhere. Use `ARGS="-o PATH"` to write it somewhere else, and `ARGS=-n` to see what it would bundle first.
+
+> **Caution:** The identities need two passphrases. macOS asks for a `.p12` passphrase of its own, on top of the archive passphrase. Store both in your password manager. Apple reissues a lost certificate, but the private key is generated once — no archive, no key, no signing.
+
+`snapshot-keys` does not carry notarytool credentials, because a keychain profile has no export. Note which profile names your `release.sh` scripts use, and recreate them with `xcrun notarytool store-credentials` on the new machine.
 
 The script refuses to write inside `~/mrk` or `~/.mrk`, because `nuke-mrk` deletes both. Copy the archive to an encrypted external disk, and keep the passphrase in your password manager.
 
@@ -530,7 +534,7 @@ Phase 3 installs KeyVault. Your secrets are not on the new machine yet, because 
 make restore-keys ARGS=~/Desktop/mrk-keys-<timestamp>.asc
 ```
 
-`restore-keys` decrypts the archive, puts `~/.ssh` and `~/.gnupg` back, and corrects the permissions that SSH and GPG demand. To see the contents first, add `-l`:
+`restore-keys` decrypts the archive, puts `~/.ssh` and `~/.gnupg` back, corrects the permissions that SSH and GPG demand, and imports your code-signing identities into the login Keychain. macOS asks for the `.p12` passphrase during the import — that is the second passphrase, not the archive one. To see the contents first, add `-l`:
 
 ```bash
 make restore-keys ARGS="-l ~/Desktop/mrk-keys-<timestamp>.asc"
@@ -549,8 +553,9 @@ KeyVault writes each item back into the login Keychain. KeyVault reads `~/.ssh` 
 Check the result:
 
 ```bash
-ssh -T git@github.com      # GitHub authentication
-gpg --list-secret-keys     # GPG secret keys
+ssh -T git@github.com                      # GitHub authentication
+gpg --list-secret-keys                     # GPG secret keys
+security find-identity -v -p codesigning   # signing identities
 ```
 
 **Your repositories**
@@ -611,8 +616,8 @@ exec zsh
 
 | Command | Description |
 |---|---|
-| `make snapshot-keys` | Bundle `~/.ssh` and `~/.gnupg` into a passphrase-encrypted OpenPGP archive (`ARGS="-o PATH"` · `ARGS=-n` dry run · `ARGS=-f` overwrite) |
-| `make restore-keys ARGS=<archive>` | Restore `~/.ssh` and `~/.gnupg` from that archive (`ARGS="-l <archive>"` lists the contents) |
+| `make snapshot-keys` | Bundle `~/.ssh`, `~/.gnupg` and the code-signing identities into a passphrase-encrypted OpenPGP archive (`ARGS="-o PATH"` · `ARGS=-n` dry run · `ARGS=-f` overwrite · `ARGS=--no-signing` skip the identities) |
+| `make restore-keys ARGS=<archive>` | Restore `~/.ssh`, `~/.gnupg` and the identities from that archive (`ARGS="-l <archive>"` lists the contents) |
 | `make restore-repos` | Clone the repositories listed in the mrk-prefs manifest (`ARGS=-n` dry run) |
 
 > No preferences command touches a private key.
@@ -622,6 +627,10 @@ exec zsh
 > `snapshot-keys` refuses to write inside `~/mrk` or `~/.mrk`. `nuke-mrk` and `make uninstall` delete both directories, and an archive that a wipe deletes is not a backup.
 >
 > The archive is ordinary OpenPGP. `gpg -d <archive> | tar -tvf -` reads it on any machine, with no mrk installed.
+>
+> **The signing identity has two passphrases.** The archive has one. The `.p12` inside it has a second, which macOS asks for in its own dialog. Store both. A good archive with a forgotten `.p12` passphrase does not give the identity back.
+>
+> `snapshot-keys` does not carry notarytool credentials — a keychain profile has no export. Recreate one with `xcrun notarytool store-credentials`.
 
 **Build Tools**
 

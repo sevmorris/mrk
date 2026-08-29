@@ -103,7 +103,7 @@ Both installs are one-shot: post-install skips an app that is already in `/Appli
 
 ### Moving keys to a new machine
 
-`make snapshot-keys` bundles `~/.ssh` and `~/.gnupg` into one passphrase-encrypted OpenPGP archive; `make restore-keys ARGS=<archive>` puts them back and fixes the permissions. The archive goes to a path you choose (`~/Desktop` by default) and is pushed nowhere — `mrk-prefs` is a git repo and never carries private keys. `snapshot-keys` refuses to write inside `~/mrk` or `~/.mrk`, since `nuke-mrk` deletes both.
+`make snapshot-keys` bundles `~/.ssh`, `~/.gnupg` and your code-signing identities into one passphrase-encrypted OpenPGP archive; `make restore-keys ARGS=<archive>` puts them back, fixes the permissions, and imports the identities. The Developer ID private key is the one item here with no recovery path — Apple reissues a certificate, but never the key. The archive goes to a path you choose (`~/Desktop` by default) and is pushed nowhere — `mrk-prefs` is a git repo and never carries private keys. `snapshot-keys` refuses to write inside `~/mrk` or `~/.mrk`, since `nuke-mrk` deletes both.
 
 That covers the key *files*. KeyVault's own export covers the secrets KeyVault owns — its API keys and notes, which live in the login Keychain. You need both archives for a complete transfer; neither contains the other's contents.
 

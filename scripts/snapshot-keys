@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# mrk snapshot-keys — bundle ~/.ssh and ~/.gnupg into one passphrase-encrypted
-# OpenPGP archive, for carrying private key material to a new machine.
+# mrk snapshot-keys — bundle ~/.ssh, ~/.gnupg and the code-signing identities
+# into one passphrase-encrypted OpenPGP archive, for carrying private key
+# material to a new machine.
 #
 # Why this exists, and why it is not snapshot-prefs:
 #
@@ -13,6 +14,12 @@ set -euo pipefail
 #   KeyVault's own export covers the secrets KeyVault owns — its API keys and
 #   its notes. It does not cover SSH or GPG keys: those live as files in ~/.ssh
 #   and ~/.gnupg, and KeyVault only indexes them. This script is the other half.
+#
+#   The Developer ID signing identity is the item here with no recovery path at
+#   all. Apple will reissue a certificate, but the private key that pairs with
+#   it is generated once and never re-derivable — lose it and every released app
+#   loses its signing continuity. It lives in the login Keychain, so no
+#   file-tree backup catches it, which is exactly why it is bundled here.
 #
 # Format is symmetric OpenPGP, AES-256, ASCII-armored — the same shape KeyVault
 # exports, so both halves of a transfer open with a plain `gpg -d` on any
@@ -36,18 +43,21 @@ umask 077
 
 DRY_RUN=0
 FORCE=0
+WITH_SIGNING=1
 OUTPUT=""
 
 usage() {
   cat >&2 <<'EOF'
-Usage: snapshot-keys [-o PATH] [-n] [-f]
+Usage: snapshot-keys [-o PATH] [-n] [-f] [--no-signing]
 
-Bundle ~/.ssh and ~/.gnupg into one passphrase-encrypted OpenPGP archive.
+Bundle ~/.ssh, ~/.gnupg and your code-signing identities into one
+passphrase-encrypted OpenPGP archive.
 
   -o, --output PATH   Where to write the archive
                       (default: ~/Desktop/mrk-keys-<timestamp>.asc)
   -n, --dry-run       Show what would be bundled, write nothing
   -f, --force         Overwrite an existing output file
+      --no-signing    Skip the code-signing identities (they need GUI prompts)
   -h, --help          Show this help
 
 Restore with: restore-keys <archive>
@@ -60,6 +70,7 @@ while [[ $# -gt 0 ]]; do
     -o|--output)  OUTPUT="${2:-}"; shift 2 || { err "--output needs a path"; exit 1; } ;;
     -n|--dry-run) DRY_RUN=1; shift ;;
     -f|--force)   FORCE=1; shift ;;
+    --no-signing) WITH_SIGNING=0; shift ;;
     -h|--help)    usage; exit 0 ;;
     *)            err "Unknown option: $1"; usage; exit 1 ;;
   esac
@@ -121,6 +132,69 @@ for s in "${sources[@]}"; do
   log "~/$s ($count files)"
 done
 
+# ── Code-signing identities ───────────────────────────────────────────────────
+
+# Exported into a staging directory rather than straight into the tar stream,
+# because `security export` writes a file and cannot write to a pipe. The .p12
+# it produces is itself passphrase-encrypted — macOS asks for that passphrase in
+# its own dialog, so this script never sees or handles it — which means the
+# staging copy is encrypted at rest for the seconds it exists.
+SIGNING_STAGE=""
+SIGNING_FILE="signing-identities.p12"
+
+cleanup_stage() { [[ -n "$SIGNING_STAGE" ]] && rm -rf "$SIGNING_STAGE"; }
+trap cleanup_stage EXIT
+
+export_signing_identities() {
+  local ids
+  ids=$(security find-identity -v -p codesigning 2>/dev/null | grep -c ')' || true)
+  if [[ -z "$ids" || "$ids" == "0" ]]; then
+    logskip "code-signing identities" "none found in the login keychain"
+    return 1
+  fi
+
+  log "Code-signing identities ($ids found)"
+  security find-identity -v -p codesigning 2>/dev/null \
+    | sed -n 's/.*"\(.*\)"/    \1/p' >&2
+
+  echo "" >&2
+  warn "macOS will now ask twice: once to let this read the private keys,"
+  info "and once to set a passphrase for the exported .p12."
+  info "That .p12 passphrase is a SECOND secret. Store it with the first one —"
+  info "without it the identities cannot be imported, even from a good archive."
+  echo "" >&2
+
+  SIGNING_STAGE="$(mrk_mktemp_d)"
+  # No -P: `security export` itself documents that flag as insecure and prompts
+  # via its own GUI instead, which keeps the passphrase out of this process.
+  if ! security export -k "$HOME/Library/Keychains/login.keychain-db" \
+       -t identities -f pkcs12 -o "$SIGNING_STAGE/$SIGNING_FILE" 2>/dev/null; then
+    warn "Signing identity export failed or was cancelled — continuing without it."
+    rm -rf "$SIGNING_STAGE"; SIGNING_STAGE=""
+    return 1
+  fi
+  if [[ ! -s "$SIGNING_STAGE/$SIGNING_FILE" ]]; then
+    warn "Signing identity export produced an empty file — continuing without it."
+    rm -rf "$SIGNING_STAGE"; SIGNING_STAGE=""
+    return 1
+  fi
+  ok "Signing identities staged for the archive"
+  return 0
+}
+
+# notarytool credentials are a keychain profile, not a file, and there is no
+# supported way to export one. Say so rather than leaving a silent hole: the
+# release scripts break without it, and the fix is one command.
+report_notary_profile() {
+  if security find-generic-password -s "com.apple.gke.notary.tool" >/dev/null 2>&1; then
+    echo "" >&2
+    warn "A notarytool keychain profile exists and is NOT in this archive."
+    info "There is no export for one. On the new machine, recreate it with:"
+    info "  xcrun notarytool store-credentials <profile-name> \\"
+    info "    --apple-id <id> --team-id <team> --password <app-specific-password>"
+  fi
+}
+
 # gpg-agent sockets are live endpoints, not data. tar cannot store them and
 # would warn on each one. Lock files are equally worthless in a restore.
 tar_excludes=(
@@ -132,6 +206,14 @@ tar_excludes=(
 if (( DRY_RUN )); then
   echo "" >&2
   dry "Would bundle: ${sources[*]}"
+  if (( WITH_SIGNING )); then
+    sig_count=$(security find-identity -v -p codesigning 2>/dev/null | grep -c ')' || true)
+    if [[ -n "$sig_count" && "$sig_count" != "0" ]]; then
+      dry "Would export $sig_count code-signing identit(ies) as $SIGNING_FILE"
+    else
+      dry "No code-signing identities to export"
+    fi
+  fi
   dry "Would write:  $OUTPUT"
   echo "" >&2
   info "Contents that would be included:"
@@ -148,13 +230,25 @@ info "Choose a strong passphrase, and store it in your password manager."
 info "Losing the passphrase means losing the archive — there is no recovery."
 echo "" >&2
 
+if (( WITH_SIGNING )); then
+  export_signing_identities || true
+  report_notary_profile
+fi
+
+# A second -C adds the staged .p12 under its bare name, so it lands beside
+# .ssh and .gnupg in the archive rather than under a temp path.
+tar_extra=()
+if [[ -n "$SIGNING_STAGE" ]]; then
+  tar_extra=(-C "$SIGNING_STAGE" "$SIGNING_FILE")
+fi
+
 # tar streams straight into gpg. The plaintext tarball is never a file, so an
 # interrupt or a crash cannot leave unencrypted key material behind.
 tmp_out="$(mrk_mktemp)"
-cleanup() { rm -f "$tmp_out"; }
+cleanup() { rm -f "$tmp_out"; cleanup_stage; }
 trap cleanup EXIT
 
-if ! tar -czf - -C "$HOME" "${tar_excludes[@]}" "${sources[@]}" 2>/dev/null \
+if ! tar -czf - -C "$HOME" "${tar_excludes[@]}" "${sources[@]}" "${tar_extra[@]}" 2>/dev/null \
    | gpg --symmetric --cipher-algo AES256 --armor --yes -o "$tmp_out"; then
   err "Encryption failed — no archive written."
   exit 1
