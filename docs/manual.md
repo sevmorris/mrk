@@ -413,7 +413,7 @@ make snapshot-keys
 
 > **Caution:** The identities need two passphrases. macOS asks for a `.p12` passphrase of its own, on top of the archive passphrase. Store both in your password manager. Apple reissues a lost certificate, but the private key is generated once — no archive, no key, no signing.
 
-`snapshot-keys` does not carry notarytool credentials, because a keychain profile has no export. Note which profile names your `release.sh` scripts use, and recreate them with `xcrun notarytool store-credentials` on the new machine.
+`snapshot-keys` does not carry notarytool credentials, because a keychain profile has no export. Note which profile names your release scripts use — grep for `--keychain-profile`, and check every script, not only `release.sh` — and recreate each one with `xcrun notarytool store-credentials` on the new machine.
 
 The script refuses to write inside `~/mrk` or `~/.mrk`, because `nuke-mrk` deletes both. Copy the archive to an encrypted external disk, and keep the passphrase in your password manager.
 
@@ -630,7 +630,9 @@ exec zsh
 >
 > **The signing identity has two passphrases.** The archive has one. The `.p12` inside it has a second, which macOS asks for in its own dialog. Store both. A good archive with a forgotten `.p12` passphrase does not give the identity back.
 >
-> `snapshot-keys` does not carry notarytool credentials — a keychain profile has no export. Recreate one with `xcrun notarytool store-credentials`.
+> `snapshot-keys` does not carry notarytool credentials, and cannot. A keychain profile has no export, and no tool but notarytool can read one — `security` cannot even confirm that a working profile exists. Recreate each profile your release scripts name with `xcrun notarytool store-credentials`, and check one with `xcrun notarytool history --keychain-profile <name>`.
+>
+> **An Apple ID password reset revokes every app-specific password**, so it silently invalidates every notarytool profile you own. The profiles still exist; they just return HTTP 401. Recreate each one after a reset.
 
 **Build Tools**
 

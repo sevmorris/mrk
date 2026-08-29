@@ -185,14 +185,27 @@ export_signing_identities() {
 # notarytool credentials are a keychain profile, not a file, and there is no
 # supported way to export one. Say so rather than leaving a silent hole: the
 # release scripts break without it, and the fix is one command.
+#
+# Unconditional, because a notarytool profile cannot be detected. It is stored
+# under an Apple-private keychain access group: `security find-generic-password`
+# and `security dump-keychain` both come back empty for a profile that
+# demonstrably works, and a SecItemCopyMatching probe with
+# kSecUseDataProtectionKeychain returns errSecItemNotFound from an unentitled
+# process. Absence of evidence here is not evidence of absence — an earlier
+# version of this script tested for the item and reported a working profile as
+# missing. The only real check is `xcrun notarytool history --keychain-profile
+# <name>`, which is a network round-trip and does not belong in a backup script.
 report_notary_profile() {
-  if security find-generic-password -s "com.apple.gke.notary.tool" >/dev/null 2>&1; then
-    echo "" >&2
-    warn "A notarytool keychain profile exists and is NOT in this archive."
-    info "There is no export for one. On the new machine, recreate it with:"
-    info "  xcrun notarytool store-credentials <profile-name> \\"
-    info "    --apple-id <id> --team-id <team> --password <app-specific-password>"
-  fi
+  echo "" >&2
+  warn "notarytool credentials are NOT in this archive, and cannot be."
+  info "A keychain profile has no export, and cannot be read by any tool but"
+  info "notarytool. On the new machine, recreate each profile your release"
+  info "scripts name:"
+  info "  xcrun notarytool store-credentials <profile-name> \\"
+  info "    --apple-id <id> --team-id <team>"
+  info "Omit --password and notarytool prompts for it, keeping the app-specific"
+  info "password out of your shell history."
+  info "Check an existing one with: xcrun notarytool history --keychain-profile <name>"
 }
 
 # gpg-agent sockets are live endpoints, not data. tar cannot store them and
