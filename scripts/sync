@@ -292,10 +292,15 @@ if (( PRUNE && n_stale > 0 )); then
 
   if command -v gum >/dev/null 2>&1; then
     if (( ${#stale_formulae_arr[@]} > 0 )); then
+      # gum renders its own help footer with the live keybindings, so these headers
+      # deliberately do not name any key. They used to say "space to toggle"; gum 2.0
+      # moved the multi-select toggle to `x`, and the stale hint told people to press
+      # a key that selects nothing — enter then confirmed an empty set, silently.
+      # Let gum be the only thing that describes gum's keys.
       gum_out=$(gum choose --no-limit \
         --cursor.foreground=196 \
         --selected.foreground=196 \
-        --header="Select formulae to REMOVE from Brewfile (space to toggle, enter to confirm):" \
+        --header="Select formulae to REMOVE from Brewfile:" \
         "${stale_formulae_arr[@]}" < /dev/tty 2>/dev/tty) || true
       while IFS= read -r name; do
         [[ -n "$name" ]] && prune_formulae["$name"]=1
@@ -305,7 +310,7 @@ if (( PRUNE && n_stale > 0 )); then
       gum_out=$(gum choose --no-limit \
         --cursor.foreground=196 \
         --selected.foreground=196 \
-        --header="Select casks to REMOVE from Brewfile (space to toggle, enter to confirm):" \
+        --header="Select casks to REMOVE from Brewfile:" \
         "${stale_casks_arr[@]}" < /dev/tty 2>/dev/tty) || true
       while IFS= read -r name; do
         [[ -n "$name" ]] && prune_casks["$name"]=1
@@ -418,7 +423,7 @@ elif command -v gum >/dev/null 2>&1; then
     gum_out=$(gum choose --no-limit \
       --cursor.foreground=212 \
       --selected.foreground=212 \
-      --header="Select formulae to add to Brewfile (space to toggle, enter to confirm):" \
+      --header="Select formulae to add to Brewfile:" \
       "${new_formulae_arr[@]}" < /dev/tty 2>/dev/tty) || true
     while IFS= read -r name; do
       [[ -n "$name" ]] && selected_formulae["$name"]=1
@@ -429,7 +434,7 @@ elif command -v gum >/dev/null 2>&1; then
     gum_out=$(gum choose --no-limit \
       --cursor.foreground=212 \
       --selected.foreground=212 \
-      --header="Select casks to add to Brewfile (space to toggle, enter to confirm):" \
+      --header="Select casks to add to Brewfile:" \
       "${new_casks_arr[@]}" < /dev/tty 2>/dev/tty) || true
     while IFS= read -r name; do
       [[ -n "$name" ]] && selected_casks["$name"]=1
@@ -480,7 +485,7 @@ if (( ${#declined_pkgs[@]} > 0 )); then
     gum_out=$(gum choose --no-limit \
       --cursor.foreground=214 \
       --selected.foreground=214 \
-      --header="Select declined packages to add to the ignore list, so they stop reappearing (space to toggle, enter to confirm):" \
+      --header="Select declined packages to add to the ignore list, so they stop reappearing:" \
       "${declined_pkgs[@]}" < /dev/tty 2>/dev/tty) || true
     while IFS= read -r pkg; do
       [[ -n "$pkg" ]] && ignore_selected["$pkg"]=1

@@ -290,10 +290,15 @@ declare -A remove_items=()
 
 if command -v gum >/dev/null 2>&1; then
   if (( ${#new_items_arr[@]} > 0 )); then
+    # gum renders its own help footer with the live keybindings, so these headers
+    # deliberately do not name any key. They used to say "space to toggle"; gum 2.0
+    # moved the multi-select toggle to `x`, and the stale hint told people to press
+    # a key that selects nothing — enter then confirmed an empty set, silently.
+    # Let gum be the only thing that describes gum's keys.
     gum_out=$(gum choose --no-limit \
       --cursor.foreground=212 \
       --selected.foreground=212 \
-      --header="Select login items to ADD to tracking (space to toggle, enter to confirm):" \
+      --header="Select login items to ADD to tracking:" \
       "${new_items_arr[@]}" < /dev/tty 2>/dev/tty) || true
     while IFS= read -r name; do
       [[ -n "$name" ]] && add_items["$name"]=1
@@ -303,7 +308,7 @@ if command -v gum >/dev/null 2>&1; then
     gum_out=$(gum choose --no-limit \
       --cursor.foreground=196 \
       --selected.foreground=196 \
-      --header="Select login items to REMOVE from tracking (space to toggle, enter to confirm):" \
+      --header="Select login items to REMOVE from tracking:" \
       "${stale_items_arr[@]}" < /dev/tty 2>/dev/tty) || true
     while IFS= read -r name; do
       [[ -n "$name" ]] && remove_items["$name"]=1
@@ -313,7 +318,7 @@ if command -v gum >/dev/null 2>&1; then
     gum_out=$(gum choose --no-limit \
       --cursor.foreground=196 \
       --selected.foreground=196 \
-      --header="These are in the ignore list but post-install still adds them. Select the items to REMOVE from tracking (space to toggle, enter to confirm):" \
+      --header="These are in the ignore list but post-install still adds them. Select the items to REMOVE from tracking:" \
       "${conflict_items_arr[@]}" < /dev/tty 2>/dev/tty) || true
     while IFS= read -r name; do
       [[ -n "$name" ]] && remove_items["$name"]=1
@@ -369,7 +374,7 @@ if (( ${#declined_arr[@]} > 0 )); then
     gum_out=$(gum choose --no-limit \
       --cursor.foreground=214 \
       --selected.foreground=214 \
-      --header="Select declined items to add to the ignore list, so they stop reappearing (space to toggle, enter to confirm):" \
+      --header="Select declined items to add to the ignore list, so they stop reappearing:" \
       "${declined_arr[@]}" < /dev/tty 2>/dev/tty) || true
     while IFS= read -r name; do
       [[ -n "$name" ]] && ignore_selected["$name"]=1
