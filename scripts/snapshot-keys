@@ -37,6 +37,19 @@ source "$SCRIPT_DIR/lib.sh"
 
 check_macos
 
+# gpg asks for the passphrase through gpg-agent, and the agent has to be told
+# which terminal to use. Inside the tar|gpg pipeline gpg's stdin is the pipe,
+# so the agent cannot work it out on its own and dies with "Inappropriate
+# ioctl for device" before any prompt appears. Capture the terminal here, at
+# the top, while stdin is still the terminal — by the time the pipeline runs
+# it is too late. Homebrew's default pinentry is the curses build, which is
+# why this bites even on a desktop; a GUI pinentry-mac would not care.
+if [[ -z "${GPG_TTY:-}" ]]; then
+  if _mrk_tty=$(tty 2>/dev/null); then
+    export GPG_TTY="$_mrk_tty"
+  fi
+fi
+
 # Every file this script creates holds key material. 077 before anything else,
 # so there is no window where the output is world-readable.
 umask 077

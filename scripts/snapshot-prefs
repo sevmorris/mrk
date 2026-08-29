@@ -240,7 +240,12 @@ snapshot_fonts(){
 
   local count=0 f
   while IFS= read -r -d '' f; do
-    cp "$f" "$dest/" && count=$(( count + 1 ))
+    if cp "$f" "$dest/"; then
+      # ~/Library/Fonts has a mix of 644 and 755; the 755 ones were landing in
+      # git as mode 100755. A font is data, not a program.
+      chmod 644 "$dest/$(basename "$f")"
+      count=$(( count + 1 ))
+    fi
   done < <(find "$src" -maxdepth 1 -type f \( -iname '*.otf' -o -iname '*.ttf' \
     -o -iname '*.ttc' -o -iname '*.otc' -o -iname '*.dfont' \) -print0 2>/dev/null)
 
@@ -339,9 +344,20 @@ if git diff --cached --quiet; then
   exit 0
 fi
 
-# Scan staged snapshot files before commit/push
-mapfile -t changed_files < <(git diff --cached --name-only --diff-filter=AM)
-require_clean_secrets "${changed_files[@]}" || exit 1
+# Scan staged snapshot files before commit/push.
+#
+# fonts/ is excluded. A font is an opaque binary: it cannot hold a credential
+# in any form the scanner's text patterns would match, and feeding 45 of them
+# to `head -c 8` inside a command substitution printed 45 "ignored null byte
+# in input" warnings per run — the same noise that got Calibre's plugin .zips
+# narrowed out of scope above. Excluding them here rather than teaching
+# scan_for_secrets to skip binaries keeps the scanner's behaviour unchanged
+# for everything else.
+mapfile -t changed_files < <(git diff --cached --name-only --diff-filter=AM \
+  | grep -v '^fonts/' || true)
+if (( ${#changed_files[@]} > 0 )); then
+  require_clean_secrets "${changed_files[@]}" || exit 1
+fi
 
 git commit -m "snapshot: $(date '+%Y-%m-%d %H:%M')"
 # -u origin HEAD: the init path (git init + remote add) has no upstream yet;

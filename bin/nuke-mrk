@@ -93,7 +93,18 @@ if [[ "$do_keys" =~ ^[Yy]$ ]]; then
     if make -C "$MRK_DIR" snapshot-keys; then
       ok "Keys bundled"
     else
-      warn "make snapshot-keys exited with errors"
+      echo ""
+      printf "  ${_RED}${_B}NO KEY ARCHIVE WAS WRITTEN.${_R}\n"
+      printf "  ${_YLW}You asked for one, and snapshot-keys failed. Do not treat this\n"
+      printf "  machine as backed up.${_R}\n\n"
+      printf "  Fix the error above, then run:  ${_B}make -C %s snapshot-keys${_R}\n" "$MRK_DIR"
+      echo ""
+      printf "${_B}Continue with the nuke anyway? [y/N]:${_R} "
+      read -r keys_failed_continue
+      if [[ ! "$keys_failed_continue" =~ ^[Yy]$ ]]; then
+        echo "Aborted — nothing has been deleted."
+        exit 1
+      fi
     fi
   else
     warn "Makefile not found at $MRK_DIR — skipping"
