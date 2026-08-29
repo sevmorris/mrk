@@ -175,7 +175,15 @@ sync -p               # Delete the entries for the packages you uninstalled
 2. sync runs `brew leaves --installed-on-request` and `brew list --cask` to read the installed packages. The `leaves` form returns the formulae that you asked for, and it drops the dependencies.
 3. sync compares the two lists and finds the packages that the Brewfile does not have.
 4. sync drops the names that `~/.mrk/sync-ignore` lists, so those packages never reach the picker.
-5. sync starts the **mrk-picker** TUI. Press `space` to select a package, `enter` to confirm, and `q` to quit.
+5. sync starts the **mrk-picker** TUI. Each candidate takes one of three answers:
+
+| Key | Answer |
+|---|---|
+| `space` | Add the package to the Brewfile |
+| `i` | Add the package to `~/.mrk/sync-ignore`, so sync stops offering it |
+| neither | Decide later. sync offers the package again on the next run |
+
+   Press `a` to select every package in the category, `enter` to confirm and `q` to quit. The header counts both answers.
 6. sync offers to add the packages you declined to `~/.mrk/sync-ignore`.
 7. sync asks you, through `gum`, which Brewfile section each formula belongs to.
 8. sync puts every cask in the existing cask section.

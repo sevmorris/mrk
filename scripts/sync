@@ -373,6 +373,11 @@ log "Found ${#new_formulae_arr[@]} new formula(e) and ${#new_casks_arr[@]} new c
 
 # ─── 4. Selection UI ─────────────────────────────────────────────────────────
 
+# Packages the user marked for the ignore list inside mrk-picker. Empty on the
+# gum path, which has no way to express that and falls back to the 4b prompt.
+declare -A tui_ignored=()
+USED_PICKER=0
+
 find_picker() {
   local repo_picker="$REPO_ROOT/bin/mrk-picker"
   if [[ -x "$repo_picker" ]]; then echo "$repo_picker"; return; fi
@@ -408,11 +413,17 @@ if [[ -n "$picker_bin" ]]; then
     --installed-formulae "" \
     --installed-casks "") || true
 
+  # The picker marks each candidate as add (space) or ignore (i), so its output
+  # carries both answers. Anything it names as ignored is already a decision —
+  # section 4b must not ask about it a second time.
+  USED_PICKER=1
   while IFS=: read -r pkg_type pkg_name; do
     [[ -z "$pkg_name" ]] && continue
     case "$pkg_type" in
-      formula) selected_formulae["$pkg_name"]=1 ;;
-      cask)    selected_casks["$pkg_name"]=1 ;;
+      formula)        selected_formulae["$pkg_name"]=1 ;;
+      cask)           selected_casks["$pkg_name"]=1 ;;
+      ignore-formula) tui_ignored["$pkg_name"]=1 ;;
+      ignore-cask)    tui_ignored["$pkg_name"]=1 ;;
     esac
   done <<< "$picker_out"
 
@@ -480,7 +491,14 @@ done
 if (( ${#declined_pkgs[@]} > 0 )); then
   declare -A ignore_selected=()
 
-  if command -v gum >/dev/null 2>&1; then
+  if (( USED_PICKER )); then
+    # The TUI already asked. Marking nothing there means "ask me again next
+    # run", which is a real answer — so an empty set here is honoured, not
+    # re-prompted.
+    for pkg in "${!tui_ignored[@]}"; do
+      ignore_selected["$pkg"]=1
+    done
+  elif command -v gum >/dev/null 2>&1; then
     echo "" > /dev/tty
     gum_out=$(gum choose --no-limit \
       --cursor.foreground=214 \

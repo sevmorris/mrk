@@ -32,6 +32,10 @@ type pkg struct {
 	desc      string
 	installed bool
 	selected  bool
+	// Marked for ~/.mrk/sync-ignore rather than the Brewfile. Mutually
+	// exclusive with selected: "add this" and "never offer this again" are
+	// opposite answers to the same question.
+	ignored bool
 }
 
 type category struct {
@@ -43,63 +47,63 @@ type category struct {
 
 var descriptions = map[string]string{
 	// Formulae
-	"bash":              "Modern shell (Bash 5.x) with improved features",
-	"bat":               "cat clone with syntax highlighting and Git integration",
-	"cliclick":          "Emulate mouse and keyboard events from the command line",
-	"coreutils":         "GNU core utilities — enhanced versions of standard Unix tools",
-	"fastfetch":         "Fast, customizable system information display",
-	"gh":                "GitHub CLI — official command-line tool for GitHub",
-	"git":               "Distributed version control system",
-	"git-filter-repo":   "Quickly rewrite git repository history",
-	"gnupg":             "GNU Privacy Guard — encryption and signing tool",
-	"htop":              "Interactive process viewer and system monitor",
-	"jq":                "Lightweight, flexible command-line JSON processor",
-	"lsd":               "Modern ls replacement with colors and icons",
-	"mkdocs":            "Static site generator for project documentation",
-	"moreutils":         "Useful Unix utilities: sponge, vidir, ts, and more",
-	"nano":              "Simple terminal text editor",
-	"nanorc":            "Syntax highlighting configurations for nano",
-	"ncdu":              "Disk usage analyzer with ncurses interface",
-	"nethogs":           "Monitor network bandwidth usage per process",
-	"nmap":              "Network exploration and security auditing tool",
-	"openssh":           "OpenSSH client and server for secure remote access",
-	"pandoc":            "Universal document converter",
-	"paperkey":          "Extract GnuPG secret keys for offline paper backup",
-	"pinentry-mac":      "PIN/passphrase entry dialog for GnuPG on macOS",
-	"pwgen":             "Secure, memorable password generator",
-	"qemu":              "Generic machine emulator and virtualizer",
-	"qrencode":          "Generate QR codes from text strings",
-	"rclone":            "Cloud storage sync tool (S3, Dropbox, GDrive, and more)",
-	"deno":              "Secure JavaScript/TypeScript runtime by the Deno team",
-	"go":                "Go programming language compiler and tools",
-	"gum":               "Charm TUI toolkit — used as fallback package picker",
-	"ripgrep":           "Extremely fast regex search tool (rg)",
-	"shellcheck":        "Static analysis and linting tool for shell scripts",
-	"shfmt":             "Shell script formatter",
-	"tealdeer":          "Fast tldr client — simplified, practical man pages",
-	"topgrade":          "Update everything at once across all package managers",
-	"trash":             "Move files to macOS Trash instead of permanently deleting",
-	"tree":              "Display directory contents as a visual tree",
-	"watch":             "Repeatedly run a command and display its output",
-	"wget":              "Internet file retriever",
-	"zsh":               "Z shell — advanced interactive shell with many features",
-	"pipx":              "Install and run Python apps in isolated environments",
-	"pyenv":             "Python version manager (canonical; see .python-version)",
-	"openjdk":           "OpenJDK — open-source Java Development Kit",
-	"gradle":            "Groovy/Kotlin-based build automation tool",
-	"pngquant":          "Lossy PNG compressor for smaller image files",
-	"ffmpeg":            "Complete solution for audio/video recording and conversion",
-	"chromaprint":       "Audio fingerprinting library (AcoustID core component)",
-	"whisper-cpp":       "Speech-to-text engine (optimized C++ port of Whisper)",
-	"xcodegen":          "Generate Xcode projects from YAML or JSON specs",
-	"yt-dlp":            "Download video and audio from YouTube and 1000+ sites",
-	"gemini-cli":        "Google Gemini command-line interface",
-	"poppler":           "PDF rendering library and utilities",
-	"autoconf":          "Automatic configure script builder",
-	"flac":              "Free lossless audio codec",
-	"libpng":            "Library for manipulating PNG images",
-	"python@3.14":       "Python programming language",
-	"unbound":           "Validating, recursive, caching DNS resolver",
+	"bash":            "Modern shell (Bash 5.x) with improved features",
+	"bat":             "cat clone with syntax highlighting and Git integration",
+	"cliclick":        "Emulate mouse and keyboard events from the command line",
+	"coreutils":       "GNU core utilities — enhanced versions of standard Unix tools",
+	"fastfetch":       "Fast, customizable system information display",
+	"gh":              "GitHub CLI — official command-line tool for GitHub",
+	"git":             "Distributed version control system",
+	"git-filter-repo": "Quickly rewrite git repository history",
+	"gnupg":           "GNU Privacy Guard — encryption and signing tool",
+	"htop":            "Interactive process viewer and system monitor",
+	"jq":              "Lightweight, flexible command-line JSON processor",
+	"lsd":             "Modern ls replacement with colors and icons",
+	"mkdocs":          "Static site generator for project documentation",
+	"moreutils":       "Useful Unix utilities: sponge, vidir, ts, and more",
+	"nano":            "Simple terminal text editor",
+	"nanorc":          "Syntax highlighting configurations for nano",
+	"ncdu":            "Disk usage analyzer with ncurses interface",
+	"nethogs":         "Monitor network bandwidth usage per process",
+	"nmap":            "Network exploration and security auditing tool",
+	"openssh":         "OpenSSH client and server for secure remote access",
+	"pandoc":          "Universal document converter",
+	"paperkey":        "Extract GnuPG secret keys for offline paper backup",
+	"pinentry-mac":    "PIN/passphrase entry dialog for GnuPG on macOS",
+	"pwgen":           "Secure, memorable password generator",
+	"qemu":            "Generic machine emulator and virtualizer",
+	"qrencode":        "Generate QR codes from text strings",
+	"rclone":          "Cloud storage sync tool (S3, Dropbox, GDrive, and more)",
+	"deno":            "Secure JavaScript/TypeScript runtime by the Deno team",
+	"go":              "Go programming language compiler and tools",
+	"gum":             "Charm TUI toolkit — used as fallback package picker",
+	"ripgrep":         "Extremely fast regex search tool (rg)",
+	"shellcheck":      "Static analysis and linting tool for shell scripts",
+	"shfmt":           "Shell script formatter",
+	"tealdeer":        "Fast tldr client — simplified, practical man pages",
+	"topgrade":        "Update everything at once across all package managers",
+	"trash":           "Move files to macOS Trash instead of permanently deleting",
+	"tree":            "Display directory contents as a visual tree",
+	"watch":           "Repeatedly run a command and display its output",
+	"wget":            "Internet file retriever",
+	"zsh":             "Z shell — advanced interactive shell with many features",
+	"pipx":            "Install and run Python apps in isolated environments",
+	"pyenv":           "Python version manager (canonical; see .python-version)",
+	"openjdk":         "OpenJDK — open-source Java Development Kit",
+	"gradle":          "Groovy/Kotlin-based build automation tool",
+	"pngquant":        "Lossy PNG compressor for smaller image files",
+	"ffmpeg":          "Complete solution for audio/video recording and conversion",
+	"chromaprint":     "Audio fingerprinting library (AcoustID core component)",
+	"whisper-cpp":     "Speech-to-text engine (optimized C++ port of Whisper)",
+	"xcodegen":        "Generate Xcode projects from YAML or JSON specs",
+	"yt-dlp":          "Download video and audio from YouTube and 1000+ sites",
+	"gemini-cli":      "Google Gemini command-line interface",
+	"poppler":         "PDF rendering library and utilities",
+	"autoconf":        "Automatic configure script builder",
+	"flac":            "Free lossless audio codec",
+	"libpng":          "Library for manipulating PNG images",
+	"python@3.14":     "Python programming language",
+	"unbound":         "Validating, recursive, caching DNS resolver",
 	// Casks
 	"4k-video-downloader+":   "Download videos from YouTube and other platforms",
 	"a-better-finder-rename": "Powerful batch file renaming for Finder",
@@ -331,6 +335,18 @@ func (m model) totalSelected() int {
 	return n
 }
 
+func (m model) totalIgnored() int {
+	n := 0
+	for _, c := range m.cats {
+		for _, p := range c.pkgs {
+			if p.ignored {
+				n++
+			}
+		}
+	}
+	return n
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -391,6 +407,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					p := pkgs[m.pkgIdx]
 					if !p.installed {
 						p.selected = !p.selected
+						if p.selected {
+							p.ignored = false
+						}
+						if m.pkgIdx < len(pkgs)-1 {
+							m.pkgIdx++
+						}
+					}
+				}
+			}
+
+		case "i":
+			if !m.leftFocus {
+				pkgs := m.currentPkgs()
+				if m.pkgIdx < len(pkgs) {
+					p := pkgs[m.pkgIdx]
+					if !p.installed {
+						p.ignored = !p.ignored
+						if p.ignored {
+							p.selected = false
+						}
 						if m.pkgIdx < len(pkgs)-1 {
 							m.pkgIdx++
 						}
@@ -412,6 +448,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				for _, p := range pkgs {
 					if !p.installed {
 						p.selected = !allOn
+						if p.selected {
+							p.ignored = false
+						}
 					}
 				}
 			}
@@ -436,6 +475,7 @@ var (
 	styleBadgeDim  = lipgloss.NewStyle().Foreground(theme.ColSubtle)
 	styleInstalled = lipgloss.NewStyle().Foreground(theme.ColDim)
 	stylePkgSel    = lipgloss.NewStyle().Foreground(theme.ColGreen)
+	stylePkgIgn    = lipgloss.NewStyle().Foreground(theme.ColRed)
 	stylePkgCurs   = lipgloss.NewStyle().Bold(true).Foreground(theme.ColHighlight)
 	styleDescDim   = lipgloss.NewStyle().Foreground(theme.ColSubtle)
 )
@@ -471,7 +511,11 @@ func (m model) View() string {
 
 func (m model) viewHeader() string {
 	title := styleTitle.Render("mrk brew")
-	sel := styleCount.Render(fmt.Sprintf("%d selected", m.totalSelected()))
+	selText := fmt.Sprintf("%d selected", m.totalSelected())
+	if ign := m.totalIgnored(); ign > 0 {
+		selText += fmt.Sprintf(" · %d ignored", ign)
+	}
+	sel := styleCount.Render(selText)
 	gap := m.width - lipgloss.Width(title) - lipgloss.Width(sel)
 	if gap < 1 {
 		gap = 1
@@ -480,7 +524,9 @@ func (m model) viewHeader() string {
 }
 
 func (m model) viewFooter() string {
-	return styleFooter.Render("↑↓/jk move · tab/hl switch pane · space toggle · a all · enter confirm · q quit")
+	// Kept under 80 columns: this wraps at the minimum supported width, and a
+	// wrapped footer costs a body line.
+	return styleFooter.Render("↑↓/jk move · tab/hl pane · space add · i ignore · a all · enter ok · q quit")
 }
 
 func (m model) viewLeft(inner, height int) string {
@@ -589,6 +635,8 @@ func (m model) viewRight(inner, height int) string {
 			indicator = styleInstalled.Render("● ")
 		} else if p.selected {
 			indicator = stylePkgSel.Render("✓ ")
+		} else if p.ignored {
+			indicator = stylePkgIgn.Render("✗ ")
 		}
 
 		isCursor := i == m.pkgIdx && !m.leftFocus
@@ -610,6 +658,10 @@ func (m model) viewRight(inner, height int) string {
 			line = indicator +
 				styleInstalled.Render(name) + strings.Repeat(" ", pad+2) +
 				styleInstalled.Render(desc)
+		case isCursor && p.ignored:
+			line = stylePkgCurs.Render("▸ ") +
+				stylePkgCurs.Render(name) + strings.Repeat(" ", pad+2) +
+				stylePkgIgn.Render(desc)
 		case isCursor && p.selected:
 			line = stylePkgCurs.Render("▸ ") +
 				stylePkgCurs.Render(name) + strings.Repeat(" ", pad+2) +
@@ -622,6 +674,10 @@ func (m model) viewRight(inner, height int) string {
 			line = indicator +
 				stylePkgSel.Render(name) + strings.Repeat(" ", pad+2) +
 				stylePkgSel.Render(desc)
+		case p.ignored:
+			line = indicator +
+				stylePkgIgn.Render(name) + strings.Repeat(" ", pad+2) +
+				stylePkgIgn.Render(desc)
 		default:
 			line = indicator +
 				styleCatNorm.Render(name) + strings.Repeat(" ", pad+2) +
@@ -690,11 +746,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Output selected packages as "type:name" lines
+	// Output as "type:name" lines. Ignored packages use an "ignore-" prefixed
+	// type rather than a third field, so the caller's `IFS=: read -r a b` split
+	// keeps working unchanged.
 	for _, cat := range result.cats {
 		for _, p := range cat.pkgs {
-			if p.selected {
+			switch {
+			case p.selected:
 				fmt.Printf("%s:%s\n", p.kind, p.name)
+			case p.ignored:
+				fmt.Printf("ignore-%s:%s\n", p.kind, p.name)
 			}
 		}
 	}
