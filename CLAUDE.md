@@ -2,14 +2,14 @@
 
 Guidance for Claude Code (claude.ai/code) when working in this repository.
 
-For the wider picture — the sibling app repos, the shared-file conventions, the release
-scripts — see `assets/CLAUDE.md`, which is symlinked to `~/Projects/CLAUDE.md` and loads
-when you work there. This file covers what matters inside `~/mrk`.
+This file exists for one thing: **`sevmorris/sevmac` documents this repository, and it
+does not update itself.** For the wider picture — the sibling app repos, the shared-file
+conventions, the release scripts — see `assets/CLAUDE.md`, which is symlinked to
+`~/Projects/CLAUDE.md` and loads when you work there.
 
 ## Downstream documentation: sevmac
 
-**`sevmorris/sevmac` documents this repository, and it does not update itself.** It is a
-separate public repo publishing two hand-written pages to
+sevmac is a separate public repo publishing two hand-written pages to
 [sevmorris.github.io/sevmac](https://sevmorris.github.io/sevmac/):
 
 - **SMAC-1** (`docs/index.html`) — the narrative guide: new-machine walkthrough, Brewfile
@@ -46,28 +46,3 @@ checklist — the page whose whole job is to stop you wiping a Mac before you ha
 what cannot be recovered — did not mention them for two days. Following it would have
 lost the Developer ID signing key, which Apple cannot reissue. The gap was found in the
 2026-08-31 audit and closed; see `audit/13-audit-2026-08-31.md`.
-
-## House style for documentation
-
-`docs/manual.md`, `docs/bin/mrk-usage.html` and `docs/defaults/script.js` are written in
-Simplified Technical English: short declarative sentences, active voice, present tense,
-no perfect or progressive constructions, one idea per sentence, nothing over 25 words.
-`docs/STE-CONVERSION.md` records the term choices and the deviations. sevmac follows the
-same style. Match it rather than the surrounding prose of whatever you are editing.
-
-## Verification
-
-- `make check` runs the full local gate: `shellcheck -x` over every bash script,
-  `check-picker-desc`, and `go test` in all four modules. `make ci` adds the TUI builds.
-- Do not trust a green gate as proof a change is correct. The 2026-08-31 audit found 14
-  defects with every tool passing, three of them HIGH. In particular:
-  - `shellcheck` cannot see that a pipeline's exit status is semantically wrong.
-    `if ! cmd | grep …` under `set -o pipefail` takes its status from `cmd`, not the
-    match — check this shape by hand.
-  - `bash -n` and `shellcheck` both pass on `mapfile` and `${x,,}`, which fail at
-    *runtime* under the bash 3.2 macOS ships. Any script using bash-4 syntax needs the
-    `BASH_VERSINFO[0] < 4` re-exec guard that ten scripts already carry. `scripts/lib.sh`
-    is deliberately exempt and stays bash-3.2 clean, because nine of its callers have no
-    guard.
-- Reproduce a suspected defect before fixing it, and keep the reproduction in the commit
-  message. That is the repository's convention and it is why the audit trail is useful.
