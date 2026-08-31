@@ -15,10 +15,13 @@ PROJECT_ROOT="$(dirname "$BASE_DIR")"
 
 echo "🔧 Ensuring executable bits on mrk scripts…"
 
-# Fix repo scripts and bin directories directly
+# Fix repo scripts and bin directories directly.
+# lib.sh is excluded: it is a sourced library, it says so in its own header, and
+# it has no shebang-driven entry point. bin/lib/common.sh is already outside the
+# -maxdepth 1 scan and is tracked 644; this keeps the two libraries consistent.
 for dir in "$PROJECT_ROOT/scripts" "$PROJECT_ROOT/bin"; do
   if [ -d "$dir" ]; then
-    find "$dir" -maxdepth 1 -type f -print0 2>/dev/null \
+    find "$dir" -maxdepth 1 -type f ! -name 'lib.sh' -print0 2>/dev/null \
       | xargs -0 chmod +x 2>/dev/null || true
     echo "✓ Fixed executables in: $dir"
   fi

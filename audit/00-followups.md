@@ -1,7 +1,7 @@
 # Followups
 
 This file indexes every deferred item, known limitation, and explicitly-out-of-scope
-finding from the mrk audit (modules 1–12, five fix sessions, runtime verification).
+finding from the mrk audit (modules 1–13, six fix sessions, runtime verification).
 It is not a punch list of unfixed bugs — most items here were explicitly chosen to defer,
 accept as a known limitation, or scope out. The value of the file is that "what's still
 open?" has a single answer without grepping the whole audit directory.
@@ -9,11 +9,17 @@ open?" has a single answer without grepping the whole audit directory.
 For each item: what it is, where it's documented, why it was deferred, what action
 would close it.
 
-**Last re-verified:** 2026-08-14 against `c362d90`. The 2026-08-02 pass
-(`12-fresh-audit-2026-08.md`) closed 9 items, reopened 2, and added new findings —
-including one HIGH (`N-1`) that modules 1–11 did not catch. Every open item below was
-re-checked against current code on 2026-08-14, and the five tractable ones were fixed;
-see "Closed by the follow-up batch".
+**Last re-verified:** 2026-08-31 against `15c82c9`. The 2026-08-31 recursive pass
+(`13-audit-2026-08-31.md`) found and fixed 14 defects, three of them HIGH, none of which
+any tool reported — `ci-check`, `shellcheck`, `go vet`, `gofmt` and `bash -n` were all
+green beforehand. Two sat in the key-transfer path: `restore-keys` rejected every valid
+archive on a cold gpg-agent, and stranded `~/.gnupg` when the archive did not hold it.
+
+Every item this file previously carried as open was re-checked on 2026-08-31 and all
+still stand as written — one deferred decision, three known limitations and five
+out-of-scope items. Module 13 added no new open items: all 14 of its findings were fixed
+in the same pass, so this ledger is unchanged apart from the line reference corrected
+below.
 
 ---
 
@@ -74,8 +80,8 @@ exists) and browser policies are additive, not destructive to existing user sett
 **ARGS word-split for value-bearing flags.** Make word-splits `$(ARGS)` before the
 shell receives it. For single-token flags (`--dry-run`, `-c`) this is benign. For
 flags with embedded spaces (`ARGS="--message hello world"`) the value is split into
-three tokens. A TODO comment documents this at `Makefile:145-146` (was `:124`). No
-current ARGS values trigger the problem. Documented in `04-makefile-audit.md L1`.
+three tokens. A TODO comment documents this at `Makefile:140-141` (was `:145-146`, and `:124` before
+that). No current ARGS values trigger the problem. Documented in `04-makefile-audit.md L1`.
 → To close: quote the expansion in each recipe: `@"$(SCRIPTS)/sync" "$(ARGS)"`. For
 multi-flag use, a proper argument-splitting approach or documented workaround would
 also help.
@@ -127,6 +133,43 @@ no production risk. Documented in `03-shell-hygiene.md L3`.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by module 13, the 2026-08-31 recursive audit
+
+Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the
+reproductions, in `13-audit-2026-08-31.md`. None were reported by any tool: `ci-check`,
+`shellcheck -x`, `go vet -all`, `gofmt -l` and `bash -n` were all green beforehand.
+
+- **P-1 / P-4 — the gpg archive check was coupled to gpg's exit status.**
+  `gpg --list-packets` prints the packet listing and then tries the session key anyway,
+  exiting 2 when it cannot get the passphrase; under `set -o pipefail` that status won
+  over a successful `grep`. `restore-keys` therefore rejected every valid archive on a
+  cold gpg-agent — on a new machine, the only place it runs — and `snapshot-keys` passed
+  only because the agent still cached the passphrase from the encryption seconds before.
+  Both now capture the output before matching, and pass `--pinentry-mode error` so the
+  check raises no dialog, which is what its comment had always claimed.
+- **P-2 — `restore-keys` stranded `~/.gnupg`.** Both directories were moved aside, so an
+  archive holding only `.ssh` left the machine with no live `~/.gnupg`. Anything the
+  extract does not recreate is now put back.
+- **P-3 / P-5 — deployment pruning deleted the live page.** `mrk-push` kept only the
+  newest deployment, which right after a push is the pending one, so it deleted the
+  successful deployment still serving the site — the same failure N-16 recorded for
+  `--keep=0`. `bin/prune-deployments` already had the fix and it had never been
+  back-ported. `mrk-push` now delegates to it; `maintain` got the protection inline to
+  keep its confirmation step.
+- **P-6 / P-7 — LaunchAgents.** `launchctl load` on an already-loaded label fails, so an
+  edited plist silently kept the old definition until the next logout; the install now
+  unloads first. Neither `nuke-mrk` nor `uninstall` removed the agents, leaving jobs
+  firing against deleted symlinks; both now unload and delete them.
+- **P-8 — bash-4 syntax without the re-exec guard** in `mrk-push`, `snapshot-prefs` and
+  `lib.sh`. These fail at runtime, not parse time, which is why `bash -n` and shellcheck
+  both passed. The two scripts gained the standard guard; `lib.sh` instead dropped to
+  `tr`, because a shared library should not impose a bash version on its nine callers.
+- **P-9 to P-14 — smaller items.** `maintain` checked for the removed `bf` binary; the
+  two cache scripts ran unattended with no `set -u` or `HOME` guard; `README.md`
+  documented `make bf`, which errors; BIN-1 was missing ten commands (a recurrence of
+  N-7); `mrk-menu` offered `restore-keys`, which cannot take an argument from a menu;
+  and `scripts/lib.sh` was executable despite documenting itself as sourced.
 
 ### Closed by the follow-up batch, branch `fix/audit-followups-batch`, 2026-08-14
 

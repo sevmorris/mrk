@@ -74,9 +74,8 @@ Run `make all` to execute all three phases at once. On a fresh machine, run Phas
 | `mrk-menu` | Open the hierarchical tool launcher |
 | `make status` | Open the mrk-status TUI health dashboard |
 | `make doctor` | Check `~/bin` is on PATH; `make doctor ARGS=--fix` adds it to `.zshrc` |
-| `make build-tools` | Build all Go TUI binaries (picker + bf + mrk-status + mrk-menu) |
+| `make build-tools` | Build all Go TUI binaries (mrk-picker + mrk-status + mrk-menu) |
 | `make picker` | Build mrk-picker only |
-| `make bf` | Build bf Brewfile manager only |
 | `make mrk-status` | Build mrk-status TUI health dashboard |
 | `make mrk-menu` | Build mrk-menu TUI launcher |
 | `make uninstall` | Remove symlinks, optionally rollback defaults |

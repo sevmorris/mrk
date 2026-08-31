@@ -48,10 +48,13 @@ var categories = []category{
 	},
 	{
 		name: "Keys",
+		// restore-keys is deliberately absent. It takes the archive path as a
+		// required argument, and the menu runs a command with a fixed argument
+		// list and no prompt, so the entry could only ever exit 1 on the usage
+		// text. Run it as `make restore-keys ARGS=<archive>`.
 		items: []item{
 			{"snapshot-keys", "bundle ~/.ssh, ~/.gnupg and signing identities", cmdBin, "snapshot-keys", nil, false},
 			{"snapshot-keys --dry-run", "show what would be bundled, write nothing", cmdBin, "snapshot-keys", []string{"--dry-run"}, false},
-			{"restore-keys", "restore ~/.ssh, ~/.gnupg and signing identities", cmdBin, "restore-keys", nil, false},
 		},
 	},
 	{

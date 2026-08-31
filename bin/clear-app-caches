@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Runs unattended from a LaunchAgent, so it sets -u: an unset or empty HOME
+# would turn every path below into an absolute one outside the home directory.
+# -e is deliberately NOT set — these are best-effort removals, and one cache
+# that will not delete should not stop the rest from being cleared.
+set -uo pipefail
+
+if [[ -z "${HOME:-}" || ! -d "$HOME" ]]; then
+  echo "error: HOME is unset or not a directory — refusing to remove anything" >&2
+  exit 1
+fi
+
 # Helium
 rm -rf "$HOME/Library/Application Support/net.imput.helium/Default/Cache"
 rm -rf "$HOME/Library/Application Support/net.imput.helium/Default/Code Cache"

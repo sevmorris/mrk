@@ -112,34 +112,62 @@ elif dep_out=$(gh api --paginate "/repos/$REPO/deployments?environment=github-pa
   if (( total <= KEEP )); then
     ok "$total deployment(s), nothing to prune (keeping $KEEP)."
   else
-    # gh returns deployments newest-first; the first $KEEP are retained.
-    to_prune=("${ids[@]:KEEP}")
-    nprune=${#to_prune[@]}
-    info "Found $total deployments. Keeping $KEEP most recent, pruning $nprune."
+    # Protect the deployment that is actually serving the site: the most
+    # recent one whose status is "success". "Keep the newest N" is not enough
+    # on its own — when a build fails, the newest deployment is the broken one
+    # and an older deployment is still live, so a purely positional rule
+    # deletes the page out from under the site. Walk newest-first and stop at
+    # the first hit, so this is normally one or two extra calls.
+    live=""
+    for id in "${ids[@]}"; do
+      state="$(gh api "/repos/$REPO/deployments/$id/statuses" --jq '.[0].state // "none"' 2>/dev/null || echo "none")"
+      if [[ "$state" == "success" ]]; then
+        live="$id"
+        break
+      fi
+    done
+    if [[ -n "$live" && "$live" != "${ids[0]}" ]]; then
+      warn "Newest deployment #${ids[0]} is not successful; #$live is serving the site and is protected."
+    elif [[ -z "$live" ]]; then
+      warn "No successful deployment found — nothing is protected."
+    fi
 
-    printf 'Prune %d deployment(s)? [y/N] ' "$nprune"
-    read -r reply </dev/tty 2>/dev/null || reply=""
-    if [[ "$reply" =~ ^[Yy]$ ]]; then
-      n=0
-      # Oldest first: to_prune is newest-first, so walk it in reverse.
-      for (( i=${#to_prune[@]}-1; i>=0; i-- )); do
-        id="${to_prune[$i]}"
-        [[ -z "$id" ]] && continue
-        ((n++)) || true
-        if ! gh api -X POST "/repos/$REPO/deployments/$id/statuses" \
-             -f state=inactive --silent 2>/dev/null; then
-          warn "Could not mark #$id inactive — skipping"
-          continue
-        fi
-        if gh api -X DELETE "/repos/$REPO/deployments/$id" --silent 2>/dev/null; then
-          ok "Pruned $n/$nprune (#$id)"
-        else
-          warn "Could not delete #$id (may already be gone)"
-        fi
-      done
-      ok "Deployment pruning complete."
+    # gh returns deployments newest-first; the first $KEEP are retained.
+    to_prune=()
+    for id in "${ids[@]:KEEP}"; do
+      [[ -n "$live" && "$id" == "$live" ]] && continue
+      to_prune+=("$id")
+    done
+    nprune=${#to_prune[@]}
+    if (( nprune == 0 )); then
+      ok "Nothing to prune — $total deployment(s), keeping $KEEP."
     else
-      info "Skipped deployment pruning."
+      info "Found $total deployments. Keeping $KEEP most recent, pruning $nprune."
+
+      printf 'Prune %d deployment(s)? [y/N] ' "$nprune"
+      read -r reply </dev/tty 2>/dev/null || reply=""
+      if [[ "$reply" =~ ^[Yy]$ ]]; then
+        n=0
+        # Oldest first: to_prune is newest-first, so walk it in reverse.
+        for (( i=${#to_prune[@]}-1; i>=0; i-- )); do
+          id="${to_prune[$i]}"
+          [[ -z "$id" ]] && continue
+          ((n++)) || true
+          if ! gh api -X POST "/repos/$REPO/deployments/$id/statuses" \
+               -f state=inactive --silent 2>/dev/null; then
+            warn "Could not mark #$id inactive — skipping"
+            continue
+          fi
+          if gh api -X DELETE "/repos/$REPO/deployments/$id" --silent 2>/dev/null; then
+            ok "Pruned $n/$nprune (#$id)"
+          else
+            warn "Could not delete #$id (may already be gone)"
+          fi
+        done
+        ok "Deployment pruning complete."
+      else
+        info "Skipped deployment pruning."
+      fi
     fi
   fi
 else
@@ -185,13 +213,12 @@ step "Step 4: TUI build freshness"
 THEME_DIR="$REPO_ROOT/tools/theme"
 
 declare -A TOOL_DIR=(
-  [bf]=bf
   [mrk-picker]=picker
   [mrk-status]=mrk-status
   [mrk-menu]=mrk-menu
 )
 
-for binname in bf mrk-picker mrk-status mrk-menu; do
+for binname in mrk-picker mrk-status mrk-menu; do
   bin_path="$HOME/bin/$binname"
   src_dir="$REPO_ROOT/tools/${TOOL_DIR[$binname]}"
   if [[ ! -e "$bin_path" ]]; then

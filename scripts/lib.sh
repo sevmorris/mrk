@@ -44,7 +44,11 @@ confirm() {
   printf '\n%s>%s ' "$_B" "$_R" >&2
   local _ans
   read -r _ans </dev/tty
-  [[ ! "${_ans,,}" =~ ^(quit|exit|q|n|no)$ ]]
+  # tr rather than ${_ans,,}: this library is sourced by scripts that carry no
+  # bash-4 re-exec guard, and ${x,,} is a runtime "bad substitution" under the
+  # bash 3.2 macOS ships — which neither shellcheck nor `bash -n` reports.
+  _ans=$(printf '%s' "$_ans" | tr '[:upper:]' '[:lower:]')
+  [[ ! "$_ans" =~ ^(quit|exit|q|n|no)$ ]]
 }
 
 # Refresh sudo timestamp to prevent timeout during long-running installs.
@@ -214,5 +218,6 @@ require_clean_secrets() {
   printf '%s  Push/commit anyway?%s ' "$_YLW" "$_R" >&2
   local _ans
   read -r _ans </dev/tty
-  [[ "${_ans,,}" =~ ^(y|yes)$ ]]
+  _ans=$(printf '%s' "$_ans" | tr '[:upper:]' '[:lower:]')
+  [[ "$_ans" =~ ^(y|yes)$ ]]
 }

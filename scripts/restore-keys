@@ -89,7 +89,25 @@ if [[ ! -f "$ARCHIVE" ]]; then
   exit 1
 fi
 
-if ! gpg --list-packets --batch "$ARCHIVE" 2>&1 | grep -q "symkey enc packet"; then
+# Confirm the file is a symmetrically-encrypted OpenPGP message before moving
+# anything aside.
+#
+# gpg has no "describe but do not decrypt" mode: --list-packets prints the
+# packet listing and then tries the session key anyway, so it exits 2 with
+# "decryption failed: Bad session key" whenever it cannot get the passphrase.
+# Two consequences, both of which bit this check:
+#
+#   Under `set -o pipefail`, piping straight into grep made the pipeline
+#   inherit that exit 2 even though grep had matched, so a perfectly good
+#   archive was reported as "Not a snapshot-keys archive" — on a new machine,
+#   which is the only place this script ever runs. The output is captured
+#   first so the packet listing, not gpg's exit status, decides.
+#
+#   Without --pinentry-mode error the agent raises a passphrase dialog here,
+#   before the real decrypt below. That is the second prompt this check was
+#   supposed to avoid.
+packets="$(gpg --list-packets --batch --pinentry-mode error "$ARCHIVE" 2>&1 || true)"
+if ! printf '%s' "$packets" | grep -q "symkey enc packet"; then
   err "Not a snapshot-keys archive: $ARCHIVE"
   info "Expected a symmetrically-encrypted OpenPGP message."
   exit 1
@@ -148,6 +166,25 @@ if ! gpg -d -q "$ARCHIVE" 2>/dev/null | tar -xpf - -C "$HOME"; then
 fi
 
 trap - EXIT
+
+# ── Put back anything the archive did not replace ─────────────────────────────
+
+# Both directories are moved aside above, because what the archive holds is not
+# knowable without decrypting it, and decrypting twice would mean two passphrase
+# prompts. An archive from a machine that had no ~/.gnupg therefore left this
+# machine with no ~/.gnupg either — the directory survived only as a timestamped
+# copy, which is not where gpg looks. Anything the extract did not recreate goes
+# back where it was; the copy is dropped, since it is now the live directory
+# again rather than a spare.
+for i in "${!moved[@]}"; do
+  if [[ ! -e "${moved_orig[$i]}" ]]; then
+    mv "${moved[$i]}" "${moved_orig[$i]}"
+    unset "moved[$i]"
+    warn "Archive had no $(basename "${moved_orig[$i]}") — put the existing one back"
+  fi
+done
+# Reindex: unset leaves holes, and the report below walks the array.
+moved=(${moved[@]+"${moved[@]}"})
 
 # ── Correct the permissions ───────────────────────────────────────────────────
 

@@ -1,9 +1,30 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
-# mrk-push — commit, push, and prune all but the current GitHub Deployment
+# mrk-push — commit, push, and prune old GitHub Pages deployments
 # Usage: mrk-push "commit message"
 #        mrk-push            (prompts for message)
+
+# Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2).
+# This script uses mapfile, which bash 3.2 does not have; without the guard it
+# died with "mapfile: command not found" partway through, after staging.
+if (( BASH_VERSINFO[0] < 4 )); then
+  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
+  done
+  echo "error: bash 4+ required (system bash is ${BASH_VERSION}; install via 'brew install bash')" >&2
+  exit 1
+fi
+
+set -euo pipefail
+
+# Resolve this script's real path (works when invoked via ~/bin symlink)
+_src="${BASH_SOURCE[0]}"
+while [[ -L "$_src" ]]; do
+  _dir="$(cd "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  [[ "$_src" != /* ]] && _src="$_dir/$_src"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
 
 if ! command -v gh >/dev/null 2>&1; then
   echo "error: gh CLI not found. Install with: brew install gh" >&2
@@ -79,50 +100,24 @@ ok "Pushed to origin."
 
 # ── Prune deployments ─────────────────────────────────────────────────────────
 echo ""
-push_log "Fetching deployments for $repo..."
 
-# Check gh's exit status directly — mapfile from a process substitution
-# always succeeds, so a gh auth/network failure used to slip through as
-# "No deployments found".
-# Scoped to the github-pages environment. An unscoped query returns every
-# environment, so this would delete deployments it does not own.
-if gh_out=$(gh api --paginate "/repos/$repo/deployments?environment=github-pages" --jq '.[].id' 2>/dev/null); then
-  ids=()
-  [[ -n "$gh_out" ]] && mapfile -t ids <<< "$gh_out"
-else
-  err "Failed to fetch deployments for $repo"
-  exit 1
-fi
-
-if [[ ${#ids[@]} -eq 0 ]]; then
-  warn "No deployments found."
+# Delegated to bin/prune-deployments rather than kept as a second copy here.
+#
+# The copy this replaced deleted everything except ids[0], the newest
+# deployment. That is wrong precisely when this runs: the push above has just
+# created a deployment, so ids[0] is usually the new queued or in-progress one
+# while the deployment actually serving the site is the older, successful one
+# this then deleted — taking the published page offline until the new build
+# finished, or indefinitely if it failed. prune-deployments already protects the
+# most recent successful deployment, and --keep 1 preserves the old intent.
+pruner="$SCRIPT_DIR/prune-deployments"
+if [[ ! -x "$pruner" ]]; then
+  warn "prune-deployments not found at $pruner — skipping deployment pruning."
   echo ""
   exit 0
 fi
 
-latest="${ids[0]}"
-ok "Current deployment: #$latest"
-
-to_delete=("${ids[@]:1}")
-
-if [[ ${#to_delete[@]} -eq 0 ]]; then
-  ok "Only one deployment — nothing to prune."
-  echo ""
-  exit 0
-fi
-
-log "Pruning ${#to_delete[@]} older deployment(s)..."
-for id in "${to_delete[@]}"; do
-  [[ -z "$id" ]] && continue
-  # Must be marked inactive before deletion
-  gh api -X POST "/repos/$repo/deployments/$id/statuses" \
-    -f state=inactive > /dev/null 2>&1 || true
-  if gh api -X DELETE "/repos/$repo/deployments/$id" > /dev/null 2>&1; then
-    ok "Deleted deployment #$id"
-  else
-    warn "Could not delete #$id (may already be gone)"
-  fi
-done
+"$pruner" --repo "$repo" --keep 1 || warn "Deployment pruning reported errors."
 
 echo ""
 ok "Done."

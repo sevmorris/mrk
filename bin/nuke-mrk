@@ -36,6 +36,7 @@ printf "  ${_RED}•${_R} ${_B}$MRK_DIR${_R} ${_D}(cloned repo → Trash)${_R}\n
 printf "  ${_RED}•${_R} ${_B}$STATE_DIR${_R} ${_D}(state/backups/rollback → Trash)${_R}\n"
 printf "  ${_RED}•${_R} Symlinks in ${_B}$BIN_DIR${_R} ${_D}pointing to mrk${_R}\n"
 printf "  ${_RED}•${_R} Dotfile symlinks in ${_B}$HOME${_R} ${_D}pointing to mrk${_R}\n"
+printf "  ${_RED}•${_R} mrk ${_B}LaunchAgents${_R} ${_D}(cache-clearing jobs)${_R}\n"
 echo ""
 printf "  ${_YLW}Does NOT${_R} uninstall Homebrew packages or undo macOS defaults.\n"
 echo ""
@@ -164,6 +165,19 @@ for f in "$HOME/Library/Application Support/Google/Chrome/policies/managed/mrk-p
   if [[ -f "$f" ]]; then
     rm -f "$f"
     ok "$(basename "$(dirname "$(dirname "$(dirname "$f")")")") mrk-policy.json"
+  fi
+done
+
+# Remove the LaunchAgents installed by post-install. They must be unloaded as
+# well as deleted: launchd keeps a job registered until it is booted out, so a
+# plist that is merely removed keeps firing on schedule against the ~/bin
+# symlinks this script has just deleted.
+for label in com.user.clear_app_caches com.user.clear_derived_data; do
+  agent="$HOME/Library/LaunchAgents/$label.plist"
+  if [[ -f "$agent" ]]; then
+    launchctl unload "$agent" >/dev/null 2>&1 || true
+    rm -f "$agent"
+    ok "$label (unloaded and removed)"
   fi
 done
 

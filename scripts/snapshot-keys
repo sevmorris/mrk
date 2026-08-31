@@ -286,10 +286,19 @@ if [[ ! -s "$tmp_out" ]]; then
 fi
 
 # Structural check before the file is put in place: confirm gpg really wrote a
-# symmetrically-encrypted message. This needs no passphrase, so it verifies the
-# container without a second prompt. It does not prove the passphrase is what
-# you meant to type — nothing except a real decrypt can prove that.
-if ! gpg --list-packets --batch "$tmp_out" 2>&1 | grep -q "symkey enc packet"; then
+# symmetrically-encrypted message. It does not prove the passphrase is what you
+# meant to type — nothing except a real decrypt can prove that.
+#
+# --list-packets prints the packet listing and then tries the session key
+# anyway, exiting 2 with "decryption failed: Bad session key" when it cannot get
+# the passphrase. Piped straight into grep under `set -o pipefail` that exit
+# status won, so the check passed only because the agent still had the
+# passphrase cached from the encryption a moment earlier — and would have
+# discarded a good archive on any machine where it did not. The output is
+# captured first so the packet listing decides, and --pinentry-mode error keeps
+# the agent from raising a second dialog to reach that verdict.
+packets="$(gpg --list-packets --batch --pinentry-mode error "$tmp_out" 2>&1 || true)"
+if ! printf '%s' "$packets" | grep -q "symkey enc packet"; then
   err "Output is not a symmetrically-encrypted OpenPGP message — no archive written."
   exit 1
 fi

@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 # mrk snapshot-prefs — export current app preferences to ~/.mrk/preferences/
 # and push to the private mrk-prefs repo.
+
+# Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2).
+# This script uses mapfile, which bash 3.2 does not have. The failure was a
+# runtime one, so neither `bash -n` nor shellcheck caught it.
+if (( BASH_VERSINFO[0] < 4 )); then
+  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
+  done
+  echo "error: bash 4+ required (system bash is ${BASH_VERSION}; install via 'brew install bash')" >&2
+  exit 1
+fi
+
+set -euo pipefail
 
 _self="${BASH_SOURCE[0]}"
 while [[ -L "$_self" ]]; do

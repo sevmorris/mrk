@@ -738,7 +738,14 @@ install_launch_agent(){
 
   cp "$src_plist" "$dest_plist"
 
-  # Ensure loaded
+  # Unload before loading. launchd keys a job by its Label, not by the file, so
+  # `launchctl load` on a label that is already loaded fails with "Load failed:
+  # 5: Input/output error" and leaves the OLD definition running. Because the
+  # cmp above returns early when the file is unchanged, the only time this line
+  # is reached is when the plist changed — exactly the case the bare load could
+  # not apply. An edited schedule silently kept the previous one until the next
+  # logout. The unload is expected to fail on a first install, hence || true.
+  launchctl unload "$dest_plist" >/dev/null 2>&1 || true
   launchctl load "$dest_plist" >/dev/null 2>&1 || true
 
   ok "Installed LaunchAgent → $plist_name"

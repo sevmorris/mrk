@@ -108,6 +108,19 @@ offer_rollback() {
   fi
 }
 
+# Remove the LaunchAgents installed by post-install. The symlinks they invoke
+# have just been unlinked above, so leaving the jobs registered would schedule a
+# daily run against a path that no longer exists. Unload as well as delete:
+# launchd keeps a job until it is booted out, regardless of the file.
+for label in com.user.clear_app_caches com.user.clear_derived_data; do
+  agent="$HOME/Library/LaunchAgents/$label.plist"
+  if [[ -f "$agent" ]]; then
+    launchctl unload "$agent" >/dev/null 2>&1 || true
+    rm -f "$agent"
+    log "Removed LaunchAgent: $label"
+  fi
+done
+
 offer_rollback "$HOME/.mrk/defaults-rollback.sh" "macOS defaults"
 offer_rollback "$HOME/.mrk/hardening-rollback.sh" "security hardening"
 

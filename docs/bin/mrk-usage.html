@@ -465,6 +465,7 @@
   <a class="section-head">Sect. 1 — Standalone</a>
   <a href="#nuke-mrk">1.1 nuke-mrk</a>
   <a href="#snapshot">1.2 snapshot</a>
+  <a href="#decloud">1.3 decloud</a>
   <a class="section-head">Sect. 2 — mrk</a>
   <a href="#check-updates">2.1 check-updates</a>
   <a href="#doctor">2.2 doctor</a>
@@ -490,6 +491,15 @@
   <a href="#ci-check">2.22 ci-check</a>
   <a href="#check-picker-desc">2.23 check-picker-desc</a>
   <a href="#adventure-prologue">2.24 adventure-prologue</a>
+  <a href="#snapshot-keys">2.25 snapshot-keys</a>
+  <a href="#restore-keys">2.26 restore-keys</a>
+  <a href="#restore-repos">2.27 restore-repos</a>
+  <a href="#prune-deployments">2.28 prune-deployments</a>
+  <a href="#pushall">2.29 pushall</a>
+  <a href="#update-full">2.30 update-full</a>
+  <a href="#clean-ds">2.31 clean-ds</a>
+  <a href="#clear-app-caches">2.32 clear-app-caches</a>
+  <a href="#clear-derived-data">2.33 clear-derived-data</a>
   <a class="section-head">Sect. 3 — Reference</a>
   <a href="#lib">3.1 Shared Libraries</a>
   <a href="#quick-ref">3.2 Quick Reference</a>
@@ -550,6 +560,32 @@
             <li><code>--brewfile</code> — also runs <code>brew bundle dump</code>. This command overwrites the comments in the Brewfile, so snapshot asks you to confirm first.</li>
             <li><strong>Apps:</strong> AlDente, Amphetamine, BetterSnapTool, Descript, Fission, HandBrake, Helium, Ice, iTerm2, ScreenFlow</li>
           </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="decloud">
+        <div class="proc-header">
+          <span class="proc-num">1.3</span>
+          <h3>decloud <span class="tag tag-standalone">standalone</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">decloud runs git against the private Cloud overlay for DoublEnder. The overlay files sit inside the public DoublEnder tree, and the public repository ignores them. A bare repository holds them, and it shares the same working tree. decloud passes every argument straight to git.</p>
+          <pre><code>decloud &lt;any git command&gt;</code></pre>
+          <ul>
+            <li><code>decloud status</code> — Show the state of the overlay files.</li>
+            <li><code>decloud commit -am "message"</code> — Commit the overlay files.</li>
+            <li><code>decloud push</code> — Push the overlay repository.</li>
+          </ul>
+          <ul>
+            <li>decloud reads the repository path from <code>DECLOUD_GIT_DIR</code>. The default is <code>~/DoublEnder-cloud.git</code>.</li>
+            <li>decloud reads the working tree from <code>DECLOUD_WORK_TREE</code>. The default is <code>~/Projects/DoublEnder</code>.</li>
+            <li>decloud sets <code>core.hooksPath</code> when the tracked pre-commit hook is present and the setting is absent. A fresh clone therefore gets the hook.</li>
+            <li>decloud exits with status 1 when the repository or the working tree is absent.</li>
+          </ul>
+          <div class="callout callout-caution">
+            <span class="callout-label">Caution</span>
+            <div class="callout-body">Stage the overlay files by name. <code>decloud add .</code> stages every untracked file in the shared working tree, which includes the files of the public repository.</div>
+          </div>
         </div>
       </div>
     </section>
@@ -995,6 +1031,201 @@ mrk-push                # mrk-push asks for the message</code></pre>
             <li>adventure-prologue exits with status 0 when you run the setup script. It exits with status 1 when you quit.</li>
             <li>adventure-prologue exits and shows nothing when stdin or stdout is not a terminal.</li>
             <li><code>make adventure</code> runs adventure-prologue first. If you complete it, Make then runs the full installation with narration.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="snapshot-keys">
+        <div class="proc-header">
+          <span class="proc-num">2.25</span>
+          <h3>snapshot-keys <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">snapshot-keys puts <code>~/.ssh</code>, <code>~/.gnupg</code> and the code-signing identities into one archive. The archive is a symmetric OpenPGP message with AES-256 and ASCII armor. It asks for a passphrase.</p>
+          <pre><code>snapshot-keys [-o PATH] [-n] [-f] [--no-signing] [--help | -h]</code></pre>
+          <ul>
+            <li><code>-o</code> or <code>--output PATH</code> — Write the archive to PATH. The default is <code>~/Desktop/mrk-keys-&lt;timestamp&gt;.asc</code>.</li>
+            <li><code>-n</code> or <code>--dry-run</code> — List the contents. snapshot-keys writes no file.</li>
+            <li><code>-f</code> or <code>--force</code> — Overwrite the output file when it exists.</li>
+            <li><code>--no-signing</code> — Skip the code-signing identities. The export of an identity needs a macOS dialog.</li>
+          </ul>
+          <div class="callout callout-caution">
+            <span class="callout-label">Caution</span>
+            <div class="callout-body">The passphrase is the only key to the archive. Store it in your password manager. There is no recovery. snapshot-keys refuses to write inside <code>~/mrk</code> or <code>~/.mrk</code>, because nuke-mrk and <code>make uninstall</code> delete those directories.</div>
+          </div>
+          <ul>
+            <li>The code-signing identities carry a second passphrase. macOS asks for it in its own dialog. Store that passphrase with the first one.</li>
+            <li>snapshot-keys cannot carry the notarytool credentials. A keychain profile has no export. Create each profile again with <code>xcrun notarytool store-credentials</code>.</li>
+            <li>Read the archive without mrk with <code>gpg -d &lt;archive&gt; | tar -tvf -</code>.</li>
+            <li>Run snapshot-keys through Make with <code>make snapshot-keys</code>. To pass an option, use <code>make snapshot-keys ARGS=-n</code>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="restore-keys">
+        <div class="proc-header">
+          <span class="proc-num">2.26</span>
+          <h3>restore-keys <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">restore-keys puts the contents of a snapshot-keys archive back on a machine. It restores <code>~/.ssh</code>, <code>~/.gnupg</code> and the code-signing identities. It asks for the archive passphrase.</p>
+          <pre><code>restore-keys [-l] &lt;archive&gt;</code></pre>
+          <ul>
+            <li><code>-l</code> or <code>--list</code> — List the archive contents. restore-keys restores nothing.</li>
+            <li><code>--help</code> or <code>-h</code> — Show the usage text.</li>
+          </ul>
+          <ul>
+            <li>restore-keys moves an existing <code>~/.ssh</code> or <code>~/.gnupg</code> aside first. The name of the copy carries a timestamp.</li>
+            <li>restore-keys puts a directory back when the archive does not hold it. Only a directory that the archive replaces stays as a timestamped copy.</li>
+            <li>restore-keys puts the originals back when the extraction fails.</li>
+            <li>gpg decrypts straight into tar. No plaintext key material reaches a temporary file.</li>
+            <li>restore-keys sets the modes that ssh and gpg need: 700 on the directories, 600 on the private keys, 644 on the public keys.</li>
+            <li>restore-keys imports the code-signing identities and then deletes the .p12 file. macOS asks for the .p12 passphrase.</li>
+            <li>Run restore-keys through Make with <code>make restore-keys ARGS=&lt;archive&gt;</code>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="restore-repos">
+        <div class="proc-header">
+          <span class="proc-num">2.27</span>
+          <h3>restore-repos <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">restore-repos clones the repositories that <code>~/.mrk/preferences/repos.tsv</code> lists. snapshot-prefs writes that manifest, and pull-prefs brings it to a new machine.</p>
+          <pre><code>restore-repos [-n] [--help | -h]</code></pre>
+          <ul>
+            <li><code>-n</code> or <code>--dry-run</code> — Show the clone list. restore-repos clones nothing.</li>
+          </ul>
+          <ul>
+            <li>restore-repos skips a repository that is already on disk.</li>
+            <li>restore-repos leaves a path alone when the path exists and is not a git repository. It reports the path as a problem.</li>
+            <li>restore-repos lists a bare repository but never clones one. A bare overlay shares a working tree with another repository, so a plain clone puts the files in the wrong place. Set up a bare overlay by hand, and then use decloud.</li>
+            <li>Run <code>make pull-prefs</code> first when the manifest is absent.</li>
+            <li>Run restore-repos through Make with <code>make restore-repos</code>. To pass an option, use <code>make restore-repos ARGS=-n</code>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="prune-deployments">
+        <div class="proc-header">
+          <span class="proc-num">2.28</span>
+          <h3>prune-deployments <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">prune-deployments deletes the old GitHub Pages deployments of a repository. Every push to a Pages branch creates a deployment, and the deployments accumulate. mrk-push and maintain use this command.</p>
+          <pre><code>prune-deployments [--repo OWNER/NAME] [--keep N] [--environment ENV] [--dry-run] [--help | -h]</code></pre>
+          <ul>
+            <li><code>--repo OWNER/NAME</code> — Name the target repository. The default is the origin remote of the current repository.</li>
+            <li><code>--keep N</code> — Keep the N most recent deployments. The default is 1. The minimum is 1.</li>
+            <li><code>--environment ENV</code> — Name the deployment environment. The default is <code>github-pages</code>.</li>
+            <li><code>--dry-run</code> — List the deployments to delete. prune-deployments deletes nothing.</li>
+          </ul>
+          <ul>
+            <li>prune-deployments protects the most recent deployment whose status is success, whether or not <code>--keep</code> covers it. That deployment serves the site. A failed build makes the newest deployment the broken one, so a count alone is not sufficient.</li>
+            <li>prune-deployments marks a deployment inactive before it deletes it. The API needs this order.</li>
+            <li>prune-deployments needs <code>gh</code> on the PATH.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="pushall">
+        <div class="proc-header">
+          <span class="proc-num">2.29</span>
+          <h3>pushall <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">pushall commits and pushes every git repository under <code>~/Projects</code>, and then syncs mrk.</p>
+          <pre><code>pushall [--dry-run] [--help | -h]</code></pre>
+          <ul>
+            <li><code>--dry-run</code> — Report the state of each repository. pushall commits nothing and pushes nothing.</li>
+          </ul>
+          <ul>
+            <li>pushall skips a repository that has no remote.</li>
+            <li>pushall scans the staged files for secrets before each commit.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="update-full">
+        <div class="proc-header">
+          <span class="proc-num">2.30</span>
+          <h3>update-full <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <div class="callout callout-caution">
+            <span class="callout-label">Caution</span>
+            <div class="callout-body">update-full quits every running application, and it can restart the machine. It refuses to run without a terminal unless you pass <code>--yes</code>.</div>
+          </div>
+          <p class="desc">update-full runs a full update pass in eight steps.</p>
+          <pre><code>update-full [--yes | -y] [--no-reboot] [--help | -h]</code></pre>
+          <ol>
+            <li>Pull the mrk repository.</li>
+            <li>Quit every running application. update-full keeps Finder, Dock, SystemUIServer, loginwindow and your terminal.</li>
+            <li>Run the macOS software updates.</li>
+            <li>Run topgrade.</li>
+            <li>Build the mrk Go tools again.</li>
+            <li>Run clean-ds.</li>
+            <li>Run <code>brew doctor</code>.</li>
+            <li>Offer a restart.</li>
+          </ol>
+          <ul>
+            <li><code>--yes</code> or <code>-y</code> — Skip the confirmation prompt.</li>
+            <li><code>--no-reboot</code> — Never offer a restart.</li>
+            <li>update-full reads <code>TERM_PROGRAM</code> to find your terminal. It warns you when it does not recognise the value, because it then quits that terminal too.</li>
+            <li>update-full continues after a failed step, and it reports the failure.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="clean-ds">
+        <div class="proc-header">
+          <span class="proc-num">2.31</span>
+          <h3>clean-ds <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">clean-ds deletes the <code>.DS_Store</code> files from the local internal volumes.</p>
+          <pre><code>clean-ds [--dry-run] [--help | -h]</code></pre>
+          <ul>
+            <li><code>--dry-run</code> — List the files. clean-ds deletes nothing.</li>
+          </ul>
+          <ul>
+            <li>clean-ds scans only the top-level <code>$HOME</code> directories that sit on the same device as <code>$HOME</code>. It never scans a network share or an external volume.</li>
+            <li>clean-ds skips <code>~/Library</code>, <code>~/Desktop</code> and the dotfile directories. The skip of <code>~/Desktop</code> keeps the icon layout.</li>
+            <li>clean-ds reports the file count and the directories that it scanned.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="clear-app-caches">
+        <div class="proc-header">
+          <span class="proc-num">2.32</span>
+          <h3>clear-app-caches <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">clear-app-caches deletes the caches of Helium, Slack, Discord, Visual Studio Code, Spotify and Google Chrome.</p>
+          <pre><code>clear-app-caches</code></pre>
+          <ul>
+            <li>A LaunchAgent runs clear-app-caches every day at 03:00, and also at load. post-install installs the agent as <code>com.user.clear_app_caches</code>.</li>
+            <li>clear-app-caches exits with status 1 when <code>HOME</code> is unset or is not a directory.</li>
+            <li>clear-app-caches continues after a failed removal. Each removal is a best effort.</li>
+            <li>nuke-mrk and <code>make uninstall</code> unload the agent and delete it.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="clear-derived-data">
+        <div class="proc-header">
+          <span class="proc-num">2.33</span>
+          <h3>clear-derived-data <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">clear-derived-data deletes the contents of the Xcode DerivedData directory. It keeps the directory itself.</p>
+          <pre><code>clear-derived-data</code></pre>
+          <ul>
+            <li>A LaunchAgent runs clear-derived-data every Sunday at 03:00. post-install installs the agent as <code>com.user.clear_derived_data</code>.</li>
+            <li>clear-derived-data exits with status 1 when <code>HOME</code> is unset or is not a directory.</li>
+            <li>nuke-mrk and <code>make uninstall</code> unload the agent and delete it.</li>
           </ul>
         </div>
       </div>
