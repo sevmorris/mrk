@@ -1,6 +1,6 @@
 # mrk — macOS Bootstrap Manual
 
-_How to manage, maintain and migrate your Mac setup_
+_How I set up, maintain and migrate my Mac_
 
 [github.com/sevmorris/mrk](https://github.com/sevmorris/mrk)
 
@@ -9,6 +9,8 @@ _How to manage, maintain and migrate your Mac setup_
 # Overview
 
 **mrk** is a personal macOS bootstrap system. It configures a Mac from a clean installation. mrk manages these items: the shell environment, the dotfiles, the macOS system preferences, the Homebrew packages, the app settings, the login items, and the personal app preferences.
+
+This manual describes one machine: mine. The scripts are general. Every list inside them is a personal choice. This applies to the packages, the login items, the Dock, the preference domains, and the private repository that holds the preference data. Read the manual for the method. Do not run the commands on a different machine before you change those lists. The steps below say "you" because they are the steps I follow.
 
 **Key repositories:**
 
@@ -21,12 +23,18 @@ The two repositories keep the personal preference data out of the public reposit
 
 Keep both repositories current. You can then restore the full setup on a new machine, and you transfer nothing by hand. The repositories are the source of truth.
 
-> **How to adapt mrk for your own use:** This project fits one specific setup. If you fork it, do these four steps.
+> **How to adapt mrk for your own use:** This project fits one specific setup — mine. Nothing below is a recommendation for your machine. If you fork it, change each of these. The first one blocks everything else.
 >
-> 1. Replace `sevmorris/mrk-prefs` with your own private preferences repository.
-> 2. Replace the dotfiles with your own.
-> 3. Edit the app list in `scripts/post-install` to match your machine.
-> 4. Edit the app list in `scripts/snapshot-prefs` to match your machine.
+> 1. Set `PREFS_REPO` in `scripts/snapshot-prefs` to your own private preferences repository. It points at `sevmorris/mrk-prefs`, which you cannot read.
+> 2. Replace the dotfiles in `dotfiles/` with your own.
+> 3. Edit the `Brewfile`. Keep the `##` section headers, because the sync tools read them.
+> 4. Edit the `add_login_item` list in `scripts/post-install`. It adds eight applications.
+> 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 14 plist domains.
+> 6. Edit `DOCK_APPS` in `scripts/dock-setup`. The script clears the Dock before it adds the applications.
+> 7. Read `scripts/defaults.sh` before you run it. It writes 77 preference keys, and each key is a personal choice.
+> 8. Remove the `install_github_app` calls in `scripts/post-install` if you do not want Barkeep and KeyVault.
+>
+> Use `make setup-dry` and `make sync ARGS=-n` to see the result of a phase before you apply it.
 
 ---
 

@@ -898,3 +898,16 @@ body {
 html {
     scroll-behavior: smooth;
 }
+/* Scope banner — states that these defaults are one person's choices.
+   Sits outside #content, which script.js repopulates on every render. */
+.scope-note {
+    margin: var(--space-lg) 0;
+    padding: var(--space-md);
+    background: var(--color-background-secondary);
+    border-left: 4px solid var(--color-warning);
+    border-radius: 3px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+}
+.scope-note strong { color: var(--color-text); }

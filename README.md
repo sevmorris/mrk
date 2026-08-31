@@ -1,18 +1,30 @@
-# mrk — macOS bootstrap
+# mrk — personal macOS setup, maintenance and migration
 
-Personal, opinionated macOS bootstrap tailored to my workflow and toolset. Idempotent setup in three phases.
+This is my own machine, written down. mrk sets up a Mac from a clean install in three
+idempotent phases, keeps it in that state, and carries it to the next one. It is not a
+framework and not a starting point — it installs my apps, my login items, my defaults,
+and it pulls my private preferences repo.
+
+**Read it, fork it, take the parts you like.** Running it unmodified will configure your
+Mac to be mine. See [Adapting it](#adapting-it) if that is not what you want.
 
 **[Full workflow manual →](docs/manual.md)** · **[macOS defaults reference →](https://sevmorris.github.io/mrk/defaults/)** · **[~/bin command reference →](https://sevmorris.github.io/mrk/bin/mrk-usage.html)**
 
-**Setting up or moving a Mac?** [sevmac](https://sevmorris.github.io/sevmac/) is the narrative guide that wraps this repo — a new-machine walkthrough, a [migration checklist](https://sevmorris.github.io/sevmac/#mrk-migration) (including the key material `mrk-prefs` deliberately never carries), and a [day-to-day command card](https://sevmorris.github.io/sevmac/daily.html). The docs above are the reference; sevmac is the procedure.
+[sevmac](https://sevmorris.github.io/sevmac/) is the companion guide — the same ground written as procedure rather than reference: a new-machine walkthrough, a [migration checklist](https://sevmorris.github.io/sevmac/#mrk-migration) covering the key material `mrk-prefs` deliberately never carries, and a [day-to-day command card](https://sevmorris.github.io/sevmac/daily.html). Like this repo, it documents one machine rather than a general recipe.
 
 ## Quick Start
+
+For my machine, on a clean install:
 
 ```bash
 git clone https://github.com/sevmorris/mrk.git ~/mrk
 make -C ~/mrk all
 exec zsh
 ```
+
+On anyone else's, that clones a `mrk-prefs` you cannot read, adds eight login items you
+did not choose, rearranges the Dock, and installs two apps of mine. Fork first — see
+[Adapting it](#adapting-it).
 
 ## Quick Start (fun version)
 
@@ -82,6 +94,25 @@ Run `make all` to execute all three phases at once. On a fresh machine, run Phas
 | `make mrk-menu` | Build mrk-menu TUI launcher |
 | `make uninstall` | Remove symlinks, optionally rollback defaults |
 | `make fix-exec` | Fix executable permissions on scripts |
+
+## Adapting it
+
+Everything below is mine and will not suit you. The scripts are the interesting part; the
+data in them is not.
+
+| What | Where | Why it is personal |
+|---|---|---|
+| Preferences repo | `PREFS_REPO` in `scripts/snapshot-prefs` | Points at `sevmorris/mrk-prefs`, which is private. Nothing else works until you repoint it. |
+| Packages | `Brewfile` | My formulae and casks, with `##` section headers the sync tooling relies on. |
+| Login items | `add_login_item` block in `scripts/post-install` | AlDente, BetterSnapTool, Chrono Plus, Dropbox, Ice, Raycast, SoundSource, Stats. |
+| Snapshotted apps | `scripts/snapshot-prefs` | The 14 plist domains and the Application Support trees I care about. |
+| Dock | `DOCK_APPS` in `scripts/dock-setup` | Wipes the Dock before it rebuilds it. |
+| macOS defaults | `scripts/defaults.sh` | ~77 keys, each one a preference of mine. Documented in the [defaults reference](https://sevmorris.github.io/mrk/defaults/). |
+| Companion apps | `install_github_app` in `scripts/post-install` | Installs Barkeep and KeyVault, both mine. |
+| Dotfiles | `dotfiles/` | My shell, aliases and git config. |
+
+`make setup-dry`, `make sync ARGS=-n` and `make snapshot-keys ARGS=-n` all preview without
+writing, which is the cheapest way to see what a phase would do before it does it.
 
 ## Philosophy
 

@@ -58,6 +58,17 @@
         <!-- Main Content Area -->
         <main class="main" id="main">
             <div id="top"></div>
+
+            <div class="scope-note">
+                <strong>These are my preferences, not recommendations.</strong>
+                This page lists every key <code>defaults.sh</code> writes on my own Mac, so
+                that I can see what the script does and undo it later. A key is here because
+                it suits how I work. Read an entry for what the key controls, then decide for
+                yourself. Running <code>make defaults</code> applies all of them at once and
+                restarts Finder, Dock and SystemUIServer. It writes
+                <code>~/.mrk/defaults-rollback.sh</code> first, which reverses the run.
+            </div>
+
             <div class="content" id="content">
                 <div class="loading">
                     <div class="loading__spinner"></div>
