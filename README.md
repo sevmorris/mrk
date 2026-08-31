@@ -4,6 +4,8 @@ Personal, opinionated macOS bootstrap tailored to my workflow and toolset. Idemp
 
 **[Full workflow manual →](docs/manual.md)** · **[macOS defaults reference →](https://sevmorris.github.io/mrk/defaults/)** · **[~/bin command reference →](https://sevmorris.github.io/mrk/bin/mrk-usage.html)**
 
+**Setting up or moving a Mac?** [sevmac](https://sevmorris.github.io/sevmac/) is the narrative guide that wraps this repo — a new-machine walkthrough, a [migration checklist](https://sevmorris.github.io/sevmac/#mrk-migration) (including the key material `mrk-prefs` deliberately never carries), and a [day-to-day command card](https://sevmorris.github.io/sevmac/daily.html). The docs above are the reference; sevmac is the procedure.
+
 ## Quick Start
 
 ```bash
