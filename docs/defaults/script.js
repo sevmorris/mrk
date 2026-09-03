@@ -10,13 +10,15 @@ const DEFAULT_DESCRIPTIONS = {
     'com.apple.HIToolbox.AppleFnUsageType': {
         title: 'Globe Key Action',
         description: 'Sets what the globe key does. 0 is nothing, 1 changes the input source, 2 shows the emoji picker and 3 starts dictation.',
+        why: 'Dictation is off on this Mac, so the key would otherwise open a feature that is disabled.',
         category: 'Keyboard',
         systemDefault: '1 (change input source)'
     },
     'com.apple.assistant.support.Dictation Enabled': {
         title: 'Dictation',
-        description: 'Turns on Dictation, so the globe key shortcut can start it.',
+        description: 'Turns Dictation off. macOS then does not offer to transcribe speech into a text field, and it does not download the on-device speech model.',
         category: 'Keyboard',
+        why: 'The prompt that appears when you press the globe key turns Dictation on with one click, which is how it came to be enabled here. The speech model is close to a gigabyte, and nothing on this Mac had used it since 2024.',
         systemDefault: 'false'
     },
     'com.apple.assistant.support.Siri Data Sharing Opt-In Status': {

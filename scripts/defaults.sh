@@ -225,8 +225,8 @@ write_default NSGlobalDomain NSAutomaticSpellingCorrectionEnabled bool false || 
 # Why: the WebKit mirror of NSAutomaticSpellingCorrectionEnabled above; set separately or Safari still autocorrects
 write_default NSGlobalDomain WebAutomaticSpellingCorrectionEnabled bool false || failed=$(( failed + 1 ))
 
-# Globe key starts dictation (0 nothing, 1 input source, 2 emoji, 3 dictation)
-write_default com.apple.HIToolbox AppleFnUsageType int 3 || failed=$(( failed + 1 ))
+# Globe key opens the emoji picker (0 nothing, 1 input source, 2 emoji, 3 dictation)
+write_default com.apple.HIToolbox AppleFnUsageType int 2 || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Dock                                                                        #
@@ -482,8 +482,11 @@ write_default com.apple.WindowManager AppWindowGroupingBehavior int 1 || failed=
 # Dictation & spoken content                                                  #
 ###############################################################################
 
-# Turn on Dictation
-write_default com.apple.assistant.support "Dictation Enabled" bool true || failed=$(( failed + 1 ))
+# Turn Dictation off
+# Why: it was enabled by the globe-key prompt rather than on purpose, the
+# on-device model is a ~1 GB download, and the analytics store shows no use
+# since 2024. The globe key above now opens the emoji picker instead.
+write_default com.apple.assistant.support "Dictation Enabled" bool false || failed=$(( failed + 1 ))
 # Do not share Siri and Dictation audio with Apple (0 unasked, 1 in, 2 out)
 # Why: the value is an explicit answer, not a default — 0 means the question was never put
 write_default com.apple.assistant.support "Siri Data Sharing Opt-In Status" int 2 || failed=$(( failed + 1 ))
