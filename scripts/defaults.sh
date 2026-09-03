@@ -479,9 +479,20 @@ write_default com.apple.WindowManager EnableStandardClickToShowDesktop bool fals
 write_default com.apple.WindowManager AppWindowGroupingBehavior int 1 || failed=$(( failed + 1 ))
 
 ###############################################################################
-# Dictation & spoken content                                                  #
+# Siri, dictation & spoken content                                            #
 ###############################################################################
 
+# Turn Siri off
+write_default com.apple.assistant.support "Assistant Enabled" bool false || failed=$(( failed + 1 ))
+# Stop listening for the "Siri" wake word
+# Why: the wake word runs always-on microphone detection. Every other route into
+# Siri here is already closed — no menu bar item, no shortcut, no suggestions —
+# so this was the one part still doing work for a feature that is never used.
+write_default com.apple.Siri VoiceTriggerUserEnabled bool false || failed=$(( failed + 1 ))
+# No Siri item in the menu bar
+write_default com.apple.Siri StatusMenuVisible bool false || failed=$(( failed + 1 ))
+# No Siri Suggestions
+write_default com.apple.Siri SuggestionsEnabled bool false || failed=$(( failed + 1 ))
 # Turn Dictation off
 # Why: it was enabled by the globe-key prompt rather than on purpose, the
 # on-device model is a ~1 GB download, and the analytics store shows no use

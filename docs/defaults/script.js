@@ -1,5 +1,30 @@
 // macOS defaults documentation and descriptions
 const DEFAULT_DESCRIPTIONS = {
+    'com.apple.assistant.support.Assistant Enabled': {
+        title: 'Siri',
+        description: 'Turns Siri off. The Ask Siri feature stops, and macOS does not send a request to Apple\'s servers.',
+        category: 'Security',
+        systemDefault: 'true'
+    },
+    'com.apple.Siri.VoiceTriggerUserEnabled': {
+        title: 'Hey Siri Wake Word',
+        description: 'Stops the Mac from listening for the Siri wake word. Wake-word detection keeps the microphone active at all times.',
+        category: 'Security',
+        why: 'Every other route into Siri on this Mac is already closed. The wake word was the one part still running for a feature that is never used.',
+        systemDefault: 'true'
+    },
+    'com.apple.Siri.StatusMenuVisible': {
+        title: 'Siri Menu Bar Icon',
+        description: 'Removes the Siri icon from the menu bar.',
+        category: 'Menu Bar',
+        systemDefault: 'true'
+    },
+    'com.apple.Siri.SuggestionsEnabled': {
+        title: 'Siri Suggestions',
+        description: 'Turns off Siri Suggestions in Spotlight, Safari and the Look Up panel.',
+        category: 'Security',
+        systemDefault: 'true'
+    },
     'NSGlobalDomain.ContextMenuGesture': {
         title: 'Secondary Click Gesture',
         description: 'Sets how a secondary click is made on a trackpad. 1 is a click in the bottom-right corner.',
