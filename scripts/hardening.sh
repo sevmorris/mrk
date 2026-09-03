@@ -241,11 +241,21 @@ defaults write com.apple.LaunchServices LSQuarantine -bool false
 if $have_sudo; then
   log "Turning off Mac Analytics submission"
   DIAG="/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist"
-  # Read WITHOUT sudo. The plist is world-readable, and `sudo defaults read`
-  # fails when there are no cached credentials — which this treated as "the key
-  # is absent" and recorded a rollback that DELETES AutoSubmit rather than
-  # restoring it. Only the write needs privilege.
-  if prev_auto=$(defaults read "$DIAG" AutoSubmit 2>/dev/null); then
+  # Read plainly first, then with sudo, and treat the key as absent only when
+  # BOTH fail. Neither read alone is enough:
+  #
+  #   A plain read works on a stock Mac, where the plist is world-readable, and
+  #   stops a missing sudo credential being misread as a missing key — which
+  #   recorded a rollback that DELETES AutoSubmit instead of restoring it.
+  #
+  #   But `sudo defaults write` rewrites the file as root, mode 600. So from the
+  #   second run of this script onward the plain read fails on permissions, and
+  #   the plain read alone would reintroduce exactly the same bug.
+  #
+  # Only the write needs privilege; the reads are belt and braces.
+  if prev_auto=$(defaults read "$DIAG" AutoSubmit 2>/dev/null) \
+     || prev_auto=$(sudo -n defaults read "$DIAG" AutoSubmit 2>/dev/null) \
+     || prev_auto=$(sudo defaults read "$DIAG" AutoSubmit 2>/dev/null); then
     if ! grep -qF "defaults write \"$DIAG\" AutoSubmit " "$ROLL" 2>/dev/null; then
       auto_bool=false
       [[ "$prev_auto" == "1" ]] && auto_bool=true
