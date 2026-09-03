@@ -500,6 +500,7 @@
   <a href="#clean-ds">2.31 clean-ds</a>
   <a href="#clear-app-caches">2.32 clear-app-caches</a>
   <a href="#clear-derived-data">2.33 clear-derived-data</a>
+  <a href="#trim-services">2.34 trim-services</a>
   <a class="section-head">Sect. 3 — Reference</a>
   <a href="#lib">3.1 Shared Libraries</a>
   <a href="#quick-ref">3.2 Quick Reference</a>
@@ -664,12 +665,14 @@
             <span class="callout-label">Warning</span>
             <div class="callout-body">hardening.sh changes system files, and it needs sudo. It writes the rollback script to <code>~/.mrk/hardening-rollback.sh</code> before it changes anything. To undo the changes, run <code>bash ~/.mrk/hardening-rollback.sh</code>.</div>
           </div>
-          <p class="desc">hardening.sh applies four optional macOS settings. It asks you to confirm each one. Three of them raise the security floor. The fourth lowers it, and the list says which.</p>
+          <p class="desc">hardening.sh applies six optional macOS settings. It asks you to confirm each one. Five of them raise the security floor. One lowers it, and the list says which.</p>
           <pre><code>hardening.sh</code></pre>
           <ul>
             <li><strong>Touch ID for sudo</strong> — Adds <code>pam_tid.so</code> to <code>/etc/pam.d/sudo</code>.</li>
             <li><strong>Immediate password after sleep</strong> — Sets the screensaver password delay to 0.</li>
             <li><strong>Firewall and stealth mode</strong> — Turns on the macOS application firewall. hardening.sh checks the firewall state and the stealth mode state separately, so it can turn on stealth mode when the firewall is already on.</li>
+            <li><strong>Mac Analytics</strong> — Stops the submission of usage and crash data to Apple. This needs sudo, because the key is in a system plist. It is the third telemetry channel; <code>defaults.sh</code> already turns off Siri data sharing and personalised advertising.</li>
+            <li><strong>Handoff</strong> — Stops this Mac advertising its activity to nearby Apple devices, and stops it receiving theirs. The keys are ByHost, so hardening.sh writes them with <code>defaults -currentHost</code>.</li>
             <li><strong>Quarantine prompt — this step lowers the security floor.</strong> It sets <code>LSQuarantine</code> to false. macOS then does not show the "downloaded from the Internet" dialog on the first launch of an application. Gatekeeper still runs. The signature check and the notarization check are unchanged, and macOS still refuses an unsigned application. Only the extra confirmation goes away.</li>
           </ul>
         </div>
@@ -1233,6 +1236,31 @@ mrk-push                # mrk-push asks for the message</code></pre>
             <li>clear-derived-data exits with status 1 when <code>HOME</code> is unset or is not a directory.</li>
             <li>nuke-mrk and <code>make uninstall</code> unload the agent and delete it.</li>
           </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="trim-services">
+        <div class="proc-header">
+          <span class="proc-num">2.34</span>
+          <h3>trim-services <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">trim-services turns off background launchd agents that this Mac does not need. These are jobs, not preference keys, so they are not in <code>defaults.sh</code>.</p>
+          <pre><code>trim-services [-n | --dry-run] [--help | -h]</code></pre>
+          <ul>
+            <li><code>-n</code> or <code>--dry-run</code> — List each agent and the cost of turning it off. trim-services changes nothing.</li>
+          </ul>
+          <ul>
+            <li>trim-services uses <code>launchctl disable</code>, which writes to the launchd override database. The plists of the Apple agents are under <code>/System/Library/LaunchAgents</code>, and SIP does not allow a change to those. The override database is writable, and a disabled job stays disabled after a restart.</li>
+            <li>SIP also refuses <code>launchctl bootout</code> on an Apple agent that runs already. trim-services reports that case as "takes effect at next login" rather than as stopped.</li>
+            <li>trim-services writes <code>~/.mrk/services-rollback.sh</code>. Run <code>bash ~/.mrk/services-rollback.sh</code> to turn every agent back on.</li>
+            <li>Chrome installs its updater again when it next starts. Run trim-services again after a Chrome update.</li>
+            <li>trim-services is not part of <code>make all</code>. Run it through Make with <code>make trim-services</code>, or preview it with <code>make trim-services ARGS=-n</code>.</li>
+          </ul>
+          <div class="callout callout-caution">
+            <span class="callout-label">Caution</span>
+            <div class="callout-body">The Photos agents are the item with a real cost. Without <code>photoanalysisd</code> and <code>mediaanalysisd</code>, Photos does not build People albums or Memories, and Visual Look Up does not work.</div>
+          </div>
         </div>
       </div>
     </section>

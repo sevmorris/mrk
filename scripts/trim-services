@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# mrk trim-services — stop background agents this Mac does not need running.
+#
+# These are not `defaults` keys, so they do not belong in defaults.sh. They are
+# launchd jobs, and the tool for turning one off permanently is
+# `launchctl disable`, which writes to launchd's override database rather than
+# to the job's plist. That matters for the Apple ones: their plists live under
+# /System/Library/LaunchAgents and SIP will not let anything edit them, but the
+# override database is writable and survives a reboot.
+#
+# Every disable is recorded in ~/.mrk/services-rollback.sh, in the same shape as
+# the defaults and hardening rollbacks.
+#
+# This is opt-in and not part of `make all`. Turning a service off is a decision
+# about what this machine is for, and the cost of each one is different — see the
+# note beside each entry.
+
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+check_macos
+
+DRY_RUN=0
+usage() {
+  cat >&2 <<'EOF'
+Usage: trim-services [-n] [--help]
+
+Disable background launchd agents that this Mac does not need.
+
+  -n, --dry-run   Show what would change, change nothing
+  -h, --help      Show this help
+
+Undo everything with: bash ~/.mrk/services-rollback.sh
+EOF
+}
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -n|--dry-run) DRY_RUN=1; shift ;;
+    -h|--help)    usage; exit 0 ;;
+    *)            err "Unknown option: $1"; usage; exit 1 ;;
+  esac
+done
+
+ROLL="$STATE_DIR/services-rollback.sh"
+mkdir -p "$STATE_DIR"
+if [[ ! -f "$ROLL" ]] || ! grep -q '^#!/usr/bin/env bash$' "$ROLL" 2>/dev/null; then
+  (( DRY_RUN )) || { printf '#!/usr/bin/env bash\n' > "$ROLL"; chmod +x "$ROLL"; }
+fi
+rollback() {
+  (( DRY_RUN )) && return 0
+  grep -qFx "$1" "$ROLL" 2>/dev/null && return 0
+  echo "$1" >> "$ROLL"
+}
+
+# label|what it is|what turning it off costs
+SERVICES=(
+  "com.samsung.magiciansvc|Samsung Magician service|SSD health and firmware tool. Open the app when you want it; it does not need to run the rest of the year."
+  "com.samsung.magicianapp|Samsung Magician agent|Same tool, second agent."
+  "com.google.GoogleUpdater.wake|Google Chrome updater|Wakes hourly. The Brewfile carries google-chrome as greedy, so brew already upgrades Chrome. Chrome reinstalls this agent when it next launches — re-run this script after a Chrome update to put it back."
+  "com.apple.photoanalysisd|Photos face and scene analysis|Ends People albums, Memories and Visual Look Up. The heaviest item here, and the only one with a real feature cost."
+  "com.apple.mediaanalysisd|Media analysis (Visual Look Up)|Same family as photoanalysisd."
+)
+
+section "Trim services"
+(( DRY_RUN )) && dry "Dry run — nothing will change."
+
+disabled=0
+skipped=0
+for row in "${SERVICES[@]}"; do
+  IFS='|' read -r label what cost <<< "$row"
+  target="gui/$(id -u)/$label"
+
+  # `launchctl print` is the only reliable presence test: a job can be disabled
+  # and still have a plist, or be present with no plist at all.
+  if ! launchctl print "$target" >/dev/null 2>&1; then
+    logskip "$what" "not loaded"
+    skipped=$(( skipped + 1 ))
+    continue
+  fi
+
+  if (( DRY_RUN )); then
+    dry "Would disable $label — $what"
+    info "  $cost"
+    disabled=$(( disabled + 1 ))
+    continue
+  fi
+
+  log "$what"
+  info "$cost"
+  rollback "launchctl enable gui/\$(id -u)/$label"
+  rollback "launchctl kickstart gui/\$(id -u)/$label >/dev/null 2>&1 || true"
+  # disable first, so a job that respawns on bootout does not come straight back
+  if ! launchctl disable "$target" 2>/dev/null; then
+    warn "could not disable $label — skipping"
+    skipped=$(( skipped + 1 ))
+    continue
+  fi
+
+  # Report what actually happened rather than what was attempted. SIP refuses
+  # `bootout` on a running Apple agent — "Operation not permitted while System
+  # Integrity Protection is engaged" — so the override lands and the process
+  # keeps running until the next login. Saying "disabled" there would be a lie
+  # of the kind this repo has been bitten by before.
+  if launchctl bootout "$target" 2>/dev/null; then
+    ok "$label disabled and stopped"
+  else
+    ok "$label disabled — takes effect at next login"
+    info "  still running now; SIP does not allow stopping it"
+  fi
+  disabled=$(( disabled + 1 ))
+done
+
+echo "" >&2
+if (( DRY_RUN )); then
+  ok "Would disable $disabled service(s); $skipped already absent."
+else
+  ok "Disabled $disabled service(s); $skipped skipped."
+  info "Undo with: bash $ROLL"
+  info "A disabled job stays disabled across a reboot."
+  info "Confirm with: launchctl print-disabled gui/\$(id -u)"
+fi

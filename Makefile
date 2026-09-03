@@ -10,7 +10,7 @@ define link-home-bin
 	@ln -sf "$(BIN_DIR)/$(1)" "$(INSTALL_BIN)/$(1)"
 endef
 
-.PHONY: all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos dock help check ci maintain
+.PHONY: trim-services all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos dock help check ci maintain
 
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
 define go-build
@@ -110,6 +110,9 @@ updates: ## Run macOS software updates
 
 maintain: ## Housekeeping: prune Pages deployments, fetch --prune, validate, check builds
 	@"$(BIN_DIR)/maintain" $(ARGS)
+
+trim-services: ## Disable background launchd agents this Mac does not need  (ARGS=-n for dry run)
+	@"$(SCRIPTS)/trim-services" $(ARGS)
 
 harden: ## Apply macOS security hardening
 	@"$(SCRIPTS)/hardening.sh" $(ARGS)

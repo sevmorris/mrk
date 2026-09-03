@@ -214,4 +214,49 @@ if ! grep -qF "defaults write com.apple.LaunchServices LSQuarantine " "$ROLL" 2>
 fi
 defaults write com.apple.LaunchServices LSQuarantine -bool false
 
+# 5) Stop sending Mac Analytics to Apple
+#
+# This lives in a system plist, so it needs sudo, which is why it is here and
+# not in defaults.sh. It is the last of the three telemetry channels: Siri data
+# sharing and personalised advertising are already off in defaults.sh, and this
+# is the usage-and-crash one.
+if $have_sudo; then
+  log "Turning off Mac Analytics submission"
+  DIAG="/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist"
+  if prev_auto=$(sudo defaults read "$DIAG" AutoSubmit 2>/dev/null); then
+    if ! grep -qF "defaults write \"$DIAG\" AutoSubmit " "$ROLL" 2>/dev/null; then
+      auto_bool=false
+      [[ "$prev_auto" == "1" ]] && auto_bool=true
+      rollback "sudo defaults write \"$DIAG\" AutoSubmit -bool ${auto_bool}"
+    fi
+  else
+    rollback "sudo defaults delete \"$DIAG\" AutoSubmit >/dev/null 2>&1 || true"
+  fi
+  sudo defaults write "$DIAG" AutoSubmit -bool false 2>/dev/null \
+    || warn "Failed to write AutoSubmit (may require Full Disk Access for the terminal)"
+  sudo defaults write "$DIAG" ThirdPartyDataSubmit -bool false 2>/dev/null || true
+else
+  log "Skipping Mac Analytics (sudo unavailable)"
+fi
+
+# 6) Turn off Handoff
+#
+# ByHost, so it needs `defaults -currentHost` — write_default in defaults.sh
+# issues a plain `defaults write` and would put the keys in the wrong plist.
+# Handoff advertises what you are doing to nearby Apple devices. iPhone call
+# relay and iPhone widgets are already off; this is the rest of that story.
+log "Turning off Handoff"
+for hk in ActivityAdvertisingAllowed ActivityReceivingAllowed; do
+  if prev_h=$(defaults -currentHost read com.apple.coreservices.useractivityd "$hk" 2>/dev/null); then
+    if ! grep -qF "defaults -currentHost write com.apple.coreservices.useractivityd $hk " "$ROLL" 2>/dev/null; then
+      h_bool=false
+      [[ "$prev_h" == "1" ]] && h_bool=true
+      rollback "defaults -currentHost write com.apple.coreservices.useractivityd $hk -bool ${h_bool}"
+    fi
+  else
+    rollback "defaults -currentHost delete com.apple.coreservices.useractivityd $hk >/dev/null 2>&1 || true"
+  fi
+  defaults -currentHost write com.apple.coreservices.useractivityd "$hk" -bool false
+done
+
 log "Hardening done. Rollback: $ROLL"
