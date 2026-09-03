@@ -1,5 +1,115 @@
 // macOS defaults documentation and descriptions
 const DEFAULT_DESCRIPTIONS = {
+    'com.apple.voicetrigger.VoiceTrigger Enabled': {
+        title: 'Voice Trigger Daemon',
+        description: 'Stops the voice-trigger daemon from listening for the wake word.',
+        category: 'Security',
+        why: 'This is a second wake-word switch, in its own domain. Turning off the one in com.apple.Siri leaves this at true, and the detector keeps running.',
+        systemDefault: 'true'
+    },
+    'com.apple.Sharing.SharingPeopleSuggestionsDisabled': {
+        title: 'Share Sheet Suggestions',
+        description: 'Removes the suggested people from the top row of the share sheet.',
+        category: 'Security',
+        systemDefault: 'false'
+    },
+    'com.apple.amp.mediasharingd.home-sharing-enabled': {
+        title: 'Home Sharing',
+        description: 'Turns off Home Sharing, so the music and video library is not offered to other devices on the network.',
+        category: 'Security',
+        systemDefault: '0'
+    },
+    'com.apple.amp.mediasharingd.photo-sharing-enabled': {
+        title: 'Photo Sharing to Apple TV',
+        description: 'Stops the Mac offering its photo library to an Apple TV.',
+        category: 'Security',
+        systemDefault: '0'
+    },
+    'com.apple.amp.mediasharingd.public-sharing-enabled': {
+        title: 'Guest Media Sharing',
+        description: 'Stops the Mac sharing its media library with guests on the network.',
+        category: 'Security',
+        systemDefault: '0'
+    },
+    'com.apple.messages.nicknames.MeCardSharingEnabled': {
+        title: 'Messages Name and Photo',
+        description: 'Stops Messages sharing your name and photo with the people you write to.',
+        category: 'Security',
+        systemDefault: 'true'
+    },
+    'com.apple.chronod.remoteWidgetsEnabled': {
+        title: 'iPhone Widgets',
+        description: 'Stops widgets from a paired iPhone appearing on this Mac.',
+        category: 'Interface',
+        systemDefault: 'true'
+    },
+    'com.apple.TelephonyUtilities.relayCallingDisabled': {
+        title: 'iPhone Call Relay',
+        description: 'Stops this Mac from ringing for a call that arrives on a paired iPhone.',
+        category: 'Interface',
+        systemDefault: 'false'
+    },
+    'com.apple.airplay.showInMenuBarIfPresent': {
+        title: 'AirPlay Menu Bar Icon',
+        description: 'Removes the AirPlay item from the menu bar.',
+        category: 'Menu Bar',
+        systemDefault: 'true'
+    },
+    'com.apple.TextInputMenu.visible': {
+        title: 'Input Source Menu Bar Icon',
+        description: 'Removes the input-source item from the menu bar. It is only useful with more than one keyboard layout.',
+        category: 'Menu Bar',
+        systemDefault: 'true'
+    },
+    'com.apple.Passwords.showMenuBarExtra': {
+        title: 'Passwords Menu Bar Icon',
+        description: 'Removes the Passwords item from the menu bar.',
+        category: 'Menu Bar',
+        systemDefault: 'true'
+    },
+    'com.apple.Passwords.EnableMenuBarExtra': {
+        title: 'Passwords Menu Bar Switch',
+        description: 'The second switch for the Passwords menu bar item. Set both, or the item comes back.',
+        category: 'Menu Bar',
+        systemDefault: 'true'
+    },
+    'com.apple.FolderActionsDispatcher.folderActionsEnabled': {
+        title: 'Folder Actions',
+        description: 'Turns off Folder Actions, the AppleScript hooks that run when a folder changes.',
+        category: 'Applications',
+        systemDefault: 'false'
+    },
+    'com.apple.SpeechRecognitionCore.AllowAudioDucking': {
+        title: 'Speech Audio Ducking',
+        description: 'Stops macOS lowering other audio when speech recognition runs.',
+        category: 'Audio',
+        why: 'Ducking interrupts playback in the middle of audio work.',
+        systemDefault: 'true'
+    },
+    'com.apple.Music.showAppleMusic': {
+        title: 'Apple Music Content',
+        description: 'Hides the Apple Music subscription content, so the sidebar shows the local library alone.',
+        category: 'Applications',
+        systemDefault: 'true'
+    },
+    'com.apple.Music.userWantsPlaybackNotifications': {
+        title: 'Track Change Notifications',
+        description: 'Stops Music showing a notification for each track change.',
+        category: 'Applications',
+        systemDefault: 'true'
+    },
+    'com.apple.Music.useErrorCorrection': {
+        title: 'CD Import Error Correction',
+        description: 'Uses error correction when importing an audio CD. The import is slower and the result is more accurate.',
+        category: 'Applications',
+        systemDefault: 'false'
+    },
+    'com.apple.Safari.SandboxBroker.ShowDevelopMenu': {
+        title: 'Safari Develop Menu',
+        description: 'Keeps the Develop menu out of the Safari menu bar.',
+        category: 'Applications',
+        systemDefault: 'false'
+    },
     'com.apple.assistant.support.Assistant Enabled': {
         title: 'Siri',
         description: 'Turns Siri off. The Ask Siri feature stops, and macOS does not send a request to Apple\'s servers.',

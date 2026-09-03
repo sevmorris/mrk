@@ -489,6 +489,11 @@ write_default com.apple.assistant.support "Assistant Enabled" bool false || fail
 # Siri here is already closed — no menu bar item, no shortcut, no suggestions —
 # so this was the one part still doing work for a feature that is never used.
 write_default com.apple.Siri VoiceTriggerUserEnabled bool false || failed=$(( failed + 1 ))
+# Stop the voice-trigger daemon listening as well
+# Why: this is a second wake-word switch in its own domain. Turning off
+# com.apple.Siri VoiceTriggerUserEnabled above left this one at true, so the
+# detector kept running for a Siri that is now disabled.
+write_default com.apple.voicetrigger "VoiceTrigger Enabled" bool false || failed=$(( failed + 1 ))
 # No Siri item in the menu bar
 write_default com.apple.Siri StatusMenuVisible bool false || failed=$(( failed + 1 ))
 # No Siri Suggestions
@@ -516,6 +521,56 @@ write_default com.apple.mail AddressesIncludeNameOnPasteboard bool false || fail
 # A new event goes to the calendar last selected
 # Why: the alternative is a specific calendar ID, which is per-machine and does not travel
 write_default com.apple.iCal CalDefaultCalendar string UseLastSelectedAsDefaultCalendar || failed=$(( failed + 1 ))
+
+###############################################################################
+# Sharing & handoff                                                           #
+###############################################################################
+
+# No people suggestions in the share sheet
+write_default com.apple.Sharing SharingPeopleSuggestionsDisabled bool true || failed=$(( failed + 1 ))
+# No Home Sharing of the media library
+write_default com.apple.amp.mediasharingd home-sharing-enabled int 0 || failed=$(( failed + 1 ))
+# No photo sharing to Apple TV
+write_default com.apple.amp.mediasharingd photo-sharing-enabled int 0 || failed=$(( failed + 1 ))
+# Do not share the media library with guests on the network
+write_default com.apple.amp.mediasharingd public-sharing-enabled int 0 || failed=$(( failed + 1 ))
+# Do not share a name and photo in Messages
+write_default com.apple.messages.nicknames MeCardSharingEnabled bool false || failed=$(( failed + 1 ))
+# No iPhone widgets on this Mac
+write_default com.apple.chronod remoteWidgetsEnabled bool false || failed=$(( failed + 1 ))
+# Do not take iPhone calls on this Mac
+write_default com.apple.TelephonyUtilities relayCallingDisabled bool true || failed=$(( failed + 1 ))
+
+###############################################################################
+# Menu bar extras                                                             #
+###############################################################################
+
+# No AirPlay item in the menu bar
+write_default com.apple.airplay showInMenuBarIfPresent bool false || failed=$(( failed + 1 ))
+# No input-source item in the menu bar
+write_default com.apple.TextInputMenu visible bool false || failed=$(( failed + 1 ))
+# No Passwords item in the menu bar
+write_default com.apple.Passwords showMenuBarExtra bool false || failed=$(( failed + 1 ))
+# The second Passwords menu bar switch; both are needed
+write_default com.apple.Passwords EnableMenuBarExtra bool false || failed=$(( failed + 1 ))
+
+###############################################################################
+# Applications                                                                #
+###############################################################################
+
+# No Folder Actions
+write_default com.apple.FolderActionsDispatcher folderActionsEnabled bool false || failed=$(( failed + 1 ))
+# Do not lower other audio for speech recognition
+# Why: ducking interrupts playback during audio work
+write_default com.apple.SpeechRecognitionCore AllowAudioDucking bool false || failed=$(( failed + 1 ))
+# Hide the Apple Music subscription content
+write_default com.apple.Music showAppleMusic bool false || failed=$(( failed + 1 ))
+# No track-change notifications
+write_default com.apple.Music userWantsPlaybackNotifications bool false || failed=$(( failed + 1 ))
+# Use error correction when importing a CD
+write_default com.apple.Music useErrorCorrection bool true || failed=$(( failed + 1 ))
+# No Develop menu in Safari
+write_default com.apple.Safari.SandboxBroker ShowDevelopMenu bool false || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Xcode                                                                       #
