@@ -83,7 +83,12 @@ Run `make all` to execute all three phases at once. On a fresh machine, run Phas
 | `make mrk-status` | Build mrk-status TUI health dashboard |
 | `make mrk-menu` | Build mrk-menu TUI launcher |
 | `make uninstall` | Remove symlinks, optionally rollback defaults |
-| `make fix-exec` | Fix executable permissions on scripts |
+| `make fix-exec` | Fix executable permissions on scripts, and prune dead `~/bin` links |
+
+Most targets also exist as bare commands in `~/bin` — `sync`, `snapshot-prefs`, `harden`,
+`doctor`, `maintain`, `build-tools`, `trim-services` and the rest. `make setup` creates the
+symlinks; the phase scripts take an `mrk-` prefix (`mrk-brew`, `mrk-setup`) so they do not
+shadow `brew` or `install`.
 
 ## Adapting it
 

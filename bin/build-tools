@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# build-tools — rebuild the mrk Go binaries from anywhere.
+#
+# A thin wrapper over `make build-tools` rather than a second copy of the build.
+# The Makefile stamps each binary with the version and the commit through
+# -ldflags and then symlinks it into ~/bin; duplicating that here would give two
+# build paths that drift, which is the failure this repo keeps finding
+# elsewhere. So this resolves the repo and hands off.
+#
+# Usage:
+#   build-tools            Rebuild mrk-picker, mrk-status and mrk-menu
+#   build-tools --help
+
+_src="${BASH_SOURCE[0]}"
+while [[ -L "$_src" ]]; do
+  _dir="$(cd "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  [[ "$_src" != /* ]] && _src="$_dir/$_src"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+case "${1:-}" in
+  -h|--help)
+    cat <<'EOF'
+build-tools — rebuild the mrk Go binaries
+
+Usage:
+  build-tools            Rebuild mrk-picker, mrk-status and mrk-menu,
+                         and relink them into ~/bin
+  -h, --help             Show this help
+
+Equivalent to `make -C ~/mrk build-tools`. Needs Go.
+EOF
+    exit 0
+    ;;
+  "") ;;
+  *)
+    err "Unknown option: $1"
+    exit 1
+    ;;
+esac
+
+if [[ ! -f "$REPO_ROOT/Makefile" ]]; then
+  err "No Makefile at $REPO_ROOT — cannot find the mrk repo"
+  exit 1
+fi
+
+require_cmd go make || exit 1
+
+exec make -C "$REPO_ROOT" build-tools

@@ -252,6 +252,16 @@ phase_link_tools() {
     esac
   }
 
+  # Explicit rename, for a script whose file name is not its command name.
+  # `harden` matches the Make target, and an extension has no business in a
+  # command name — the mrk- path below already strips .sh for defaults.sh.
+  _rename_link() {
+    case "$1" in
+      hardening.sh) printf 'harden' ;;
+      *) return 1 ;;
+    esac
+  }
+
   # Returns 0 if the script should be linked with an "mrk-" prefix
   # (to avoid shadowing system commands or clarify they are mrk phases)
   _prefix_link() {
@@ -292,8 +302,18 @@ phase_link_tools() {
       local base link_name
       base="$(basename "$f")"
 
-      # Determine link name: prefixed scripts get "mrk-" prefix
-      if _prefix_link "$base"; then
+      # Determine link name: an explicit rename wins, then the "mrk-" prefix
+      if link_name=$(_rename_link "$base"); then
+        # A rename leaves the previous link behind, and it is not dead — it
+        # still points at a real file — so fix-exec's dead-link prune will
+        # never collect it. Remove it here, where the old name is known, and
+        # only when it is a symlink into this repo.
+        local _stale="$INSTALL_BIN/$base"
+        if [[ -L "$_stale" ]] && [[ "$(readlink "$_stale")" == "$REPO_ROOT"/* ]]; then
+          (( DRY_RUN )) || rm -f "$_stale"
+          dry "Removed superseded link: $base (now $link_name)"
+        fi
+      elif _prefix_link "$base"; then
         # Strip .sh extension for cleaner names (defaults.sh → mrk-defaults)
         link_name="mrk-${base%.sh}"
       else

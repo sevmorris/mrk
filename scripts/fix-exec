@@ -27,17 +27,36 @@ for dir in "$PROJECT_ROOT/scripts" "$PROJECT_ROOT/bin"; do
   fi
 done
 
-# In ~/bin, only fix symlinks that point back into this repo
+# In ~/bin, only touch symlinks that point back into this repo.
+#
+# Two jobs. Set the executable bit on the live ones, and delete the dead ones:
+# nothing else prunes them, so every script removed from the repo left a
+# dangling link in ~/bin forever. Removing adventure mode is what surfaced it —
+# ~/bin/adventure-prologue outlived scripts/adventure-prologue.
+#
+# The delete is deliberately narrow. A link is removed only when it points
+# INSIDE this repo and its target is gone, so a link to anywhere else, and a
+# real file of the same name, are both left alone.
 if [ -d "$HOME/bin" ]; then
   fixed=0
+  pruned=0
   while IFS= read -r -d '' link; do
     target="$(readlink "$link" 2>/dev/null || true)"
-    if [[ "$target" == "$PROJECT_ROOT"/* ]]; then
+    case "$target" in
+      "$PROJECT_ROOT"/*) ;;
+      *) continue ;;
+    esac
+    if [ -e "$target" ]; then
       chmod +x "$link" 2>/dev/null || true
-      ((fixed++)) || true
+      fixed=$((fixed + 1))
+    else
+      rm -f "$link"
+      echo "  ✂ pruned dead link: $(basename "$link") -> ${target#"$PROJECT_ROOT"/}"
+      pruned=$((pruned + 1))
     fi
   done < <(find "$HOME/bin" -maxdepth 1 -type l -print0 2>/dev/null || true)
   echo "✓ Fixed $fixed mrk symlink(s) in: $HOME/bin"
+  [ "$pruned" -gt 0 ] && echo "✓ Pruned $pruned dead link(s)"
 fi
 
 echo "✅ Done."

@@ -470,7 +470,7 @@
   <a href="#check-updates">2.1 check-updates</a>
   <a href="#doctor">2.2 doctor</a>
   <a href="#fix-exec">2.3 fix-exec</a>
-  <a href="#hardening">2.4 hardening.sh</a>
+  <a href="#hardening">2.4 harden</a>
   <a href="#hide-tm">2.5 hide_tm.sh</a>
   <a href="#pull-prefs">2.6 pull-prefs</a>
   <a href="#snapshot-prefs">2.7 snapshot-prefs</a>
@@ -657,21 +657,21 @@
       <div class="proc" id="hardening">
         <div class="proc-header">
           <span class="proc-num">2.4</span>
-          <h3>hardening.sh <span class="tag tag-mrk">mrk</span></h3>
+          <h3>harden <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
           <div class="callout callout-warn">
             <span class="callout-label">Warning</span>
-            <div class="callout-body">hardening.sh changes system files, and it needs sudo. It writes the rollback script to <code>~/.mrk/hardening-rollback.sh</code> before it changes anything. To undo the changes, run <code>bash ~/.mrk/hardening-rollback.sh</code>.</div>
+            <div class="callout-body">harden changes system files, and it needs sudo. It writes the rollback script to <code>~/.mrk/hardening-rollback.sh</code> before it changes anything. To undo the changes, run <code>bash ~/.mrk/hardening-rollback.sh</code>.</div>
           </div>
-          <p class="desc">hardening.sh applies six optional macOS settings. It asks you to confirm each one. Five of them raise the security floor. One lowers it, and the list says which.</p>
-          <pre><code>hardening.sh</code></pre>
+          <p class="desc">harden applies six optional macOS settings. It asks you to confirm each one. Five of them raise the security floor. One lowers it, and the list says which.</p>
+          <pre><code>harden [--yes | -y] [--help | -h]</code></pre>
           <ul>
             <li><strong>Touch ID for sudo</strong> — Adds <code>pam_tid.so</code> to <code>/etc/pam.d/sudo</code>.</li>
             <li><strong>Immediate password after sleep</strong> — Sets the screensaver password delay to 0.</li>
-            <li><strong>Firewall and stealth mode</strong> — Turns on the macOS application firewall. hardening.sh checks the firewall state and the stealth mode state separately, so it can turn on stealth mode when the firewall is already on.</li>
+            <li><strong>Firewall and stealth mode</strong> — Turns on the macOS application firewall. harden checks the firewall state and the stealth mode state separately, so it can turn on stealth mode when the firewall is already on.</li>
             <li><strong>Mac Analytics</strong> — Stops the submission of usage and crash data to Apple. This needs sudo, because the key is in a system plist. It is the third telemetry channel; <code>defaults.sh</code> already turns off Siri data sharing and personalised advertising.</li>
-            <li><strong>Handoff</strong> — Stops this Mac advertising its activity to nearby Apple devices, and stops it receiving theirs. The keys are ByHost, so hardening.sh writes them with <code>defaults -currentHost</code>.</li>
+            <li><strong>Handoff</strong> — Stops this Mac advertising its activity to nearby Apple devices, and stops it receiving theirs. The keys are ByHost, so harden writes them with <code>defaults -currentHost</code>.</li>
             <li><strong>Quarantine prompt — this step lowers the security floor.</strong> It sets <code>LSQuarantine</code> to false. macOS then does not show the "downloaded from the Internet" dialog on the first launch of an application. Gatekeeper still runs. The signature check and the notarization check are unchanged, and macOS still refuses an unsigned application. Only the extra confirmation goes away.</li>
           </ul>
         </div>
@@ -1326,7 +1326,9 @@ mrk-push                # mrk-push asks for the message</code></pre>
           <tr><td><code>ci-check</code></td><td>Run the local validation: picker descriptions, shellcheck and go test</td></tr>
           <tr><td><code>check-picker-desc</code></td><td>Check that every Brewfile package has a picker description</td></tr>
           <tr><td><code>nuke-mrk</code></td><td>Delete every mrk file, so that you can install mrk again</td></tr>
-          <tr><td><code>hardening.sh</code></td><td>Apply the optional macOS security settings</td></tr>
+          <tr><td><code>harden</code></td><td>Apply the optional macOS security settings</td></tr>
+          <tr><td><code>trim-services</code></td><td>Disable background launchd agents this Mac does not need</td></tr>
+          <tr><td><code>build-tools</code></td><td>Rebuild the mrk Go binaries and relink them into ~/bin</td></tr>
           <tr><td><code>make doctor ARGS=--fix</code></td><td>Add ~/bin to the PATH in ~/.zshrc</td></tr>
           <tr><td><code>make check</code></td><td>Run the local validation</td></tr>
           <tr><td><code>make ci</code></td><td>Run the local validation, and build the TUI binaries</td></tr>

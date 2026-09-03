@@ -13,9 +13,27 @@ SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 # shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
+usage() {
+  cat >&2 <<'EOF'
+Usage: harden [--yes | -y] [--help | -h]
+
+Apply the macOS security settings, with a rollback script.
+
+  -y, --yes    Skip every confirmation prompt
+  -h, --help   Show this help
+
+Undo with: bash ~/.mrk/hardening-rollback.sh
+EOF
+}
+
+# An unknown argument used to fall through this loop and the script ran anyway.
+# `harden --help` therefore APPLIED the settings instead of printing help, which
+# is a poor thing for a script that edits /etc/pam.d/sudo to do.
 for _arg in "$@"; do
   case "$_arg" in
-    --yes|-y) NONINTERACTIVE=1 ;;
+    --yes|-y)  NONINTERACTIVE=1 ;;
+    --help|-h) usage; exit 0 ;;
+    *)         echo "harden: unknown option: $_arg" >&2; usage; exit 1 ;;
   esac
 done
 
@@ -223,7 +241,11 @@ defaults write com.apple.LaunchServices LSQuarantine -bool false
 if $have_sudo; then
   log "Turning off Mac Analytics submission"
   DIAG="/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist"
-  if prev_auto=$(sudo defaults read "$DIAG" AutoSubmit 2>/dev/null); then
+  # Read WITHOUT sudo. The plist is world-readable, and `sudo defaults read`
+  # fails when there are no cached credentials — which this treated as "the key
+  # is absent" and recorded a rollback that DELETES AutoSubmit rather than
+  # restoring it. Only the write needs privilege.
+  if prev_auto=$(defaults read "$DIAG" AutoSubmit 2>/dev/null); then
     if ! grep -qF "defaults write \"$DIAG\" AutoSubmit " "$ROLL" 2>/dev/null; then
       auto_bool=false
       [[ "$prev_auto" == "1" ]] && auto_bool=true
