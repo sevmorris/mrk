@@ -122,7 +122,7 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 - **Application Support restore:** Restores the Loopback and SoundSource configuration files. Phase 3 skips a file that exists.
 - **Fonts:** Restores the fonts captured by `snapshot-prefs` into `~/Library/Fonts`. Phase 3 skips a font that is already installed.
 - **GPG pinentry:** Points `gpg-agent` at `pinentry-mac`, so gpg asks for a passphrase in a window. Phase 3 adds one line to `~/.gnupg/gpg-agent.conf`, and it skips this step when the file already sets `pinentry-program`.
-- **Config directory restore:** Restores the Calibre configuration into `~/Library/Preferences/calibre/`, and the MusicBrainz Picard configuration into `~/.config/MusicBrainz`. Phase 3 skips each when its sentinel file exists — `gui.json` for Calibre, `Picard.ini` for Picard.
+- **Config directory restore:** Restores the Calibre configuration into `~/Library/Preferences/calibre/`. Phase 3 skips this step when `gui.json` exists.
 - **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dropbox, Ice, Raycast, SoundSource, Stats
 
 > **Note:** Phase 3 continues when a step fails. It counts the failed steps and reports the total at the end.

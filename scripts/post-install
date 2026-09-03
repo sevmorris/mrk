@@ -728,9 +728,6 @@ if [[ -d "$LOCAL_PREFS_DIR" ]]; then
   # gui.json is Calibre's main config — its absence means Calibre is unconfigured.
   restore_pref_dir "/Applications/calibre.app" "calibre" \
     "$HOME/Library/Preferences/calibre" "gui.json" "Calibre" || failed=$(( failed + 1 ))
-  # Picard keeps its INI under ~/.config, not under ~/Library/Preferences.
-  restore_pref_dir "/Applications/MusicBrainz Picard.app" "musicbrainz" \
-    "$HOME/.config/MusicBrainz" "Picard.ini" "MusicBrainz Picard" || failed=$(( failed + 1 ))
 fi
 
 ###############################################################################

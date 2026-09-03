@@ -720,7 +720,7 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
           <ul>
             <li><strong>Apps:</strong> BetterSnapTool, Ice, iTerm2, Raycast, Stats, Loopback, SoundSource, Audio Hijack, Farrago, Piezo, Typora, Keka, TimeMachineEditor, MacWhisper</li>
             <li><strong>Application Support:</strong> Loopback (devices and routing), SoundSource (presets and sources)</li>
-            <li><strong>Config directories:</strong> Calibre (<code>~/Library/Preferences/calibre/</code>) and MusicBrainz Picard (<code>~/.config/MusicBrainz</code>, the <code>.ini</code> files only). Each keeps a tree of files, not a defaults domain, so snapshot-prefs copies the files.</li>
+            <li><strong>Config directories:</strong> Calibre (<code>~/Library/Preferences/calibre/</code>). Calibre keeps a tree of files, not a defaults domain, so snapshot-prefs copies the files. <code>~/.config/MusicBrainz</code> is deliberately not copied: Picard writes its OAuth tokens into the same INI as its settings.</li>
             <li>snapshot-prefs converts each binary plist to xml1 before it scans the file, because the scan cannot read a binary plist.</li>
             <li>snapshot-prefs skips an app that is not installed, and it reports the skipped apps when it exits.</li>
           </ul>

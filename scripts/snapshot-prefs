@@ -279,12 +279,17 @@ snapshot_pref_dir(){
 snapshot_pref_dir "$HOME/Library/Preferences/calibre" "calibre" "Calibre" \
   "*.json" "*.plist" "conversion" "plugins/*.json" "plugins/*/account"
 
-# MusicBrainz Picard keeps an INI under ~/.config — a dotfile in everything but
-# location, which is the only reason Magic Backup Machine was carrying it.
-# Migrated 2026-09-02. Only the .ini files: the directory also holds plugin code
-# and sync locks, which are re-fetchable and machine-local respectively.
-snapshot_pref_dir "$HOME/.config/MusicBrainz" "musicbrainz" "MusicBrainz Picard" \
-  "*.ini"
+# ~/.config/MusicBrainz is deliberately NOT captured, though it looks like an
+# obvious candidate — an INI under ~/.config, which is a dotfile in everything
+# but location. Picard writes oauth_access_token and oauth_refresh_token into
+# the same file as the settings, and the secret scan caught all three INIs on
+# the first run after this was added. Splitting settings from credentials would
+# mean rewriting the file, and a rewritten INI does not restore cleanly.
+#
+# Unlike the Calibre DeACSM activation below, these tokens are worth nothing to
+# carry: re-authorising Picard is a login. The org.musicbrainz.Picard plist
+# above holds the UI preferences and is clean, so that half is captured.
+# Magic Backup Machine keeps the config directory.
 
 # ── Fonts ─────────────────────────────────────────────────────────────────────
 
@@ -392,7 +397,12 @@ fi
 if [[ -f repos.tsv ]] || git ls-files --error-unmatch -- repos.tsv >/dev/null 2>&1; then
   add_specs+=('repos.tsv')
 fi
-for tree in app-support config fonts; do
+# sevmorris-apps was added in the 2026-09-02 migration and omitted here, so the
+# 22 plists were exported to disk, never staged, and the commit reported success
+# without them. Any new destination directory has to be added to this list —
+# that is the cost of staging by pathspec rather than `git add .`, which is
+# still the right trade (finding N-5).
+for tree in app-support config fonts sevmorris-apps; do
   if [[ -d "$tree" ]] || git ls-files --error-unmatch -- "$tree" >/dev/null 2>&1; then
     add_specs+=("$tree")
   fi
