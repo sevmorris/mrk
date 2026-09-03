@@ -114,6 +114,14 @@ snapshot_plist "com.aone.keka"                          "Keka.plist"            
 snapshot_plist "com.tclementdev.timemachineeditor.application" "TimeMachineEditor.plist" "/Applications/TimeMachineEditor.app" "TimeMachineEditor"
 snapshot_plist "com.goodsnooze.MacWhisper"              "MacWhisper.plist"        "/Applications/MacWhisper.app"       "MacWhisper"
 
+# Migrated out of Magic Backup Machine, 2026-09-02. MBM carried these inside an
+# rsync mirror, which keeps the current state and no history. They are settings,
+# they are tiny, and a regression in one is worth being able to diff.
+snapshot_plist "net.imput.helium"                       "Helium.plist"            "/Applications/Helium.app"           "Helium"
+snapshot_plist "com.descript.beachcube"                 "Descript.plist"          "/Applications/Descript.app"         "Descript"
+snapshot_plist "com.WavesAudio.central"                 "WavesCentral.plist"      "/Applications/Waves Central.app"    "Waves Central"
+snapshot_plist "org.musicbrainz.Picard"                 "Picard.plist"            "/Applications/MusicBrainz Picard.app" "MusicBrainz Picard"
+
 # KeyVault (io.github.sevmorris.KeyVault) is deliberately absent, and must stay
 # absent. It is a secrets manager. Its API keys and notes are self-describing
 # Keychain items, not UserDefaults, so a plist export would carry no secret —
@@ -124,6 +132,45 @@ snapshot_plist "com.goodsnooze.MacWhisper"              "MacWhisper.plist"      
 # The key files have their own script — snapshot-keys — which writes one
 # encrypted archive to a path outside every directory a wipe deletes, and
 # pushes nowhere. Same call already made for Bitwarden, NordPass and 1Password.
+
+# ── My own applications ───────────────────────────────────────────────────────
+
+# Every io.github.sevmorris.* domain, taken as a group rather than named one at
+# a time. The list changes whenever I ship something new, and a hand-maintained
+# list would go stale the first time that happened — check-picker-desc exists
+# because that kind of list always does.
+#
+# Also migrated out of Magic Backup Machine. These are the preferences of
+# software I wrote: a settings regression after a release is precisely what
+# version history is for, and an rsync mirror cannot answer "what changed".
+snapshot_own_apps(){
+  local dest="$LOCAL_PREFS_DIR/sevmorris-apps"
+  local f base domain found=0
+  mkdir -p "$dest"
+  for f in "$HOME"/Library/Preferences/io.github.sevmorris.*.plist; do
+    [[ -f "$f" ]] || continue          # no match leaves the glob unexpanded
+    base="$(basename "$f")"
+    domain="${base%.plist}"
+    if ! defaults_export_timeout "$domain" "$dest/$base"; then
+      warn "failed to export $domain — skipped"
+      SNAPSHOT_SKIPPED+=("$domain")
+      continue
+    fi
+    if ! plutil -convert xml1 "$dest/$base" 2>/dev/null; then
+      warn "failed to convert $domain export to xml1 — skipped"
+      SNAPSHOT_SKIPPED+=("$domain")
+      rm -f "$dest/$base"
+      continue
+    fi
+    found=$(( found + 1 ))
+  done
+  if (( found > 0 )); then
+    log "Saved $found of my own apps' preferences → $dest"
+  else
+    log "Skipping my own apps (no io.github.sevmorris.* domains found)"
+  fi
+}
+snapshot_own_apps
 
 # ── Application Support files ─────────────────────────────────────────────────
 
@@ -231,6 +278,13 @@ snapshot_pref_dir(){
 # comment is the only thing recording that key material lives in that repo.
 snapshot_pref_dir "$HOME/Library/Preferences/calibre" "calibre" "Calibre" \
   "*.json" "*.plist" "conversion" "plugins/*.json" "plugins/*/account"
+
+# MusicBrainz Picard keeps an INI under ~/.config — a dotfile in everything but
+# location, which is the only reason Magic Backup Machine was carrying it.
+# Migrated 2026-09-02. Only the .ini files: the directory also holds plugin code
+# and sync locks, which are re-fetchable and machine-local respectively.
+snapshot_pref_dir "$HOME/.config/MusicBrainz" "musicbrainz" "MusicBrainz Picard" \
+  "*.ini"
 
 # ── Fonts ─────────────────────────────────────────────────────────────────────
 

@@ -29,7 +29,7 @@ Keep both repositories current. You can then restore the full setup on a new mac
 > 2. Replace the dotfiles in `dotfiles/` with your own.
 > 3. Edit the `Brewfile`. Keep the `##` section headers, because the sync tools read them.
 > 4. Edit the `add_login_item` list in `scripts/post-install`. It adds eight applications.
-> 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 14 plist domains.
+> 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 18 named plist domains, plus every `io.github.sevmorris.*` domain as a group.
 > 6. Edit `DOCK_APPS` in `scripts/dock-setup`. The script clears the Dock before it adds the applications.
 > 7. Read `scripts/defaults.sh` before you run it. It writes 77 preference keys, and each key is a personal choice.
 > 8. Remove the `install_github_app` calls in `scripts/post-install` if you do not want Barkeep and KeyVault.
@@ -115,7 +115,7 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 - **Browsers:** Applies the Safari defaults, the Chrome and Brave managed policies, and the Helium defaults. It opens the extension URLs when you ask for them.
 - **App defaults:** Writes the settings for Audio Hijack, Fission, AlDente, and the Rogue Amoeba update options.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
-- **Plist imports (14 apps):** Imports your preference plists. Phase 3 skips an app that already has a preferences file, so it never overwrites a live configuration.
+- **Plist imports (18 apps):** Imports your preference plists. Phase 3 skips an app that already has a preferences file, so it never overwrites a live configuration.
 - **Barkeep:** Installs Barkeep from the most recent GitHub release. Phase 3 skips this step when `/Applications/Barkeep.app` exists. To update Barkeep, use Barkeep, or delete the app first.
 - **KeyVault:** Installs KeyVault from the most recent GitHub release. Phase 3 skips this step when `/Applications/KeyVault.app` exists. To update KeyVault, use KeyVault, or delete the app first.
 - **Application Support restore:** Restores the Loopback and SoundSource configuration files. Phase 3 skips a file that exists.

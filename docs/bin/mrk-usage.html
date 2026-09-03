@@ -714,12 +714,13 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
             <span class="callout-label">Caution</span>
             <div class="callout-body">snapshot-prefs scans every staged file for API keys and tokens before it commits. If the scan finds a match, snapshot-prefs stops and asks you to confirm. It does not ask when <code>NONINTERACTIVE=1</code> is set or when there is no terminal — in those two cases it aborts. Read the reported lines before you answer.</div>
           </div>
-          <p class="desc">snapshot-prefs exports the app preferences and pushes them to the private mrk-prefs repository. It exports plists for 14 apps. It also copies the Application Support files and the config directories.</p>
+          <p class="desc">snapshot-prefs exports the app preferences and pushes them to the private mrk-prefs repository. It exports plists for 18 named applications, and every <code>io.github.sevmorris.*</code> domain as a group. It also copies the Application Support files and the config directories.</p>
+          <p>The group export takes my own applications without naming them, because that list changes when I ship something new and a hand-written list would go out of date. Magic Backup Machine carried these preferences before 2026-09-02, inside an rsync mirror that keeps the current state and no history.</p>
           <pre><code>snapshot-prefs</code></pre>
           <ul>
             <li><strong>Apps:</strong> BetterSnapTool, Ice, iTerm2, Raycast, Stats, Loopback, SoundSource, Audio Hijack, Farrago, Piezo, Typora, Keka, TimeMachineEditor, MacWhisper</li>
             <li><strong>Application Support:</strong> Loopback (devices and routing), SoundSource (presets and sources)</li>
-            <li><strong>Config directories:</strong> Calibre (<code>~/Library/Preferences/calibre/</code>). Calibre keeps a tree of files, not a defaults domain, so snapshot-prefs copies the files.</li>
+            <li><strong>Config directories:</strong> Calibre (<code>~/Library/Preferences/calibre/</code>) and MusicBrainz Picard (<code>~/.config/MusicBrainz</code>, the <code>.ini</code> files only). Each keeps a tree of files, not a defaults domain, so snapshot-prefs copies the files.</li>
             <li>snapshot-prefs converts each binary plist to xml1 before it scans the file, because the scan cannot read a binary plist.</li>
             <li>snapshot-prefs skips an app that is not installed, and it reports the skipped apps when it exits.</li>
           </ul>
