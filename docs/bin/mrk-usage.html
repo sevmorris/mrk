@@ -490,7 +490,6 @@
   <a href="#dock-setup">2.21 dock-setup</a>
   <a href="#ci-check">2.22 ci-check</a>
   <a href="#check-picker-desc">2.23 check-picker-desc</a>
-  <a href="#adventure-prologue">2.24 adventure-prologue</a>
   <a href="#snapshot-keys">2.25 snapshot-keys</a>
   <a href="#restore-keys">2.26 restore-keys</a>
   <a href="#restore-repos">2.27 restore-repos</a>
@@ -1003,7 +1002,7 @@ mrk-push                # mrk-push asks for the message</code></pre>
           <pre><code>ci-check</code></pre>
           <ol>
             <li>Run <code>check-picker-desc</code>.</li>
-            <li>Run shellcheck on every bash script in <code>scripts/</code> and <code>bin/</code>. ci-check skips <code>scripts/adventure-prologue</code>.</li>
+            <li>Run shellcheck on every bash script in <code>scripts/</code> and <code>bin/</code>.</li>
             <li>Run <code>go test</code> in the four tool directories: picker, mrk-status, mrk-menu and theme.</li>
           </ol>
           <ul>
@@ -1024,22 +1023,6 @@ mrk-push                # mrk-push asks for the message</code></pre>
           <ul>
             <li>check-picker-desc exits with status 1 when a package has no description.</li>
             <li><code>ci-check</code> runs check-picker-desc first, so <code>make check</code> covers it.</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="proc" id="adventure-prologue">
-        <div class="proc-header">
-          <span class="proc-num">2.24</span>
-          <h3>adventure-prologue <span class="tag tag-mrk">mrk</span></h3>
-        </div>
-        <div class="proc-body">
-          <p class="desc">adventure-prologue is a text adventure. It is the prelude to the mrk installation in adventure mode. The setting is a 4.3BSD workstation in 1989. Find the setup script on the mounted floppy disk, and run it.</p>
-          <pre><code>adventure-prologue</code></pre>
-          <ul>
-            <li>adventure-prologue exits with status 0 when you run the setup script. It exits with status 1 when you quit.</li>
-            <li>adventure-prologue exits and shows nothing when stdin or stdout is not a terminal.</li>
-            <li><code>make adventure</code> runs adventure-prologue first. If you complete it, Make then runs the full installation with narration.</li>
           </ul>
         </div>
       </div>
@@ -1283,7 +1266,7 @@ mrk-push                # mrk-push asks for the message</code></pre>
         <tbody>
           <tr><td><code>log() ok() warn() err() info()</code></td><td>Writes a log line to stderr. The colors are cyan, green, yellow, red and plain.</td></tr>
           <tr><td><code>dry() logskip() section()</code></td><td>Writes a dry-run log line, a skip notice, or a section banner.</td></tr>
-          <tr><td><code>confirm()</code></td><td>Shows an adventure-style <code>&gt;</code> prompt. The <strong>default answer is yes</strong>: it continues for every answer except <code>quit</code>, <code>exit</code>, <code>q</code>, <code>n</code> and <code>no</code>. It returns yes when <code>NONINTERACTIVE=1</code> is set or when there is no terminal.</td></tr>
+          <tr><td><code>confirm()</code></td><td>Shows a <code>&gt;</code> prompt with the hint <code>[Enter to continue · q to quit]</code>. The <strong>default answer is yes</strong>: it continues for every answer except <code>quit</code>, <code>exit</code>, <code>q</code>, <code>n</code> and <code>no</code>. It returns yes when <code>NONINTERACTIVE=1</code> is set or when there is no terminal.</td></tr>
           <tr><td><code>sudo_refresh</code></td><td>Extends an active sudo session. It never asks for a password.</td></tr>
           <tr><td><code>check_macos</code></td><td>Exits when the operating system is not macOS.</td></tr>
           <tr><td><code>setup_logging</code></td><td>Creates <code>~/.mrk</code>. Rotates <code>~/.mrk/install.log</code> when the log is larger than 10&nbsp;MB.</td></tr>
@@ -1342,7 +1325,6 @@ mrk-push                # mrk-push asks for the message</code></pre>
           <tr><td><code>dock-setup</code></td><td>Replace the Dock contents with the preferred apps</td></tr>
           <tr><td><code>ci-check</code></td><td>Run the local validation: picker descriptions, shellcheck and go test</td></tr>
           <tr><td><code>check-picker-desc</code></td><td>Check that every Brewfile package has a picker description</td></tr>
-          <tr><td><code>adventure-prologue</code></td><td>Play the text-adventure prelude to the installation</td></tr>
           <tr><td><code>nuke-mrk</code></td><td>Delete every mrk file, so that you can install mrk again</td></tr>
           <tr><td><code>hardening.sh</code></td><td>Apply the optional macOS security settings</td></tr>
           <tr><td><code>make doctor ARGS=--fix</code></td><td>Add ~/bin to the PATH in ~/.zshrc</td></tr>

@@ -10,7 +10,7 @@ define link-home-bin
 	@ln -sf "$(BIN_DIR)/$(1)" "$(INSTALL_BIN)/$(1)"
 endef
 
-.PHONY: trim-services all adventure install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos dock help check ci maintain
+.PHONY: trim-services all install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos dock help check ci maintain
 
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
 define go-build
@@ -37,13 +37,7 @@ ci: check build-tools ## Full CI pipeline locally (check + build all TUIs)
 
 all: fix-exec setup brew post-install build-tools ## Full install: setup + brew + post-install + TUI binaries
 	@printf '\n'
-	@if printf '%s' '$(ARGS)' | grep -q -- '--adventure'; then \
-		printf '              \033[1m*** YOU HAVE WON ***\033[0m\n\n'; \
-		printf '  Your Mac has been configured. Your dotfiles live in ~/.\n'; \
-		printf '  Your tools are in ~/bin. The grue has been avoided.\n'; \
-	else \
-		printf '\033[1;32m  ✔  mrk installed successfully.\033[0m\n'; \
-	fi
+	@printf '\033[1;32m  ✔  mrk installed successfully.\033[0m\n'
 	@printf '\n'
 	@printf '  Run \033[43;1;30m exec zsh \033[0m to reload your shell, or open a new terminal.\n'
 	@if [ ! -d "$(HOME)/.mrk/preferences" ]; then \
@@ -54,9 +48,6 @@ all: fix-exec setup brew post-install build-tools ## Full install: setup + brew 
 	@printf '\n'
 	@printf '  \033[2mManual: \033[4mhttps://sevmorris.github.io/mrk\033[0m\n'
 	@printf '\n'
-
-adventure: ## Full install in narrative adventure mode
-	@"$(SCRIPTS)/adventure-prologue" && $(MAKE) --no-print-directory all ARGS=--adventure
 
 build-tools: ## Build all Go TUI binaries (requires Go)
 	@printf '\n\033[1;34m══ Phase 4: TUI Tools\033[0m\n\n'

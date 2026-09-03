@@ -113,19 +113,13 @@ failure path is clean (local commit preserved, user must pull and re-push).
 network would require Tart network manipulation (pfctl rules or VM network bridge
 control) beyond what the test plan covered.
 
-**adventure-prologue L1 — unbraced `$10`/`$11` positional parameters.** Two instances
-at approximately lines 1211 and 1289 of `scripts/adventure-prologue`. In bash, `$10`
-is `${1}` + literal `"0"`, not the tenth positional parameter. Causes wrong room or
-item lookups on those branches. Game script only; no production impact.
-Documented in `03-shell-hygiene.md L1`.
-
-**adventure-prologue L2 — overlapping case patterns.** One game path is unreachable
-due to a more-general pattern appearing before a more-specific one (approximately
-lines 1597/1602). Dead code in the game logic only. Documented in `03-shell-hygiene.md L2`.
-
-**adventure-prologue SC2015 patterns.** 33 instances of `A && B || C` used as
-if-then-else. The footgun: if `B` fails, `C` also runs. All are in game-logic context;
-no production risk. Documented in `03-shell-hygiene.md L3`.
+**adventure-prologue L1, L2 and SC2015 — CLOSED by deletion, 2026-08-31.** The three
+findings were all confined to `scripts/adventure-prologue`: unbraced `$10`/`$11`
+positional parameters, a pair of overlapping `case` patterns that made one path
+unreachable, and 33 `A && B || C` constructions used as if-then-else. None had
+production impact, all were deferred as game-only, and the script has now been
+removed along with adventure mode. Documented in `03-shell-hygiene.md L1-L3`, which
+still describes code that no longer exists.
 
 ---
 

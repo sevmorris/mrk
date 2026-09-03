@@ -36,7 +36,6 @@ DEBUG=0
 DRY_RUN=0
 VALIDATE=0
 CONTINUE_ON_ERROR=0
-ADVENTURE=0
 
 while (("$#")); do
   case "$1" in
@@ -49,8 +48,6 @@ while (("$#")); do
     --validate) VALIDATE=1 ;;
     --continue-on-error) CONTINUE_ON_ERROR=1 ;;
     --yes|-y) NONINTERACTIVE=1 ;;
-    --adventure) ADVENTURE=1 ;;
-    --adventure-*) ;;  # reserved for adventure mode variants — ignore
     -h|--help)
       cat <<'USAGE'
 mrk setup — Phase 1
@@ -129,30 +126,9 @@ fi
 setup_logging
 exec > >(tee -a "$LOGFILE") 2>&1
 section "Phase 1 of 3: Setup"
-if (( ADVENTURE )); then
-  cat >&2 <<INTRO
-  You are standing at the entrance to a fresh Mac. The terminal glows
-  faintly in the dark. Somewhere, a dotfile waits to be linked.
-
-  Your mission: link your config files into ~/, wire your scripts and tools
-  into ~/bin, apply your macOS preferences, and convince zsh to become your
-  login shell.
-
-  Nothing here is permanent. Everything is idempotent and safe to re-run.
-  Any files displaced by dotfile linking are backed up to ~/.mrk/backups/ first.
-
-  Your journey will be recorded at: $LOGFILE
-INTRO
-  if (( DRY_RUN )); then
-    printf '\n  %s[DRY RUN — no changes will be made]%s\n' "$_YLW" "$_R" >&2
-  fi
-  confirm || { printf '\nYou have quit.\n\n' >&2; MRK_SUCCESS=1; exit 0; }  # clean voluntary exit — keep the EXIT trap quiet
-  printf '\n' >&2
-else
-  log "Log: $LOGFILE"
-  if (( DRY_RUN )); then
-    printf '\n  %s⚠  DRY RUN — no changes will be made%s\n' "$_YLW" "$_R" >&2
-  fi
+log "Log: $LOGFILE"
+if (( DRY_RUN )); then
+  printf '\n  %s⚠  DRY RUN — no changes will be made%s\n' "$_YLW" "$_R" >&2
 fi
 
 # Track installation statistics
@@ -176,7 +152,7 @@ validate_phase() {
 }
 
 run_phase() {
-  local name="$1" desc="$2"; shift 2
+  local name="$1"; shift 2  # $2 is a per-phase description, now unused
   if [[ -n "$ONLY" ]]; then
     if ! validate_phase "$ONLY"; then
       err "Invalid phase: $ONLY (valid: $valid_phases)"
@@ -188,9 +164,6 @@ run_phase() {
   CURRENT_STEP="$name"
   sudo_refresh
   log "Phase: ${_B}$name${_R}"
-  if [[ -n "$desc" ]] && (( ADVENTURE )); then
-    printf '  %s%s%s\n\n' "$_D" "$desc" "$_R" >&2
-  fi
   if (( CONTINUE_ON_ERROR )); then
     if ! "$@"; then
       warn "Phase $name failed, continuing with remaining phases..."

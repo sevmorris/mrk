@@ -83,7 +83,6 @@ make setup ARGS="--dry-run"            # Show the changes, but apply nothing
 make setup-dry                         # Short form of --dry-run
 make setup ARGS="--validate"           # Check the prerequisites first
 make setup ARGS="--continue-on-error"  # Continue when a phase fails
-make setup ARGS="--adventure"          # Use narrative mode for this phase
 make setup ARGS="--yes"                # Skip every confirmation prompt
 make dotfiles                          # Short form of --only dotfiles
 make tools                             # Short form of --only tools
@@ -153,13 +152,7 @@ make all        # Runs setup + brew + post-install in sequence
 exec zsh        # Reload shell after setup
 ```
 
-**Adventure mode** adds narrative room descriptions and a `>` prompt at each phase. The installation is the same:
-
-```bash
-make adventure  # Full install in narrative mode
-```
-
-To skip every confirmation prompt, pass `--yes` or set `NONINTERACTIVE=1`. This also works in adventure mode.
+To skip every confirmation prompt, pass `--yes` or set `NONINTERACTIVE=1`.
 
 ---
 
@@ -673,13 +666,12 @@ exec zsh
 | Command | Description |
 |---|---|
 | `make all` | Run the full installation: setup, brew, post-install and the TUI binaries |
-| `make adventure` | Run the full installation in narrative mode |
 | `make setup` / `make install` | Phase 1: the shell, the dotfiles and the macOS defaults |
 | `make setup-dry` | Show the Phase 1 changes, but apply nothing |
 | `make brew` | Phase 2: the Homebrew formulae and casks |
 | `make post-install` | Phase 3: the app configuration and the login items |
 
-To use narrative mode for one phase, pass `ARGS=--adventure` to that target. To skip the confirmation prompts, pass `ARGS=--yes`.
+To skip the confirmation prompts, pass `ARGS=--yes`.
 
 **Partial Phases**
 

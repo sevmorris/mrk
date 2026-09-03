@@ -19,10 +19,8 @@ readonly SCRIPT_DIR REPO_ROOT
 
 source "$SCRIPT_DIR/lib.sh"
 
-ADVENTURE=0
 for _arg in "$@"; do
   case "$_arg" in
-    --adventure) ADVENTURE=1 ;;
     --yes|-y)    NONINTERACTIVE=1 ;;
   esac
 done
@@ -61,18 +59,6 @@ ask_yes() {
 trap 'printf "\n[post-install] interrupted — exiting\n" >&2; exit 1' INT TERM
 
 section "Phase 3 of 3: Post-install"
-if (( ADVENTURE )); then
-  cat >&2 <<'INTRO'
-  You can see the exit from here. The configuration demons have been largely
-  defeated. A few login items stir restlessly in the dark.
-
-  What remains: configuring your installed apps, importing your saved
-  preferences from mrk-prefs, and registering your login items with the
-  system so they rise at boot like clockwork.
-INTRO
-  confirm || { printf '\nYou have quit.\n\n' >&2; exit 0; }
-  printf '\n' >&2
-fi
 
 # Run a defaults script, log the result
 apply_defaults(){

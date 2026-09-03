@@ -36,12 +36,18 @@ dry()     { if (( DRY_RUN )); then printf '%s  ◦%s %s\n' "$_BLU" "$_R" "$*" >&
 logskip() { printf '%s  · %s (%s)%s\n' "$_YLW" "$1" "$2" "$_R" >&2; }
 section() { printf '\n%s%s══ %s%s\n\n' "$_B" "$_BLU" "$*" "$_R" >&2; }
 
-# Prompt for confirmation using a classic text-adventure > prompt.
+# Prompt for confirmation. The ">" marker is a leftover of the adventure mode
+# removed in 2026-08; it stayed because it reads well and is already familiar.
 # Proceeds on anything except an explicit quit (quit/exit/q/n/no).
 # Skipped if not a TTY or NONINTERACTIVE=1.
+#
+# The hint is not decoration. A bare ">" carries no indication that anything is
+# wanted, and the first thing it guards in hardening.sh is an edit to
+# /etc/pam.d/sudo — where a prompt that reads as a hang is the worst outcome.
+# The marker stays; it just says what it wants now.
 confirm() {
   if [[ ! -t 0 ]] || (( ${NONINTERACTIVE:-0} )); then return 0; fi
-  printf '\n%s>%s ' "$_B" "$_R" >&2
+  printf '\n%s>%s %s[Enter to continue · q to quit]%s ' "$_B" "$_R" "$_D" "$_R" >&2
   local _ans
   read -r _ans </dev/tty
   # tr rather than ${_ans,,}: this library is sourced by scripts that carry no

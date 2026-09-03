@@ -27,7 +27,6 @@ if command -v shellcheck >/dev/null 2>&1; then
   done < <(
     git -C "$REPO_ROOT" ls-files 'scripts/*' 'bin/*' \
       | while IFS= read -r f; do
-          [[ "$f" == scripts/adventure-prologue ]] && continue
           [[ -f "$REPO_ROOT/$f" ]] && head -1 "$REPO_ROOT/$f" | grep -qE '^#!.*bash' && printf '%s\n' "$REPO_ROOT/$f"
         done
   )
