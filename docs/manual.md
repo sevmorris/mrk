@@ -116,12 +116,13 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 - **App defaults:** Writes the settings for Audio Hijack, Fission, AlDente, and the Rogue Amoeba update options.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
 - **Plist imports (18 apps):** Imports your preference plists. Phase 3 skips an app that already has a preferences file, so it never overwrites a live configuration.
+- **My own applications:** Imports every `io.github.sevmorris.*` plist that `snapshot-prefs` captured. This one does not check that the application is installed: several are tools with no bundle in `/Applications`, and on a new machine the preferences usually arrive before the application does, so an early import means the app finds its settings on first launch.
 - **Barkeep:** Installs Barkeep from the most recent GitHub release. Phase 3 skips this step when `/Applications/Barkeep.app` exists. To update Barkeep, use Barkeep, or delete the app first.
 - **KeyVault:** Installs KeyVault from the most recent GitHub release. Phase 3 skips this step when `/Applications/KeyVault.app` exists. To update KeyVault, use KeyVault, or delete the app first.
 - **Application Support restore:** Restores the Loopback and SoundSource configuration files. Phase 3 skips a file that exists.
 - **Fonts:** Restores the fonts captured by `snapshot-prefs` into `~/Library/Fonts`. Phase 3 skips a font that is already installed.
 - **GPG pinentry:** Points `gpg-agent` at `pinentry-mac`, so gpg asks for a passphrase in a window. Phase 3 adds one line to `~/.gnupg/gpg-agent.conf`, and it skips this step when the file already sets `pinentry-program`.
-- **Config directory restore:** Restores the Calibre configuration into `~/Library/Preferences/calibre/`. Phase 3 skips this step when `gui.json` exists.
+- **Config directory restore:** Restores the Calibre configuration into `~/Library/Preferences/calibre/`, and the MusicBrainz Picard configuration into `~/.config/MusicBrainz`. Phase 3 skips each when its sentinel file exists — `gui.json` for Calibre, `Picard.ini` for Picard.
 - **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dropbox, Ice, Raycast, SoundSource, Stats
 
 > **Note:** Phase 3 continues when a step fails. It counts the failed steps and reports the total at the end.

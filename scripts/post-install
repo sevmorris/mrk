@@ -105,6 +105,16 @@ open_extension_urls(){
 backup_plist(){
   local domain="$1"
   mkdir -p "$PLIST_BACKUP_DIR"
+  # Capture only a domain that already exists. `defaults export` on an absent
+  # domain does not fail — it writes a 42-byte plist holding an empty dict. Both
+  # rollback branches at the call sites test for the FILE, so an absent domain
+  # produced a rollback that imports an empty dict instead of deleting the
+  # domain, which is the opposite of what the comment there promises. Leaving no
+  # file is what makes the `defaults delete` branch fire.
+  if ! defaults read "$domain" >/dev/null 2>&1; then
+    rm -f "$PLIST_BACKUP_DIR/${domain}.plist"
+    return 0
+  fi
   defaults export "$domain" "$PLIST_BACKUP_DIR/${domain}.plist" 2>/dev/null || true
 }
 
@@ -421,6 +431,53 @@ if (( _ssh_ok )); then
   fi
 fi
 
+import_own_apps(){
+  local src="$LOCAL_PREFS_DIR/sevmorris-apps"
+  local f base bundle_id existing restored=0 skipped=0
+
+  if [[ ! -d "$src" ]]; then
+    logskip "my own apps" "not in preferences — run: make snapshot-prefs"
+    return 0
+  fi
+
+  for f in "$src"/io.github.sevmorris.*.plist; do
+    [[ -f "$f" ]] || continue          # no match leaves the glob unexpanded
+    base="$(basename "$f")"
+    bundle_id="${base%.plist}"
+    existing="$HOME/Library/Preferences/${bundle_id}.plist"
+
+    if [[ -f "$existing" ]]; then
+      skipped=$(( skipped + 1 ))
+      continue
+    fi
+
+    backup_plist "$bundle_id"
+    if ! defaults import "$bundle_id" "$f"; then
+      warn "failed to import $bundle_id"
+      continue
+    fi
+    {
+      if [[ -f "$PLIST_BACKUP_DIR/${bundle_id}.plist" ]]; then
+        printf 'defaults import %s %s\n' \
+          "$(printf '%q' "$bundle_id")" \
+          "$(printf '%q' "$PLIST_BACKUP_DIR/${bundle_id}.plist")"
+      else
+        printf 'defaults delete %s >/dev/null 2>&1 || true\n' \
+          "$(printf '%q' "$bundle_id")"
+      fi
+    } >> "$ROLLBACK"
+    restored=$(( restored + 1 ))
+  done
+
+  if (( restored > 0 )); then
+    log "Imported $restored of my own apps' preferences"
+  fi
+  if (( skipped > 0 )); then
+    logskip "my own apps" "$skipped already configured — not overwritten"
+  fi
+  return 0
+}
+
 if [[ ! -d "$LOCAL_PREFS_DIR" ]]; then
   if (( _ssh_ok )); then
     log "Fetching personal preferences from mrk-prefs..."
@@ -486,6 +543,22 @@ else
   import_plist "/Applications/Piezo.app"          "com.rogueamoeba.Piezo"                     "$LOCAL_PREFS_DIR/Piezo.plist"             "Piezo"             || failed=$(( failed + 1 ))
   import_plist "/Applications/Typora.app"         "abnerworks.Typora"                         "$LOCAL_PREFS_DIR/Typora.plist"            "Typora"            || failed=$(( failed + 1 ))
   import_plist "/Applications/Keka.app"           "com.aone.keka"                             "$LOCAL_PREFS_DIR/Keka.plist"              "Keka"              || failed=$(( failed + 1 ))
+  # Migrated from Magic Backup Machine, 2026-09-02 — see snapshot-prefs.
+  import_plist "/Applications/Helium.app"         "net.imput.helium"                          "$LOCAL_PREFS_DIR/Helium.plist"            "Helium"            || failed=$(( failed + 1 ))
+  import_plist "/Applications/Descript.app"       "com.descript.beachcube"                    "$LOCAL_PREFS_DIR/Descript.plist"          "Descript"          || failed=$(( failed + 1 ))
+  import_plist "/Applications/Waves Central.app"  "com.WavesAudio.central"                    "$LOCAL_PREFS_DIR/WavesCentral.plist"      "Waves Central"     || failed=$(( failed + 1 ))
+  import_plist "/Applications/MusicBrainz Picard.app" "org.musicbrainz.Picard"                "$LOCAL_PREFS_DIR/Picard.plist"            "MusicBrainz Picard" || failed=$(( failed + 1 ))
+
+  # My own applications, restored as the group snapshot-prefs captures. The
+  # bundle id is the file name without .plist, so the two ends stay in step with
+  # no list to maintain on either side.
+  #
+  # Deliberately NOT gated on the app being installed, unlike import_plist above.
+  # Several of these are tools with no /Applications bundle, and on a new machine
+  # the preferences usually arrive before the app does — restoring them early
+  # means the app finds its settings on first launch instead of starting blank.
+  # The domain is namespaced to me, so there is nothing to collide with.
+  import_own_apps || failed=$(( failed + 1 ))
   import_plist "/Applications/TimeMachineEditor.app" "com.tclementdev.timemachineeditor.application" "$LOCAL_PREFS_DIR/TimeMachineEditor.plist" "TimeMachineEditor" || failed=$(( failed + 1 ))
   import_plist "/Applications/MacWhisper.app"     "com.goodsnooze.MacWhisper"                 "$LOCAL_PREFS_DIR/MacWhisper.plist"        "MacWhisper"        || failed=$(( failed + 1 ))
 fi
@@ -655,6 +728,9 @@ if [[ -d "$LOCAL_PREFS_DIR" ]]; then
   # gui.json is Calibre's main config — its absence means Calibre is unconfigured.
   restore_pref_dir "/Applications/calibre.app" "calibre" \
     "$HOME/Library/Preferences/calibre" "gui.json" "Calibre" || failed=$(( failed + 1 ))
+  # Picard keeps its INI under ~/.config, not under ~/Library/Preferences.
+  restore_pref_dir "/Applications/MusicBrainz Picard.app" "musicbrainz" \
+    "$HOME/.config/MusicBrainz" "Picard.ini" "MusicBrainz Picard" || failed=$(( failed + 1 ))
 fi
 
 ###############################################################################
