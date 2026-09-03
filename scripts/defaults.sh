@@ -225,6 +225,9 @@ write_default NSGlobalDomain NSAutomaticSpellingCorrectionEnabled bool false || 
 # Why: the WebKit mirror of NSAutomaticSpellingCorrectionEnabled above; set separately or Safari still autocorrects
 write_default NSGlobalDomain WebAutomaticSpellingCorrectionEnabled bool false || failed=$(( failed + 1 ))
 
+# Globe key starts dictation (0 nothing, 1 input source, 2 emoji, 3 dictation)
+write_default com.apple.HIToolbox AppleFnUsageType int 3 || failed=$(( failed + 1 ))
+
 ###############################################################################
 # Dock                                                                        #
 ###############################################################################
@@ -349,6 +352,10 @@ write_default com.apple.commerce AutoUpdate bool true || failed=$(( failed + 1 )
 # Check for updates every day
 write_default com.apple.SoftwareUpdate ScheduleFrequency int 1 || failed=$(( failed + 1 ))
 
+# Install updates that need a restart
+# Why: pairs with AutoUpdate above; without it the updates that matter most wait for a manual run
+write_default com.apple.commerce AutoUpdateRestartRequired bool true || failed=$(( failed + 1 ))
+
 ###############################################################################
 # Activity Monitor                                                            #
 ###############################################################################
@@ -391,6 +398,9 @@ write_default com.apple.Terminal FocusFollowsMouse bool true || failed=$(( faile
 write_default com.apple.Terminal SecureKeyboardEntry bool true || failed=$(( failed + 1 ))
 # Don't show line marks
 write_default com.apple.Terminal ShowLineMarks bool false || failed=$(( failed + 1 ))
+
+# New tabs open in the default working directory, not the current one
+write_default com.apple.Terminal NewTabWorkingDirectoryBehavior int 1 || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Menu bar clock                                                              #
@@ -439,6 +449,11 @@ if $WITH_TRACKPAD; then
     write_default "$domain" TrackpadTwoFingerDoubleTapGesture int 0 || failed=$(( failed + 1 ))
     write_default "$domain" TrackpadTwoFingerFromRightEdgeSwipeGesture int 0 || failed=$(( failed + 1 ))
   done
+
+  # NSGlobalDomain mirror of TrackpadCornerSecondaryClick above. System Settings
+  # writes both when the secondary-click mode changes; the loop domains alone do
+  # not make the corner click take effect.
+  write_default NSGlobalDomain ContextMenuGesture int 1 || failed=$(( failed + 1 ))
 fi
 
 ###############################################################################
@@ -464,6 +479,31 @@ write_default com.apple.WindowManager EnableStandardClickToShowDesktop bool fals
 write_default com.apple.WindowManager AppWindowGroupingBehavior int 1 || failed=$(( failed + 1 ))
 
 ###############################################################################
+# Dictation & spoken content                                                  #
+###############################################################################
+
+# Turn on Dictation
+write_default com.apple.assistant.support "Dictation Enabled" bool true || failed=$(( failed + 1 ))
+# Do not share Siri and Dictation audio with Apple (0 unasked, 1 in, 2 out)
+# Why: the value is an explicit answer, not a default — 0 means the question was never put
+write_default com.apple.assistant.support "Siri Data Sharing Opt-In Status" int 2 || failed=$(( failed + 1 ))
+# Speak the selected text on the shortcut key
+write_default com.apple.speech.synthesis.general.prefs SpokenUIUseSpeakingHotKeyFlag bool true || failed=$(( failed + 1 ))
+# Speak Selection, the newer mirror of the key above
+write_default com.apple.Accessibility SpeakThisEnabled int 1 || failed=$(( failed + 1 ))
+
+###############################################################################
+# Mail & Calendar                                                             #
+###############################################################################
+
+# Copy a bare address, without the display name
+# Why: pasting \"Name <a@b.com>\" into a terminal or a form is almost never what was wanted
+write_default com.apple.mail AddressesIncludeNameOnPasteboard bool false || failed=$(( failed + 1 ))
+# A new event goes to the calendar last selected
+# Why: the alternative is a specific calendar ID, which is per-machine and does not travel
+write_default com.apple.iCal CalDefaultCalendar string UseLastSelectedAsDefaultCalendar || failed=$(( failed + 1 ))
+
+###############################################################################
 # Xcode                                                                       #
 ###############################################################################
 
@@ -472,6 +512,9 @@ write_default com.apple.WindowManager AppWindowGroupingBehavior int 1 || failed=
 write_default com.apple.dt.Xcode IDEDisableGitSupportForNewProjects bool true || failed=$(( failed + 1 ))
 # Do not confirm before cleaning the build folder
 write_default com.apple.dt.Xcode IDEWorkspaceSuppressCleanBuildPrompt bool true || failed=$(( failed + 1 ))
+
+# Do not warn before a source-control operation that touches uncommitted work
+write_default com.apple.dt.Xcode IDESourceControlWarnUncommittedChangesDefaultsKey bool false || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Finish up                                                                   #

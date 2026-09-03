@@ -1,5 +1,76 @@
 // macOS defaults documentation and descriptions
 const DEFAULT_DESCRIPTIONS = {
+    'NSGlobalDomain.ContextMenuGesture': {
+        title: 'Secondary Click Gesture',
+        description: 'Sets how a secondary click is made on a trackpad. 1 is a click in the bottom-right corner.',
+        category: 'Input',
+        why: 'This is the global half of the setting. The two trackpad domains carry TrackpadCornerSecondaryClick, and the corner click does not work unless both are set.',
+        systemDefault: '0'
+    },
+    'com.apple.HIToolbox.AppleFnUsageType': {
+        title: 'Globe Key Action',
+        description: 'Sets what the globe key does. 0 is nothing, 1 changes the input source, 2 shows the emoji picker and 3 starts dictation.',
+        category: 'Keyboard',
+        systemDefault: '1 (change input source)'
+    },
+    'com.apple.assistant.support.Dictation Enabled': {
+        title: 'Dictation',
+        description: 'Turns on Dictation, so the globe key shortcut can start it.',
+        category: 'Keyboard',
+        systemDefault: 'false'
+    },
+    'com.apple.assistant.support.Siri Data Sharing Opt-In Status': {
+        title: 'Siri Audio Sharing',
+        description: 'Records the answer to "Improve Siri & Dictation". 0 means the question was never put, 1 opts in and 2 opts out.',
+        category: 'Security',
+        why: 'The value is an explicit answer rather than a default, so 2 is a decision and 0 is only an unanswered prompt.',
+        systemDefault: '0 (not yet asked)'
+    },
+    'com.apple.speech.synthesis.general.prefs.SpokenUIUseSpeakingHotKeyFlag': {
+        title: 'Speak Selection',
+        description: 'Lets a shortcut key speak the text you have selected.',
+        category: 'System',
+        systemDefault: 'false'
+    },
+    'com.apple.Accessibility.SpeakThisEnabled': {
+        title: 'Speak Selection (Accessibility)',
+        description: 'The newer mirror of the Speak Selection switch, in the Accessibility domain. Set both, or the two panes disagree.',
+        category: 'System',
+        systemDefault: '0'
+    },
+    'com.apple.commerce.AutoUpdateRestartRequired': {
+        title: 'Install Updates Needing Restart',
+        description: 'Installs a macOS update that needs a restart, without asking first.',
+        category: 'System',
+        why: 'This pairs with AutoUpdate. Set only that one and the updates that matter most still wait for a manual run.',
+        systemDefault: 'false'
+    },
+    'com.apple.Terminal.NewTabWorkingDirectoryBehavior': {
+        title: 'New Tab Directory',
+        description: 'Sets the directory a new Terminal tab opens in. 1 is the default working directory rather than the directory of the current tab.',
+        category: 'Terminal',
+        systemDefault: '2 (same directory)'
+    },
+    'com.apple.mail.AddressesIncludeNameOnPasteboard': {
+        title: 'Copy Bare Email Address',
+        description: 'Copies only the address when you copy a name from a message header. Mail otherwise copies the display name and the address together.',
+        category: 'Applications',
+        why: 'Pasting a name and an address into a terminal or a web form is almost never the intent.',
+        systemDefault: 'true'
+    },
+    'com.apple.iCal.CalDefaultCalendar': {
+        title: 'Default Calendar',
+        description: 'Puts a new event in the calendar you last selected. The alternative value is the identifier of one specific calendar.',
+        category: 'Applications',
+        why: 'A calendar identifier is different on each machine, so the sentinel is the only value that travels.',
+        systemDefault: 'The first calendar in the list'
+    },
+    'com.apple.dt.Xcode.IDESourceControlWarnUncommittedChangesDefaultsKey': {
+        title: 'Xcode Uncommitted Changes Warning',
+        description: 'Stops Xcode from warning before a source-control operation that touches uncommitted work.',
+        category: 'Applications',
+        systemDefault: 'true'
+    },
     'NSGlobalDomain.AppleActionOnDoubleClick': {
         title: 'Double-Click Title Bar Action',
         description: 'A double-click on a window title bar minimises the window. The other accepted value is "Maximize", which zooms the window instead.',
