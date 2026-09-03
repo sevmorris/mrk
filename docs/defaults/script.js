@@ -1,5 +1,13 @@
 // macOS defaults documentation and descriptions
 const DEFAULT_DESCRIPTIONS = {
+    'com.apple.sharingd.DiscoverableMode': {
+        title: 'AirDrop Discoverability',
+        description: 'Limits AirDrop to your contacts. The accepted values are "Everyone", "Contacts Only" and "Off".',
+        category: 'Security',
+        why: 'With "Everyone", any device in range can raise a transfer prompt on this Mac. That is the setting unsolicited AirDrop relies on.',
+        systemDefault: 'Contacts Only'
+    },
+
     'com.apple.voicetrigger.VoiceTrigger Enabled': {
         title: 'Voice Trigger Daemon',
         description: 'Stops the voice-trigger daemon from listening for the wake word.',

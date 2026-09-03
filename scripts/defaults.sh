@@ -526,6 +526,11 @@ write_default com.apple.iCal CalDefaultCalendar string UseLastSelectedAsDefaultC
 # Sharing & handoff                                                           #
 ###############################################################################
 
+# AirDrop accepts from contacts only, not everyone
+# Why: "Everyone" lets any device in range raise a transfer prompt on this Mac.
+# It is the setting AirDrop harassment relies on, and Contacts Only costs
+# nothing except a manual switch on the rare transfer from a stranger.
+write_default com.apple.sharingd DiscoverableMode string "Contacts Only" || failed=$(( failed + 1 ))
 # No people suggestions in the share sheet
 write_default com.apple.Sharing SharingPeopleSuggestionsDisabled bool true || failed=$(( failed + 1 ))
 # No Home Sharing of the media library
