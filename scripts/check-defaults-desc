@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# check-defaults-desc — verify the defaults reference documents every key
+# defaults.sh writes.
+#
+# The MRK-1 page parses scripts/defaults.sh at load time and looks each key up
+# in the DEFAULT_DESCRIPTIONS map in docs/defaults/script.js. A key with no
+# entry renders with no description, and an entry with no key is dead weight.
+# Both have happened before: audit finding N-12 deleted 24 dead entries and
+# wrote 18 missing ones. Nothing gated it, so this does.
+
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+DEFAULTS_SH="$REPO_ROOT/scripts/defaults.sh"
+SCRIPT_JS="$REPO_ROOT/docs/defaults/script.js"
+
+if [[ ! -f "$DEFAULTS_SH" ]]; then
+  echo "check-defaults-desc: defaults.sh not found: $DEFAULTS_SH" >&2
+  exit 1
+fi
+if [[ ! -f "$SCRIPT_JS" ]]; then
+  echo "check-defaults-desc: script.js not found: $SCRIPT_JS" >&2
+  exit 1
+fi
+
+# The first domain of the `for domain in ...` loop. script.js resolves
+# "$domain" to this one and carries the rest as alsoDomains, emitting a single
+# entry per key — so the mirror domains must NOT be counted separately here.
+# `|| true`: the loop is optional, and a grep that finds nothing exits 1, which
+# under `set -e` would kill this script with no output at all. The pattern also
+# has to tolerate leading whitespace — the loop sits inside an `if` block.
+loop_domain=$(grep -oE '^[[:space:]]*for domain in [A-Za-z0-9._ -]+' "$DEFAULTS_SH" \
+  | head -1 | awk '{print $4}' || true)
+: "${loop_domain:=com.apple.AppleMultitouchTrackpad}"
+
+script_keys=()
+while IFS= read -r id; do
+  [[ -n "$id" ]] && script_keys+=("$id")
+done < <(
+  grep -oE '^[[:space:]]*write_default[[:space:]]+"?[A-Za-z0-9._$-]+"?[[:space:]]+"?[A-Za-z0-9._ -]+"?[[:space:]]+(bool|int|float|string)[[:space:]]' "$DEFAULTS_SH" \
+    | sed -E 's/^[[:space:]]*write_default[[:space:]]+//; s/[[:space:]]+(bool|int|float|string)[[:space:]]*$//' \
+    | tr -d '"' \
+    | sed -E "s/^\\\$domain /$loop_domain /" \
+    | awk '{ key=$2; for (i=3;i<=NF;i++) key=key" "$i; printf "%s.%s\n", $1, key }' \
+    | sort -u
+)
+
+desc_keys=()
+while IFS= read -r id; do
+  [[ -n "$id" ]] && desc_keys+=("$id")
+done < <(
+  sed -nE "s/^[[:space:]]{4}['\"]([^'\"]+)['\"][[:space:]]*:[[:space:]]*\{.*/\1/p" "$SCRIPT_JS" | sort -u
+)
+
+# Bash-3.2-safe membership test, for the reason recorded in check-picker-desc:
+# `printf | grep -Fxq` races against pipefail when grep matches early.
+in_array() {
+  local target=$1; shift
+  for item in "$@"; do [[ $item == "$target" ]] && return 0; done
+  return 1
+}
+
+missing=()
+orphan=()
+for id in "${script_keys[@]}"; do
+  in_array "$id" "${desc_keys[@]}" || missing+=("$id")
+done
+for id in "${desc_keys[@]}"; do
+  in_array "$id" "${script_keys[@]}" || orphan+=("$id")
+done
+
+if (( ${#missing[@]} == 0 && ${#orphan[@]} == 0 )); then
+  echo "check-defaults-desc: OK (${#script_keys[@]} keys, descriptions in sync)"
+  exit 0
+fi
+
+if (( ${#missing[@]} > 0 )); then
+  echo "check-defaults-desc: written by defaults.sh, undocumented in script.js (${#missing[@]}):" >&2
+  printf '  %s\n' "${missing[@]}" >&2
+fi
+if (( ${#orphan[@]} > 0 )); then
+  echo "check-defaults-desc: documented in script.js, not written by defaults.sh (${#orphan[@]}):" >&2
+  printf '  %s\n' "${orphan[@]}" >&2
+fi
+exit 1

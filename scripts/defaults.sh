@@ -165,6 +165,21 @@ write_default NSGlobalDomain NSDocumentSaveNewDocumentsToCloud bool false || fai
 # Instant Quick Look animation
 write_default NSGlobalDomain QLPanelAnimationDuration float 0 || failed=$(( failed + 1 ))
 
+# Double-clicking a window title bar minimises it
+# Why: zoom is reachable from the green button; minimise is the more common intent
+write_default NSGlobalDomain AppleActionOnDoubleClick string Minimize || failed=$(( failed + 1 ))
+# Selection highlight colour
+write_default NSGlobalDomain AppleHighlightColor string "0.764700 0.976500 0.568600" || failed=$(( failed + 1 ))
+# Small sidebar icons (1 small, 2 medium, 3 large)
+write_default NSGlobalDomain NSTableViewDefaultSizeMode int 1 || failed=$(( failed + 1 ))
+# Disable two-finger swipe to navigate back/forward
+# Why: an accidental horizontal scroll loses form input in a browser
+write_default NSGlobalDomain AppleEnableSwipeNavigateWithScrolls bool false || failed=$(( failed + 1 ))
+# Disable Force Click and haptic feedback
+write_default NSGlobalDomain com.apple.trackpad.forceClick bool false || failed=$(( failed + 1 ))
+# Double-click speed, in seconds between clicks
+write_default NSGlobalDomain com.apple.mouse.doubleClickThreshold float 0.8 || failed=$(( failed + 1 ))
+
 ###############################################################################
 # Sound                                                                       #
 ###############################################################################
@@ -173,6 +188,9 @@ write_default NSGlobalDomain QLPanelAnimationDuration float 0 || failed=$(( fail
 write_default NSGlobalDomain com.apple.sound.beep.volume float 0 || failed=$(( failed + 1 ))
 # Disable UI sound effects
 write_default NSGlobalDomain com.apple.sound.uiaudio.enabled bool false || failed=$(( failed + 1 ))
+
+# Alert sound
+write_default NSGlobalDomain com.apple.sound.beep.sound string "/System/Library/Sounds/Tink.aiff" || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Keyboard & input                                                            #
@@ -203,6 +221,10 @@ write_default NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled bool false || f
 # Why: mangles technical terms, hostnames, variable names, and other domain-specific vocabulary
 write_default NSGlobalDomain NSAutomaticSpellingCorrectionEnabled bool false || failed=$(( failed + 1 ))
 
+# Disable autocorrect inside WebKit text fields
+# Why: the WebKit mirror of NSAutomaticSpellingCorrectionEnabled above; set separately or Safari still autocorrects
+write_default NSGlobalDomain WebAutomaticSpellingCorrectionEnabled bool false || failed=$(( failed + 1 ))
+
 ###############################################################################
 # Dock                                                                        #
 ###############################################################################
@@ -232,6 +254,34 @@ write_default com.apple.dock autohide-delay float 0 || failed=$(( failed + 1 ))
 # Why: makes file operations feel instant; each animation adds visible latency per action
 write_default com.apple.finder DisableAllAnimations bool true || failed=$(( failed + 1 ))
 
+# Show the path bar
+write_default com.apple.finder ShowPathbar bool true || failed=$(( failed + 1 ))
+# Show the status bar (item count and free space)
+write_default com.apple.finder ShowStatusBar bool true || failed=$(( failed + 1 ))
+# Show the full POSIX path in the window title
+write_default com.apple.finder _FXShowPosixPathInTitle bool true || failed=$(( failed + 1 ))
+# Keep folders on top when sorting by name
+write_default com.apple.finder _FXSortFoldersFirst bool true || failed=$(( failed + 1 ))
+# Use list view for new windows (Nlsv list, icnv icon, clmv column, glyv gallery)
+write_default com.apple.finder FXPreferredViewStyle string Nlsv || failed=$(( failed + 1 ))
+# Search the current folder by default, not the whole Mac
+write_default com.apple.finder FXDefaultSearchScope string SCcf || failed=$(( failed + 1 ))
+# No warning when changing a file extension
+# Why: the warning fires constantly when renaming files and teaches you to dismiss it
+write_default com.apple.finder FXEnableExtensionChangeWarning bool false || failed=$(( failed + 1 ))
+# No warning when emptying the Trash
+write_default com.apple.finder WarnOnEmptyTrash bool false || failed=$(( failed + 1 ))
+# New Finder windows open the Desktop (PfDe desktop, PfHm home, PfAF recents)
+write_default com.apple.finder NewWindowTarget string PfDe || failed=$(( failed + 1 ))
+# Show hard disks on the Desktop
+write_default com.apple.finder ShowHardDrivesOnDesktop bool true || failed=$(( failed + 1 ))
+# Do not show connected servers on the Desktop
+write_default com.apple.finder ShowMountedServersOnDesktop bool false || failed=$(( failed + 1 ))
+# Allow Cmd-Q to quit Finder
+write_default com.apple.finder QuitMenuItem bool true || failed=$(( failed + 1 ))
+# Open folders in new windows, not tabs
+write_default com.apple.finder FinderSpawnTab bool false || failed=$(( failed + 1 ))
+
 ###############################################################################
 # Screenshots                                                                 #
 ###############################################################################
@@ -247,6 +297,9 @@ write_default com.apple.screencapture show-thumbnail bool false || failed=$(( fa
 write_default com.apple.screencapture include-date bool false || failed=$(( failed + 1 ))
 # Save screenshots to ~/Desktop
 write_default com.apple.screencapture location string "$HOME/Desktop" || failed=$(( failed + 1 ))
+
+# Show mouse clicks in screen recordings
+write_default com.apple.screencapture showsClicks bool true || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Desktop Services                                                            #
@@ -292,6 +345,9 @@ write_default com.apple.SoftwareUpdate ConfigDataInstall bool true || failed=$((
 write_default com.apple.SoftwareUpdate CriticalUpdateInstall bool true || failed=$(( failed + 1 ))
 # Auto-update App Store apps
 write_default com.apple.commerce AutoUpdate bool true || failed=$(( failed + 1 ))
+
+# Check for updates every day
+write_default com.apple.SoftwareUpdate ScheduleFrequency int 1 || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Activity Monitor                                                            #
@@ -349,6 +405,9 @@ write_default com.apple.menuextra.clock ShowDayOfWeek bool true || failed=$(( fa
 # Don't show date
 write_default com.apple.menuextra.clock ShowDate int 0 || failed=$(( failed + 1 ))
 
+# Flash the time separators once a second
+write_default com.apple.menuextra.clock FlashDateSeparators bool true || failed=$(( failed + 1 ))
+
 ###############################################################################
 # Trackpad (opt-in: --with-trackpad)                                          #
 ###############################################################################
@@ -361,6 +420,8 @@ if $WITH_TRACKPAD; then
     write_default "$domain" Clicking bool false || failed=$(( failed + 1 ))
     # Suppress Force Touch
     write_default "$domain" ForceSuppressed bool true || failed=$(( failed + 1 ))
+    # Silent clicking (no haptic detent on click)
+    write_default "$domain" ActuateDetents int 0 || failed=$(( failed + 1 ))
     # Bottom-right corner secondary click
     write_default "$domain" TrackpadCornerSecondaryClick int 2 || failed=$(( failed + 1 ))
     # Disable all multi-finger gestures
@@ -379,6 +440,38 @@ if $WITH_TRACKPAD; then
     write_default "$domain" TrackpadTwoFingerFromRightEdgeSwipeGesture int 0 || failed=$(( failed + 1 ))
   done
 fi
+
+###############################################################################
+# Privacy & diagnostics                                                       #
+###############################################################################
+
+# Turn off Apple personalised advertising
+write_default com.apple.AdLib allowApplePersonalizedAdvertising bool false || failed=$(( failed + 1 ))
+# Limit ad tracking, so the advertising identifier is not used
+write_default com.apple.AdLib forceLimitAdTracking bool true || failed=$(( failed + 1 ))
+# Do not show the crash reporter dialog
+# Why: a crashed background process should not interrupt with a dialog nobody submits
+write_default com.apple.CrashReporter DialogType string none || failed=$(( failed + 1 ))
+
+###############################################################################
+# Windows & Stage Manager                                                     #
+###############################################################################
+
+# Do not reveal the Desktop when clicking the wallpaper
+# Why: a stray click on the wallpaper otherwise hides every window
+write_default com.apple.WindowManager EnableStandardClickToShowDesktop bool false || failed=$(( failed + 1 ))
+# Group Stage Manager windows one at a time, not by application
+write_default com.apple.WindowManager AppWindowGroupingBehavior int 1 || failed=$(( failed + 1 ))
+
+###############################################################################
+# Xcode                                                                       #
+###############################################################################
+
+# Do not create a git repository for a new project
+# Why: the repo layout here is decided per project, not by the new-project sheet
+write_default com.apple.dt.Xcode IDEDisableGitSupportForNewProjects bool true || failed=$(( failed + 1 ))
+# Do not confirm before cleaning the build folder
+write_default com.apple.dt.Xcode IDEWorkspaceSuppressCleanBuildPrompt bool true || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Finish up                                                                   #

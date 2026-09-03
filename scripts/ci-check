@@ -16,6 +16,9 @@ source "$SCRIPT_DIR/lib.sh"
 log "check-picker-desc"
 "$SCRIPT_DIR/check-picker-desc"
 
+log "check-defaults-desc"
+"$SCRIPT_DIR/check-defaults-desc"
+
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"
   scripts=()

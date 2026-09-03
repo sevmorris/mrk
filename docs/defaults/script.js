@@ -1,5 +1,208 @@
 // macOS defaults documentation and descriptions
 const DEFAULT_DESCRIPTIONS = {
+    'NSGlobalDomain.AppleActionOnDoubleClick': {
+        title: 'Double-Click Title Bar Action',
+        description: 'A double-click on a window title bar minimises the window. The other accepted value is "Maximize", which zooms the window instead.',
+        category: 'Interface',
+        why: 'Zoom is already on the green button. Minimise is the action with no other one-step control.',
+        systemDefault: 'Maximize'
+    },
+    'NSGlobalDomain.AppleHighlightColor': {
+        title: 'Selection Highlight Colour',
+        description: 'Sets the tint behind selected text and selected items. The value is three space-separated floats: red, green and blue, each from 0 to 1.',
+        category: 'Appearance',
+        systemDefault: 'Blue (0.698039 0.843137 1.000000)'
+    },
+    'NSGlobalDomain.NSTableViewDefaultSizeMode': {
+        title: 'Sidebar Icon Size',
+        description: 'Sets the icon size in the sidebar of Finder, Mail and System Settings. 1 is small, 2 is medium, 3 is large.',
+        category: 'Interface',
+        systemDefault: '2 (medium)'
+    },
+    'NSGlobalDomain.AppleEnableSwipeNavigateWithScrolls': {
+        title: 'Swipe Between Pages',
+        description: 'Turns off the two-finger horizontal swipe that moves back and forward through pages.',
+        category: 'Input',
+        why: 'A sideways scroll inside a wide table or a code view otherwise navigates away and discards the half-completed form.',
+        systemDefault: 'true'
+    },
+    'NSGlobalDomain.com.apple.trackpad.forceClick': {
+        title: 'Force Click',
+        description: 'Turns off Force Click and its haptic feedback. A firm press then does nothing extra.',
+        category: 'Input',
+        systemDefault: 'true'
+    },
+    'NSGlobalDomain.com.apple.mouse.doubleClickThreshold': {
+        title: 'Double-Click Speed',
+        description: 'Sets the longest gap, in seconds, that still counts as a double-click. A larger number gives you more time between the two clicks.',
+        category: 'Input',
+        systemDefault: '0.5'
+    },
+    'NSGlobalDomain.com.apple.sound.beep.sound': {
+        title: 'Alert Sound',
+        description: 'Sets which system sound plays for an alert. The value is a full path to an audio file in /System/Library/Sounds.',
+        category: 'Audio',
+        systemDefault: '/System/Library/Sounds/Funk.aiff'
+    },
+    'NSGlobalDomain.WebAutomaticSpellingCorrectionEnabled': {
+        title: 'Autocorrect in Web Views',
+        description: 'Turns off automatic spelling correction inside WebKit text fields. This covers Safari and any app that shows web content.',
+        category: 'Keyboard',
+        why: 'This is a separate key from NSAutomaticSpellingCorrectionEnabled. Set only that one and Safari still corrects your typing.',
+        systemDefault: 'true'
+    },
+    'com.apple.finder.ShowPathbar': {
+        title: 'Finder Path Bar',
+        description: 'Shows the path bar along the bottom of a Finder window. The bar gives the folder chain, and each part of it accepts a drop.',
+        category: 'Finder',
+        systemDefault: 'false'
+    },
+    'com.apple.finder.ShowStatusBar': {
+        title: 'Finder Status Bar',
+        description: 'Shows the status bar along the bottom of a Finder window. It reports the item count and the free space on the disk.',
+        category: 'Finder',
+        systemDefault: 'false'
+    },
+    'com.apple.finder._FXShowPosixPathInTitle': {
+        title: 'POSIX Path in Title',
+        description: 'Puts the full POSIX path of the current folder in the Finder window title, instead of the folder name alone.',
+        category: 'Finder',
+        why: 'The title is then something you can read a path out of and paste into a terminal.',
+        systemDefault: 'false'
+    },
+    'com.apple.finder._FXSortFoldersFirst': {
+        title: 'Folders First',
+        description: 'Keeps folders above files when a Finder window sorts by name.',
+        category: 'File Management',
+        systemDefault: 'false'
+    },
+    'com.apple.finder.FXPreferredViewStyle': {
+        title: 'Default Finder View',
+        description: 'Sets the view a new Finder window opens in. "Nlsv" is list, "icnv" is icon, "clmv" is column and "glyv" is gallery.',
+        category: 'Finder',
+        systemDefault: 'icnv (icon view)'
+    },
+    'com.apple.finder.FXDefaultSearchScope': {
+        title: 'Default Search Scope',
+        description: 'Sets where a Finder search starts. "SCcf" searches the current folder, "SCev" searches the whole Mac and "SCsp" searches the previous scope.',
+        category: 'Finder',
+        why: 'A search that starts at the whole Mac returns thousands of results when you meant the folder in front of you.',
+        systemDefault: 'SCev (This Mac)'
+    },
+    'com.apple.finder.FXEnableExtensionChangeWarning': {
+        title: 'Extension Change Warning',
+        description: 'Turns off the confirmation that appears when you change a file extension.',
+        category: 'File Management',
+        why: 'The dialog fires on every rename that touches the extension, which teaches you to dismiss it without reading.',
+        systemDefault: 'true'
+    },
+    'com.apple.finder.WarnOnEmptyTrash': {
+        title: 'Empty Trash Warning',
+        description: 'Turns off the confirmation that appears when you empty the Trash.',
+        category: 'File Management',
+        systemDefault: 'true'
+    },
+    'com.apple.finder.NewWindowTarget': {
+        title: 'New Finder Window Target',
+        description: 'Sets the folder a new Finder window opens. "PfDe" is the Desktop, "PfHm" is the home folder and "PfAF" is Recents.',
+        category: 'Finder',
+        why: 'A target other than these three also needs NewWindowTargetPath, which holds an absolute path and does not move between machines.',
+        systemDefault: 'PfAF (Recents)'
+    },
+    'com.apple.finder.ShowHardDrivesOnDesktop': {
+        title: 'Hard Disks on Desktop',
+        description: 'Shows the internal hard disks on the Desktop.',
+        category: 'Finder',
+        systemDefault: 'false'
+    },
+    'com.apple.finder.ShowMountedServersOnDesktop': {
+        title: 'Servers on Desktop',
+        description: 'Keeps connected network servers off the Desktop.',
+        category: 'Finder',
+        systemDefault: 'false'
+    },
+    'com.apple.finder.QuitMenuItem': {
+        title: 'Quit Finder',
+        description: 'Adds a Quit item to the Finder menu, so Cmd-Q closes Finder. Finder restarts when you next open a window.',
+        category: 'Finder',
+        systemDefault: 'false'
+    },
+    'com.apple.finder.FinderSpawnTab': {
+        title: 'Open Folders in Windows',
+        description: 'Opens a folder in a new window rather than a new tab.',
+        category: 'Finder',
+        systemDefault: 'true'
+    },
+    'com.apple.screencapture.showsClicks': {
+        title: 'Show Clicks in Recordings',
+        description: 'Draws a circle at each mouse click in a screen recording.',
+        category: 'Screenshots',
+        why: 'A recording of a workflow is hard to follow when the clicks are invisible.',
+        systemDefault: 'false'
+    },
+    'com.apple.SoftwareUpdate.ScheduleFrequency': {
+        title: 'Update Check Interval',
+        description: 'Sets how many days pass between automatic checks for a software update. 1 checks every day.',
+        category: 'System',
+        systemDefault: '7'
+    },
+    'com.apple.menuextra.clock.FlashDateSeparators': {
+        title: 'Flashing Time Separators',
+        description: 'Flashes the colon between the hours and the minutes once a second.',
+        category: 'Menu Bar',
+        systemDefault: 'false'
+    },
+    'com.apple.AdLib.allowApplePersonalizedAdvertising': {
+        title: 'Personalised Ads',
+        description: 'Turns off personalised advertising in the App Store, Apple News and Stocks.',
+        category: 'Security',
+        systemDefault: 'true'
+    },
+    'com.apple.AdLib.forceLimitAdTracking': {
+        title: 'Limit Ad Tracking',
+        description: 'Stops Apple\'s advertising platform from using the advertising identifier to target you.',
+        category: 'Security',
+        systemDefault: 'false'
+    },
+    'com.apple.CrashReporter.DialogType': {
+        title: 'Crash Reporter Dialog',
+        description: 'Stops the crash reporter dialog from appearing. "none" hides it, "basic" shows it and "developer" adds the full report.',
+        category: 'System',
+        why: 'A background process that crashes should not put a dialog in front of you for a report you do not send.',
+        systemDefault: 'basic'
+    },
+    'com.apple.WindowManager.EnableStandardClickToShowDesktop': {
+        title: 'Click Wallpaper to Show Desktop',
+        description: 'Stops a click on the wallpaper from hiding every window to reveal the Desktop.',
+        category: 'Interface',
+        why: 'macOS Sonoma turned this on by default. A stray click near the edge of the screen then clears the screen.',
+        systemDefault: 'true'
+    },
+    'com.apple.WindowManager.AppWindowGroupingBehavior': {
+        title: 'Stage Manager Grouping',
+        description: 'Sets how Stage Manager groups windows. 1 shows one window at a time, 0 groups every window of an application.',
+        category: 'Interface',
+        systemDefault: '0 (group by application)'
+    },
+    'com.apple.dt.Xcode.IDEDisableGitSupportForNewProjects': {
+        title: 'Xcode Git for New Projects',
+        description: 'Stops Xcode from creating a git repository when you make a new project.',
+        category: 'Applications',
+        why: 'The repository layout is a per-project decision, and the new-project sheet is the wrong place to make it.',
+        systemDefault: 'false'
+    },
+    'com.apple.dt.Xcode.IDEWorkspaceSuppressCleanBuildPrompt': {
+        title: 'Xcode Clean Build Prompt',
+        description: 'Stops Xcode from asking for confirmation before it cleans the build folder.',
+        category: 'Applications',
+        systemDefault: 'false'
+    },
+    'com.apple.AppleMultitouchTrackpad.ActuateDetents': {
+        title: 'Silent Clicking',
+        description: 'Turns off the haptic detent the trackpad fires on a click. The click still registers, without the tap you feel.',
+        category: 'Input',
+        systemDefault: '1 (haptic feedback on)'
+    },
     // General UI / UX
     'NSGlobalDomain.AppleInterfaceStyle': {
         title: 'Dark Mode',
