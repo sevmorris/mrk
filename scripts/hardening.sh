@@ -177,4 +177,41 @@ else
   log "Skipping firewall changes (sudo unavailable)"
 fi
 
+# 4) Quarantine prompt for downloaded applications
+#
+# This is the one step here that LOWERS the security floor rather than raising
+# it, and it is deliberate. LSQuarantine=false suppresses the "X is an app
+# downloaded from the Internet. Are you sure you want to open it?" dialog that
+# LaunchServices shows the first time you open a quarantined app.
+#
+# It does NOT disable Gatekeeper: signature and notarization checks still run,
+# an unsigned app is still refused, and `spctl` is untouched. What it removes is
+# the extra confirmation on an app that has already passed those checks.
+#
+# It lives in this script rather than in defaults.sh because it is a security
+# decision, and because `make harden` writes a rollback — `make defaults` would
+# too, but grouping it with the firewall and the sleep password keeps the whole
+# security posture in one file and one rollback.
+log "Suppressing the quarantine prompt for downloaded apps"
+warn "this LOWERS the security floor — see the note in scripts/hardening.sh"
+lsq_absent=0
+if lsq_prev=$(defaults read com.apple.LaunchServices LSQuarantine 2>/dev/null); then
+  :
+else
+  lsq_absent=1
+  lsq_prev="1"
+fi
+# Same first-run-wins guard as the keys above.
+if ! grep -qF "defaults write com.apple.LaunchServices LSQuarantine " "$ROLL" 2>/dev/null && \
+   ! grep -qF "defaults delete com.apple.LaunchServices LSQuarantine " "$ROLL" 2>/dev/null; then
+  if (( lsq_absent )); then
+    rollback 'defaults delete com.apple.LaunchServices LSQuarantine >/dev/null 2>&1 || true'
+  else
+    lsq_bool=false
+    [[ "$lsq_prev" == "1" ]] && lsq_bool=true
+    rollback "defaults write com.apple.LaunchServices LSQuarantine -bool ${lsq_bool}"
+  fi
+fi
+defaults write com.apple.LaunchServices LSQuarantine -bool false
+
 log "Hardening done. Rollback: $ROLL"

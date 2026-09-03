@@ -67,7 +67,7 @@ Run `make all` to execute all three phases at once. On a fresh machine, run Phas
 | `make tools` | Link scripts into `~/bin` only |
 | `make defaults` | Apply macOS defaults only |
 | `make trackpad` | Apply defaults including trackpad gestures |
-| `make harden` | Security hardening (Touch ID sudo, firewall) |
+| `make harden` | Security settings (Touch ID sudo, sleep password, firewall) plus the quarantine-prompt opt-out |
 | `make dock` | Populate the Dock with preferred apps |
 
 **Maintenance**

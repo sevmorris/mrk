@@ -664,12 +664,13 @@
             <span class="callout-label">Warning</span>
             <div class="callout-body">hardening.sh changes system files, and it needs sudo. It writes the rollback script to <code>~/.mrk/hardening-rollback.sh</code> before it changes anything. To undo the changes, run <code>bash ~/.mrk/hardening-rollback.sh</code>.</div>
           </div>
-          <p class="desc">hardening.sh applies three optional macOS security settings. It asks you to confirm each one.</p>
+          <p class="desc">hardening.sh applies four optional macOS settings. It asks you to confirm each one. Three of them raise the security floor. The fourth lowers it, and the list says which.</p>
           <pre><code>hardening.sh</code></pre>
           <ul>
             <li><strong>Touch ID for sudo</strong> — Adds <code>pam_tid.so</code> to <code>/etc/pam.d/sudo</code>.</li>
             <li><strong>Immediate password after sleep</strong> — Sets the screensaver password delay to 0.</li>
             <li><strong>Firewall and stealth mode</strong> — Turns on the macOS application firewall. hardening.sh checks the firewall state and the stealth mode state separately, so it can turn on stealth mode when the firewall is already on.</li>
+            <li><strong>Quarantine prompt — this step lowers the security floor.</strong> It sets <code>LSQuarantine</code> to false. macOS then does not show the "downloaded from the Internet" dialog on the first launch of an application. Gatekeeper still runs. The signature check and the notarization check are unchanged, and macOS still refuses an unsigned application. Only the extra confirmation goes away.</li>
           </ul>
         </div>
       </div>
