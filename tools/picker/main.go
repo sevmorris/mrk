@@ -117,7 +117,6 @@ var descriptions = map[string]string{
 	"brave-browser":          "Privacy-focused browser based on Chromium",
 	"cryptomator":            "Client-side encryption for files stored in the cloud",
 	"calibre":                "E-book manager, reader, and format converter",
-	"descript":               "AI-powered audio and video editor",
 	"disk-drill":             "Data recovery software and disk health monitoring",
 	"doublender":             "Guest-side double-ender podcast recorder",
 	"dropbox":                "Cloud storage and file synchronization service",
@@ -308,6 +307,13 @@ type model struct {
 	height    int
 	confirmed bool
 	cancelled bool
+	// ctrl+c only. An `i` mark is a decision the user already made, so quitting
+	// with q or esc keeps those while dropping the pending additions; a hard
+	// interrupt drops everything. Before this, every exit but enter discarded
+	// the ignore marks, so marking packages and then quitting — the natural
+	// move when you are adding nothing — silently threw the marks away and the
+	// same packages came back next run.
+	aborted bool
 }
 
 func newModel(cats []category) model {
@@ -355,7 +361,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "q", "ctrl+c":
+		case "ctrl+c":
+			m.aborted = true
+			m.cancelled = true
+			return m, tea.Quit
+		case "q":
 			m.cancelled = true
 			return m, tea.Quit
 		case "esc":
@@ -526,7 +536,7 @@ func (m model) viewHeader() string {
 func (m model) viewFooter() string {
 	// Kept under 80 columns: this wraps at the minimum supported width, and a
 	// wrapped footer costs a body line.
-	return styleFooter.Render("↑↓/jk move · tab/hl pane · space add · i ignore · a all · enter ok · q quit")
+	return styleFooter.Render("↑↓/jk move · tab/hl pane · space add · i ignore · a all · enter ok · q quit (ignores kept)")
 }
 
 func (m model) viewLeft(inner, height int) string {
@@ -694,6 +704,30 @@ func (m model) viewRight(inner, height int) string {
 
 // ── Main ──────────────────────────────────────────────────────────────────
 
+// emitLines renders the picker's decisions as "type:name" lines. Ignored
+// packages take an "ignore-" prefixed type rather than a third field, so the
+// caller's `IFS=: read -r a b` split keeps working unchanged.
+//
+// cancelled means the user left with q or esc. That abandons the pending
+// additions but keeps the ignore marks: "never offer this again" is a decision
+// already made, and discarding it was why ignoring a package did not stick —
+// quitting is the natural move when you are adding nothing, and it used to
+// throw every mark away. A ctrl+c abort exits before reaching here.
+func emitLines(cats []category, cancelled bool) []string {
+	var out []string
+	for _, cat := range cats {
+		for _, p := range cat.pkgs {
+			switch {
+			case p.selected && !cancelled:
+				out = append(out, fmt.Sprintf("%s:%s", p.kind, p.name))
+			case p.ignored:
+				out = append(out, fmt.Sprintf("ignore-%s:%s", p.kind, p.name))
+			}
+		}
+	}
+	return out
+}
+
 func main() {
 	brewfilePath := flag.String("brewfile", "Brewfile", "Path to Brewfile")
 	installedFormulaeStr := flag.String("installed-formulae", "", "Comma-separated installed formulae")
@@ -742,21 +776,11 @@ func main() {
 	}
 
 	result := final.(model)
-	if result.cancelled {
+	if result.aborted {
 		os.Exit(1)
 	}
 
-	// Output as "type:name" lines. Ignored packages use an "ignore-" prefixed
-	// type rather than a third field, so the caller's `IFS=: read -r a b` split
-	// keeps working unchanged.
-	for _, cat := range result.cats {
-		for _, p := range cat.pkgs {
-			switch {
-			case p.selected:
-				fmt.Printf("%s:%s\n", p.kind, p.name)
-			case p.ignored:
-				fmt.Printf("ignore-%s:%s\n", p.kind, p.name)
-			}
-		}
+	for _, line := range emitLines(result.cats, result.cancelled) {
+		fmt.Println(line)
 	}
 }
