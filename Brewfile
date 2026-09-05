@@ -14,7 +14,6 @@ brew "unbound"
 # GNU coreutils — prepend gnubin so ls/cat/sed use GNU names (see Brewfile comment)
 brew "coreutils"
 brew "fastfetch"
-brew "gemini-cli"
 brew "gh"
 brew "git"
 brew "git-filter-repo"
@@ -94,7 +93,6 @@ cask "fl2601", greedy: true
 cask "gcloud-cli"
 cask "github", greedy: true
 cask "google-chrome", greedy: true
-cask "google-chrome@canary", greedy: true
 cask "google-drive", greedy: true
 cask "gpg-suite-no-mail", greedy: true
 cask "handbrake-app", greedy: true
