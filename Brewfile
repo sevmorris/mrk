@@ -83,7 +83,6 @@ cask "balenaetcher", greedy: true
 cask "brave-browser", greedy: true
 cask "calibre", greedy: true
 cask "cryptomator", greedy: true
-cask "descript", greedy: true
 cask "disk-drill", greedy: true
 cask "doublender", greedy: true
 cask "dropbox", greedy: true
