@@ -326,11 +326,40 @@ if (( PRUNE && n_stale > 0 )); then
     fi
   fi
 
-  n_prune=$(( ${#prune_formulae[@]} + ${#prune_casks[@]} ))
+  # Removing a Brewfile entry orphans its mrk-picker description. Nothing couples
+# the two — sync only ever runs the picker as a UI — so a removal looks complete
+# and check-picker-desc reports the mismatch later, on the next `make check` or
+# push. That turned a routine removal into a red build twice in four days:
+# descript on 2026-09-04, then gemini-cli and google-chrome@canary on
+# 2026-09-05, the second of which was found by reading CI logs rather than by
+# the person who made the change. So say it here, where the removal happens.
+#
+# awk rather than grep because a package name is not a regex: python@3.12 would
+# otherwise match python@3-12. Splitting on quotes makes field 2 the key, and
+# the comparison is exact.
+_warn_orphaned_descriptions() {
+  local picker_go="$REPO_ROOT/tools/picker/main.go"
+  [[ -f "$picker_go" ]] || return 0
+  local orphans=() pkg
+  for pkg in "$@"; do
+    if awk -F'"' -v want="$pkg" '
+         /^\t"/ { if ($2 == want) { found = 1; exit } }
+         END { exit !found }' "$picker_go"; then
+      orphans+=("$pkg")
+    fi
+  done
+  (( ${#orphans[@]} == 0 )) && return 0
+  warn "Still described in tools/picker/main.go (${#orphans[@]}) — check-picker-desc will fail:"
+  printf '      %s\n' "${orphans[@]}" >&2
+  warn "Delete those lines and rebuild with 'make picker', then 'make check'."
+}
+
+n_prune=$(( ${#prune_formulae[@]} + ${#prune_casks[@]} ))
 
   if (( n_prune > 0 )); then
     if (( DRY_RUN )); then
       echo "  [dry run] Would remove $n_prune entr(ies) from Brewfile."
+    _warn_orphaned_descriptions "${!prune_formulae[@]}" "${!prune_casks[@]}"
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     else
       # Build sed patterns to remove matching lines (atomic write via temp file)
@@ -350,6 +379,7 @@ if (( PRUNE && n_stale > 0 )); then
       replace_brewfile || exit 1
 
       log "Removed $n_prune stale entr(ies) from Brewfile."
+    _warn_orphaned_descriptions "${!prune_formulae[@]}" "${!prune_casks[@]}"
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     fi
   else
