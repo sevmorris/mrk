@@ -12,6 +12,23 @@ done
 SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+usage() {
+  cat <<'EOF'
+check-picker-desc — verify mrk-picker has a description for every package
+
+Usage:
+  check-picker-desc
+
+check-picker-desc takes no options. It compares the packages in the Brewfile
+against the descriptions in tools/picker/main.go and fails when either side has
+an entry the other does not. ci-check runs it first.
+EOF
+}
+mrk_help_guard "$(usage)" "$@"
+
 BREWFILE="$REPO_ROOT/Brewfile"
 PICKER_GO="$REPO_ROOT/tools/picker/main.go"
 

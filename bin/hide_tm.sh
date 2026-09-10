@@ -2,6 +2,35 @@
 # hide_tm.sh — hide Time Machine volumes from Finder sidebar
 set -euo pipefail
 
+usage() {
+  cat <<'EOF'
+hide_tm.sh — hide Time Machine volumes from the Finder sidebar
+
+Usage:
+  hide_tm.sh [volume[,volume...]]
+
+hide_tm.sh takes one optional argument: a comma-separated list of volume names,
+defaulting to "TimeMachine". Set TM_VOLUMES to the same list to supply it from
+the environment instead; the environment wins when both are given.
+
+  hide_tm.sh                        hides "TimeMachine"
+  hide_tm.sh "TM Backup,Archive"    hides both
+EOF
+}
+
+# One argument, not several. The list is comma-separated precisely so that
+# several volumes fit in one word, and reading only $1 meant a space-separated
+# attempt lost everything after the first name without saying so.
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+  -*)        usage >&2; printf '\nunknown argument: %s\n' "$1" >&2; exit 2 ;;
+esac
+if (( $# > 1 )); then
+  usage >&2
+  printf '\nToo many arguments — pass one comma-separated list: "%s"\n' "$*" >&2
+  exit 2
+fi
+
 VOLS="${TM_VOLUMES:-${1:-TimeMachine}}"
 
 IFS=',' read -ra NAMES <<<"$VOLS"

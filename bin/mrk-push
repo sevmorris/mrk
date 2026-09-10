@@ -81,7 +81,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Commit message
+# Commit message.
+#
+# The `*)` arm above breaks out of option parsing on the first non-dash
+# argument, which leaves every remaining word in "$@". Taking only $1 meant an
+# unquoted message silently truncated to its first word — `mrk-push fix the
+# login bug` committed "fix" and discarded the rest, with nothing said. Refuse
+# instead, and show the line that would have worked.
+if (( $# > 1 )); then
+  err "Too many arguments — the commit message must be quoted"
+  printf '\n  mrk-push "%s"\n\n' "$*" >&2
+  usage >&2
+  exit 1
+fi
 msg="${1:-}"
 # A dry run commits nothing, so do not stop to ask for a subject line.
 if [[ -z "$msg" ]] && (( DRY_RUN )); then

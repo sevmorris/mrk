@@ -179,8 +179,13 @@ tool was green beforehand.
   silence. `nuke-mrk` and `check-updates` followed too. Both had been set aside as reachable
   only through a `[y/N]`; that holds for `nuke-mrk`, but `check-updates` writes its
   rate-limit stamp and disowns a background fetch *before* the prompt, and the fingerprint
-  had called it clean only because it did not cover `~/.cache`. All 40 commands on `PATH`
-  now either answer `--help` or are one of 6 deliberate exemptions.
+  had called it clean only because it did not cover `~/.cache`. A third round then asked
+  whether it was *verified* that nothing still drops arguments — it was not, and checking
+  found three more: `mrk-menu`/`mrk-status` fell through to the TUI on any argument that was
+  not exactly `--help`, the three `check`/`ci` gates accepted anything, and extra positionals
+  were dropped by `mrk-push` (an unquoted commit message truncated to its first word) and
+  `hide_tm.sh`. All closed. Of 40 entries on `PATH`, 38 answer `--help` and 38 refuse an
+  unknown argument; `decloud` forwards to git by design and `lib` is a directory.
 
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`

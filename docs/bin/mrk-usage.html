@@ -523,7 +523,7 @@
 
       <div class="callout">
         <span class="callout-label">Asking a Command What It Does</span>
-        <div class="callout-body">Every command in this manual answers <code>-h</code> and <code>--help</code> by printing a usage summary and exiting 0, and refuses any argument it does not recognise with exit 2. Both halves are deliberate. A script with no option parser does not ignore an unrecognised flag — it runs, with the flag discarded. Twelve commands here behaved that way until 2026-09-10, so <code>mrk-uninstall --help</code> unlinked <code>~/bin</code> and <code>mrk-post-install --help</code> installed applications. Of the 40 commands in this manual, 34 now answer <code>--help</code>; the other six are exempt on purpose, <code>decloud</code> because it passes every argument through to git and the rest because they are gates that take none. Where a command takes no options of its own, the contract comes from <code>mrk_help_guard</code> in <code>scripts/lib.sh</code>; the two LaunchAgent scripts spell it out inline so that an unattended job depends on nothing but itself.</div>
+        <div class="callout-body">Every command in this manual answers <code>-h</code> and <code>--help</code> by printing a usage summary and exiting 0, and refuses any argument it does not recognise with exit 2. Both halves are deliberate. A script with no option parser does not ignore an unrecognised flag — it runs, with the flag discarded. Twelve commands here behaved that way until 2026-09-10, so <code>mrk-uninstall --help</code> unlinked <code>~/bin</code> and <code>mrk-post-install --help</code> installed applications. Of the 40 entries in this manual, 38 answer <code>--help</code> and refuse an unknown argument with exit 2. The two exceptions are exempt on purpose: <code>decloud</code> forwards every argument to git, and <code>lib</code> is a directory rather than a command. Where a command takes no options of its own, the contract comes from <code>mrk_help_guard</code> in <code>scripts/lib.sh</code>; the two LaunchAgent scripts spell it out inline so that an unattended job depends on nothing but itself.</div>
       </div>
 
       <div class="callout callout-caution">
@@ -698,11 +698,12 @@
         </div>
         <div class="proc-body">
           <p class="desc">hide_tm.sh hides the Time Machine backup volumes from the Finder sidebar.</p>
-          <pre><code>hide_tm.sh [volume_name]
+          <pre><code>hide_tm.sh [volume_name] [--help | -h]
 TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
           <ul>
             <li>The default volume name is <code>TimeMachine</code>.</li>
             <li>To name more than one volume, give a comma-separated list. Use the argument or the <code>TM_VOLUMES</code> environment variable.</li>
+            <li>hide_tm.sh takes one argument, not several. Until 2026-09-10 it read only the first and discarded the rest, so a space-separated attempt hid one volume in silence. It now exits 2.</li>
           </ul>
         </div>
       </div>
@@ -749,13 +750,14 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
         <div class="proc-body">
           <p class="desc">status is a two-pane TUI dashboard. It shows the health of the mrk installation. The same binary also runs as <code>mrk-status</code>.</p>
           <pre><code>status
-mrk-status --help</code></pre>
+mrk-status [--help | -h]</code></pre>
           <ul>
             <li>Left pane — nine checks, each with a ✓, ⚠ or ✗ mark: dotfiles, tool symlinks, macOS defaults, security hardening, backups, shell, PATH, Homebrew, and Brewfile packages.</li>
             <li>Right pane — the detail lines for the selected check. The pane also shows the suggested fix command.</li>
             <li><strong>f</strong> — Run the fix command for the selected check.</li>
             <li><strong>r</strong> — Run all the checks again.</li>
             <li><strong>tab / ←→</strong> — Move to the other pane.</li>
+            <li>Until 2026-09-10 mrk-status compared only its first argument against <code>--help</code> and <code>-h</code> and opened the dashboard on anything else, so an unrecognised flag was discarded. The same was true of <code>mrk-menu</code>. Both now exit 2.</li>
           </ul>
         </div>
       </div>
@@ -925,7 +927,7 @@ mrk-status --help</code></pre>
         </div>
         <div class="proc-body">
           <p class="desc">mrk-menu starts any mrk task. It is a two-pane TUI, and it groups the commands into categories: Brewfile, Login items, Preferences, System state, Diagnostics, Maintenance, and Nuclear options. mrk-menu is a Go binary.</p>
-          <pre><code>mrk-menu</code></pre>
+          <pre><code>mrk-menu [--help | -h]</code></pre>
           <ul>
             <li><code>-h</code>, <code>--help</code> — Show the usage summary and the key list, then exit. Added 2026-09-10; before that mrk-menu was the only one of the three TUIs without it, and <code>mrk-menu --help</code> tried to open a TTY, failed, and exited 1.</li>
           </ul>
@@ -981,6 +983,7 @@ mrk-push -- "-starts with a dash"</code></pre>
             <li><code>--</code> — End option parsing, so a commit message can begin with a dash.</li>
           </ul>
           <ul>
+            <li>mrk-push takes one argument for the message, so quote it. Until 2026-09-10 it read only the first word and discarded the rest, so <code>mrk-push fix the login bug</code> committed <code>fix</code> without saying so. It now refuses and prints the quoted form you meant.</li>
             <li>mrk-push refuses any other argument that begins with a dash. Before 2026-09-09 it had no option parsing at all and took every argument as the commit message, so <code>mrk-push --help</code> committed and pushed with <code>--help</code> as the subject.</li>
           </ul>
           <ul>
@@ -1051,7 +1054,7 @@ mrk-push -- "-starts with a dash"</code></pre>
         </div>
         <div class="proc-body">
           <p class="desc">ci-check runs the local validation for the repository. GitHub Actions runs the same script.</p>
-          <pre><code>ci-check</code></pre>
+          <pre><code>ci-check [--help | -h]</code></pre>
           <ol>
             <li>Run <code>check-picker-desc</code>.</li>
             <li>Run shellcheck on every bash script in <code>scripts/</code> and <code>bin/</code>.</li>
@@ -1071,7 +1074,7 @@ mrk-push -- "-starts with a dash"</code></pre>
         </div>
         <div class="proc-body">
           <p class="desc">check-picker-desc verifies that mrk-picker has a description for every Brewfile package. It compares the Brewfile against <code>tools/picker/main.go</code>.</p>
-          <pre><code>check-picker-desc</code></pre>
+          <pre><code>check-picker-desc [--help | -h]</code></pre>
           <ul>
             <li>check-picker-desc exits with status 1 when a package has no description.</li>
             <li><code>ci-check</code> runs check-picker-desc first, so <code>make check</code> covers it.</li>
@@ -1324,7 +1327,7 @@ mrk-push -- "-starts with a dash"</code></pre>
           </div>
           <div class="proc-body">
             <p class="desc">check-defaults-desc verifies that the defaults reference documents every key <code>scripts/defaults.sh</code> writes. It compares the <code>write_default</code> calls against the <code>DEFAULT_DESCRIPTIONS</code> map in <code>docs/defaults/script.js</code>, in both directions.</p>
-            <pre><code>check-defaults-desc</code></pre>
+            <pre><code>check-defaults-desc [--help | -h]</code></pre>
             <ul>
               <li>check-defaults-desc exits with status 1 when a key has no description, and also when a description has no key — a stale entry is reported as well as a missing one.</li>
               <li><code>ci-check</code> runs it after check-picker-desc, so <code>make check</code> covers it.</li>

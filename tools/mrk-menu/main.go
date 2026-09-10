@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,8 +19,8 @@ var (
 // two cannot drift. mrk-menu was the only one of the three TUIs with no --help:
 // it tried to open a TTY, failed, and exited 1, which is a confusing answer to
 // a reasonable question.
-func usage() {
-	fmt.Print(`mrk-menu — interactive launcher for mrk commands
+func usage(w io.Writer) {
+	fmt.Fprint(w, `mrk-menu — interactive launcher for mrk commands
 
 Usage:
   mrk-menu            Open the TUI launcher
@@ -39,9 +40,38 @@ word "nuke" typed exactly, and anything else cancels.
 `)
 }
 
+// parseArgs decides what to do with the command line. It returns help=true when
+// usage was asked for, and bad set to the argument to refuse. Extracted from
+// main so the decision is testable without os.Exit.
+//
+// The default arm is the point. main used to compare os.Args[1] against
+// "--help" and "-h" and fall straight through on anything else, so
+// `mrk-menu --bogus` opened the TUI with the flag discarded — the same shape
+// as the eight commands in audit/14 P-9. An extra argument was dropped too.
+func parseArgs(args []string) (help bool, bad string) {
+	if len(args) == 0 {
+		return false, ""
+	}
+	if len(args) > 1 {
+		return false, args[1]
+	}
+	switch args[0] {
+	case "--help", "-h":
+		return true, ""
+	default:
+		return false, args[0]
+	}
+}
+
 func main() {
-	if len(os.Args) > 1 && (os.Args[1] == "--help" || os.Args[1] == "-h") {
-		usage()
+	help, bad := parseArgs(os.Args[1:])
+	switch {
+	case bad != "":
+		usage(os.Stderr)
+		fmt.Fprintf(os.Stderr, "\nunknown argument: %s\n", bad)
+		os.Exit(2)
+	case help:
+		usage(os.Stdout)
 		return
 	}
 
