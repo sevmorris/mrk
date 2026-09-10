@@ -44,6 +44,35 @@ if [[ ! -f "$PICKER_GO" ]]; then
   exit 1
 fi
 
+# Fail closed on a Brewfile line this gate cannot read.
+#
+# Homebrew's Brewfile is Ruby, so it accepts more shapes than mrk's parsers do:
+# `brew  "x"` with two spaces, a tab, a leading space, and `brew 'x'` in single
+# quotes are all valid to `brew bundle` and all invisible to the `^(brew|cask) "`
+# grep below. Confirmed by running `brew bundle list` over a file of those
+# shapes — Homebrew saw six formulae where mrk's five independent parsers saw
+# between two and four, and no two of them agreed.
+#
+# For this gate that is worse than a miscount. Its whole job is to guarantee
+# every package has a picker description; a package it cannot see is a package
+# it silently exempts, and the gate reports OK. So refuse the file instead.
+# mrk never writes these shapes — scripts/sync emits `printf 'brew "%s"\n'` —
+# which is exactly why a hand edit that does is worth stopping here.
+unparsable=()
+while IFS= read -r line; do
+  [[ -z "$line" || "$line" == \#* ]] && continue
+  [[ "$line" =~ ^(brew|cask|tap|mas)\ \"[^\"]+\" ]] && continue
+  unparsable+=("$line")
+done < "$BREWFILE"
+if (( ${#unparsable[@]} > 0 )); then
+  echo "check-picker-desc: ${#unparsable[@]} Brewfile line(s) mrk cannot parse:" >&2
+  printf '  %s\n' "${unparsable[@]}" >&2
+  echo "Homebrew accepts these; mrk's parsers do not, so the package would be" >&2
+  echo "installed but invisible to sync, status, picker and this check." >&2
+  echo 'Rewrite each as: keyword "name"  (one space, double quotes, no indent)' >&2
+  exit 1
+fi
+
 brew_pkgs=()
 while IFS= read -r pkg; do
   [[ -n "$pkg" ]] && brew_pkgs+=("$pkg")

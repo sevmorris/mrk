@@ -350,6 +350,43 @@ the live 130-line rollback byte-for-byte unchanged.
 The duplication is what let one destructive edge case exist in two places, so the copy in
 `post-install` — which carried a comment explaining that it was a copy — is gone.
 
+### The Brewfile has five parsers and no two agree (2026-09-10)
+
+Entry point: one data format, several independent readers. The Brewfile is parsed by
+`tools/picker`, `tools/mrk-status`, `scripts/brew`, `scripts/sync` and `check-picker-desc`,
+each with its own expression. Run over a file of legal-but-unusual lines they returned
+**three different answers**, and Homebrew — the authority, via `brew bundle list` — returned a
+fourth, higher than all of them:
+
+| line | Homebrew | mrk |
+|---|---|---|
+| `brew "x"` | sees | all five see it |
+| `brew  "x"` (two spaces) | sees | only `mrk-status` |
+| `brew<TAB>"x"` | sees | `mrk-status`, `sync` |
+| ` brew "x"` (indented) | sees | **none** |
+| `brew 'x'` (single quotes) | sees | **none** |
+
+A Brewfile is Ruby, so all five are valid to `brew bundle`. The consequence is not a
+miscount: a package mrk cannot see is installed by `brew bundle` and then invisible to `sync`,
+`mrk-status` and the picker — and `check-picker-desc` silently *exempts* it from needing a
+description, reporting OK. The gate whose job is completeness had a hole shaped exactly like
+its own parser.
+
+Reachability, checked rather than assumed: the real Brewfile is 144 lines and **100% strict**,
+and `sync` emits `printf 'brew "%s"\n'`, so mrk never writes one of these. Latent, like the
+rollback shebang — but the Brewfile is a file the docs tell you to hand-edit, which is where
+it would come from.
+
+Fixed by making the harmed gate **fail closed** rather than teaching five parsers Ruby:
+`check-picker-desc` now refuses a Brewfile containing any line it cannot parse, and says how
+to rewrite it. Mutation-tested against all four shapes; comments and blank lines are skipped,
+and a well-formed new cask still falls through to the description check rather than being
+swallowed by the new one.
+
+Left alone deliberately: the five expressions still differ. With the gate guaranteeing the
+input shape the difference is unreachable, and rewriting four of them to match a fifth is
+churn with no behaviour change.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
