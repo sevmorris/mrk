@@ -1,7 +1,7 @@
 # Followups
 
 This file indexes every deferred item, known limitation, and explicitly-out-of-scope
-finding from the mrk audit (modules 1–13, six fix sessions, runtime verification).
+finding from the mrk audit (modules 1–14, six fix sessions, runtime verification).
 It is not a punch list of unfixed bugs — most items here were explicitly chosen to defer,
 accept as a known limitation, or scope out. The value of the file is that "what's still
 open?" has a single answer without grepping the whole audit directory.
@@ -9,7 +9,15 @@ open?" has a single answer without grepping the whole audit directory.
 For each item: what it is, where it's documented, why it was deferred, what action
 would close it.
 
-**Last re-verified:** 2026-08-31 against `15c82c9`. The 2026-08-31 recursive pass
+**Last re-verified:** 2026-09-09 against `605ff9f` by module 14
+(`14-audit-2026-09-09.md`), which found eight items, fixed six, withdrew one of its own as
+a false finding, and left one cosmetic. Its durable result is methodological: **half its
+findings were only reachable by running the code.** P-5, P-6 and P-8 live in the exit
+status or failure path of an operation that otherwise succeeds and says so, which is why
+fourteen prior cycles of reading never found them. Module 14 also added no new open items
+beyond P-7 below.
+
+**Previously re-verified:** 2026-08-31 against `15c82c9`. The 2026-08-31 recursive pass
 (`13-audit-2026-08-31.md`) found and fixed 14 defects, three of them HIGH, none of which
 any tool reported — `ci-check`, `shellcheck`, `go vet`, `gofmt` and `bash -n` were all
 green beforehand. Two sat in the key-transfer path: `restore-keys` rejected every valid
@@ -65,6 +73,15 @@ it explicitly. Documented in `12-fresh-audit-2026-08.md N-19`.
 ## Known limitations (documented, not blocking)
 
 Items the audit identified that are real but classified as acceptable.
+
+**Module 14 P-7 — two cosmetic inconsistencies between paired commands.** `bin/mrk-menu`
+is the only one of the three TUIs with no `--help`: `mrk-status` prints a help page and
+`mrk-picker` gets one from Go's flag package, while `mrk-menu --help` tries to open a TTY,
+fails, and exits 1. Separately, `scripts/brew` accepts `--dry-run` but not `-n` while
+`scripts/sync` accepts both, so `make brew ARGS=-n` fails with "Unknown option" — and the
+Makefile advertises `ARGS=-n` for sync while saying nothing about brew's. Neither loses
+data or hides a failure. Documented in `14-audit-2026-09-09.md`; closing it means adding a
+`--help` case to `mrk-menu` and an `-n` alias to `brew`.
 
 **~40 browser and app-preference writes have NO ROLLBACK FOUND.** Safari, Helium, Audio
 Hijack, Fission, AlDente, and all six Rogue Amoeba update-suppression domains are written
@@ -127,6 +144,42 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by module 14, the 2026-09-09 full sweep
+
+Six defects fixed, `P-1`, `P-3`, `P-4`, `P-5`, `P-6`, `P-8`. Full detail, reproductions and
+the sixteen verified-clean results in `14-audit-2026-09-09.md`. As with module 13, every
+tool was green beforehand.
+
+- **P-1 — `((x++))` under `set -e` aborted the run it was counting for.** A post-increment
+  on a counter still at zero returns 1, and `set -e` ends the script. `--continue-on-error`
+  therefore aborted on the first phase that failed. Twelve sites matched by grep; eight were
+  harmless because the enclosing function is invoked in a condition, which suppresses
+  `set -e` through its whole body. All twelve converted to `X=$(( X + 1 ))`, because the
+  eight are safe only by virtue of a call site in another function.
+- **P-3 — a failed firewall read was recorded as "was off".** `|| true` folded a failed
+  read into the same value a successful read of a disabled firewall gives, so the rollback
+  would have disabled a firewall that was on. Now tracked apart with `prev_absent`, the
+  pattern the screensaver keys forty lines above already used.
+- **P-4 — `mrk-status` reported all 127 Brewfile packages missing when `brew list` failed.**
+  The error was swallowed and the lookup map left empty. `scripts/sync:190` guards the
+  identical call and says why; `sync` got the fix because there the consequence was data
+  loss rather than a false alarm.
+- **P-5 — an EXIT trap ending on a false test failed a successful run.** `brew --dry-run`
+  printed "No changes were made" and exited 1. `sync` and `sync-login-items` already ended
+  every cleanup line with `|| true`; `brew` and `snapshot-keys` did not.
+- **P-6 — `mrk-push` had no argument parsing.** `msg="${1:-}"` took every argument as a
+  commit message, so `mrk-push --help` committed the working tree and pushed it. It did
+  exactly that during the verification pass and needed an amend and a force-push to repair.
+- **P-8 — `make defaults` failed on the same key every run.** Mail is sandboxed and its
+  preferences domain does not exist until Mail is configured, so the write failed and every
+  run ended "1 default(s) failed to apply" — a permanent warning is one nobody reads.
+
+**P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
+deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
+were examined and are correct, which a deleted entry would not say. It was re-flagging
+module 13's P-10, missed because detection used `head -5` and the `set -` lines sit at 7,
+8, 15 and 25.
 
 ### Closed by module 13, the 2026-08-31 recursive audit
 

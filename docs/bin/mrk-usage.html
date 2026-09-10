@@ -500,6 +500,8 @@
   <a href="#clear-app-caches">2.32 clear-app-caches</a>
   <a href="#clear-derived-data">2.33 clear-derived-data</a>
   <a href="#trim-services">2.34 trim-services</a>
+  <a href="#build-tools">2.35 build-tools</a>
+  <a href="#check-defaults-desc">2.36 check-defaults-desc</a>
   <a class="section-head">Sect. 3 — Reference</a>
   <a href="#lib">3.1 Shared Libraries</a>
   <a href="#quick-ref">3.2 Quick Reference</a>
@@ -1252,6 +1254,41 @@ mrk-push -- "-starts with a dash"</code></pre>
           <div class="callout callout-caution">
             <span class="callout-label">Caution</span>
             <div class="callout-body">The Photos agents are the item with a real cost. Without <code>photoanalysisd</code> and <code>mediaanalysisd</code>, Photos does not build People albums or Memories, and Visual Look Up does not work.</div>
+          </div>
+        </div>
+
+        <div class="proc" id="build-tools">
+          <div class="proc-header">
+            <span class="proc-num">2.35</span>
+            <h3>build-tools <span class="tag tag-mrk">mrk</span></h3>
+          </div>
+          <div class="proc-body">
+            <p class="desc">build-tools rebuilds the three Go binaries — mrk-picker, mrk-status and mrk-menu — and relinks them into <code>~/bin</code>. It wraps <code>make -C ~/mrk build-tools</code> rather than repeating the build, so there is only one build path to drift.</p>
+            <pre><code>build-tools</code></pre>
+            <ul>
+              <li><code>-h</code>, <code>--help</code> — Show the usage summary and exit.</li>
+            </ul>
+            <ul>
+              <li>build-tools needs Go on the PATH.</li>
+              <li>The binaries are gitignored build artifacts, and nothing warns you that one is older than its source. Run build-tools after changing anything under <code>tools/</code>, or you keep using the previous binary.</li>
+              <li>The Makefile stamps each binary with the version and commit from <code>git describe --tags</code>. That is why the <code>v1.0.0</code> tag is kept even though its GitHub release was deleted — without a tag the binaries report a bare commit SHA.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="proc" id="check-defaults-desc">
+          <div class="proc-header">
+            <span class="proc-num">2.36</span>
+            <h3>check-defaults-desc <span class="tag tag-mrk">mrk</span></h3>
+          </div>
+          <div class="proc-body">
+            <p class="desc">check-defaults-desc verifies that the defaults reference documents every key <code>scripts/defaults.sh</code> writes. It compares the <code>write_default</code> calls against the <code>DEFAULT_DESCRIPTIONS</code> map in <code>docs/defaults/script.js</code>, in both directions.</p>
+            <pre><code>check-defaults-desc</code></pre>
+            <ul>
+              <li>check-defaults-desc exits with status 1 when a key has no description, and also when a description has no key — a stale entry is reported as well as a missing one.</li>
+              <li><code>ci-check</code> runs it after check-picker-desc, so <code>make check</code> covers it.</li>
+              <li>It resolves the <code>$domain</code> loop variable in defaults.sh to that loop's first domain, so the trackpad keys are counted once rather than once per mirror domain.</li>
+            </ul>
           </div>
         </div>
       </div>
