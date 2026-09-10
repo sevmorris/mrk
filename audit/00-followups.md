@@ -415,6 +415,32 @@ read as a catastrophic finding. The rule that caught it is the same one every ti
 surprising result is the measurement until proven otherwise. The rewrite added a normaliser
 self-check that must pass before any comparison runs.
 
+### mrk-menu's command table (2026-09-10)
+
+Entry point chosen for its prior: `mrk-status` was found carrying a fix command that resolved
+nowhere and had never worked. `mrk-menu` is a *launcher* — every one of its 33 rows runs
+something — and the same class had never been checked there.
+
+Probed without running a single item, since one of them is `nuke-mrk`. All 33 targets resolve:
+20 `cmdBin` against `~/bin`, 13 `cmdMake` against the Makefile. Every flag a row passes appears
+in that command's own `--help`. Every one of the 33 labels is **literally** the command it
+runs, so the menu cannot show one thing and do another. Repo-root resolution agrees across all
+three tools that need it — `mrk-menu`, `mrk-status` and `update-full` all take `MRK_ROOT` and
+fall back to `$HOME/mrk`. The single row carrying make arguments, `make doctor ARGS=--fix`,
+still resolves to `scripts/doctor --fix` after the `$# > 1` refusal added earlier the same day,
+verified in a sandbox `HOME`.
+
+No defect. Four gates added instead, in `tools/mrk-menu/data_test.go`, each mutation-tested:
+targets ship with mrk, make targets exist, **the label is the command**, and `nuke-mrk` is the
+only item behind the typed confirmation — so adding a second destructive row forces a
+deliberate decision rather than passing silently.
+
+One design note worth keeping. The gates are **repo-relative, never PATH-relative**. CI runs
+`scripts/ci-check` on a fresh macos-latest runner with no `make setup`, so `~/bin` holds no mrk
+symlinks and an `exec.LookPath` check would fail there for entirely the wrong reason. Every
+`cmdBin` target happens to be a literal filename under `bin/` or `scripts/`, which makes the
+CI-safe question also the more meaningful one: does this command ship with mrk?
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
