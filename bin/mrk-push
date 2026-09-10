@@ -42,6 +42,39 @@ source "$REPO_ROOT/scripts/lib.sh"
 
 push_log() { log "push: $*"; }
 
+usage() {
+  cat <<'EOF'
+mrk-push — commit, push, and prune old GitHub Pages deployments
+
+Usage:
+  mrk-push "commit message"
+  mrk-push                    Prompt for the message
+  mrk-push -- "-starts with a dash"
+
+Options:
+  -h, --help   Show this help
+
+Only tracked changes are staged; untracked files are never committed. The
+commit is gated behind the mrk secret scan, and old Pages deployments are
+pruned afterwards, always protecting the one currently serving the site.
+EOF
+}
+
+# Options must be parsed, not taken as the message. Until this existed the
+# script read `msg="${1:-}"` straight off the command line with no option
+# handling at all, so every flag became a commit message: `mrk-push --help`
+# committed the working tree and pushed it with "--help" as the subject, which
+# is exactly what happened on 2026-09-09 and needed an amend and a force-push
+# to undo. `--` still lets a message legitimately start with a dash.
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help) usage; exit 0 ;;
+    --)        shift; break ;;
+    -*)        err "Unknown option: $1"; echo >&2; usage >&2; exit 1 ;;
+    *)         break ;;
+  esac
+done
+
 # Commit message
 msg="${1:-}"
 if [[ -z "$msg" ]]; then
