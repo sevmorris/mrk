@@ -658,7 +658,19 @@ done
 if (( ${#selected_casks[@]} > 0 )); then
   for pkg in "${!selected_casks[@]}"; do
     (( selected_casks["$pkg"] == 1 )) || continue
-    insertions_data+="${cask_section_header}"$'\t'"cask \"${pkg}\""$'\n'
+      # `greedy: true`, because this Brewfile carries it on every cask but one.
+      #
+      # It is not Homebrew's default — `brew bundle dump` emits a bare
+      # `cask "name"`, and so did this line, so neither of the two ways a cask
+      # can enter the Brewfile maintained the convention. Both casks sync has
+      # ever added went in bare, between neighbours that had it (`sync: add
+      # softraid`, `sync: add nordpass`), and `onyx` had to be repaired by a
+      # later bulk snapshot.
+      #
+      # Without it `brew bundle` skips the cask when upgrading anything that
+      # sets auto_updates or version :latest, so it quietly stops being
+      # upgraded by `make update` — the opposite of why it was synced.
+    insertions_data+="${cask_section_header}"$'\t'"cask \"${pkg}\", greedy: true"$'\n'
   done
 fi
 
@@ -682,7 +694,8 @@ if (( n_selected_casks > 0 )); then
   echo "  Casks:"
   while IFS= read -r pkg; do
     (( selected_casks["$pkg"] == 1 )) || continue
-    printf "    + cask \"%s\"  →  %s\n" "$pkg" "$cask_section_header"
+    # Show exactly what will be written, greedy modifier included.
+      printf "    + cask \"%s\", greedy: true  →  %s\n" "$pkg" "$cask_section_header"
   done < <(printf '%s\n' "${!selected_casks[@]}" | sort)
 fi
 

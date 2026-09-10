@@ -500,6 +500,40 @@ and then destroyed. The probe reported "blank page, old behaviour" — the fix l
 not worked at all. Checking whether the patched code was even loaded, rather than assuming the
 fix was wrong in principle, is what located it.
 
+### sync added casks without the modifier every other cask has (2026-09-10)
+
+Entry point: dry-run fidelity in `sync`, the daily driver that rewrites the Brewfile. That
+question turned out to be untestable here — selection runs through the picker TUI, which needs
+`/dev/tty`, so non-interactively nothing is ever selected and the dry run trivially matches.
+The probe found something else on the way.
+
+**`scripts/sync` composed new cask entries as a bare `cask "name"`.** 70 of the 71 casks in
+this Brewfile carry `greedy: true`; the only one that does not, `gcloud-cli`, arrived in a
+hand-written commit. `greedy: true` is *not* Homebrew's default — verified by running
+`brew bundle dump` to a scratch file, which emitted 72 casks and **zero** greedy — so it is a
+deliberate convention here, and neither of the two ways a cask can enter the Brewfile
+maintained it.
+
+It had already fired, twice. Both casks sync has ever added went in bare — `sync: add
+softraid` and `sync: add nordpass` — each sitting directly between neighbours that had the
+modifier, and `onyx` had to be repaired later by a bulk snapshot commit. Without `greedy: true`
+`brew bundle` skips a cask when upgrading anything that sets `auto_updates` or
+`version :latest`, so it quietly stops being upgraded by `make update` — the opposite of why
+it was synced.
+
+Fixed at the real write site, and the summary line above it now prints the same text it
+writes. Verified by extracting sync's Python insertion block and driving it directly with a
+synthetic insertions file: the entry lands as `cask "x", greedy: true`, alphabetically placed.
+
+Two near-misses worth recording. The obvious-looking site, `sync:437`, builds the **temp
+Brewfile handed to the picker**, not the real file; patching it would have changed nothing and
+looked correct. And reading the history took three tries, because `git show` emits colour
+escapes that defeat a `^[+-]` anchor even with `-c color.ui=false` — the same ANSI cause that
+has now broken three separate measurements this session.
+
+`gcloud-cli` is left as it is: one deliberate-looking exception is the user's call, not a
+cleanup.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
