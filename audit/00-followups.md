@@ -721,6 +721,39 @@ the second time today. Reading a file through a formatting pipe and then anchori
 came out is a reliable way to write a patch that cannot apply; take the bytes from `cat -A`
 instead.
 
+### nuke-mrk left every login item registered (2026-09-10)
+
+Asked directly: should `nuke-mrk` offer more than it does? Answered by diffing what mrk
+*creates* against what `nuke-mrk` *removes*, rather than by opinion.
+
+`scripts/post-install` registers **eight** login items. `nuke-mrk` contained **zero**
+references to login items, while handling every other post-install artifact: the LaunchAgents,
+the topgrade symlink and its backup, the openjdk symlink, Barkeep, KeyVault, the browser policy
+files, and the imported plists by way of the rollback offer. One-of-a-pair, again.
+
+It matters for precisely the job the script exists to do. Its header says "Remove all mrk
+artifacts for a fresh test install" — and after a nuke all eight were still registered, so the
+re-test's `add_login_item` found each one, logged "Login item exists", and skipped. **The
+registration path was never exercised by the fresh install meant to prove it.**
+
+Now an offer in the existing `[y/N]` idiom, listing the items first. Three design points, each
+tested: it reads the tracked list from `scripts/post-install` rather than hardcoding it, and
+reads it **before** `$MRK_DIR` is trashed — the Barkeep and KeyVault offers further down
+already run after the repo is gone, which is fine for them and would not be for this; it offers
+only names that appear as `add_login_item` entries, so an item added by hand is never touched;
+and a failed removal warns rather than aborting the run.
+
+Verified without running `nuke-mrk` or touching a real login item: the block was extracted and
+driven with a stub `osascript` recording what it was asked to delete. Answering no records zero
+deletions; answering yes deletes exactly the tracked-and-present names and never the
+hand-added one; a tracked item that is not registered is not offered; nothing matching means no
+prompt at all; an unreadable `post-install` skips the offer; and a failing delete warns and
+continues with rc 0. The machine's own eight login items were confirmed untouched afterwards.
+
+**Left for a decision:** `scripts/uninstall` has the same gap — zero login-item references —
+though it does remove the LaunchAgents, so it is already broader than its "does not remove user
+data" header suggests. Not widened unasked.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging

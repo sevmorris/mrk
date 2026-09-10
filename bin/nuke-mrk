@@ -215,6 +215,65 @@ for label in com.user.clear_app_caches com.user.clear_derived_data; do
   fi
 done
 
+# Offer to remove the login items post-install registered.
+#
+# post-install calls add_login_item for eight applications, and nothing here
+# removed them. That mattered most for the job this script exists to do: after a
+# nuke, every one of those items is still registered, so the re-test's
+# add_login_item finds each one, logs "Login item exists", and skips — the
+# registration path is never exercised by the fresh install it is meant to
+# prove. Every other post-install artifact was already handled: LaunchAgents
+# above, the topgrade symlink and its backup, the openjdk symlink, Barkeep,
+# KeyVault, and the imported plists by way of the rollback offer below.
+#
+# The tracked list is read from the repo rather than hardcoded, and read HERE
+# because $MRK_DIR is trashed further down — the Barkeep and KeyVault offers
+# further on already run after the repo is gone, which is fine for them and
+# would not be for this.
+#
+# Only names that appear in post-install are offered. A login item added by hand
+# is never touched: this script removes what mrk created, not what it found.
+_pi="$MRK_DIR/scripts/post-install"
+if [[ -r "$_pi" ]]; then
+  tracked_items=()
+  while IFS= read -r _line; do
+    [[ "$_line" =~ ^add_login_item[[:space:]]+\"(/[^\"]+)\.app\" ]] || continue
+    tracked_items+=("$(basename "${BASH_REMATCH[1]}")")
+  done < "$_pi"
+
+  present_items=()
+  if (( ${#tracked_items[@]} > 0 )); then
+    _live=$(osascript \
+      -e "set AppleScript's text item delimiters to linefeed" \
+      -e 'tell application "System Events" to set _n to name of every login item' \
+      -e "_n as text" 2>/dev/null) || _live=""
+    for _name in "${tracked_items[@]}"; do
+      printf '%s\n' "$_live" | grep -qFx "$_name" && present_items+=("$_name")
+    done
+  fi
+
+  if (( ${#present_items[@]} > 0 )); then
+    echo ""
+    printf "  ${_B}These login items were registered by post-install:${_R}\n"
+    printf "  ${_YLW}•${_R} %s\n" "${present_items[@]}"
+    printf "${_B}Remove them? [y/N]:${_R} "
+    read -r remove_login_items
+    if [[ "$remove_login_items" =~ ^[Yy]$ ]]; then
+      for _name in "${present_items[@]}"; do
+        if osascript -e "tell application \"System Events\" to delete login item \"$_name\"" >/dev/null 2>&1; then
+          ok "login item removed: $_name"
+        else
+          warn "could not remove login item: $_name"
+        fi
+      done
+    else
+      dim "Keeping the login items"
+    fi
+  fi
+else
+  dim "post-install not readable — skipping the login-item offer"
+fi
+
 # Offer to run rollback scripts before trashing state dir
 DEFAULTS_ROLLBACK="$STATE_DIR/defaults-rollback.sh"
 HARDENING_ROLLBACK="$STATE_DIR/hardening-rollback.sh"
