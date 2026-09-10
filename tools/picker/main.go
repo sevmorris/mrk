@@ -532,9 +532,24 @@ func (m model) viewHeader() string {
 }
 
 func (m model) viewFooter() string {
-	// Kept under 80 columns: this wraps at the minimum supported width, and a
-	// wrapped footer costs a body line.
-	return styleFooter.Render("↑↓/jk move · tab/hl pane · space add · i ignore · a all · enter ok · q quit (ignores kept)")
+	// Truncated to the terminal width, the way mrk-menu's help line already is.
+	//
+	// This used to be a bare string carrying the comment "Kept under 80
+	// columns: this wraps at the minimum supported width, and a wrapped footer
+	// costs a body line." It was 90 columns. So at the 80-column minimum it did
+	// wrap, costing exactly the body line the comment was written to protect —
+	// and because lipgloss.JoinVertical pads every line to the widest element,
+	// the footer also inflated the whole frame to 90, putting ten trailing
+	// spaces on every row of an 80-column terminal.
+	//
+	// Truncating rather than shortening the text keeps the full hint on a wide
+	// terminal and stops the width being something a future edit can quietly
+	// break again.
+	help := "↑↓/jk move · tab/hl pane · space add · i ignore · a all · enter ok · q quit (ignores kept)"
+	if m.width > 0 {
+		help = theme.Truncate(help, m.width)
+	}
+	return styleFooter.Render(help)
 }
 
 func (m model) viewLeft(inner, height int) string {

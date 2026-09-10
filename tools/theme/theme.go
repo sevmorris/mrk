@@ -24,7 +24,17 @@ func Truncate(s string, n int) string {
 	if len(runes) <= n {
 		return s
 	}
-	if n <= 1 {
+	// A width-limiting function must never return something wider than the
+	// width it was given. `n <= 1` used to cover this whole range and returned
+	// the one-rune ellipsis for n of 0 and below too, so asking for zero
+	// columns produced one. Every caller happens to clamp before calling, so
+	// nothing was rendering wrong — but there are twelve call sites across the
+	// three TUIs and several compute n by subtraction, so the next one to get
+	// its arithmetic wrong should get an empty string, not an overflow.
+	if n <= 0 {
+		return ""
+	}
+	if n == 1 {
 		return "…"
 	}
 	return string(runes[:n-1]) + "…"

@@ -695,16 +695,30 @@ func (m model) viewHeader() string {
 	}
 	gap := m.width - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 1 {
+		// The clamp keeps strings.Repeat from panicking on a negative count, but
+		// it does not stop the header running past the terminal edge — at 40
+		// columns this line was 42. clampWidth finishes the job.
 		gap = 1
 	}
-	return left + strings.Repeat(" ", gap) + right
+	return m.clampWidth(left + strings.Repeat(" ", gap) + right)
+}
+
+// clampWidth trims a rendered, styled line to the terminal width. lipgloss's
+// MaxWidth is ANSI-aware, which a rune-based truncate is not: these strings
+// carry escape sequences, and cutting one in half corrupts the rest of the
+// frame rather than shortening it.
+func (m model) clampWidth(s string) string {
+	if m.width <= 0 {
+		return s
+	}
+	return lipgloss.NewStyle().MaxWidth(m.width).Render(s)
 }
 
 func (m model) viewFooter() string {
 	hints := styleFooter.Render("[↑↓/jk] navigate  [tab] switch pane  [f]ix  [r]efresh  [q]uit")
 	version := styleFooter.Render(fmt.Sprintf("  %s (%s)", Version, GitSHA))
 	if m.flash == "" {
-		return hints + version
+		return m.clampWidth(hints + version)
 	}
 	var flashStr string
 	if m.pendingFix || strings.Contains(m.flash, "fail") || strings.Contains(m.flash, "no fix") {
@@ -712,7 +726,7 @@ func (m model) viewFooter() string {
 	} else {
 		flashStr = "  " + styleFlash.Render(m.flash)
 	}
-	return hints + flashStr
+	return m.clampWidth(hints + flashStr)
 }
 
 func (m model) viewBody() string {

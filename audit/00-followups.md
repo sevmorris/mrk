@@ -548,6 +548,48 @@ with `brew outdated --cask` not listing it and `brew outdated --cask --greedy` l
 one cask missing the modifier was a version behind and invisible to the upgrade path
 `make update` uses. Now 71 of 71.
 
+### Two TUIs rendered wider than the terminal (2026-09-10)
+
+Entry point: the picker descriptions, checked for **accuracy** rather than the coverage
+`check-picker-desc` already gates. All 127 compared against `brew desc`. Twenty-one share no
+significant word with Homebrew's wording, and reading every one by hand: all accurate, several
+better — `farrago` is "rapid-fire soundboard" against Homebrew's "Audio playback", `gum` adds
+the mrk-specific "used as fallback package picker". No duplicates, none naming the wrong
+package, no shape problems. The descriptions are clean.
+
+The lead was the shape of that data rather than its content. `make check` prints
+**`? mrk-theme [no test files]`** every run, and `theme.Truncate` is the shared helper all three
+TUIs render through — **twelve call sites** — and is where F05 (byte-vs-rune truncation) lived.
+Its contract turned out to be wrong at the edge: `Truncate(s, 0)` and `Truncate(s, -3)` both
+returned `"…"`, one column **wider** than asked. Unreachable today because every caller clamps,
+but several compute their budget by subtraction.
+
+Driving each TUI's `View()` across a grid of terminal sizes then found two real overflows:
+
+- **`mrk-picker`'s footer was 90 columns**, carrying the comment *"Kept under 80 columns: this
+  wraps at the minimum supported width, and a wrapped footer costs a body line."* It did
+  precisely what its comment said it was written to avoid — and because `lipgloss.JoinVertical`
+  pads every line to the widest element, it inflated the whole frame to 90 at an 80-column
+  terminal, ten trailing spaces on every row.
+- **`mrk-status`'s footer was a fixed 76 columns** at every width, so any terminal under 76 got
+  the same. Its header overflowed too — 42 columns at 40 — masked by the wider footer. The
+  `gap < 1` clamp stops `strings.Repeat` panicking on a negative count and does nothing about
+  the overflow.
+
+`mrk-menu` was already correct: it truncates its help line to the width and prints an explicit
+"Terminal too small" notice below its stated minimum. One-of-a-pair again, twice over.
+
+Fixed by making both width-aware rather than hand-tuning strings. The picker truncates via
+`theme.Truncate`, matching mrk-menu; mrk-status gained a `clampWidth` helper on lipgloss's
+**ANSI-aware** `MaxWidth`, because these strings carry escape sequences and a rune-based cut
+would corrupt the frame rather than shorten it. Both now render exactly to the terminal width
+at 40, 60, 80 and 120 columns.
+
+`Truncate` returns `""` for a non-positive width now, and the package has tests for the first
+time: the full contract, a property sweep asserting the result never exceeds its budget across
+−5..30, and a test pinning the known limitation that it counts runes rather than display
+columns — fine for mrk's ASCII data, not for CJK. All three fixes are mutation-tested.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
