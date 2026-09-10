@@ -41,7 +41,10 @@ while (("$#")); do
     --only-formulae) NO_CASKS=1 ;;  # Only formulae = skip casks
     --skip-brew-install) SKIP_BREW_INSTALL=1 ;;
     --debug) DEBUG=1 ;;
-    --dry-run) DRY_RUN=1 ;;
+    # -n as well as --dry-run: scripts/sync accepts both, and the Makefile
+    # advertises ARGS=-n for sync, so `make brew ARGS=-n` used to fail with
+    # "Unknown option" for no reason a user could see.
+    --dry-run|-n) DRY_RUN=1 ;;
     --yes|-y) NONINTERACTIVE=1 ;;
     -h|--help)
       cat <<'USAGE'

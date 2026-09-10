@@ -10,12 +10,11 @@ For each item: what it is, where it's documented, why it was deferred, what acti
 would close it.
 
 **Last re-verified:** 2026-09-09 against `605ff9f` by module 14
-(`14-audit-2026-09-09.md`), which found eight items, fixed six, withdrew one of its own as
-a false finding, and left one cosmetic. Its durable result is methodological: **half its
+(`14-audit-2026-09-09.md`), which found eight items, fixed seven, and withdrew one of its own as
+a false finding. It left nothing open. Its durable result is methodological: **half its
 findings were only reachable by running the code.** P-5, P-6 and P-8 live in the exit
 status or failure path of an operation that otherwise succeeds and says so, which is why
-fourteen prior cycles of reading never found them. Module 14 also added no new open items
-beyond P-7 below.
+fourteen prior cycles of reading never found them. Module 14 added no new open items.
 
 **Previously re-verified:** 2026-08-31 against `15c82c9`. The 2026-08-31 recursive pass
 (`13-audit-2026-08-31.md`) found and fixed 14 defects, three of them HIGH, none of which
@@ -73,15 +72,6 @@ it explicitly. Documented in `12-fresh-audit-2026-08.md N-19`.
 ## Known limitations (documented, not blocking)
 
 Items the audit identified that are real but classified as acceptable.
-
-**Module 14 P-7 — two cosmetic inconsistencies between paired commands.** `bin/mrk-menu`
-is the only one of the three TUIs with no `--help`: `mrk-status` prints a help page and
-`mrk-picker` gets one from Go's flag package, while `mrk-menu --help` tries to open a TTY,
-fails, and exits 1. Separately, `scripts/brew` accepts `--dry-run` but not `-n` while
-`scripts/sync` accepts both, so `make brew ARGS=-n` fails with "Unknown option" — and the
-Makefile advertises `ARGS=-n` for sync while saying nothing about brew's. Neither loses
-data or hides a failure. Documented in `14-audit-2026-09-09.md`; closing it means adding a
-`--help` case to `mrk-menu` and an `-n` alias to `brew`.
 
 **~40 browser and app-preference writes have NO ROLLBACK FOUND.** Safari, Helium, Audio
 Hijack, Fission, AlDente, and all six Rogue Amoeba update-suppression domains are written
@@ -147,7 +137,7 @@ the audit artifacts have the full detail.
 
 ### Closed by module 14, the 2026-09-09 full sweep
 
-Six defects fixed, `P-1`, `P-3`, `P-4`, `P-5`, `P-6`, `P-8`. Full detail, reproductions and
+Seven defects fixed, `P-1`, `P-3`, `P-4`, `P-5`, `P-6`, `P-7`, `P-8`. Full detail, reproductions and
 the sixteen verified-clean results in `14-audit-2026-09-09.md`. As with module 13, every
 tool was green beforehand.
 

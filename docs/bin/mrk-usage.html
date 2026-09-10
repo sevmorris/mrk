@@ -832,6 +832,18 @@ mrk-status --help</code></pre>
         <div class="proc-body">
           <p class="desc">mrk-brew is phase 2. It installs the Homebrew formulae and casks that the Brewfile lists.</p>
           <pre><code>mrk-brew [options]</code></pre>
+          <ul>
+            <li><code>-n</code>, <code>--dry-run</code> — Report what would be installed and change nothing.</li>
+            <li><code>-y</code>, <code>--yes</code> — Answer every prompt yes. Use for unattended runs.</li>
+            <li><code>--no-formulae</code> — Install the casks only.</li>
+            <li><code>--only-formulae</code> — Install the formulae only.</li>
+            <li><code>--skip-brew-install</code> — Assume Homebrew is present and do not install it.</li>
+            <li><code>--debug</code> — Verbose output.</li>
+            <li><code>-h</code>, <code>--help</code> — Show this help.</li>
+          </ul>
+          <ul>
+            <li>The short <code>-n</code> was added 2026-09-10. Before that mrk-brew took <code>--dry-run</code> only, so <code>make brew ARGS=-n</code> failed with "Unknown option" although the Makefile advertises <code>ARGS=-n</code> for sync.</li>
+          </ul>
         </div>
       </div>
 
@@ -890,6 +902,9 @@ mrk-status --help</code></pre>
         <div class="proc-body">
           <p class="desc">mrk-menu starts any mrk task. It is a two-pane TUI, and it groups the commands into categories: Brewfile, Login items, Preferences, System state, Diagnostics, Maintenance, and Nuclear options. mrk-menu is a Go binary.</p>
           <pre><code>mrk-menu</code></pre>
+          <ul>
+            <li><code>-h</code>, <code>--help</code> — Show the usage summary and the key list, then exit. Added 2026-09-10; before that mrk-menu was the only one of the three TUIs without it, and <code>mrk-menu --help</code> tried to open a TTY, failed, and exited 1.</li>
+          </ul>
           <ul>
             <li><strong>j/k · ↑/↓</strong> — Move up and down.</li>
             <li><strong>enter · → · l</strong> — Select the item, or start the command.</li>
