@@ -687,6 +687,40 @@ no-op, not a hazard.
 Mutation-tested with a stub `brew` whose `list` succeeds and prints nothing: `--prune` aborts,
 plain `--dry-run` still reports normally, and the real paths are unchanged.
 
+### The migration checklist skipped the login items (2026-09-10)
+
+Entry point: the checklist `CLAUDE.md` exists because of. Its stated reason is that
+`snapshot-keys` landed and SMAC-1's migration checklist did not mention it for two days —
+following it would have lost a Developer ID Apple cannot reissue. So: does that checklist now
+cover everything a wipe would destroy?
+
+Enumerating mrk's capture tools against the checklist's steps, **`sync-login-items` was
+missing**. Login items live in the system's LaunchServices database and reach
+`scripts/post-install` only when that command runs, so anything added since the last run was
+on the old machine and nowhere else — and Phase 3 on the new machine would restore the stale
+list. Recoverable, unlike the signing key, but only if you can remember what was there, which
+is what a checklist exists to spare you. Now step 4, between the Brewfile sync and the pending
+commits. Exactly the shape `CLAUDE.md` was written about, in the same checklist.
+
+The restore half turned out to be fine and I nearly reported it as a gap. The checklist's "On
+the New Machine" section says only "do the New Machine Setup procedure", and `restore-keys`
+does appear — inside Step 2, "Set Up SSH", which is the right place, since restoring the
+archive is how SSH starts working. I had not read far enough.
+
+**Two more, found by comparing both sevmac tables against the repo in both directions.**
+Table 2.7-1 listed `make adventure`, removed from mrk by `846f0ba`; `make adventure` now
+answers "No rule to make target". Every other target the page names does exist. And
+`trim-services` appeared on **neither** page, despite being both a make target and a `~/bin`
+command that disables background LaunchAgents and writes a rollback — the one command in
+`~/bin` covered by no row in either table. Also corrected: `make check` no longer just runs
+"shellcheck, picker descriptions, go test".
+
+**Method note.** An edit anchor failed because I read the surrounding HTML through
+`sed 's/^/  /'` and used the displayed indentation — 12 spaces — when the file has 10. That is
+the second time today. Reading a file through a formatting pipe and then anchoring on what
+came out is a reliable way to write a patch that cannot apply; take the bytes from `cat -A`
+instead.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
