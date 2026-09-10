@@ -23,9 +23,13 @@ fix-exec — set the executable bit on repo scripts and mrk's ~/bin symlinks
 Usage:
   fix-exec
 
-fix-exec takes no options and is idempotent. It chmods +x every file at the
-top level of scripts/ and bin/, skipping the two sourced libraries, then does
-the same for the ~/bin symlinks that point back into this repository.
+Options:
+  -h, --help      Show this help
+
+fix-exec takes no options other than --help, and is idempotent. It chmods +x
+every file at the top level of scripts/ and bin/, skipping the two sourced
+libraries, then does the same for the ~/bin symlinks that point back into this
+repository.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"

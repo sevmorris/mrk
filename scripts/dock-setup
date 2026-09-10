@@ -26,9 +26,12 @@ dock-setup — rebuild the Dock from the preferred app layout
 Usage:
   dock-setup
 
-dock-setup takes no options. It installs dockutil if that is missing, then
-replaces the current Dock with the DOCK_APPS list defined in the script; edit
-that list to change the layout. Normally run as `make dock`.
+Options:
+  -h, --help      Show this help
+
+dock-setup takes no options other than --help. It installs dockutil if that is
+missing, then replaces the current Dock with the DOCK_APPS list defined in the
+script; edit that list to change the layout. Normally run as `make dock`.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"

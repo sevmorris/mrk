@@ -29,10 +29,13 @@ check-defaults-desc — verify every key defaults.sh writes is documented
 Usage:
   check-defaults-desc
 
-check-defaults-desc takes no options. It compares the keys written by
-scripts/defaults.sh against the descriptions in docs/defaults/script.js, which
-the MRK-1 page reads at load time, and fails when either side has a key the
-other does not.
+Options:
+  -h, --help      Show this help
+
+check-defaults-desc takes no options other than --help. It compares the keys
+written by scripts/defaults.sh against the descriptions in
+docs/defaults/script.js, which the MRK-1 page reads at load time, and fails
+when either side has a key the other does not.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"

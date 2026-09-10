@@ -48,6 +48,14 @@ assets/browsers/*-extensions.txt
 # Homebrew
 Brewfile.lock.json
 
+# scripts/sync writes its Brewfile through a temp file in the repo root rather
+# than $TMPDIR, deliberately: mv is only atomic within one filesystem, and a
+# half-written Brewfile is the failure that atomicity is there to prevent. Do
+# not "tidy" that into $TMPDIR. The trap removes it on EXIT, INT and TERM, so
+# one survives only a SIGKILL or a crash — at which point it should not be
+# sitting in git status forever.
+.Brewfile.*
+
 # Built binaries (platform-specific, built via `make picker` / `make mrk-status` / `make mrk-menu`)
 bin/mrk-picker
 bin/mrk-status

@@ -21,10 +21,13 @@ clear-app-caches — delete cached data for the browsers and Electron apps
 Usage:
   clear-app-caches
 
-clear-app-caches takes no options. It removes the cache directories of Helium,
-Slack, Discord, VS Code, Spotify and Chrome. Nothing is prompted and nothing is
-kept — the caches rebuild on next launch. The com.user.clear_app_caches
-LaunchAgent runs it on a schedule.
+Options:
+  -h, --help      Show this help
+
+clear-app-caches takes no options other than --help. It removes the cache
+directories of Helium, Slack, Discord, VS Code, Spotify and Chrome. Nothing is
+prompted and nothing is kept — the caches rebuild on next launch. The
+com.user.clear_app_caches LaunchAgent runs it on a schedule.
 EOF
 }
 

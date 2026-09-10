@@ -43,11 +43,12 @@ nuke-mrk — remove every mrk artifact, for a clean test install
 Usage:
   nuke-mrk [--help | -h]
 
-nuke-mrk takes no options. It moves ~/mrk and ~/.mrk to the Trash, removes the
-~/bin and dotfile symlinks that point into them, and unloads and deletes the
-mrk LaunchAgents. It offers to run the defaults and hardening rollback scripts
-first. It does NOT uninstall Homebrew packages or undo the macOS defaults on
-its own, and it asks for confirmation before it starts.
+nuke-mrk takes no options other than --help. It moves ~/mrk and ~/.mrk to the
+Trash, removes the ~/bin and dotfile symlinks that point into them, and
+unloads and deletes the mrk LaunchAgents. It offers to run the defaults and
+hardening rollback scripts first. It does NOT uninstall Homebrew packages or
+undo the macOS defaults on its own, and it asks for confirmation before it
+starts.
 
 To remove only the symlinks and keep the repository, use mrk-uninstall.
 EOF

@@ -9,6 +9,9 @@ hide_tm.sh — hide Time Machine volumes from the Finder sidebar
 Usage:
   hide_tm.sh [volume[,volume...]]
 
+Options:
+  -h, --help      Show this help
+
 hide_tm.sh takes one optional argument: a comma-separated list of volume names,
 defaulting to "TimeMachine". Set TM_VOLUMES to the same list to supply it from
 the environment instead; the environment wins when both are given.

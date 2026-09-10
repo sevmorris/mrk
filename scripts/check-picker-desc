@@ -22,9 +22,12 @@ check-picker-desc — verify mrk-picker has a description for every package
 Usage:
   check-picker-desc
 
-check-picker-desc takes no options. It compares the packages in the Brewfile
-against the descriptions in tools/picker/main.go and fails when either side has
-an entry the other does not. ci-check runs it first.
+Options:
+  -h, --help      Show this help
+
+check-picker-desc takes no options other than --help. It compares the packages
+in the Brewfile against the descriptions in tools/picker/main.go and fails
+when either side has an entry the other does not. ci-check runs it first.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"

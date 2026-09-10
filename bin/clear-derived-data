@@ -22,9 +22,12 @@ clear-derived-data — empty Xcode's DerivedData, keeping the folder itself
 Usage:
   clear-derived-data
 
-clear-derived-data takes no options. It removes everything inside
-~/Library/Developer/Xcode/DerivedData and leaves the directory in place.
-Xcode rebuilds what it needs on the next build. The
+Options:
+  -h, --help      Show this help
+
+clear-derived-data takes no options other than --help. It removes everything
+inside ~/Library/Developer/Xcode/DerivedData and leaves the directory in
+place. Xcode rebuilds what it needs on the next build. The
 com.user.clear_derived_data LaunchAgent runs it on a schedule.
 EOF
 }

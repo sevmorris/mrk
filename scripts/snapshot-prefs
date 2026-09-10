@@ -33,9 +33,13 @@ snapshot-prefs — export app preferences to ~/.mrk/preferences and push them
 Usage:
   snapshot-prefs
 
-snapshot-prefs takes no options. It quits each app it snapshots so the app
-flushes its preferences first, exports them into ~/.mrk/preferences, and
-commits and pushes that tree to the private mrk-prefs repo.
+Options:
+  -h, --help      Show this help
+
+snapshot-prefs takes no options other than --help. It quits each app it
+snapshots so the app flushes its preferences first, exports them into
+~/.mrk/preferences, and commits and pushes that tree to the private mrk-prefs
+repo.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"

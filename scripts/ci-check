@@ -20,10 +20,13 @@ ci-check — run every gate this repository checks before a push
 Usage:
   ci-check
 
-ci-check takes no options. It runs check-picker-desc, check-defaults-desc,
-shellcheck over the tracked scripts, and `go test` for each directory under
-tools/. It stops at the first gate that fails, so a red gate early on means the
-later ones did not run.
+Options:
+  -h, --help      Show this help
+
+ci-check takes no options other than --help. It runs check-picker-desc, check-
+defaults-desc, shellcheck over the tracked scripts, and `go test` for each
+directory under tools/. It stops at the first gate that fails, so a red gate
+early on means the later ones did not run.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"

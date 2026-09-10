@@ -23,10 +23,13 @@ pull-prefs — clone or update ~/.mrk/preferences from the mrk-prefs repo
 Usage:
   pull-prefs
 
-pull-prefs takes no options. It clones the private mrk-prefs repository into
-~/.mrk/preferences, or fast-forwards it if it is already there. post-install
-calls it automatically when that directory is absent. Set PREFS_REPO to point
-at a different remote.
+Options:
+  -h, --help      Show this help
+
+pull-prefs takes no options other than --help. It clones the private mrk-prefs
+repository into ~/.mrk/preferences, or fast-forwards it if it is already
+there. post-install calls it automatically when that directory is absent. Set
+PREFS_REPO to point at a different remote.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"

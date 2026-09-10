@@ -225,6 +225,21 @@ tool was green beforehand.
   and was tested through a `SHELLS_FILE` seam: idempotent over seven calls, exact-matching, so
   `zsh-beta` is not mistaken for `zsh`. It deliberately writes no rollback entry, because
   removing a shell that is still someone's login shell is how a user loses their terminal.
+- **BIN-1 documented none of `mrk-setup`'s nine options.** Found 2026-09-10 by running every
+  command's own `--help` and diffing the flags against BIN-1, which `CLAUDE.md` makes the single source of truth for flags. The entry read
+  `mrk-setup [options]`, the word "options" with nothing behind it: the same shape as the
+  `mrk-brew [options]` gap found earlier the same day, still present in its sibling. Also
+  missing: `pushall --projects` and `--no-mrk`, `mrk-brew --no-casks`, `mrk-install --help`.
+  All now documented; the reconciliation reports **zero** advertised flags undocumented.
+  The reverse direction was also wrong and was mine: twelve usage texts said "takes no
+  options" while accepting `-h`/`--help`. They now carry an Options block and say "no options
+  other than --help".
+- **Method note.** Static extraction was wrong on essentially every attempt in this session —
+  an awk pattern that missed `while (("$#"))`, a `sed` alternation that errored and reported
+  "missing: 0" from zero references, a `<li><code>` regex that captured only the first code
+  span and so lost every long flag in a short/long pair, a binary check defeated by a lossy
+  decode, and a `--`-only flag regex that mis-read Go's single-dash help output. Every genuine
+  finding this session came from *running* something. Prefer it.
 
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`

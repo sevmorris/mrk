@@ -28,11 +28,12 @@ check-updates — tell me, at most weekly, when mrk has upstream commits
 Usage:
   check-updates [--help | -h]
 
-check-updates takes no options and is meant to run from shell startup. It exits
-silently when the shell is not interactive, when it has already run in the last
-7 days, or when there is nothing new. Otherwise it offers to run `make pull`.
-It never blocks on the network: it compares against the last fetched remote and
-then refreshes origin in a disowned background fetch.
+check-updates takes no options other than --help, and is meant to run from
+shell startup. It exits silently when the shell is not interactive, when it
+has already run in the last 7 days, or when there is nothing new. Otherwise it
+offers to run `make pull`. It never blocks on the network: it compares against
+the last fetched remote and then refreshes origin in a disowned background
+fetch.
 EOF
 }
 

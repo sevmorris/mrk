@@ -821,6 +821,7 @@ mrk-status [--help | -h]</code></pre>
             <li><code>--brew</code> — Run the brew phase.</li>
             <li><code>--post</code> — Run the post-install phase.</li>
             <li><code>--all</code> — Run all the phases, one after the other.</li>
+            <li><code>-h</code>, <code>--help</code> — Show the usage summary and exit.</li>
             <li>No flag — Run the setup phase only.</li>
             <li>mrk-install passes the other options to the phase that you select.</li>
           </ul>
@@ -834,7 +835,23 @@ mrk-status [--help | -h]</code></pre>
         </div>
         <div class="proc-body">
           <p class="desc">mrk-setup is phase 1. It symlinks the dotfiles, symlinks the tools into <code>~/bin</code>, sets the shell, installs oh-my-zsh and its plugins, and backs up the files that it replaces. You can run mrk-setup more than once.</p>
-          <pre><code>mrk-setup [options]</code></pre>
+          <pre><code>mrk-setup [--only PHASE] [--dry-run] [--yes] [options]</code></pre>
+          <ul>
+            <li><code>--only PHASE</code> — Run a single phase. One of <code>xcode</code>, <code>dotfiles</code>, <code>tools</code>, <code>defaults</code>, <code>shell</code>.</li>
+            <li><code>--no-dotfiles</code> — Skip linking the dotfiles.</li>
+            <li><code>--no-defaults</code> — Skip the macOS defaults.</li>
+            <li><code>--no-link-tools</code> — Skip linking <code>scripts/</code> and <code>bin/</code> into <code>~/bin</code>.</li>
+            <li><code>--dry-run</code> — Preview the changes and apply none of them.</li>
+            <li><code>--validate</code> — Validate the configuration before installing.</li>
+            <li><code>--continue-on-error</code> — Carry on with the remaining phases when one fails.</li>
+            <li><code>--debug</code> — Trace execution with <code>set -x</code>.</li>
+            <li><code>-y</code>, <code>--yes</code> — Answer every prompt yes. Use for unattended runs.</li>
+            <li><code>-h</code>, <code>--help</code> — Show the usage summary and exit.</li>
+          </ul>
+          <ul>
+            <li><code>MRK_LOGIN_MSG</code> — When set, mrk-setup writes that text to the login window. This needs sudo, and the undo line is appended to <code>~/.mrk/defaults-rollback.sh</code>.</li>
+            <li>mrk-setup sets the login shell, registering it in <code>/etc/shells</code> first — chsh refuses a shell that is not listed there, and Homebrew does not register its own zsh.</li>
+          </ul>
         </div>
       </div>
 
@@ -849,6 +866,7 @@ mrk-status [--help | -h]</code></pre>
           <ul>
             <li><code>-n</code>, <code>--dry-run</code> — Report what would be installed and change nothing.</li>
             <li><code>-y</code>, <code>--yes</code> — Answer every prompt yes. Use for unattended runs.</li>
+            <li><code>--no-casks</code> — Install the formulae only, skipping the GUI applications.</li>
             <li><code>--no-formulae</code> — Install the casks only.</li>
             <li><code>--only-formulae</code> — Install the formulae only.</li>
             <li><code>--skip-brew-install</code> — Assume Homebrew is present and do not install it.</li>
@@ -1184,9 +1202,11 @@ mrk-push -- "-starts with a dash"</code></pre>
         </div>
         <div class="proc-body">
           <p class="desc">pushall commits and pushes every git repository under <code>~/Projects</code>, and then syncs mrk.</p>
-          <pre><code>pushall [--dry-run] [--help | -h]</code></pre>
+          <pre><code>pushall [--dry-run] [--projects DIR] [--no-mrk] [--help | -h]</code></pre>
           <ul>
             <li><code>--dry-run</code> — Report the state of each repository. pushall commits nothing and pushes nothing.</li>
+            <li><code>--projects DIR</code> — Sweep the repositories under DIR instead of <code>~/Projects</code>.</li>
+            <li><code>--no-mrk</code> — Leave the mrk repository out of a default sweep.</li>
           </ul>
           <ul>
             <li>pushall skips a repository that has no remote.</li>

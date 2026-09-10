@@ -27,10 +27,13 @@ mrk-uninstall — remove mrk's ~/bin symlinks, and optionally roll back settings
 Usage:
   mrk-uninstall
 
-mrk-uninstall takes no options. It unlinks every ~/bin symlink pointing into
-this repository, then offers to run ~/.mrk/defaults-rollback.sh and
-~/.mrk/hardening-rollback.sh. It removes no user data, no dotfiles and not the
-repository itself. It must be run interactively.
+Options:
+  -h, --help      Show this help
+
+mrk-uninstall takes no options other than --help. It unlinks every ~/bin
+symlink pointing into this repository, then offers to run ~/.mrk/defaults-
+rollback.sh and ~/.mrk/hardening-rollback.sh. It removes no user data, no
+dotfiles and not the repository itself. It must be run interactively.
 EOF
 }
 
