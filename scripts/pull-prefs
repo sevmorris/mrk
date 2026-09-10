@@ -4,6 +4,33 @@ set -euo pipefail
 # mrk pull-prefs — clone or pull personal app preferences from mrk-prefs.
 # Called automatically by post-install when ~/.mrk/preferences/ is absent.
 
+# Resolve symlinks so this works when called via ~/bin
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+usage() {
+  cat <<'EOF'
+pull-prefs — clone or update ~/.mrk/preferences from the mrk-prefs repo
+
+Usage:
+  pull-prefs
+
+pull-prefs takes no options. It clones the private mrk-prefs repository into
+~/.mrk/preferences, or fast-forwards it if it is already there. post-install
+calls it automatically when that directory is absent. Set PREFS_REPO to point
+at a different remote.
+EOF
+}
+mrk_help_guard "$(usage)" "$@"
+
 : "${PREFS_REPO:=git@github.com:sevmorris/mrk-prefs.git}"
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
 

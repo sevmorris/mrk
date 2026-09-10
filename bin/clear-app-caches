@@ -6,6 +6,33 @@
 # that will not delete should not stop the rest from being cleared.
 set -uo pipefail
 
+# These two clear-* scripts run unattended from a LaunchAgent and deliberately
+# depend on nothing but themselves, so this is the one place the shared
+# mrk_help_guard in scripts/lib.sh is spelled out inline rather than sourced —
+# resolving the ~/bin symlink to reach the library would add a repo dependency
+# to an unattended job in order to save four lines. The behaviour is identical:
+# help on -h/--help, refuse anything else. Both halves matter. With no parser
+# at all the flag was simply discarded, so `clear-app-caches --help` cleared
+# the caches instead of describing what it clears.
+usage() {
+  cat <<'EOF'
+clear-app-caches — delete cached data for the browsers and Electron apps
+
+Usage:
+  clear-app-caches
+
+clear-app-caches takes no options. It removes the cache directories of Helium,
+Slack, Discord, VS Code, Spotify and Chrome. Nothing is prompted and nothing is
+kept — the caches rebuild on next launch. The com.user.clear_app_caches
+LaunchAgent runs it on a schedule.
+EOF
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+  ?*)        usage >&2; printf '\nunknown argument: %s\n' "$1" >&2; exit 2 ;;
+esac
+
 if [[ -z "${HOME:-}" || ! -d "$HOME" ]]; then
   echo "error: HOME is unset or not a directory — refusing to remove anything" >&2
   exit 1

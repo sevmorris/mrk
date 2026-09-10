@@ -19,9 +19,37 @@ readonly SCRIPT_DIR REPO_ROOT
 
 source "$SCRIPT_DIR/lib.sh"
 
+usage() {
+  cat <<'EOF'
+mrk-post-install — phase 3: configure apps, browser policy and login items
+
+Usage:
+  mrk-post-install [--yes]
+
+Options:
+  -y, --yes       Answer yes to every prompt and run unattended
+  -h, --help      Show this help
+
+post-install writes app defaults, installs the managed browser policy files,
+installs Barkeep and KeyVault from GitHub, and loads the mrk LaunchAgents.
+Every domain it overwrites is exported to ~/.mrk/plist-backups first, and each
+change appends to the shared ~/.mrk/defaults-rollback.sh. Normally run as
+`make post-install`.
+EOF
+}
+
+# The *) arm is not optional here. Without it an unrecognised flag was simply
+# discarded and the whole of post-install ran anyway, so `mrk-post-install
+# --help` installed apps rather than describing them. scripts/defaults.sh has
+# always refused unknown options from the identical `for arg in "$@"` loop —
+# this was the sibling that did not.
 for _arg in "$@"; do
   case "$_arg" in
     --yes|-y)    NONINTERACTIVE=1 ;;
+    -h|--help)   usage; exit 0 ;;
+    *)           usage >&2
+                 printf '\nunknown argument: %s\n' "$_arg" >&2
+                 exit 2 ;;
   esac
 done
 export NONINTERACTIVE

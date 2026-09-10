@@ -19,6 +19,20 @@ SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 # shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
+usage() {
+  cat <<'EOF'
+dock-setup — rebuild the Dock from the preferred app layout
+
+Usage:
+  dock-setup
+
+dock-setup takes no options. It installs dockutil if that is missing, then
+replaces the current Dock with the DOCK_APPS list defined in the script; edit
+that list to change the layout. Normally run as `make dock`.
+EOF
+}
+mrk_help_guard "$(usage)" "$@"
+
 section "Dock setup"
 
 if ! command -v dockutil >/dev/null 2>&1; then

@@ -10,7 +10,7 @@ For each item: what it is, where it's documented, why it was deferred, what acti
 would close it.
 
 **Last re-verified:** 2026-09-09 against `605ff9f` by module 14
-(`14-audit-2026-09-09.md`), which found eight items, fixed seven, and withdrew one of its own as
+(`14-audit-2026-09-09.md`), which found nine items, fixed eight, and withdrew one of its own as
 a false finding. It left nothing open. Its durable result is methodological: **half its
 findings were only reachable by running the code.** P-5, P-6 and P-8 live in the exit
 status or failure path of an operation that otherwise succeeds and says so, which is why
@@ -164,6 +164,15 @@ tool was green beforehand.
 - **P-8 — `make defaults` failed on the same key every run.** Mail is sandboxed and its
   preferences domain does not exist until Mail is configured, so the write failed and every
   run ended "1 default(s) failed to apply" — a permanent warning is one nobody reads.
+- **P-9 — eight more commands had P-6's shape, and two were destructive.** Added
+  2026-09-10. Of 40 commands on `PATH`, eighteen did not answer `--help`; for eight of
+  those the flag was silently discarded and the command *ran*. `mrk-uninstall --help`
+  unlinked `~/bin` — the `[y/N]` there guards only the rollback, so the symlinks are
+  already gone by the time it is reached — and `mrk-post-install --help` installed
+  applications, because its `for _arg in "$@"` loop had no `*)` arm while
+  `scripts/defaults.sh`, parsing in the identical shape three files over, always did.
+  Fixed with `mrk_help_guard` in `scripts/lib.sh`; refusing the *unknown argument* is the
+  half that generalises, since `--help` was only the flag that happened to get typed.
 
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`

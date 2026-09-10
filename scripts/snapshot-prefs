@@ -26,6 +26,20 @@ SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 # shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
+usage() {
+  cat <<'EOF'
+snapshot-prefs — export app preferences to ~/.mrk/preferences and push them
+
+Usage:
+  snapshot-prefs
+
+snapshot-prefs takes no options. It quits each app it snapshots so the app
+flushes its preferences first, exports them into ~/.mrk/preferences, and
+commits and pushes that tree to the private mrk-prefs repo.
+EOF
+}
+mrk_help_guard "$(usage)" "$@"
+
 : "${PREFS_REPO:=git@github.com:sevmorris/mrk-prefs.git}"
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
 APP_SUPPORT="$HOME/Library/Application Support"

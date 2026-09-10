@@ -13,6 +13,23 @@ done
 BASE_DIR="$(cd "$(dirname "$_self")" && pwd)"
 PROJECT_ROOT="$(dirname "$BASE_DIR")"
 
+# shellcheck source=lib.sh
+source "$BASE_DIR/lib.sh"
+
+usage() {
+  cat <<'EOF'
+fix-exec — set the executable bit on repo scripts and mrk's ~/bin symlinks
+
+Usage:
+  fix-exec
+
+fix-exec takes no options and is idempotent. It chmods +x every file at the
+top level of scripts/ and bin/, skipping the two sourced libraries, then does
+the same for the ~/bin symlinks that point back into this repository.
+EOF
+}
+mrk_help_guard "$(usage)" "$@"
+
 echo "🔧 Ensuring executable bits on mrk scripts…"
 
 # Fix repo scripts and bin directories directly.

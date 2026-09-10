@@ -57,6 +57,41 @@ confirm() {
   [[ ! "$_ans" =~ ^(quit|exit|q|n|no)$ ]]
 }
 
+# mrk_help_guard USAGE "$@" — the -h/--help contract for a command that takes
+# no options of its own.
+#
+# Prints USAGE and exits 0 for -h or --help. Prints USAGE to stderr and exits 2
+# for any other argument.
+#
+# The second half is the point, and it is why this is a guard rather than a
+# usage() function. A script with no option parser does not *ignore* a flag it
+# does not recognise — it runs, with the flag silently discarded. That is how
+# `mrk-push --help` committed and pushed uncommitted work in 2026-09: it was
+# invoked as a harmless help probe and there was nothing there to refuse it.
+# Six commands in this repo had the same shape, two of them destructive
+# (uninstall unlinks ~/bin before its only prompt; post-install runs in full).
+# Refusing the unknown argument closes it for every typo, not just for --help.
+#
+# Call it before anything that touches the system, and before any TTY check, so
+# that help still works when stdin is not a terminal.
+mrk_help_guard() {
+  local usage=$1; shift
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      -h|--help)
+        printf '%s\n' "$usage"
+        exit 0
+        ;;
+      *)
+        printf '%s\n' "$usage" >&2
+        printf '\nunknown argument: %s\n' "$arg" >&2
+        exit 2
+        ;;
+    esac
+  done
+}
+
 # Refresh sudo timestamp to prevent timeout during long-running installs.
 # Uses -n (non-interactive) so it never prompts — only extends an active session.
 sudo_refresh() { sudo -n -v 2>/dev/null || true; }

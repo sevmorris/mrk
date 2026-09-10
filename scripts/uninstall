@@ -2,11 +2,6 @@
 set -euo pipefail
 
 # mrk uninstaller - conservative
-
-if [[ ! -t 0 ]]; then
-  echo "error: uninstall must be run interactively" >&2
-  exit 1
-fi
 # - Unlinks ~/bin symlinks pointing into this repo
 # - Optionally runs ~/.mrk/defaults-rollback.sh and hardening-rollback.sh
 # - Does not remove user data or dotfiles
@@ -21,6 +16,35 @@ done
 SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 INSTALL_BIN="$HOME/bin"
+
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+usage() {
+  cat <<'EOF'
+mrk-uninstall — remove mrk's ~/bin symlinks, and optionally roll back settings
+
+Usage:
+  mrk-uninstall
+
+mrk-uninstall takes no options. It unlinks every ~/bin symlink pointing into
+this repository, then offers to run ~/.mrk/defaults-rollback.sh and
+~/.mrk/hardening-rollback.sh. It removes no user data, no dotfiles and not the
+repository itself. It must be run interactively.
+EOF
+}
+
+# The guard runs before the TTY check below so that --help still answers when
+# stdin is not a terminal, and — the real reason — before the unlinking, which
+# has no gate of its own. The [y/N] further down covers only the rollback step:
+# by the time it is reached, every symlink has already been removed. Until this
+# guard existed, `mrk-uninstall --help` uninstalled mrk.
+mrk_help_guard "$(usage)" "$@"
+
+if [[ ! -t 0 ]]; then
+  echo "error: uninstall must be run interactively" >&2
+  exit 1
+fi
 
 log(){ printf "[uninstall] %s\n" "$*"; }
 warn(){ printf "[warn] %s\n" "$*"; }
