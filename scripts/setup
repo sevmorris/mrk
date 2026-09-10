@@ -583,13 +583,60 @@ phase_defaults() {
   fi
 }
 
+# register_shell PATH — make sure PATH is listed in /etc/shells, so that chsh
+# will accept it.
+#
+# chsh refuses a shell that is not listed there: "When altering a login shell,
+# and not the super-user, the user may not change from a non-standard shell or
+# to a non-standard shell. Non-standard is defined as a shell not found in
+# /etc/shells" (man chsh). Homebrew does not add its zsh to that file — it only
+# prints a caveat — so on a new machine this is the step that makes chsh
+# possible at all. Without it `chsh -s /opt/homebrew/bin/zsh` fails and the
+# login shell silently stays /bin/zsh.
+#
+# grep -qxF rather than a bare append, and the reason is visible on this very
+# machine: /etc/shells already carries /bin/zsh three times, which is what
+# repeated unguarded appends look like.
+#
+# Deliberately not added to the rollback. Removing a shell from /etc/shells
+# while it is still someone's login shell is how you lock a user out of a
+# terminal, and an extra line here is inert.
+#
+# SHELLS_FILE is overridable so this can be tested without touching the real
+# file.
+register_shell() {
+  local shell_path="$1" shells="${SHELLS_FILE:-/etc/shells}"
+
+  if grep -qxF "$shell_path" "$shells" 2>/dev/null; then
+    return 0
+  fi
+  if [[ ! -w "$shells" ]] && ! command -v sudo >/dev/null 2>&1; then
+    warn "$shell_path is not in $shells and sudo is unavailable — chsh will refuse it"
+    return 1
+  fi
+
+  log "Registering $shell_path in $shells (chsh refuses unlisted shells)"
+  if [[ -w "$shells" ]]; then
+    printf '%s\n' "$shell_path" >> "$shells"
+  else
+    printf '%s\n' "$shell_path" | sudo tee -a "$shells" >/dev/null
+  fi || {
+    warn "could not add $shell_path to $shells"
+    return 1
+  }
+}
+
 phase_shell() {
   if command -v zsh >/dev/null 2>&1; then
     local target_shell
     target_shell="$(command -v zsh)"
     if [[ "$(dscl . -read "/Users/$USER" UserShell 2>/dev/null | awk '{print $2}')" != "$target_shell" ]]; then
+      if ! register_shell "$target_shell"; then
+        warn "Skipping chsh: $target_shell is not an approved shell"
+        return 0
+      fi
       log "Setting login shell to $target_shell"
-      chsh -s "$target_shell" || warn "chsh failed"
+      chsh -s "$target_shell" || warn "chsh failed (is $target_shell listed in /etc/shells?)"
     else
       logskip "login shell" "already $target_shell"
     fi

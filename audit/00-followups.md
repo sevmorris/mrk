@@ -209,6 +209,22 @@ tool was green beforehand.
   branch and asserts each fix is either a real Make target or resolvable on the PATH. The
   gate is mutation-tested against both failure modes. A fix command is only a string until
   someone presses the key, which is why fourteen audits never saw it.
+- **The login-shell remediation could not work on the machine it is written for.** Found
+  2026-09-10 by verifying the remaining suggestions that same empty-`HOME` report printed.
+  All nine resolve as commands, but `chsh -s <homebrew zsh>` fails at runtime: `man chsh`
+  says "the user may not change ... to a non-standard shell. Non-standard is defined as a
+  shell not found in /etc/shells", and Homebrew only prints a caveat rather than registering
+  its zsh. The sequence is a fresh machine's: `make setup` runs `phase_shell` *before*
+  `make brew` installs Homebrew's zsh, so it sees `/bin/zsh`, matches, and skips; `brew` then
+  installs the other zsh; `status` reports the mismatch and suggests the one command that
+  cannot succeed. `setup`'s own `chsh` had the same problem when re-run after `brew`, hidden
+  behind a bare `warn "chsh failed"` that never said why. `setup` now registers the shell
+  first via `register_shell`, and `status` checks `/etc/shells` before suggesting `chsh`.
+  `register_shell` uses `grep -qxF` rather than appending blindly — the machine's own
+  `/etc/shells` lists `/bin/zsh` **three times**, which is what unguarded appends look like —
+  and was tested through a `SHELLS_FILE` seam: idempotent over seven calls, exact-matching, so
+  `zsh-beta` is not mistaken for `zsh`. It deliberately writes no rollback entry, because
+  removing a shell that is still someone's login shell is how a user loses their terminal.
 
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`

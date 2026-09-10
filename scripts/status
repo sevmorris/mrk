@@ -179,7 +179,19 @@ if command -v zsh >/dev/null 2>&1; then
   if [[ "$current_shell" == "$zsh_path" ]]; then
     ok "  Login shell: $current_shell"
   else
-    warn "  Login shell: $current_shell (expected: $zsh_path) — run: chsh -s $zsh_path"
+    warn "  Login shell: $current_shell (expected: $zsh_path)"
+    # Do not hand over a bare chsh without checking /etc/shells first. chsh
+    # refuses a shell that is not listed there — "the user may not change ...
+    # to a non-standard shell. Non-standard is defined as a shell not found in
+    # /etc/shells" (man chsh) — and Homebrew does not register its zsh, it only
+    # prints a caveat. On a new machine that is exactly the state this check
+    # reports, so the obvious suggestion is the one that cannot work.
+    if grep -qxF "$zsh_path" "${SHELLS_FILE:-/etc/shells}" 2>/dev/null; then
+      info "    run: chsh -s $zsh_path"
+    else
+      info "    $zsh_path is not listed in /etc/shells, so chsh will refuse it"
+      info "    run: make setup   (registers the shell, then sets it)"
+    fi
   fi
 else
   warn "  zsh not found"
