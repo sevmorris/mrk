@@ -931,6 +931,34 @@ is still correctly quit, `--help` exits 0, `--bogus` exits 2, and running it wit
 `--yes` still refuses. 81 processes still running afterwards; nothing was quit during the
 probe.
 
+### snapshot-keys / restore-keys: clean (2026-09-10)
+
+Entry point: the path with no second chance, deferred all day because it is the one where a
+mistake is unrecoverable. Nothing found. Recorded because "we checked and it is correct" is
+worth more here than anywhere else in the repo.
+
+**What snapshot-keys bundles was compared against the filesystem, not read.** `--dry-run`
+builds the tar and lists it without writing, so the manifest could be diffed against
+`find ~/.ssh ~/.gnupg`. 36 entries bundled, 42 present, and the six absent are exactly right:
+two `S.gpg-agent.*` sockets and four stale `.#lk*` lock files. Everything gpg actually needs is
+in: `private-keys-v1.d`, `trustdb.gpg`, `pubring.kbx`, `gpg-agent.conf`, `openpgp-revocs.d`,
+and on the ssh side eight `id_*` entries, `known_hosts`, `config` and `authorized_keys`.
+
+**restore-keys' permission correction was driven from a hostile starting state** — every
+directory 777, private keys 666, in a sandbox `HOME`. All eight cases come out right, including
+the one that is easy to get backwards: `id_ed25519.pub` started at 600 and was correctly
+*widened* to 644, not narrowed. It also kills `gpg-agent` afterwards, so imported secret keys
+are visible without a logout — a subtlety that would otherwise present as "the restore did not
+work".
+
+Still untestable, as recorded before: the `.p12` signing-identity round trip needs GUI keychain
+prompts, and a VM does not help because it has no Developer ID to export.
+
+Two observations rather than defects. `~/.gnupg` carries six stale `.#lk*` lock files naming
+**three previous machines** — inert, correctly excluded from the bundle, and not deleted here
+because that directory is not mine to tidy. And `stat -f` was hit for the **third** time today,
+in a session where the trap is written into this very file; the fix each time is `ls -l`.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
