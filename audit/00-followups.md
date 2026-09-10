@@ -387,6 +387,34 @@ Left alone deliberately: the five expressions still differ. With the gate guaran
 input shape the difference is unreachable, and rewriting four of them to match a fifth is
 churn with no behaviour change.
 
+### "Defaults applied" is a true claim (2026-09-10)
+
+Entry point: the ledger's recurring **overstated success** class, aimed at the biggest claim
+mrk makes about the machine. `make defaults` prints "✓ Defaults applied"; nobody had ever
+checked it. P-8 found one key failing *loudly* — the question was whether any fail *silently*,
+where `defaults write` returns 0 and the value does not stick.
+
+Every `write_default` call was extracted and read back with `defaults read`. Of 143 call
+sites: 125 are fully literal, and **124 read back exactly what was written** — the 125th is
+`com.apple.mail`, which is correctly logskipped rather than attempted since the P-8 fix. One
+more uses `$HOME` (`com.apple.screencapture location`) and matches. The remaining 17 are the
+opt-in trackpad block behind `if $WITH_TRACKPAD`, applied by `make trackpad`, not `make
+defaults`. **126 of 126 applicable keys verified. Zero mismatches.** The claim is true.
+
+`check-defaults-desc`'s handling of those 17 is sound too, and fail-closed: it resolves
+`$domain` to the loop's first domain and the docs carry the mirror as `alsoDomains`. Verified
+by extraction (it finds the real value, it is not silently using its hardcoded fallback) and
+by mutation — reversing the loop order makes it report all 17 as undocumented.
+
+**Method, and it is the point of this entry.** The measurement was wrong twice in this one
+probe. First it reported **82 mismatches** — every one reading `wrote bool 'true', reads '1'`,
+because the normaliser tested for `-bool` while the extracted token is `bool`. Then an awk
+counter claimed 125 of 143 calls were inside the trackpad block, having matched the
+`WITH_TRACKPAD` *variable declaration* and never reset. Eighty-two is a number that would have
+read as a catastrophic finding. The rule that caught it is the same one every time: a
+surprising result is the measurement until proven otherwise. The rewrite added a normaliser
+self-check that must pass before any comparison runs.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
