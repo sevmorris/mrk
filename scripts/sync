@@ -205,6 +205,30 @@ while IFS= read -r pkg; do
   [[ -n "$pkg" ]] && installed_casks["$pkg"]=1
 done <<< "$_casks_out"
 
+# A successful read that returns nothing is the other half of the guard above,
+# and only --prune is exposed to it: staleness is "in the Brewfile, absent from
+# the installed set", so an empty installed set marks every tracked entry stale
+# and offers to delete the whole Brewfile.
+#
+# The exit-code checks above do not cover this. `brew list` exits 0 and prints
+# nothing when Homebrew has nothing installed — a fresh machine after Homebrew
+# but before `make brew`, or a half-migrated prefix.
+#
+# Both lists, not either: a machine with casks and no formulae is unremarkable,
+# and aborting on that would be a false alarm. Both empty is not.
+#
+# scripts/sync-login-items refuses the identical shape for system login items
+# and cites this file as its model. It guards emptiness as well as failure;
+# this one only guarded failure.
+if (( PRUNE )) && (( ${#installed_formulae_all[@]} == 0 )) && (( ${#installed_casks[@]} == 0 )); then
+  err "Homebrew reports nothing installed — refusing to prune."
+  info "'Nothing is installed' and 'the read returned nothing' are"
+  info "indistinguishable here, and pruning on the second would offer to delete"
+  info "every entry in the Brewfile. Re-run without --prune, or check"
+  info "'brew list --formula' and 'brew list --cask' by hand."
+  exit 1
+fi
+
 # ─── 3. Compute diff ─────────────────────────────────────────────────────────
 
 new_formulae_arr=()

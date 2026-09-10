@@ -657,6 +657,36 @@ entry it belongs to. Verified as a pure reordering — the sorted multiset of li
 before and after — with all five sections in order, counts unchanged at 56 formulae and 71
 casks, and the same three insertions now landing correctly.
 
+### sync --prune had half the guard its sibling has (2026-09-10)
+
+Entry point: `sync-login-items`, a daily driver that reads system login items through
+`osascript` and rewrites the `add_login_item` block inside `scripts/post-install`. It was the
+subject of `576b22e`, "stop silent empty-list failures from corrupting diffs".
+
+**That fix is intact, and now tested rather than assumed.** Driving it with a stub `osascript`
+on `PATH`: an empty result aborts with "'You have zero login items' and 'the read failed' are
+indistinguishable here", and a non-zero exit aborts surfacing the osascript stderr and pointing
+at Privacy & Security → Automation. Both under `--dry-run`, which exits before any file work,
+so a guard failure would have shown as a bad diff rather than a damaged repo. Also verified
+that the Python block which locates `add_login_item` still finds it after today's edits to
+`post-install` — 8 items, output byte-identical when nothing changes.
+
+**The finding is in the sibling that comment holds up as its model.** `sync-login-items` guards
+*both* a failed read and an empty one. `scripts/sync` guarded only the failure: it checks the
+exit status of `brew list --formula` and `--cask`, and nothing else. But staleness is computed
+as "in the Brewfile, absent from the installed set" (`sync:250`), so an empty installed set
+marks **every** tracked entry stale — all 127 — and `--prune` offers to delete them. `brew list`
+exits 0 and prints nothing when Homebrew has nothing installed: a fresh machine after Homebrew
+but before `make brew`, or a half-migrated prefix.
+
+Guarded now, on **both** lists rather than either: a machine with casks and no formulae is
+unremarkable and aborting on that would be a false alarm; both empty is not. The check is
+scoped to `--prune`, the only path exposed to it — adding packages from an empty set is a
+no-op, not a hazard.
+
+Mutation-tested with a stub `brew` whose `list` succeeds and prints nothing: `--prune` aborts,
+plain `--dry-run` still reports normally, and the real paths are unchanged.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
