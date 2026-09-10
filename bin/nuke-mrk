@@ -188,7 +188,12 @@ if [[ -f "$topgrade_bak" ]]; then
   ok "topgrade.toml.bak (→ Trash)"
 fi
 
-# Remove managed browser policy files installed by post-install
+# Remove the managed browser policy files a previous post-install installed.
+#
+# The feature is gone — those JSON files are the Linux policy mechanism and
+# Chrome on macOS never read them — but this cleanup deliberately stays. The
+# files are sitting on any machine that ran post-install before 2026-09-10, and
+# deleting the cleanup along with the feature would strand them there for good.
 for f in "$HOME/Library/Application Support/Google/Chrome/policies/managed/mrk-policy.json" \
          "$HOME/Library/Application Support/BraveSoftware/Brave-Browser/policies/managed/mrk-policy.json"; do
   if [[ -f "$f" ]]; then

@@ -590,6 +590,43 @@ time: the full contract, a property sweep asserting the result never exceeds its
 −5..30, and a test pinning the known limitation that it counts runes rather than display
 columns — fine for mrk's ASCII data, not for CJK. All three fixes are mutation-tested.
 
+### The browser policies were never in effect (2026-09-10)
+
+Entry point: the data files mrk ships and installs onto the system, where a malformed or
+misplaced one fails silently. Everything validates — both policy JSONs parse, both LaunchAgent
+plists lint, `topgrade.toml` parses, all six preference fragments pass `bash -n`. Valid is not
+the same as correct.
+
+**mrk installed Chrome and Brave managed policy as JSON under
+`~/Library/Application Support/<browser>/policies/managed/`. That is the Linux mechanism.**
+Chromium's own documentation is explicit: only Linux reads a `policies/managed` directory of
+JSON files; macOS uses the preferences system, Windows uses the registry. Eleven policies,
+several of them security-relevant — `HttpsOnlyMode: force_enabled`, `BlockThirdPartyCookies`,
+`PasswordManagerEnabled: false`, `AutofillCreditCardEnabled: false` — none of them enforced.
+
+The machine agreed before the documentation did. Chrome's `Local State` records
+`enterprise_mdm_mac: 0` and a `policy` object holding nothing but `last_statistics_update`, and
+none of the eleven policy names appears anywhere in Chrome's own state — only inside the JSON
+files themselves. The files were installed 2026-09-02; Chrome has written its state as recently
+as 2026-09-09. It has launched many times and recorded nothing.
+
+The `_comment` inside both files asserted the opposite in detail: that Chromium reads them on
+launch and that they would show a "Managed by your organization" indicator. Neither happens.
+
+**Removed rather than reimplemented.** Making these work on macOS needs a *forced* preference,
+which means an MDM configuration profile — out of scope for a personal bootstrap, and not
+something a `defaults write` to the user domain can fake. Gone: both JSON files,
+`install_browser_policy()` and its two call sites, and the claims in SMAC-1's phase table and
+Browsers bullet.
+
+`nuke-mrk`'s cleanup **stays**, against the first sketch of this change. Those files sit on any
+machine that ran post-install before today, and removing the cleanup with the feature would
+strand them there permanently. The two on this machine were deleted directly.
+
+One loose end left deliberately: both browsers also carry a `mrk2-policy.json`, dated
+2026-02-09, identical in content and left by the predecessor project the initial commit merged
+from. It is equally inert. It is not mrk's file to delete unasked.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging

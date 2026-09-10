@@ -97,17 +97,16 @@ apply_defaults(){
 }
 
 # Copy a managed policy JSON to the browser's policy directory
-install_browser_policy(){
-  local src="$1" dest_dir="$2" name="$3"
-  local dest="$dest_dir/mrk-policy.json"
-  mkdir -p "$dest_dir" || return 1
-  if [[ -f "$dest" ]] && cmp -s "$src" "$dest"; then
-    logskip "$name policy" "installed"
-    return 0
-  fi
-  cp "$src" "$dest" || return 1
-  ok "$name managed policy → $dest"
-}
+# Chrome and Brave managed policy used to be installed here, as JSON under
+# ~/Library/Application Support/<browser>/policies/managed/. That is the Linux
+# mechanism: Chromium's own docs say only Linux reads a policies/managed
+# directory, and macOS uses the preferences system instead. The files had been
+# in place since 2026-09-02 and Chrome had run many times since, with
+# enterprise_mdm_mac 0 and no trace of any of the eleven policy names in its
+# Local State. Eleven settings, several security-relevant, that nothing was
+# enforcing. Removed rather than reimplemented: making them work needs a forced
+# preference from an MDM profile, which is out of scope for a personal
+# bootstrap. See audit/00-followups.md.
 
 # Open extension URLs from a list file, one per line
 open_extension_urls(){
@@ -215,9 +214,6 @@ fi
 
 # Google Chrome
 if [[ -d "/Applications/Google Chrome.app" ]]; then
-  install_browser_policy "$BROWSERS_DIR/chrome-policy.json" \
-    "$HOME/Library/Application Support/Google/Chrome/policies/managed" \
-    "Chrome" || failed=$(( failed + 1 ))
   if [[ -f "$BROWSERS_DIR/chrome-extensions.txt" ]]; then
     if ask_yes "[post-install] Open Chrome extension URLs? [y/N]: "; then
       open_extension_urls "$BROWSERS_DIR/chrome-extensions.txt" "Chrome" || failed=$(( failed + 1 ))
@@ -231,9 +227,6 @@ fi
 
 # Brave
 if [[ -d "/Applications/Brave Browser.app" ]]; then
-  install_browser_policy "$BROWSERS_DIR/brave-policy.json" \
-    "$HOME/Library/Application Support/BraveSoftware/Brave-Browser/policies/managed" \
-    "Brave" || failed=$(( failed + 1 ))
   if [[ -f "$BROWSERS_DIR/brave-extensions.txt" ]]; then
     if ask_yes "[post-install] Open Brave extension URLs? [y/N]: "; then
       open_extension_urls "$BROWSERS_DIR/brave-extensions.txt" "Brave" || failed=$(( failed + 1 ))
