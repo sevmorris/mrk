@@ -931,7 +931,15 @@ mrk-status --help</code></pre>
           </div>
           <p class="desc">mrk-push commits the mrk repository and pushes it. It then deletes the old GitHub Pages deployments with the GitHub CLI. If you give no commit message, mrk-push asks you for one.</p>
           <pre><code>mrk-push "commit message"
-mrk-push                # mrk-push asks for the message</code></pre>
+mrk-push                # mrk-push asks for the message
+mrk-push -- "-starts with a dash"</code></pre>
+          <ul>
+            <li><code>-h</code>, <code>--help</code> — Show the usage summary and exit.</li>
+            <li><code>--</code> — End option parsing, so a commit message can begin with a dash.</li>
+          </ul>
+          <ul>
+            <li>mrk-push refuses any other argument that begins with a dash. Before 2026-09-09 it had no option parsing at all and took every argument as the commit message, so <code>mrk-push --help</code> committed and pushed with <code>--help</code> as the subject.</li>
+          </ul>
           <ul>
             <li>mrk-push needs the <code>gh</code> CLI on the PATH.</li>
             <li>Run mrk-push inside a git working tree.</li>
