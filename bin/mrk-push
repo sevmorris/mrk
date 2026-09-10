@@ -49,10 +49,14 @@ mrk-push — commit, push, and prune old GitHub Pages deployments
 Usage:
   mrk-push "commit message"
   mrk-push                    Prompt for the message
+  mrk-push --dry-run          Report what would happen; change nothing
   mrk-push -- "-starts with a dash"
 
 Options:
-  -h, --help   Show this help
+  -n, --dry-run   Report what would be staged, committed, pushed and pruned,
+                  and change nothing. The secret scan still runs, so this
+                  doubles as an audit of what is about to leave the machine.
+  -h, --help      Show this help
 
 Only tracked changes are staged; untracked files are never committed. The
 commit is gated behind the mrk secret scan, and old Pages deployments are
@@ -66,8 +70,10 @@ EOF
 # committed the working tree and pushed it with "--help" as the subject, which
 # is exactly what happened on 2026-09-09 and needed an amend and a force-push
 # to undo. `--` still lets a message legitimately start with a dash.
+DRY_RUN=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    -n|--dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
     --)        shift; break ;;
     -*)        err "Unknown option: $1"; echo >&2; usage >&2; exit 1 ;;
@@ -77,6 +83,10 @@ done
 
 # Commit message
 msg="${1:-}"
+# A dry run commits nothing, so do not stop to ask for a subject line.
+if [[ -z "$msg" ]] && (( DRY_RUN )); then
+  msg="(dry run — no commit)"
+fi
 if [[ -z "$msg" ]]; then
   printf "Commit message: "
   read -r msg < /dev/tty
@@ -110,26 +120,53 @@ echo ""
 # ── Commit ────────────────────────────────────────────────────────────────────
 push_log "Staging changes..."
 # Tracked updates + known repo paths only — never `git add -A`
-git add -u
-for path in Brewfile Makefile README.md dotfiles scripts bin tools docs assets; do
-  [[ -e "$REPO_ROOT/$path" ]] && git add "$REPO_ROOT/$path" 2>/dev/null || true
-done
+PATHS=(Brewfile Makefile README.md dotfiles scripts bin tools docs assets)
 
-if git diff --cached --quiet; then
+staged_files=()
+if (( DRY_RUN )); then
+  # `git add --dry-run` is git's own answer to "what would this stage", which
+  # beats reconstructing it from `git status`: it applies the same pathspec and
+  # gitignore rules the real add would, including untracked files inside the
+  # listed directories. Output is `add 'path'`, one per line.
+  mapfile -t staged_files < <(
+    {
+      git add -u --dry-run
+      for path in "${PATHS[@]}"; do
+        [[ -e "$REPO_ROOT/$path" ]] && git add --dry-run "$REPO_ROOT/$path" 2>/dev/null || true
+      done
+    } | sed -n "s/^add '\(.*\)'$/\1/p" | sort -u
+  )
+else
+  git add -u
+  for path in "${PATHS[@]}"; do
+    [[ -e "$REPO_ROOT/$path" ]] && git add "$REPO_ROOT/$path" 2>/dev/null || true
+  done
+  mapfile -t staged_files < <(git diff --cached --name-only --diff-filter=AM)
+fi
+
+if (( ${#staged_files[@]} == 0 )); then
   warn "Nothing to commit."
 else
-  mapfile -t staged_files < <(git diff --cached --name-only --diff-filter=AM)
-  if (( ${#staged_files[@]} > 0 )); then
-    require_clean_secrets "${staged_files[@]}" || exit 1
+  # The scan runs in both modes on purpose: a dry run is the safe way to see
+  # what a push would expose before it exposes it.
+  require_clean_secrets "${staged_files[@]}" || exit 1
+  if (( DRY_RUN )); then
+    dry "Would commit ${#staged_files[@]} file(s): $msg"
+    printf '      %s\n' "${staged_files[@]}" >&2
+  else
+    git commit -m "$msg"
+    ok "Committed: $msg"
   fi
-  git commit -m "$msg"
-  ok "Committed: $msg"
 fi
 
 # ── Push ──────────────────────────────────────────────────────────────────────
 push_log "Pushing..."
-git push
-ok "Pushed to origin."
+if (( DRY_RUN )); then
+  dry "Would push to origin."
+else
+  git push
+  ok "Pushed to origin."
+fi
 
 # ── Prune deployments ─────────────────────────────────────────────────────────
 echo ""
@@ -150,7 +187,11 @@ if [[ ! -x "$pruner" ]]; then
   exit 0
 fi
 
-"$pruner" --repo "$repo" --keep 1 || warn "Deployment pruning reported errors."
+if (( DRY_RUN )); then
+  "$pruner" --repo "$repo" --keep 1 --dry-run || warn "Deployment pruning reported errors."
+else
+  "$pruner" --repo "$repo" --keep 1 || warn "Deployment pruning reported errors."
+fi
 
 echo ""
 ok "Done."

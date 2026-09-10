@@ -949,8 +949,10 @@ mrk-status --help</code></pre>
           <p class="desc">mrk-push commits the mrk repository and pushes it. It then deletes the old GitHub Pages deployments with the GitHub CLI. If you give no commit message, mrk-push asks you for one.</p>
           <pre><code>mrk-push "commit message"
 mrk-push                # mrk-push asks for the message
+mrk-push --dry-run      # change nothing
 mrk-push -- "-starts with a dash"</code></pre>
           <ul>
+            <li><code>-n</code>, <code>--dry-run</code> — Report what would be staged, committed, pushed and pruned, and change nothing. The secret scan still runs, so this doubles as an audit of what a push would expose. No commit message is needed.</li>
             <li><code>-h</code>, <code>--help</code> — Show the usage summary and exit.</li>
             <li><code>--</code> — End option parsing, so a commit message can begin with a dash.</li>
           </ul>
