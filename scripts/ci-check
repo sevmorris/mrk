@@ -86,6 +86,18 @@ else
   warn "shellcheck not installed — skipping (brew install shellcheck)"
 fi
 
+# go is required, not optional, and this deliberately does NOT mirror the
+# warn-and-skip above it. shellcheck may be skipped because its absence removes
+# a lint; skipping `go test` would remove the tests while still printing "All
+# checks passed". That exact shape already cost four days on 2026-09-05, when a
+# red gate earlier in this file meant the picker tests never ran and nobody
+# noticed. A gate that cannot run its tests must say so and fail.
+if ! command -v go >/dev/null 2>&1; then
+  err "go is not installed — cannot run the tool tests"
+  info "  install it with: brew install go   (it is in the Brewfile, so 'make brew' covers it)"
+  exit 1
+fi
+
 for dir in picker mrk-status mrk-menu theme; do
   log "go test: tools/$dir"
   (cd "$REPO_ROOT/tools/$dir" && go test ./...)

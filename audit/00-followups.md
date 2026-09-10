@@ -298,6 +298,29 @@ let a permanent false positive persist. The gate refuses to pass vacuously on an
 list, and is mutation-tested both ways: restoring the comment fails it, and a planted AWS key
 in the Brewfile fails it.
 
+### Missing-dependency degradation (2026-09-10)
+
+Probed by hiding a tool's directory from `PATH` and running the command. Most of what the
+scripts call unguarded is a macOS built-in that is always present — `dscl`, `chsh`, `plutil`,
+`osascript`, `launchctl` — and `jq` and `gnupg` are both in the Brewfile, so post-install has
+them by the time it runs. `gh` is handled well everywhere: `prune-deployments` and `maintain`
+via `require_cmd gh || exit 1`, `mrk-push` with its own check and an install hint.
+
+**The one gap: `ci-check` did not check for `go`.** With go hidden it died at line 91 with a
+bash-level `go: command not found` and rc 127. Its sibling `bin/build-tools` has always had
+`require_cmd go make || exit 1`, so this was one-of-a-pair again. It now fails with a clear
+message and an install hint.
+
+Deliberately **not** made to mirror the `shellcheck` warn-and-skip six lines above it.
+shellcheck is optional because its absence removes a lint; skipping `go test` would remove the
+tests while still printing "All checks passed" — the same shape that hid the picker tests for
+four days on 2026-09-05. A gate that cannot run its tests must fail, not skip.
+
+Also considered and deliberately left alone: `require_cmd` exists in `bin/lib/common.sh` and
+has no equivalent in `scripts/lib.sh`. That looks like the one-of-a-pair class but is not
+worth closing — exactly one script under `scripts/` does an inline tool check
+(`restore-repos:59`), so a shared helper there would have a single caller.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
