@@ -531,8 +531,22 @@ looked correct. And reading the history took three tries, because `git show` emi
 escapes that defeat a `^[+-]` anchor even with `-c color.ui=false` — the same ANSI cause that
 has now broken three separate measurements this session.
 
-`gcloud-cli` is left as it is: one deliberate-looking exception is the user's call, not a
-cleanup.
+**`gcloud-cli` turned out to be the same oversight, and a live one.** It was left alone at
+first as a possible deliberate exception. Checking rather than assuming settled it:
+
+- It is marked `auto_updates`, which is the only condition under which `greedy: true` changes
+  anything, so the omission is not inert.
+- The convention is blanket, not selective: `kid3` and `mediainfo` do **not** auto-update and
+  carry `greedy: true` anyway, where it is a harmless no-op. Every cask gets it.
+- Homebrew's caveat for the cask is a PATH note only — nothing warns against brew-managed
+  upgrades, so there is no gcloud-specific reason to exclude it.
+- It arrived in a hand-written commit adding a formula and a cask together, which is exactly
+  where copying `brew bundle dump`'s bare format is the natural slip.
+
+The clinching evidence was current state: **583.0.0 installed against 584.0.0 available**,
+with `brew outdated --cask` not listing it and `brew outdated --cask --greedy` listing it. The
+one cask missing the modifier was a version behind and invisible to the upgrade path
+`make update` uses. Now 71 of 71.
 
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`

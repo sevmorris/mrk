@@ -90,7 +90,7 @@ cask "farrago", greedy: true
 cask "firefox", greedy: true
 cask "fission", greedy: true
 cask "fl2601", greedy: true
-cask "gcloud-cli"
+cask "gcloud-cli", greedy: true
 cask "github", greedy: true
 cask "google-chrome", greedy: true
 cask "google-drive", greedy: true
