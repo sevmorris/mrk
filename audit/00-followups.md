@@ -872,6 +872,32 @@ at 128 packages — the `mas` entries correctly need no picker description, sinc
 `brew` and `cask` — and the strict-form gate added earlier today already accepted `mas` lines.
 `sync` does not see them either, so they are maintained by hand or by `dump`, not by the picker.
 
+### A third manual, ungoverned (2026-09-10)
+
+Entry point: mrk's own published documentation. `docs/index.html` is a 21-line redirect, and
+`docs/manual.md` behind it is a 796-line manual nobody had looked at all day. It carried three
+claims this day's work had falsified — Phase 3 "applies the Chrome and Brave managed policies",
+"The App Store apps. Install them again from Purchases", and dock-setup "does not save your
+current layout". **Two of those three sentences had been corrected in BIN-1 or SMAC-1 the same
+afternoon and left standing here.**
+
+The cause is governance, not the file. `CLAUDE.md` exists solely to stop documentation
+drifting, opens with "sevmorris/sevmac documents this repository", and **never mentioned
+`docs/manual.md`** — which duplicates SMAC-1 by section name: Overview, Command Reference,
+Troubleshooting, "How to set up a new machine", "How to prepare for a new machine".
+
+**Deleting it was the first instinct and was wrong.** Checking what depends on it changed the
+answer: it is the README's first link, the Pages site redirects to it, and
+`scripts/sync-login-items` **writes** to it, exiting 1 if it cannot find the sentence it
+templates. Deleting it would have broken a daily-driver command. On that evidence manual.md is
+the primary mrk manual and SMAC-1 the wider personal-systems guide that also covers mrk, so
+deleting it would have discarded the primary for the secondary.
+
+`CLAUDE.md` now opens with "three documents describe this repository, and none of them update
+themselves", and carries a second table for manual.md alongside the sevmac one. The dependency
+list is written into that section as well, so the next person to notice the duplication finds
+out why deleting it is not the fix.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging

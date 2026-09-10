@@ -2,8 +2,9 @@
 
 Guidance for Claude Code (claude.ai/code) when working in this repository.
 
-This file exists for one thing: **`sevmorris/sevmac` documents this repository, and it
-does not update itself.** For the wider picture — the sibling app repos, the shared-file
+This file exists for one thing: **three documents describe this repository, and none of
+them update themselves.** Two live here — `docs/manual.md` and BIN-1 — and one lives in
+`sevmorris/sevmac`. For the wider picture — the sibling app repos, the shared-file
 conventions, the release scripts — see `assets/CLAUDE.md`, which is symlinked to
 `~/Projects/CLAUDE.md` and loads when you work there.
 
@@ -32,6 +33,30 @@ Check sevmac in the same session as any of these:
 | A change to a daily-driver command (`sync`, `snapshot-prefs`, `pushall`, `update-full`, `status`, `mrk-menu`) | SMAC-2 |
 | A LaunchAgent schedule change | SMAC-2 Table B-1 |
 | A change to what `mrk-status` checks | SMAC-2 §E, and SMAC-1 §2.8 |
+
+## In-repo documentation: manual.md
+
+`docs/manual.md` is this repository's own manual, and it is load-bearing in three ways
+that make it easy to mistake for a stray duplicate and delete:
+
+- It is the README's first link.
+- `docs/index.html` — the Pages site at [sevmorris.github.io/mrk](https://sevmorris.github.io/mrk/)
+  — is a redirect to it.
+- **`scripts/sync-login-items` writes to it**, and exits 1 if it cannot find the sentence it
+  templates. Deleting the file breaks a daily-driver command.
+
+It covers the same ground as SMAC-1 — overview, the three phases, the migration checklist,
+the new-machine walkthrough, troubleshooting — so a change that needs SMAC-1 almost always
+needs manual.md too. That overlap is the reason this section exists: on 2026-09-10 three
+sentences in manual.md were left stale in a single day, and two of them had been corrected
+in BIN-1 or SMAC-1 the same afternoon.
+
+| Change in mrk | What to update in manual.md |
+|---|---|
+| Anything in the table above that touches SMAC-1 | the matching section here |
+| A change to what a phase does | §How It Works — The Three Phases |
+| Anything affecting what moves between machines | §How to prepare for a new machine |
+| A destructive command gaining or losing a safeguard | its section, and the Caution beside it |
 
 **Do not re-document flags in sevmac.** Flags, exit codes and per-command behaviour live
 in BIN-1 (`docs/bin/mrk-usage.html`), which ships from this repo and is updated in the
