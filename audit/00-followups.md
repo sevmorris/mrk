@@ -898,6 +898,39 @@ themselves", and carries a second table for manual.md alongside the sevmac one. 
 list is written into that section as well, so the next person to notice the duplication finds
 out why deleting it is not the fix.
 
+### update-full would have quit the session running it (2026-09-10)
+
+Entry point: `bin/update-full`, the most destructive daily driver — it quits every running
+application and can reboot. Its header promises it keeps "the terminal you are running in".
+
+It identified that terminal from `TERM_PROGRAM`, mapping four values and falling through to an
+empty string for everything else. An empty `CURRENT_TERM` adds nothing to `KEEP`, and the quit
+loop's only other filter is whether a matching `.app` exists in `/Applications`,
+`/System/Applications` or `~/Applications`.
+
+**From a Claude Code session `TERM_PROGRAM` is unset.** Process `Claude`,
+`/Applications/Claude.app` present, nothing in `KEEP` — so update-full would have quit the
+session running it, at step 2 of 8, having already quit every other application and before any
+update ran. Not hypothetical: that is the shell this repository's maintenance has been run from
+all day. The same hole is open for WezTerm, kitty and Alacritty, none of which `TERM_PROGRAM`
+covers.
+
+Fixed by walking the process tree instead of consulting an environment variable the host may
+never set. Two rounds, both caught by testing rather than reading:
+
+- The first version returned the **first** bundle in the ancestry and stopped. From this
+  session that is `claude-code/…/claude.app`, whose basename is `claude` — while the process
+  at risk is `Claude`, and `KEEP` is case-sensitive. It would have changed nothing.
+- The real ancestry is three deep: the nested helper, then
+  `/Applications/Claude.app/Contents/Helpers/…`, then
+  `/Applications/Claude.app/Contents/MacOS/Claude`. The one that matters is **last**. It now
+  collects every bundle in the chain, so both `claude` and `Claude` are kept.
+
+Verified: detection returns both names, `KEEP` protects both, an ordinary application (`Safari`)
+is still correctly quit, `--help` exits 0, `--bogus` exits 2, and running it with no TTY and no
+`--yes` still refuses. 81 processes still running afterwards; nothing was quit during the
+probe.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging

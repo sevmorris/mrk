@@ -78,14 +78,65 @@ done
 
 MRK_ROOT="${MRK_ROOT:-$HOME/mrk}"
 
-# Detect the current terminal so it is not quit along with everything else
+# Detect whatever is hosting this session, so step 2 does not quit it.
+#
+# TERM_PROGRAM alone is not enough. It names four terminals and falls through to
+# an empty string for everything else — WezTerm, kitty, Alacritty, and anything
+# that is not a terminal at all. Run from a Claude Code session TERM_PROGRAM is
+# *unset*, so CURRENT_TERM was empty, and /Applications/Claude.app matched the
+# process named "Claude": update-full would quit the session running it, at step
+# 2 of 8, having already quit every other application and before any update ran.
+#
+# Walking the process tree answers the real question — which application owns
+# this process — instead of guessing from an environment variable that the host
+# may never set.
+detect_host_apps() {
+  local pid=$$ ppid comm depth=0 app
+  # Every bundle in the chain, not the first. The first is not necessarily the
+  # one at risk: from a Claude Code session the ancestry is
+  #   claude-code/…/claude.app  ->  /Applications/Claude.app/Contents/Helpers/…
+  #   ->  /Applications/Claude.app/Contents/MacOS/Claude
+  # and it is the last of those that System Events lists as the process
+  # "Claude" with a bundle in /Applications — the one step 2 would quit.
+  #
+  # Bounded: a launchd-rooted tree is shallow, and an unbounded walk on an
+  # unexpected shape would spin.
+  while (( depth < 8 )); do
+    depth=$(( depth + 1 ))
+    ppid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ') || return 0
+    [[ -z "$ppid" || "$ppid" == "0" || "$ppid" == "1" ]] && return 0
+    comm=$(ps -o comm= -p "$ppid" 2>/dev/null) || return 0
+    case "$comm" in
+      *.app/*)
+        app="${comm%%.app/*}"
+        basename "$app"
+        ;;
+    esac
+    pid="$ppid"
+  done
+  return 0
+}
+
+# Both, deliberately. The tree walk finds the bundle name (iTerm), while
+# TERM_PROGRAM maps to the process name System Events reports (iTerm2), and the
+# quit loop matches on the process name. Keeping both covers either spelling.
+CURRENT_TERM=""
 case "${TERM_PROGRAM:-}" in
   iTerm.app)      CURRENT_TERM="iTerm2" ;;
   Apple_Terminal) CURRENT_TERM="Terminal" ;;
   WarpTerminal)   CURRENT_TERM="Warp" ;;
   Ghostty)        CURRENT_TERM="Ghostty" ;;
-  *)              CURRENT_TERM="" ;;
 esac
+HOST_APPS=()
+while IFS= read -r _a; do
+  [[ -n "$_a" ]] && HOST_APPS+=("$_a")
+done < <(detect_host_apps | sort -u)
+
+if [[ -z "$CURRENT_TERM" ]] && (( ${#HOST_APPS[@]} == 0 )); then
+  warn "Could not identify the application hosting this session."
+  warn "Step 2 quits applications by name; if this one has a bundle in"
+  warn "/Applications it will be quit too, ending this run part-way."
+fi
 
 echo "This will pull mrk, quit running applications, run macOS and package"
 echo "updates, rebuild the mrk tools, run cleanup, then offer a reboot."
@@ -120,9 +171,8 @@ fi
 info "Quitting running applications..."
 
 declare -A KEEP=([Finder]=1 [Dock]=1 [SystemUIServer]=1 [loginwindow]=1)
-if [[ -n "$CURRENT_TERM" ]]; then
-  KEEP["$CURRENT_TERM"]=1
-fi
+[[ -n "$CURRENT_TERM" ]] && KEEP["$CURRENT_TERM"]=1
+for _a in ${HOST_APPS[@]+"${HOST_APPS[@]}"}; do KEEP["$_a"]=1; done
 
 # One System Events call, linefeed-delimited so app names containing a
 # comma-space can never be split apart.

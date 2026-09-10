@@ -1248,6 +1248,7 @@ mrk-push -- "-starts with a dash"</code></pre>
           </ol>
           <ul>
             <li><code>--yes</code> or <code>-y</code> — Skip the confirmation prompt.</li>
+            <li>Step 2 keeps Finder, Dock, SystemUIServer, loginwindow, and every application in this session's process ancestry. Before 2026-09-10 it identified the host from <code>TERM_PROGRAM</code>, which names four terminals and is empty for everything else — including a Claude Code session, where it is unset. With <code>/Applications/Claude.app</code> matching the process <code>Claude</code>, update-full would have quit the session running it at step 2 of 8, after quitting every other application and before any update ran. It now walks the process tree and keeps every bundle it finds there.</li>
             <li><code>--no-reboot</code> — Never offer a restart.</li>
             <li>update-full reads <code>TERM_PROGRAM</code> to find your terminal. It warns you when it does not recognise the value, because it then quits that terminal too.</li>
             <li>update-full continues after a failed step, and it reports the failure.</li>
