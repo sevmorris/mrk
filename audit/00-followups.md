@@ -828,6 +828,50 @@ overwrite"), the dotfiles (replaced files copied to `~/.mrk/backups/`), and the 
 message. Two deliberate no-undo cases stand: the login items above, and the login shell, where
 reverting `chsh` could strand the user in a shell they did not choose.
 
+### App Store apps: the ecosystem already covered a gap mrk declared manual (2026-09-10)
+
+Asked whether any existing project covers mrk's gaps. Its own migration checklist names four
+things it does not capture: App Store applications, software licences, VPN/certificate/system
+settings, and notarytool credentials. Three have no general answer — licences vary by vendor,
+VPN and TCC need an MDM configuration profile, and a notarytool keychain profile genuinely has
+no export. **The first one did.**
+
+`brew bundle` supports `--mas` natively; App Store apps are a first-class Brewfile entry. mrk
+already runs `brew bundle` and had **22 App Store applications installed** — Final Cut Pro,
+Logic Pro, Xcode, Compressor, Pixelmator Pro among them — while the checklist said "you must
+manually install these again from your Purchases". Two of the 22, BetterSnapTool and Chrono
+Plus, are in the eight login items post-install registers: mrk registered login items for
+applications it could not install.
+
+Now tracked, all 22, plus `brew "mas"` itself. Three things had to be worked out by testing
+rather than reading, and each would have produced a wrong result:
+
+- **`mas list` returns nothing here.** mas 7 reads the App Store id from Spotlight's
+  `kMDItemAppStoreAdamID`, and `mdutil -s /` reports indexing disabled on this machine — not
+  mrk's doing, it never touches Spotlight. So `brew bundle dump --mas` produces an empty file
+  and the obvious way to build the list does not work. `mas search`, `mas info` and
+  `mas install` query the App Store API instead, so the entries still install; only
+  regenerating them is blocked.
+- **Name matching is not enough.** App Store display names carry marketing suffixes the bundle
+  names do not — "Keynote" is listed as "Keynote: Design Presentations", "Speedtest" as
+  "Speedtest by Ookla" — so exact-name matching resolved only 12 of 22.
+- **Version matching caught a genuinely wrong id.** Comparing each installed
+  `CFBundleShortVersionString` against `mas info` matched 18 of 22 outright, and of the four
+  that did not, three were merely outdated installs. The fourth was real: the installed Hush is
+  1.2.1 and "Hush Nag Blocker" is 1.0.19. The bundle id `ca.iansampson.Hush` settled it —
+  "Hush | AI for Spoken Audio" by Ian Sampson, id 1664181766. Name matching alone would have
+  written a free content blocker's id for an $89.99 audio tool.
+
+One manual step remains and cannot be removed: `mas` has had no `signin` since macOS 12, so
+App Store.app must be signed into by hand once before the first `make brew`. That trades 22
+manual reinstalls for one sign-in. `mas` also requests sudo on macOS 13+, since Apple made
+`installd` root-only.
+
+Verified: `brew bundle list --mas --file=Brewfile` returns all 22, `check-picker-desc` passes
+at 128 packages — the `mas` entries correctly need no picker description, since it parses only
+`brew` and `cask` — and the strict-form gate added earlier today already accepted `mas` lines.
+`sync` does not see them either, so they are maintained by hand or by `dump`, not by the picker.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging

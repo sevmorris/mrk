@@ -864,12 +864,14 @@ mrk-status [--help | -h]</code></pre>
           <h3>mrk-brew <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">mrk-brew is phase 2. It installs the Homebrew formulae and casks that the Brewfile lists.</p>
+          <p class="desc">mrk-brew is phase 2. It installs the Homebrew formulae and casks that the Brewfile lists, and since 2026-09-10 the Mac App Store applications it lists as <code>mas</code> entries too.</p>
           <pre><code>mrk-brew [options]</code></pre>
           <ul>
             <li><code>-n</code>, <code>--dry-run</code> — Report what would be installed and change nothing.</li>
             <li><code>-y</code>, <code>--yes</code> — Answer every prompt yes. Use for unattended runs.</li>
             <li><code>--no-casks</code> — Install the formulae only, skipping the GUI applications.</li>
+              <li>The <code>mas</code> entries need one manual step that cannot be automated: <code>mas</code> has had no <code>signin</code> command since macOS 12, so sign in to App Store.app by hand once before the first <code>mrk-brew</code> on a new machine. <code>mas</code> also requests sudo to install on macOS 13 and later, because Apple made <code>installd</code> root-only.</li>
+              <li><code>mas list</code> reads the App Store id from Spotlight, so <code>brew bundle dump --mas</code> returns nothing on a machine with indexing disabled — which is how this machine is configured. Installing by id does not use Spotlight, so the entries work; regenerating them does not. Add a new one with <code>mas search &lt;name&gt;</code> and confirm the id with <code>mas info &lt;id&gt;</code> before trusting it: App Store display names carry marketing suffixes the bundle names do not, and matching on name alone picked the wrong application for one of the 22.</li>
             <li><code>--no-formulae</code> — Install the casks only.</li>
             <li><code>--only-formulae</code> — Install the formulae only.</li>
             <li><code>--skip-brew-install</code> — Assume Homebrew is present and do not install it.</li>
