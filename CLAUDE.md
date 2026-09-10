@@ -39,6 +39,14 @@ same commit as the code. SMAC-1 links into BIN-1 by anchor; every command in `bi
 `scripts/` has one. Keeping a second copy of a flag list is what produced the drift this
 split was made to stop.
 
+**The check runs both ways.** Where the two pages describe the same behaviour, correcting
+one means reading the other in the same session. On 2026-09-10 SMAC-1's description of the
+mrk-status dashboard was sharpened — eight checks, with Backups appearing fifth only when a
+backup exists — and BIN-1, which documents the same panel from inside this repo, was left
+saying "nine checks" with Backups as a permanent member. The downstream page was right and
+the upstream one was wrong, which is the opposite of the direction this file was written to
+guard, and is exactly why the check cannot be one-directional.
+
 ### Why this note exists
 
 `snapshot-keys` and `restore-keys` landed here on 2026-08-29. sevmac's migration

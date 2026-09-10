@@ -193,6 +193,12 @@ tool was green beforehand.
   `restore-keys a.gpg b.gpg` restored b and discarded a — on the one command that exists to
   recover a Developer ID Apple cannot reissue. The check that finds this class is a grep for
   `*)` arms that *assign* rather than refuse.
+- **A BIN-1 claim contradicted the code, and sevmac had it right.** Found 2026-09-10 by spot
+  checking BIN-1's factual claims rather than its flag lists. `checkBackups` returns
+  `ok=false` when `~/.mrk/backups` is empty, so `mrk-status` shows **eight** checks, not the
+  nine BIN-1 stated, with Backups appearing fifth only when a backup exists. SMAC-1 had been
+  corrected earlier in the same session and BIN-1 was never read alongside it. `CLAUDE.md`
+  now says the check runs both ways.
 
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`

@@ -752,7 +752,7 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
           <pre><code>status
 mrk-status [--help | -h]</code></pre>
           <ul>
-            <li>Left pane — nine checks, each with a ✓, ⚠ or ✗ mark: dotfiles, tool symlinks, macOS defaults, security hardening, backups, shell, PATH, Homebrew, and Brewfile packages.</li>
+            <li>Left pane — eight checks, each with a ✓, ⚠ or ✗ mark: dotfiles, tool symlinks, macOS defaults, security hardening, shell, PATH, Homebrew, and Brewfile packages. A ninth, Backups, appears only when <code>~/.mrk/backups</code> holds at least one directory, and it appears <em>fifth</em>, between security hardening and shell — not appended at the end.</li>
             <li>Right pane — the detail lines for the selected check. The pane also shows the suggested fix command.</li>
             <li><strong>f</strong> — Run the fix command for the selected check.</li>
             <li><strong>r</strong> — Run all the checks again.</li>
