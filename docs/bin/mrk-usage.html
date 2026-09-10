@@ -523,7 +523,7 @@
 
       <div class="callout">
         <span class="callout-label">Asking a Command What It Does</span>
-        <div class="callout-body">Every command in this manual answers <code>-h</code> and <code>--help</code> by printing a usage summary and exiting 0, and refuses any argument it does not recognise with exit 2. Both halves are deliberate. A script with no option parser does not ignore an unrecognised flag — it runs, with the flag discarded. Eight commands here behaved that way until 2026-09-10, so <code>mrk-uninstall --help</code> unlinked <code>~/bin</code> and <code>mrk-post-install --help</code> installed applications. Where a command takes no options of its own, the contract comes from <code>mrk_help_guard</code> in <code>scripts/lib.sh</code>; the two LaunchAgent scripts spell it out inline so that an unattended job depends on nothing but itself.</div>
+        <div class="callout-body">Every command in this manual answers <code>-h</code> and <code>--help</code> by printing a usage summary and exiting 0, and refuses any argument it does not recognise with exit 2. Both halves are deliberate. A script with no option parser does not ignore an unrecognised flag — it runs, with the flag discarded. Twelve commands here behaved that way until 2026-09-10, so <code>mrk-uninstall --help</code> unlinked <code>~/bin</code> and <code>mrk-post-install --help</code> installed applications. Of the 40 commands in this manual, 34 now answer <code>--help</code>; the other six are exempt on purpose, <code>decloud</code> because it passes every argument through to git and the rest because they are gates that take none. Where a command takes no options of its own, the contract comes from <code>mrk_help_guard</code> in <code>scripts/lib.sh</code>; the two LaunchAgent scripts spell it out inline so that an unattended job depends on nothing but itself.</div>
       </div>
 
       <div class="callout callout-caution">
@@ -551,7 +551,7 @@
             <div class="callout-body">nuke-mrk deletes data. It asks you to confirm first. It does <strong>not</strong> uninstall the Homebrew packages, and it does not roll back the macOS defaults.</div>
           </div>
           <p class="desc">nuke-mrk deletes all the mrk files, so that you can install mrk again. It deletes <code>~/mrk</code>, <code>~/.mrk</code>, the mrk symlinks in <code>~/bin</code>, and the dotfile symlinks in <code>$HOME</code>.</p>
-          <pre><code>nuke-mrk</code></pre>
+          <pre><code>nuke-mrk [--help | -h]</code></pre>
           <ul>
             <li>nuke-mrk shows the reinstall instructions when it completes.</li>
           </ul>
@@ -621,7 +621,10 @@
         </div>
         <div class="proc-body">
           <p class="desc">check-updates checks whether the mrk repository has new commits. It runs at most once every 7 days. If your copy is behind, it asks you to update.</p>
-          <pre><code>check-updates</code></pre>
+          <pre><code>check-updates [--help | -h]</code></pre>
+          <ul>
+            <li><code>-h</code>, <code>--help</code> — Show the usage summary and exit. Until 2026-09-10 check-updates had no option parsing, and the flag was discarded. That mattered more than it looks: before check-updates reaches its prompt it writes the rate-limit timestamp and disowns a background fetch, so <code>check-updates --help</code> consumed the week's check.</li>
+          </ul>
           <ul>
             <li>check-updates runs only in an interactive shell.</li>
             <li>check-updates never waits for the network. It compares your copy against the last commit that git fetched, and it refreshes the remote in the background.</li>
@@ -638,10 +641,14 @@
         </div>
         <div class="proc-body">
           <p class="desc">doctor checks that <code>~/bin</code> is on the PATH. The <code>--fix</code> option adds a PATH line to <code>~/.zshrc</code>.</p>
-          <pre><code>doctor [check | --fix | fix]</code></pre>
+          <pre><code>doctor [check | --fix | fix] [--help | -h]</code></pre>
           <ul>
             <li><code>check</code> (the default) — Shows the result and exits with status 0 or status 1.</li>
+            <li><code>-h</code>, <code>--help</code> — Show the usage summary and exit.</li>
             <li><code>--fix</code> or <code>fix</code> — Adds the line to <code>~/.zshrc</code>. doctor writes the line only when the line is absent, so you can run this command more than once. The line it adds first checks that <code>~/bin</code> exists and that the PATH does not already contain it.</li>
+          </ul>
+          <ul>
+            <li>doctor reads only its first argument. Until 2026-09-10 a second one was discarded in silence, so <code>doctor check --fix</code> ran the check and dropped the <code>--fix</code> without saying so. It now exits 2 rather than ignoring the extra argument.</li>
           </ul>
           <div class="callout">
             <span class="callout-label">Note</span>
@@ -879,10 +886,11 @@ mrk-status --help</code></pre>
         </div>
         <div class="proc-body">
           <p class="desc">mrk-defaults applies the macOS defaults for the Dock, the Finder, the keyboard and other system areas. It writes a rollback script to <code>~/.mrk/defaults-rollback.sh</code>.</p>
-          <pre><code>mrk-defaults [--with-trackpad]</code></pre>
+          <pre><code>mrk-defaults [--with-trackpad] [--help | -h]</code></pre>
           <ul>
             <li>No flag — Applies all the defaults except the trackpad gestures.</li>
             <li><code>--with-trackpad</code> — Also applies the trackpad gesture settings.</li>
+            <li><code>-h</code>, <code>--help</code> — Show the usage summary and exit.</li>
             <li>mrk-defaults continues when a write fails. It counts the failed writes and reports the total when it exits.</li>
             <li>The rollback script covers the system defaults that mrk-defaults writes. It does not cover the browser preferences or the app preferences that <code>mrk-post-install</code> writes.</li>
           </ul>

@@ -30,6 +30,34 @@ MRK_DIR="$HOME/mrk"
 STATE_DIR="$HOME/.mrk"
 BIN_DIR="$HOME/bin"
 
+# nuke-mrk is self-contained by design — it has to keep working while it is
+# deleting the repository around itself — so the guard is inline rather than
+# sourced from scripts/lib.sh. Until 2026-09-10 the flag was discarded and
+# `nuke-mrk --help` printed the wipe warning and sat on its [y/N]. The gate
+# held, but of every command here this is the one that should answer a question
+# with an answer rather than with a prompt.
+usage() {
+  cat <<'EOF'
+nuke-mrk — remove every mrk artifact, for a clean test install
+
+Usage:
+  nuke-mrk [--help | -h]
+
+nuke-mrk takes no options. It moves ~/mrk and ~/.mrk to the Trash, removes the
+~/bin and dotfile symlinks that point into them, and unloads and deletes the
+mrk LaunchAgents. It offers to run the defaults and hardening rollback scripts
+first. It does NOT uninstall Homebrew packages or undo the macOS defaults on
+its own, and it asks for confirmation before it starts.
+
+To remove only the symlinks and keep the repository, use mrk-uninstall.
+EOF
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+  ?*)        usage >&2; printf '\nunknown argument: %s\n' "$1" >&2; exit 2 ;;
+esac
+
 printf "\n${_B}${_RED}  ☢  nuke-mrk${_R}\n\n"
 printf "  This will move to Trash and remove:\n"
 printf "  ${_RED}•${_R} ${_B}$MRK_DIR${_R} ${_D}(cloned repo → Trash)${_R}\n"

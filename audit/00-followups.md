@@ -173,6 +173,14 @@ tool was green beforehand.
   `scripts/defaults.sh`, parsing in the identical shape three files over, always did.
   Fixed with `mrk_help_guard` in `scripts/lib.sh`; refusing the *unknown argument* is the
   half that generalises, since `--help` was only the flag that happened to get typed.
+  `mrk-defaults` and `doctor` followed the same day for uniformity — and `doctor` proved to
+  hold a third instance of the class that is not about a flag at all: `MODE="${1:-check}"`
+  reads only `$1`, so `doctor check --fix` ran the check and discarded the `--fix` in
+  silence. `nuke-mrk` and `check-updates` followed too. Both had been set aside as reachable
+  only through a `[y/N]`; that holds for `nuke-mrk`, but `check-updates` writes its
+  rate-limit stamp and disowns a background fetch *before* the prompt, and the fingerprint
+  had called it clean only because it did not cover `~/.cache`. All 40 commands on `PATH`
+  now either answer `--help` or are one of 6 deliberate exemptions.
 
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`

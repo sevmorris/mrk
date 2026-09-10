@@ -12,6 +12,35 @@ CACHE_DIR="${HOME}/.cache/mrk"
 TIMESTAMP_FILE="${CACHE_DIR}/last-update-check"
 CHECK_INTERVAL_DAYS=7
 
+# Inline rather than sourced from scripts/lib.sh: this runs on every
+# interactive shell start, and the header above promises zero blocking work
+# there — sourcing a 250-line library on every new shell would spend exactly
+# what this script exists to avoid.
+#
+# It sits above the first side effect. check-updates is not inert: before it
+# reaches its prompt it writes the rate-limit timestamp and disowns a background
+# git fetch, and answering that prompt runs `make pull`. Until 2026-09-10 the
+# flag was discarded and `check-updates --help` did all of that.
+usage() {
+  cat <<'EOF'
+check-updates — tell me, at most weekly, when mrk has upstream commits
+
+Usage:
+  check-updates [--help | -h]
+
+check-updates takes no options and is meant to run from shell startup. It exits
+silently when the shell is not interactive, when it has already run in the last
+7 days, or when there is nothing new. Otherwise it offers to run `make pull`.
+It never blocks on the network: it compares against the last fetched remote and
+then refreshes origin in a disowned background fetch.
+EOF
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+  ?*)        usage >&2; printf '\nunknown argument: %s\n' "$1" >&2; exit 2 ;;
+esac
+
 # Resolve symlinks so this works when called via ~/bin symlink
 _resolve_self() {
   local target="$1"

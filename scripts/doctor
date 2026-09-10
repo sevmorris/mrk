@@ -6,8 +6,36 @@ ok() { printf '\033[32m✓ %s\033[0m\n' "$*"; }
 warn() { printf '\033[33m⚠ %s\033[0m\n' "$*"; }
 err() { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; }
 
+usage() {
+  cat <<'EOF'
+doctor — check the mrk install for common problems, and optionally fix them
+
+Usage:
+  doctor [check]
+  doctor --fix
+  doctor [--help | -h]
+
+Modes:
+  check            Report problems; exit non-zero if any were found (default)
+      --fix, fix   Apply the fixes and exit 0
+  -h, --help       Show this help
+
+doctor checks that ~/bin is on the PATH. With --fix it creates ~/bin and
+appends a PATH line to ~/.zshrc. Run it through Make as `make doctor`, or
+`make doctor ARGS=--fix`.
+EOF
+}
+
 MODE="${1:-check}" # check | --fix | fix
 STATUS=0
+
+# doctor reads only $1, so a second argument used to be discarded in silence —
+# the same shape as the eight commands fixed in audit/14 P-9.
+if (( $# > 1 )); then
+  usage >&2
+  printf '\nunknown argument: %s\n' "$2" >&2
+  exit 2
+fi
 
 check_bin() {
   case ":$PATH:" in
@@ -43,8 +71,13 @@ case "$MODE" in
     ok "Fixes applied"
     exit 0
     ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
   *)
-    err "Unknown mode: $MODE"
+    usage >&2
+    printf '\nunknown argument: %s\n' "$MODE" >&2
     exit 2
     ;;
 esac

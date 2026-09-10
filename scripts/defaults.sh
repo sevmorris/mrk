@@ -2,19 +2,37 @@
 set -euo pipefail
 
 # mrk defaults - apply macOS defaults and generate a rollback script
-#
-# Usage:
-#   defaults.sh                 # apply all defaults (except trackpad)
-#   defaults.sh --with-trackpad # also apply trackpad gesture settings
 
 ROLL_DIR="$HOME/.mrk"
 ROLLBACK="${ROLLBACK:-$HOME/.mrk/defaults-rollback.sh}"
+
+usage() {
+  cat <<'EOF'
+mrk-defaults — apply the macOS defaults and record how to undo them
+
+Usage:
+  mrk-defaults [--with-trackpad] [--help | -h]
+
+Options:
+      --with-trackpad  Also apply the trackpad gesture settings
+  -h, --help           Show this help
+
+mrk-defaults writes the tracked preference keys and appends an undo line for
+each one to ~/.mrk/defaults-rollback.sh, so every change it makes can be
+reversed. It is idempotent: a second run leaves both the system state and the
+rollback script unchanged. Run it as `make defaults`, or with the trackpad
+block as `make trackpad`.
+EOF
+}
 
 WITH_TRACKPAD=false
 for arg in "$@"; do
   case "$arg" in
     --with-trackpad) WITH_TRACKPAD=true ;;
-    *) echo "Unknown option: $arg" >&2; exit 1 ;;
+    -h|--help)       usage; exit 0 ;;
+    *)               usage >&2
+                     printf '\nunknown argument: %s\n' "$arg" >&2
+                     exit 2 ;;
   esac
 done
 
