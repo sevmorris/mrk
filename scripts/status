@@ -141,10 +141,10 @@ if [[ -f "$STATE_DIR/hardening-rollback.sh" ]] && [[ -s "$STATE_DIR/hardening-ro
     info "  Rollback script: $STATE_DIR/hardening-rollback.sh"
     info "  ($rollback_lines change(s) can be rolled back)"
   else
-    info "  No hardening applied — run: hardening.sh"
+    info "  No hardening applied — run: make harden"
   fi
 else
-  info "  No hardening applied — run: hardening.sh"
+  info "  No hardening applied — run: make harden"
 fi
 echo ""
 

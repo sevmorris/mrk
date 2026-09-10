@@ -199,6 +199,16 @@ tool was green beforehand.
   nine BIN-1 stated, with Backups appearing fifth only when a backup exists. SMAC-1 had been
   corrected earlier in the same session and BIN-1 was never read alongside it. `CLAUDE.md`
   now says the check runs both ways.
+- **mrk-status's Security Hardening fix could never have worked.** Found 2026-09-10 by
+  running `scripts/status` against an empty `HOME` and reading the remediation commands it
+  printed. Both status tools said `run: hardening.sh` — a name that resolves nowhere: the
+  script is installed on the PATH as `harden`, and the file is in `scripts/`, not the repo
+  root that `mrk-status` runs fixes from. Pressing **f** on that check failed with "command
+  not found". Every other fix was already a make target. Now `make harden`, with
+  `TestEveryFixCommandResolves` gating the class: it drives each check into its remediation
+  branch and asserts each fix is either a real Make target or resolvable on the PATH. The
+  gate is mutation-tested against both failure modes. A fix command is only a string until
+  someone presses the key, which is why fourteen audits never saw it.
 
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`

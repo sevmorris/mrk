@@ -204,7 +204,12 @@ func checkHardening(stateDir string) group {
 	rollback := filepath.Join(stateDir, "hardening-rollback.sh")
 	if _, err := os.Stat(rollback); err != nil {
 		return group{"Security Hardening", sevInfo,
-			[]statusLine{sl(sevInfo, "Not applied — run: hardening.sh")}, "hardening.sh"}
+			// "make harden", not "hardening.sh". The f key runs the fix as
+			// `cd <repoRoot> && <fix>`, and hardening.sh is neither on the PATH
+			// (it is installed as "harden") nor in the repo root (it is in
+			// scripts/), so the bare filename could never resolve. Every other
+			// fix here is already a make target.
+			[]statusLine{sl(sevInfo, "Not applied — run: make harden")}, "make harden"}
 	}
 	n := countLines(rollback, `sudo|defaults write|defaults delete`)
 	if n == 0 {
