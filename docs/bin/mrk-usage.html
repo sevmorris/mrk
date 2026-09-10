@@ -553,8 +553,8 @@
           <p class="desc">nuke-mrk deletes all the mrk files, so that you can install mrk again. It deletes <code>~/mrk</code>, <code>~/.mrk</code>, the mrk symlinks in <code>~/bin</code>, and the dotfile symlinks in <code>$HOME</code>.</p>
           <pre><code>nuke-mrk [--help | -h]</code></pre>
           <ul>
-            <li>nuke-mrk offers to remove the login items that <code>mrk-post-install</code> registered, listing them first. It offers only names that appear as <code>add_login_item</code> entries in <code>scripts/post-install</code>, so a login item you added by hand is never touched. Answering no keeps them all, and a removal that fails warns rather than stopping the run.</li>
-            <li>Before 2026-09-10 nuke-mrk left every login item registered. That mattered for the job it exists to do: on the reinstall, <code>add_login_item</code> found each one already present and skipped it, so the registration path was never exercised by the fresh install meant to prove it.</li>
+            <li>nuke-mrk leaves the login items alone, and that is deliberate. It does not uninstall Homebrew packages, so every application those items point at survives the run — the login item is a preference about an application that is staying, not an mrk artifact being cleaned up. Removing them was tried and reverted on 2026-09-10: the reinstall re-adds them, so the end state is identical, while <code>add_login_item</code> creates with <code>hidden:false</code> hardcoded and <code>at end</code>, which would silently reset any item you had set to launch hidden and rebuild the order as post-install's rather than yours.</li>
+            <li>On the reinstall, <code>mrk-post-install</code> therefore logs <code>Login item exists</code> for each one and skips it. To exercise the registration path instead, remove a single item by hand and re-run post-install.</li>
             <li>nuke-mrk shows the reinstall instructions when it completes.</li>
           </ul>
         </div>

@@ -750,9 +750,31 @@ hand-added one; a tracked item that is not registered is not offered; nothing ma
 prompt at all; an unreadable `post-install` skips the offer; and a failing delete warns and
 continues with rc 0. The machine's own eight login items were confirmed untouched afterwards.
 
+**Reverted the same day, and the reversal is the finding.** Seven asked the obvious question I
+had not: what is gained by removing them only to re-add them? Nothing — the end state is
+identical. The only benefit is that the fresh-install test exercises `add_login_item`'s
+registration branch rather than its "already exists" branch, which is narrow and does not need
+a nuke: remove one item by hand and re-run post-install.
+
+And it is not free. `add_login_item` creates with **`hidden:false` hardcoded** and **`at end`**,
+so a remove-then-readd resets any item set to launch hidden and rebuilds the order as
+post-install's rather than the user's. All eight happen to be `hidden=false` today, which makes
+it lossless on this machine at this moment and says nothing about the next one.
+
+The category was the real error. `nuke-mrk` does not uninstall Homebrew packages, so every
+application those items point at survives the run: a login item is a preference about an
+application that is staying, not an mrk artifact being cleaned up. That places it with the
+macOS defaults — offered as a *rollback*, defaulting to no — and not with the symlinks and
+LaunchAgents it sits beside. The symmetry argument that produced the change compared it against
+the wrong siblings.
+
+The reasoning now lives as a comment in `bin/nuke-mrk` where the code was, so the next person to
+notice the asymmetry finds the answer instead of re-deriving it.
+
 **Left for a decision:** `scripts/uninstall` has the same gap — zero login-item references —
 though it does remove the LaunchAgents, so it is already broader than its "does not remove user
-data" header suggests. Not widened unasked.
+data" header suggests. Not widened unasked, and on the reasoning above it should probably stay
+that way.
 
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
