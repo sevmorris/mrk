@@ -776,6 +776,58 @@ though it does remove the LaunchAgents, so it is already broader than its "does 
 data" header suggests. Not widened unasked, and on the reasoning above it should probably stay
 that way.
 
+### dock-setup wiped the Dock with no way back (2026-09-10)
+
+Asked, after the login-item reversal, whether anything else is not lossless. Answered by
+listing every mutating script against whether it records an undo:
+
+| script | rollback refs | backup refs |
+|---|---|---|
+| `hardening.sh` | 31 | 5 |
+| `defaults.sh` | 17 | 11 |
+| `setup` | 12 | 16 |
+| `post-install` | 12 | 15 |
+| `trim-services` | 7 | 0 |
+| **`dock-setup`** | **0** | **0** |
+
+`dock-setup` runs `dockutil --remove all` and recorded nothing. The gap was sharpest inside the
+rollback file itself, which already carried seven `com.apple.dock` keys — `tilesize`,
+`orientation`, `mineffect`, `no-bouncing`, `show-recents` — so mrk could undo the Dock's **icon
+size** but not **which icons were in it**. Thirteen apps and one folder, gone with no snapshot.
+
+Unlike the login items this was fixed rather than removed, and the difference is the point.
+Removing login items from `nuke-mrk` bought nothing, because the reinstall re-added them.
+`dock-setup` has a purpose you opt into by running `make dock`; being lossy is not a reason to
+delete it, it is a reason to make it record an undo like every sibling.
+
+It now exports `com.apple.dock` to `~/.mrk/plist-backups/` and appends a `defaults import` plus
+`killall Dock` to the shared rollback — the pattern `post-install` already uses for plists,
+with two deliberate differences. No `defaults delete` branch, because `com.apple.dock` always
+exists so "there was nothing here before" is never its right undo. And the snapshot is written
+**once and never refreshed**: a second `make dock` would otherwise capture the layout it had
+just applied and overwrite the original with it, which is the re-run decay recorded as M2.
+
+**Testing found a bug in the helper, not the new code.** `init_rollback`, added earlier the
+same day, fails when its directory does not exist — it writes the file with a redirect and
+never created the parent. Both original callers happened to `mkdir -p` their state dir first,
+so it was invisible; the new caller does not, and neither would `make dock` as the first mrk
+command on a fresh machine. Fixed in `lib.sh`, where producing a usable rollback file is the
+function's job.
+
+Verified without running `dock-setup`: the block was driven in isolation against a redirected
+`STATE_DIR`. First run captures 13 `persistent-apps` and 1 `persistent-others` and writes the
+rollback; second and third runs skip with the snapshot byte-identical and the rollback not
+growing; a failing `defaults export` warns, leaves no file and writes no rollback line. The
+round trip was proved on a throwaway domain — export, import elsewhere, compare — coming back
+with identical order, labels and whole dict, so the rollback restores rather than merely
+describes. The live Dock stayed at 13 items throughout.
+
+Checked and genuinely lossless: plist imports (`backup_plist` before every `defaults import`,
+with the matching rollback line), the app-support restore (skips existing outright — "won't
+overwrite"), the dotfiles (replaced files copied to `~/.mrk/backups/`), and the login window
+message. Two deliberate no-undo cases stand: the login items above, and the login shell, where
+reverting `chsh` could strand the user in a shell they did not choose.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging

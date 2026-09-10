@@ -1055,7 +1055,7 @@ mrk-push -- "-starts with a dash"</code></pre>
         <div class="proc-body">
           <div class="callout callout-caution">
             <span class="callout-label">Caution</span>
-            <div class="callout-body">dock-setup deletes every item from the Dock before it adds the new items. It does not ask you to confirm, and it does not save your current Dock layout.</div>
+            <div class="callout-body">dock-setup deletes every item from the Dock before it adds the new items, and it does not ask you to confirm. As of 2026-09-10 it does save the layout first: it exports <code>com.apple.dock</code> to <code>~/.mrk/plist-backups/com.apple.dock.plist</code> and appends a <code>defaults import</code> line to <code>~/.mrk/defaults-rollback.sh</code>, so the arrangement can be put back. The snapshot is written once and never refreshed — a second run would otherwise capture the layout dock-setup had just applied and overwrite the original with it.</div>
           </div>
           <p class="desc">dock-setup fills the Dock with the apps that the <code>DOCK_APPS</code> list names. It then adds the Applications directory and restarts the Dock.</p>
           <pre><code>dock-setup [--help | -h]</code></pre>

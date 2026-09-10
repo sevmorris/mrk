@@ -59,6 +59,49 @@ DOCK_APPS=(
   "/System/Library/CoreServices/Finder.app"
 )
 
+# Snapshot the Dock before wiping it.
+#
+# `dockutil --remove all` below destroys the whole arrangement, and until
+# 2026-09-10 nothing recorded it. Every other mutating script in mrk writes an
+# undo — defaults.sh, hardening.sh, post-install, trim-services, setup all do —
+# and this one wrote none. The gap was sharpest in the rollback itself, which
+# already carried seven com.apple.dock keys (tilesize, orientation, mineffect,
+# …): mrk could undo the Dock's icon size but not which icons were in it.
+#
+# The backup is written ONCE and never refreshed. A second `make dock` would
+# otherwise capture the layout this script just applied and overwrite the
+# pre-mrk original with it — the re-run decay recorded as M2. defaults.sh solves
+# the same problem by saving its rollback line before the idempotency check.
+#
+# No `defaults delete` branch, unlike post-install's plist helper: com.apple.dock
+# always exists on macOS, so "there was nothing here before" is never the right
+# undo for it.
+STATE_DIR="${STATE_DIR:-$HOME/.mrk}"
+ROLLBACK="${ROLLBACK:-$STATE_DIR/defaults-rollback.sh}"
+DOCK_BACKUP_DIR="$STATE_DIR/plist-backups"
+DOCK_BACKUP="$DOCK_BACKUP_DIR/com.apple.dock.plist"
+
+init_rollback "$ROLLBACK" || exit 1
+mkdir -p "$DOCK_BACKUP_DIR"
+
+if [[ -f "$DOCK_BACKUP" ]]; then
+  logskip "Dock snapshot" "already captured at $DOCK_BACKUP"
+elif ! defaults export com.apple.dock "$DOCK_BACKUP" 2>/dev/null; then
+  # A failed read must not become a rollback line. That is the P-3 class: an
+  # unreadable domain recorded as a known state produces an undo that asserts
+  # something untrue.
+  rm -f "$DOCK_BACKUP"
+  warn "could not snapshot com.apple.dock — no Dock rollback will be written"
+else
+  ok "Dock snapshot → $DOCK_BACKUP"
+  if ! grep -qF "defaults import com.apple.dock " "$ROLLBACK" 2>/dev/null; then
+    {
+      printf 'defaults import com.apple.dock %s\n' "$(printf '%q' "$DOCK_BACKUP")"
+      printf 'killall Dock >/dev/null 2>&1 || true\n'
+    } >> "$ROLLBACK"
+  fi
+fi
+
 log "Clearing current Dock..."
 dockutil --remove all --no-restart || warn "dockutil --remove all failed"
 

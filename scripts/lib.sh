@@ -112,6 +112,14 @@ mrk_help_guard() {
 init_rollback() {
   local rb="$1" aside
 
+  # Create the directory. Both original callers happened to `mkdir -p` their
+  # state dir first, so this helper never needed it and never had it — until a
+  # third caller did not, and the redirect below failed with "No such file or
+  # directory". `make dock` as the first mrk command on a fresh machine reaches
+  # exactly that state. Producing a usable rollback file is this function's job,
+  # and that includes somewhere to put it.
+  mkdir -p "$(dirname "$rb")" || { err "cannot create $(dirname "$rb")"; return 1; }
+
   if [[ -f "$rb" ]]; then
     if head -1 "$rb" 2>/dev/null | grep -q '^#!'; then
       chmod +x "$rb" 2>/dev/null || true
