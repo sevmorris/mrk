@@ -1062,15 +1062,50 @@ class DefaultsDocGenerator {
     }
     
     async loadScript() {
+        const url = 'https://raw.githubusercontent.com/sevmorris/mrk/main/scripts/defaults.sh';
         try {
-            const response = await fetch('https://raw.githubusercontent.com/sevmorris/mrk/main/scripts/defaults.sh');
+            const response = await fetch(url);
+
+            // fetch only rejects on a network failure, so without this an HTTP
+            // error resolved normally and response.text() handed parseScript the
+            // error body. Parsing "404: Not Found" yields zero sections and zero
+            // entries, so the page rendered completely blank — and the catch
+            // below never fired, which meant loadDemoData(), the fallback that
+            // exists for exactly this, could never run. raw.githubusercontent.com
+            // rate-limits unauthenticated requests, so this is reachable in
+            // ordinary use, not just if the repo moves.
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status} ${response.statusText} for ${url}`);
+            }
+
             const scriptContent = await response.text();
             this.parseScript(scriptContent);
         } catch (error) {
             console.error('Failed to load script:', error);
-            // Fallback to demo data
+            // Say so. The demo set is one section and two entries standing in for
+            // 27 and 143; rendered silently it looks like a real reference that
+            // happens to be nearly empty, which is worse than an error.
+            // Order matters: loadDemoData() ends in renderSections(), which
+            // assigns content.innerHTML and would wipe a notice prepended before
+            // it. Render first, then put the warning above the result.
             this.loadDemoData();
+            this.showLoadFailure(error);
         }
+    }
+
+    showLoadFailure(error) {
+        const content = document.getElementById('content');
+        if (!content) return;
+        const notice = document.createElement('div');
+        notice.className = 'load-failure';
+        notice.setAttribute('role', 'alert');
+        notice.style.cssText = 'border:2px solid #b00;padding:1rem;margin:1rem 0;' +
+                               'background:#fff4f4;color:#500;font-weight:600;';
+        notice.textContent =
+            'Could not load defaults.sh from GitHub (' + (error && error.message ? error.message : 'unknown error') +
+            '). The entries below are a small demo set, not the real reference. ' +
+            'Reload to try again, or read scripts/defaults.sh in the repository.';
+        content.prepend(notice);
     }
     
     parseScript(content) {

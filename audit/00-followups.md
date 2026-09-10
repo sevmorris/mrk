@@ -469,6 +469,37 @@ command), but Homebrew expands it itself, so the file lands in `$HOME` as the co
 all seven oh-my-zsh plugins exist, five bundled and two cloned by `setup` at pinned versions;
 and every other non-system command in the four files is guarded.
 
+### MRK-1 rendered a blank page on any HTTP error (2026-09-10)
+
+Entry point: the MRK-1 defaults page parses `scripts/defaults.sh` **at load time**, which makes
+it a sixth independent parser of a mrk file — the pattern that produced the Brewfile finding.
+`check-defaults-desc` compares its own shell parse against the JS `DEFAULT_DESCRIPTIONS` map;
+nothing checked that the JS *parser* agreed with either.
+
+It does. The live page renders exactly **143 `default-entry` elements**, matching the 143
+`write_default` call sites and the gate's count, in 27 sections. Sixth parser, same answer.
+
+**The defect is in how it loads.** `docs/defaults/script.js:1066` did
+`fetch(url)` then `response.text()` with **no `response.ok` check**. `fetch` rejects only on a
+network failure, so an HTTP error resolved normally and `parseScript` was handed the error
+body. Driven through the real code path in a browser, `parseScript("404: Not Found")` yields
+**0 sections and 0 entries** — a completely blank reference — and because nothing threw, the
+`catch` never ran, so `loadDemoData()`, the fallback written for exactly this, could never
+fire. Reachable in ordinary use: raw.githubusercontent.com rate-limits unauthenticated
+requests, so this is not only a repo-moved scenario.
+
+Fixed by throwing on `!response.ok`, and by saying so on screen. The demo set is one section
+and two entries standing in for 27 and 143; rendered silently it looks like a real reference
+that happens to be nearly empty, which is the overstated-success class again. Both paths now
+show a red notice carrying the actual error, verified in a browser against a forced 404 and a
+forced network rejection, with the normal path still rendering all 143.
+
+**My first fix was wrong and testing caught it.** `showLoadFailure()` ran before
+`loadDemoData()`, and `renderSections()` assigns `content.innerHTML`, so the notice was created
+and then destroyed. The probe reported "blank page, old behaviour" — the fix looked like it had
+not worked at all. Checking whether the patched code was even loaded, rather than assuming the
+fix was wrong in principle, is what located it.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
