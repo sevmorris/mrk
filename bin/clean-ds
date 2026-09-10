@@ -58,7 +58,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run)  DRY_RUN=1; shift ;;
     -h|--help)  usage; exit 0 ;;
-    *)          err "Unknown option: $1"; echo >&2; usage >&2; exit 1 ;;
+    *)          err "Unknown option: $1"; echo >&2; usage >&2; exit 2 ;;
   esac
 done
 

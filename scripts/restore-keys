@@ -66,8 +66,20 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -l|--list) LIST_ONLY=1; shift ;;
     -h|--help) usage; exit 0 ;;
-    -*)        err "Unknown option: $1"; usage; exit 1 ;;
-    *)         ARCHIVE="$1"; shift ;;
+    -*)        err "Unknown option: $1"; usage; exit 2 ;;
+    # One archive, not several. This arm used to be a bare assignment inside
+    # the loop, so a second path overwrote the first: `restore-keys a.gpg
+    # b.gpg` restored b and discarded a without a word. On the key-restore
+    # path — run once, on a new machine, to recover a Developer ID Apple
+    # cannot reissue — silently picking one of two archives is the worst
+    # available behaviour.
+    *)         if [[ -n "$ARCHIVE" ]]; then
+                 err "Too many arguments — restore-keys takes one archive"
+                 printf '\n  already given: %s\n  and then: %s\n\n' "$ARCHIVE" "$1" >&2
+                 usage
+                 exit 2
+               fi
+               ARCHIVE="$1"; shift ;;
   esac
 done
 

@@ -33,7 +33,7 @@ for _arg in "$@"; do
   case "$_arg" in
     --yes|-y)  NONINTERACTIVE=1 ;;
     --help|-h) usage; exit 0 ;;
-    *)         echo "harden: unknown option: $_arg" >&2; usage; exit 1 ;;
+    *)         echo "harden: unknown option: $_arg" >&2; usage; exit 2 ;;
   esac
 done
 

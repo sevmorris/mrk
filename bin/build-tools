@@ -41,7 +41,7 @@ EOF
   "") ;;
   *)
     err "Unknown option: $1"
-    exit 1
+    exit 2
     ;;
 esac
 

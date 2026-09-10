@@ -43,7 +43,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -n|--dry-run) DRY_RUN=1; shift ;;
     -h|--help)    usage; exit 0 ;;
-    *)            err "Unknown option: $1"; usage; exit 1 ;;
+    *)            err "Unknown option: $1"; usage; exit 2 ;;
   esac
 done
 

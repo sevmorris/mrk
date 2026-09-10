@@ -185,7 +185,14 @@ tool was green beforehand.
   not exactly `--help`, the three `check`/`ci` gates accepted anything, and extra positionals
   were dropped by `mrk-push` (an unquoted commit message truncated to its first word) and
   `hide_tm.sh`. All closed. Of 40 entries on `PATH`, 38 answer `--help` and 38 refuse an
-  unknown argument; `decloud` forwards to git by design and `lib` is a directory.
+  unknown argument; `decloud` forwards to git by design and `lib` is a directory. The refusal
+  exit codes were then unified on 2, which BIN-1's Section 0 had already been promising while
+  twelve commands exited 1. **Exit 2 now means the command line was wrong and nothing ran;
+  exit 1 means it ran and failed.** Unifying them surfaced a fourth dropped argument no flag
+  census could see: `restore-keys:70` assigned `ARCHIVE="$1"` inside its loop, so
+  `restore-keys a.gpg b.gpg` restored b and discarded a — on the one command that exists to
+  recover a Developer ID Apple cannot reissue. The check that finds this class is a grep for
+  `*)` arms that *assign* rather than refuse.
 
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
