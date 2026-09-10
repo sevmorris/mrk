@@ -241,6 +241,35 @@ tool was green beforehand.
   decode, and a `--`-only flag regex that mis-read Go's single-dash help output. Every genuine
   finding this session came from *running* something. Prefer it.
 
+### Probed 2026-09-10 and found clean
+
+Recorded so a later pass does not re-derive them. Each was *run*, not read.
+
+- **Makefile.** All 37 targets `make -n` cleanly with no missing paths. `.PHONY` is complete
+  in both directions, 37/37. `make help` lists exactly the 37 defined targets, no more and
+  no fewer. `install` is a pure alias for `setup`, so the two remediation strings the status
+  tools print are equivalent.
+- **LaunchAgents.** Both plists: label matches filename, program path exists, both loaded,
+  both last exited 0. SMAC-2's Table B-1 is exactly right, including the detail that
+  `clear-app-caches` carries `RunAtLoad` and `clear-derived-data` does not.
+- **Dotfiles, three implementations.** `scripts/setup`, `scripts/status` and Go
+  `checkDotfiles` agree on the directory glob and on the same exclusion filter
+  (`*.example`, `README*`, `*.md`). Both shell copies set `shopt -s dotglob nullglob` and
+  unset it on every exit path, which they must: a bare `*` does not match dotfiles, and
+  without it `make setup` would link only `Makefile`.
+- **References and links.** All 34 repo-relative paths in `scripts/` and `bin/` resolve; the
+  two that do not are a `mktemp` template and a `cp` destination. All 14 sevmac links into
+  BIN-1 resolve against its 41 anchors.
+- **`~/.mrk/defaults-rollback.sh`.** 130 lines, parses under both bash 3.2 and 5, no
+  duplicate lines, and the `defaults import` target plist exists. 37 of its 38 domains are
+  readable. The 38th is `com.apple.mail`, the P-8 leftover — and it is harmless twice over:
+  the script sets no `set -e`, and that line already ends `>/dev/null 2>&1 || true`. No
+  `set -e` is the right choice for an undo script; restoring what it can beats aborting
+  halfway.
+- **Still not verifiable here:** `harden` has never run on this machine, so
+  `hardening-rollback.sh` has never existed, and `harden` has no `--dry-run`. It stays in the
+  VM bucket with `setup`, `brew` and `post-install`.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
