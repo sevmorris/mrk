@@ -336,16 +336,34 @@ func checkBrewfile(repoRoot string) group {
 		}, ""}
 	}
 
+	// A failed `brew list` must not be folded into the per-package results. The
+	// old code swallowed the error and left the map empty, so every lookup below
+	// missed and all of the Brewfile rendered as "(missing)" — a screen of
+	// fabricated failures with nothing saying the check itself never ran. brew
+	// being absent is already handled above via LookPath; this is brew present
+	// and failing, which a broken prefix or a half-finished upgrade produces.
+	//
+	// scripts/sync:190 guards the identical call for the same reason, where the
+	// consequence was worse: --prune would have read the empty set as "every
+	// tracked entry is stale".
 	instF, instC := map[string]bool{}, map[string]bool{}
-	if out, err := exec.Command("brew", "list", "--formula").Output(); err == nil {
-		for _, p := range strings.Fields(string(out)) {
-			instF[p] = true
+	outF, errF := exec.Command("brew", "list", "--formula").Output()
+	outC, errC := exec.Command("brew", "list", "--cask").Output()
+	if errF != nil || errC != nil {
+		which, e := "brew list --formula", errF
+		if errF == nil {
+			which, e = "brew list --cask", errC
 		}
+		return group{"Brewfile", sevWarn, []statusLine{
+			sl(sevWarn, fmt.Sprintf("%d formulae, %d casks tracked", len(formulae), len(casks))),
+			sl(sevWarn, fmt.Sprintf("cannot check what is installed — %s failed: %v", which, e)),
+		}, "brew doctor"}
 	}
-	if out, err := exec.Command("brew", "list", "--cask").Output(); err == nil {
-		for _, p := range strings.Fields(string(out)) {
-			instC[p] = true
-		}
+	for _, p := range strings.Fields(string(outF)) {
+		instF[p] = true
+	}
+	for _, p := range strings.Fields(string(outC)) {
+		instC[p] = true
 	}
 
 	var lines []statusLine

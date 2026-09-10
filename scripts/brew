@@ -431,7 +431,7 @@ install_brewfile() {
       return 0
     else
       err "Brewfile installation failed"
-      ((ERRORS++))
+      ERRORS=$(( ERRORS + 1 ))
       return 1
     fi
   fi
@@ -563,7 +563,7 @@ install_brewfile() {
           continue
         fi
         echo "${formula_lines[$name]}" >> "$TEMP_BREWFILE"
-        ((selected_count++))
+        selected_count=$(( selected_count + 1 ))
       fi
     done
     FORMULAE_INSTALLED=$selected_count
@@ -595,7 +595,7 @@ install_brewfile() {
           continue
         fi
         echo "${cask_lines[$name]}" >> "$TEMP_BREWFILE"
-        ((selected_count++))
+        selected_count=$(( selected_count + 1 ))
       fi
     done
     CASKS_INSTALLED=$selected_count
@@ -617,7 +617,7 @@ install_brewfile() {
     return 0
   else
     err "Brewfile installation failed"
-    ((ERRORS++))
+    ERRORS=$(( ERRORS + 1 ))
     return 1
   fi
 }
@@ -654,7 +654,7 @@ main() {
   # Phase 2: Install from Brewfile
   if ! install_brewfile; then
     err "Failed to install packages from Brewfile"
-    ((ERRORS++))
+    ERRORS=$(( ERRORS + 1 ))
   fi
 
   # Installation summary

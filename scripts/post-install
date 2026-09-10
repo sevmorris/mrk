@@ -94,7 +94,7 @@ open_extension_urls(){
     url="${url%"${url##*[![:space:]]}"}"  # trim trailing whitespace
     [[ -z "$url" ]] && continue
     open "$url"
-    ((count++))
+    count=$(( count + 1 ))
   done < "$list_file"
   log "Opened $count $name extension URL(s)"
 }

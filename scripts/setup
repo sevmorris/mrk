@@ -167,7 +167,7 @@ run_phase() {
   if (( CONTINUE_ON_ERROR )); then
     if ! "$@"; then
       warn "Phase $name failed, continuing with remaining phases..."
-      ((ERRORS++))
+      ERRORS=$(( ERRORS + 1 ))
       return 0
     fi
   else
@@ -182,17 +182,17 @@ validate_setup() {
   
   if [[ ! -d "$REPO_ROOT/dotfiles" ]] && (( ! NO_DOTFILES )); then
     warn "dotfiles directory not found: $REPO_ROOT/dotfiles"
-    ((issues++))
+    issues=$(( issues + 1 ))
   fi
   
   if [[ ! -d "$SCRIPTS_DIR" ]] && (( ! NO_LINK_TOOLS )); then
     warn "scripts directory not found: $SCRIPTS_DIR"
-    ((issues++))
+    issues=$(( issues + 1 ))
   fi
   
   if [[ ! -d "$BIN_DIR" ]] && (( ! NO_LINK_TOOLS )); then
     warn "bin directory not found: $BIN_DIR"
-    ((issues++))
+    issues=$(( issues + 1 ))
   fi
   
   if (( issues == 0 )); then
@@ -431,7 +431,7 @@ phase_link_tools() {
   if (( failed > 0 )); then
     err "$failed symlink(s) failed to create"
     err "Check permissions for $INSTALL_BIN and ensure it exists"
-    ((ERRORS++))
+    ERRORS=$(( ERRORS + 1 ))
     return 1
   fi
 }
@@ -554,7 +554,7 @@ phase_defaults() {
       DEFAULTS_APPLIED=1
     else
       warn "defaults.sh returned non-zero"
-      ((WARNINGS++))
+      WARNINGS=$(( WARNINGS + 1 ))
     fi
   else
     warn "defaults.sh not found/executable; skipping"
