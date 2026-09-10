@@ -24,8 +24,8 @@ Options:
   -h, --help      Show this help
 
 ci-check takes no options other than --help. It runs check-picker-desc, check-
-defaults-desc, shellcheck over the tracked scripts, and `go test` for each
-directory under tools/. It stops at the first gate that fails, so a red gate
+defaults-desc, a secret scan over every tracked file, shellcheck over the
+tracked scripts, and `go test` for each directory under tools/. It stops at the first gate that fails, so a red gate
 early on means the later ones did not run.
 EOF
 }
@@ -36,6 +36,37 @@ log "check-picker-desc"
 
 log "check-defaults-desc"
 "$SCRIPT_DIR/check-defaults-desc"
+
+# Scan every TRACKED file, not just the staged ones.
+#
+# mrk-push and pushall already gate a commit on scan_for_secrets, but they see
+# only what is being staged. A file that trips the scanner and is then committed
+# stays tripped: it flags on every future push that touches it, and the person
+# pushing learns to answer yes. scan_for_secrets says as much about itself,
+# where it declines to flag Keka's ExportPassword — "flagging those trains the
+# user to dismiss the gate".
+#
+# That had already happened. A comment in scripts/snapshot-prefs quoted an
+# example secret assignment verbatim while explaining false positives, so the
+# file flagged itself on every push that staged it.
+log "secret scan (tracked files)"
+scan_files=()
+while IFS= read -r f; do
+  [[ -f "$REPO_ROOT/$f" ]] && scan_files+=("$REPO_ROOT/$f")
+done < <(git -C "$REPO_ROOT" ls-files)
+if (( ${#scan_files[@]} == 0 )); then
+  err "secret scan matched no tracked files — the gate would pass vacuously"
+  exit 1
+fi
+if ! scan_for_secrets "${scan_files[@]}"; then
+  # Not a count of flagged files — scan_for_secrets reports each hit above and
+  # returns a single non-zero for the batch, so any number here would be the
+  # number scanned, wearing the word "flagged".
+  err "secret scan found possible secrets in the tracked files — see the lines above"
+  err "If this is a false positive, reword the line: a permanent hit trains you to ignore the gate."
+  exit 1
+fi
+ok "secret scan clean (${#scan_files[@]} tracked files)"
 
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"

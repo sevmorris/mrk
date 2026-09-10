@@ -282,8 +282,15 @@ snapshot_pref_dir(){
 # which ~8 KB is settings: the rest is plugin .zip files and vendored
 # third-party source (DeACSM ships copies of asn1crypto and oscrypto). All of
 # that reinstalls from Calibre's plugin manager, and scanning it produced a
-# dozen false "possible secret" hits on lines like `password = password.encode(...)`
-# in the crypto libraries, plus null-byte warnings from grepping the .zips.
+# dozen false "possible secret" hits in the vendored crypto libraries — ordinary
+# lines that assign one password variable from another — plus null-byte warnings
+# from grepping the .zips.
+#
+# That sentence used to carry the offending line verbatim as an example, which
+# made this file trip the scanner on every push that staged it. A permanent
+# false positive on a tracked file is the exact failure scan_for_secrets is
+# written to avoid: it says so itself, about Keka's ExportPassword. Describe the
+# shape; do not paste the literal back.
 #
 # Two things under plugins/ are worth keeping:
 #   plugins/*.json      — per-plugin settings (deacsm.json, dedrm.json)

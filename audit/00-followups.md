@@ -270,6 +270,34 @@ Recorded so a later pass does not re-derive them. Each was *run*, not read.
   `hardening-rollback.sh` has never existed, and `harden` has no `--dry-run`. It stays in the
   VM bucket with `setup`, `brew` and `post-install`.
 
+### The secret scanner, tested rather than read (2026-09-10)
+
+Module 14 recorded V-9 — the binary-plist blind spot is covered — from reading. It is now
+tested. Against synthetic, non-functional material shaped like the real thing,
+`scan_for_secrets` catches **11 of 11**: AWS, GitHub classic and fine-grained, OpenAI,
+Anthropic, Slack, Google, a PEM header, a generic `api_key =`, a Bearer token, and the same
+GitHub token hidden inside a **binary** plist that raw grep cannot see. It flags **0 of 6**
+benign shapes — a commit SHA, Keka's `ExportPassword` as `<false/>`, iTerm's integer
+`AiMaxTokens`, a base64 blob, a docs URL, and a `password_field_label` string. That is the
+right answer in both directions.
+
+One caveat about the test itself: the Google case first reported a MISS, which read as a real
+blind spot. The pattern is `AIza[0-9A-Za-z_-]{35}` and the *test value* was 34 characters —
+the measurement was wrong, not the scanner, for the ninth time this session and the first time
+where the false finding would have been a security one.
+
+**The real find: the scanner flagged one tracked file, and had done for as long as the file
+existed.** A comment in `scripts/snapshot-prefs` explaining Calibre false positives quoted an
+example assignment verbatim, so the file tripped the gate on every push that staged it — the
+exact failure `scan_for_secrets` guards against elsewhere, where it declines to flag Keka's
+`ExportPassword` because "flagging those trains the user to dismiss the gate". Reworded to
+describe the shape rather than paste the literal.
+
+`ci-check` now runs the scan over every **tracked** file, not just staged ones, which is what
+let a permanent false positive persist. The gate refuses to pass vacuously on an empty file
+list, and is mutation-tested both ways: restoring the comment fails it, and a planted AWS key
+in the Brewfile fails it.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
