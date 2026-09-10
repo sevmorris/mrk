@@ -17,7 +17,18 @@ else
   alias la='ls -lhaG'
 fi
 
-alias nano='nano --linenumbers'      # Always show line numbers in nano.
+# --linenumbers is a GNU nano option. The nano macOS ships at /usr/bin/nano is
+# UW PICO 5.09, whose option list has no such flag; given it, PICO does not
+# error, it just treats the argument as something else. Unguarded, this alias
+# was live in exactly the window where it could not work: .aliases is linked by
+# `make setup` (phase 1) and GNU nano arrives with `make brew` (phase 2).
+#
+# Guarded the way the ls aliases eleven lines above already are — every other
+# tool-dependent alias in this file was guarded, and this was the one that
+# was not.
+if nano --version 2>/dev/null | grep -q 'GNU nano'; then
+  alias nano='nano --linenumbers'    # Always show line numbers in nano.
+fi
 
 # Optional smarter cat: use bat if available, else fallback to real cat.
 # Set NO_SMART_CAT=1 to disable this behavior.

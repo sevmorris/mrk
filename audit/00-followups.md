@@ -441,6 +441,34 @@ symlinks and an `exec.LookPath` check would fail there for entirely the wrong re
 `cmdBin` target happens to be a literal filename under `bin/` or `scripts/`, which makes the
 CI-safe question also the more meaningful one: does this command ship with mrk?
 
+### The dotfiles' own content (2026-09-10)
+
+Entry point: the most-executed code in the repo — `.aliases`, `.zshrc`, `.zprofile` and
+`.zshenv` run on every interactive shell — and the ledger already records a bug of this shape,
+`~/bin/adventure-prologue` outliving `scripts/adventure-prologue`.
+
+**Found: `alias nano='nano --linenumbers'` was the one unguarded tool-dependent alias.**
+`--linenumbers` is a GNU nano option. The nano macOS ships at `/usr/bin/nano` is **UW PICO
+5.09**, whose own option list has no such flag — confirmed by running `nano -h` and grepping
+it: zero matches. PICO does not reject the flag, it just does something else with it.
+
+The window is the familiar one. `.aliases` is linked by `make setup` (phase 1); GNU nano
+arrives with `make brew` (phase 2). Between those two phases, and on any machine where the
+Brewfile has not been applied, the alias was live and could not work.
+
+What makes it a clean finding rather than a judgement call is that the file **already
+establishes the convention**, and the template sits eleven lines above: `ls` is guarded by
+`ls --version 2>/dev/null | grep -q GNU`, `cat` by `command -v bat`, `netcheck` by
+`command -v networkQuality`, the brew aliases by `command -v brew`. Every tool-dependent alias
+was guarded except this one. Now guarded in the file's own idiom, and mutation-tested both
+ways: with only `/usr/bin` on `PATH` the alias is not defined; with GNU nano present it is.
+
+Checked and clean in the same pass: the `dump` alias's `--file=~/Brewfile` — the tilde does
+**not** survive the alias (verified in both zsh and bash, the literal string reaches the
+command), but Homebrew expands it itself, so the file lands in `$HOME` as the comment says;
+all seven oh-my-zsh plugins exist, five bundled and two cloned by `setup` at pinned versions;
+and every other non-system command in the four files is guarded.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
