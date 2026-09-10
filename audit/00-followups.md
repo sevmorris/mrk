@@ -627,6 +627,36 @@ One loose end left deliberately: both browsers also carry a `mrk2-policy.json`, 
 2026-02-09, identical in content and left by the predecessor project the initial commit merged
 from. It is equally inert. It is not mrk's file to delete unasked.
 
+### GNU vs BSD tools, and a Brewfile section that had drifted (2026-09-10)
+
+Entry point chosen from my own repeated failures this session: Homebrew's coreutils `gnubin`
+sits early on `PATH`, so `stat`, `date`, `readlink`, `cp`, `mktemp`, `sort`, `head` and `tail`
+are GNU here while `sed`, `xargs` and `awk` are BSD. **The environment is mixed**, and which
+flavour a script sees depends on how it is invoked — a LaunchAgent gets no `.zprofile`, so it
+gets BSD. The ledger already records this class being hit once, with `mktemp -t`.
+
+**mrk is clean on it.** No script uses any of the flags that diverge — `stat -f`/`-c`,
+`sed -i`, `date -v`/`-d`, `readlink -f`, `du -b`, `sort -V`, `grep -P`, `base64 -w`,
+`find -printf`. Every `date` call is a portable format string, every `sort` is `-u` or `-r`,
+and the symlink resolution loops walk `readlink` by hand rather than using `readlink -f`.
+Verified by running rather than reading: all **38 commands** were driven with `gnubin` removed
+from `PATH` and **none behaved differently**, and `sync --dry-run`, `prune-deployments
+--dry-run` and `scripts/status` produced byte-identical output under both flavours.
+
+**What the probe did find is in the Brewfile.** One of its five sections, "CLI Tools - General
+Utilities & Power User Tools", was out of alphabetical order: `autoconf, flac, libpng,
+python@3.14, unbound` sat between `cliclick` and `coreutils`. They arrived in two hand-written
+commits, not from `sync`, so the insertion logic was not at fault — but it is the victim.
+`sync` places a new entry before the first existing one that sorts after it, and in a
+disordered run that is the wrong line: driving sync's own Python insertion block directly,
+`coreutils-x` landed **between `autoconf` and `flac`**, ahead of the real `coreutils`. Disorder
+makes each new insertion land wrong, and compounds.
+
+The section is now sorted, with the `# GNU coreutils` note carried along with the `coreutils`
+entry it belongs to. Verified as a pure reordering — the sorted multiset of lines is identical
+before and after — with all five sections in order, counts unchanged at 56 formulae and 71
+casks, and the same three insertions now landing correctly.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
