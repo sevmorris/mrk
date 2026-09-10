@@ -146,12 +146,23 @@ if $have_sudo; then
   # Capture command output before grep to avoid SIGPIPE/pipefail race
   # (grep -q closes stdin early, which can make the pipeline return non-zero
   # under `set -o pipefail` even when the pattern matches).
-  prev="off"
-  fw_state=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>/dev/null || true)
-  if grep -qi "enabled" <<< "$fw_state"; then prev="on"; fi
-  prev_stealth="off"
-  fw_stealth=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode 2>/dev/null || true)
-  if grep -qi " is on" <<< "$fw_stealth"; then prev_stealth="on"; fi
+  # `|| true` used to fold a FAILED read into the same "off" a successful read of
+  # a disabled firewall produces. The rollback line then said --setglobalstate
+  # off, so running the rollback would have DISABLED a firewall that was on and
+  # had merely failed to report itself. Track the two apart, the way the
+  # screensaver keys above already do with prev1_absent/prev2_absent.
+  prev="off" prev_absent=0
+  if fw_state=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>/dev/null); then
+    if grep -qi "enabled" <<< "$fw_state"; then prev="on"; fi
+  else
+    prev_absent=1
+  fi
+  prev_stealth="off" prev_stealth_absent=0
+  if fw_stealth=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode 2>/dev/null); then
+    if grep -qi " is on" <<< "$fw_stealth"; then prev_stealth="on"; fi
+  else
+    prev_stealth_absent=1
+  fi
 
   need_firewall=0
   if [[ "$prev" != "on" || "$prev_stealth" != "on" ]]; then
@@ -163,8 +174,15 @@ if $have_sudo; then
     if ! confirm; then
       log "Skipping firewall changes"
     else
-      grep -qF "setglobalstate" "$ROLL" 2>/dev/null || \
-        rollback "sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate $prev"
+      # Only record a rollback for a state actually read. Enabling still goes ahead
+      # when the read failed — a firewall left on is not a harm, whereas a rollback
+      # line inventing "it was off" is.
+      if (( prev_absent )); then
+        warn "Could not read the firewall state — enabling it, but recording no rollback line"
+      else
+        grep -qF "setglobalstate" "$ROLL" 2>/dev/null || \
+          rollback "sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate $prev"
+      fi
 
       if [[ "$prev" != "on" ]]; then
         log "Enabling macOS firewall (global on)"
@@ -178,8 +196,12 @@ if $have_sudo; then
       fi
 
       if [[ "$prev_stealth" != "on" ]]; then
-        grep -qF "setstealthmode" "$ROLL" 2>/dev/null || \
-          rollback "sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode $prev_stealth"
+        if (( prev_stealth_absent )); then
+          warn "Could not read stealth mode — enabling it, but recording no rollback line"
+        else
+          grep -qF "setstealthmode" "$ROLL" 2>/dev/null || \
+            rollback "sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode $prev_stealth"
+        fi
         log "Enabling firewall stealth mode"
         if sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on 2>/dev/null; then
           log "Stealth mode enabled"
