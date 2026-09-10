@@ -64,7 +64,7 @@ Phase 1 configures the shell environment. It runs on a new machine or on an exis
 | `Makefile` | mrk commands available from `~/` |
 - Symlinks `scripts/` and `bin/` into `~/bin`, which puts the tools on your PATH.
 - Applies the macOS system preferences with `scripts/defaults.sh`.
-- Sets zsh as the login shell.
+- Sets zsh as the login shell, registering it in `/etc/shells` first, with sudo. `chsh` refuses a shell that is not listed there and Homebrew does not register its own zsh, so without this the `chsh` failed and the login shell silently stayed `/bin/zsh`.
 - Clones oh-my-zsh and two zsh plugins: zsh-autosuggestions and zsh-syntax-highlighting. Phase 1 skips a clone when the directory exists. A failed clone gives a warning, and Phase 1 continues.
 - The two plugins are pinned to release tags, because `omz update` does not update a custom plugin. To move to a newer plugin release, change the tag in `scripts/setup` and delete the plugin directory. oh-my-zsh itself is not pinned: it publishes no tags, and `.zshrc` sets it to update itself.
 - Writes a rollback script to `~/.mrk/defaults-rollback.sh`.
@@ -112,7 +112,7 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 **What it does:**
 
 - **Topgrade:** Symlinks `assets/topgrade.toml` to `~/.config/topgrade.toml`.
-- **Browsers:** Applies the Safari defaults, the Chrome and Brave managed policies, and the Helium defaults. It opens the extension URLs when you ask for them.
+- **Browsers:** Applies the Safari defaults and the Helium defaults. It opens the extension URLs when you ask for them. It no longer installs Chrome and Brave managed policies: those were JSON files in `policies/managed/`, which is the Linux policy mechanism, and Chrome on macOS never read them.
 - **App defaults:** Writes the settings for Audio Hijack, Fission, AlDente, and the Rogue Amoeba update options.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
 - **Plist imports (18 apps):** Imports your preference plists. Phase 3 skips an app that already has a preferences file, so it never overwrites a live configuration.
@@ -250,7 +250,7 @@ pull-prefs
 
 ## How to configure the Dock
 
-> **Caution:** `dock-setup` deletes every item from the Dock before it adds the new items. It does not ask you to confirm, and it does not save your current layout.
+> **Caution:** `dock-setup` deletes every item from the Dock before it adds the new items, and it does not ask you to confirm. It does save the layout first: it exports `com.apple.dock` to `~/.mrk/plist-backups/com.apple.dock.plist` and appends a `defaults import` line to `~/.mrk/defaults-rollback.sh`. The snapshot is written once and never refreshed, so a second `make dock` cannot overwrite the original with the layout it just applied.
 
 **`dock-setup`** fills the Dock from a fixed app list.
 
@@ -457,7 +457,7 @@ The new machine needs your SSH key. `make post-install` uses it to pull mrk-pref
 
 Write down the apps, the license keys and the settings that mrk does not manage:
 
-- The App Store apps. Install them again from Purchases.
+- The App Store apps are tracked in the Brewfile as `mas` entries, so `make brew` reinstalls them. Sign in to App Store.app by hand once first: `mas` has had no `signin` command since macOS 12, and `brew bundle` cannot do it for you.
 - The software licenses. Export them from your license manager.
 - The system settings that `defaults write` does not cover.
 - The VPN configurations and the certificates.
