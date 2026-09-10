@@ -517,7 +517,24 @@ write_default com.apple.Accessibility SpeakThisEnabled int 1 || failed=$(( faile
 
 # Copy a bare address, without the display name
 # Why: pasting \"Name <a@b.com>\" into a terminal or a form is almost never what was wanted
-write_default com.apple.mail AddressesIncludeNameOnPasteboard bool false || failed=$(( failed + 1 ))
+#
+# Guarded because Mail is sandboxed: its preferences live in
+# ~/Library/Containers/com.apple.mail/Data/Library/Preferences, and that domain
+# does not exist until Mail has been configured — the container directory alone
+# is not enough. `defaults write` into a missing container domain does not
+# create it, it fails outright ("Could not write domain ... exiting"), so on a
+# machine where Mail has never been set up this reported "1 default(s) failed to
+# apply" on every single run. A warning that is always present is a warning
+# nobody reads, and a real failure would have hidden inside it.
+#
+# Reading the domain is the test that matters; -d on the container passes even
+# when the preferences plist has never been written. Once Mail is configured the
+# next run picks this up, so nothing is permanently skipped.
+if defaults read com.apple.mail >/dev/null 2>&1; then
+  write_default com.apple.mail AddressesIncludeNameOnPasteboard bool false || failed=$(( failed + 1 ))
+else
+  logskip "Mail AddressesIncludeNameOnPasteboard" "Mail has no preferences domain yet"
+fi
 # A new event goes to the calendar last selected
 # Why: the alternative is a specific calendar ID, which is per-machine and does not travel
 write_default com.apple.iCal CalDefaultCalendar string UseLastSelectedAsDefaultCalendar || failed=$(( failed + 1 ))
