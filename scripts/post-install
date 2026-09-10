@@ -64,14 +64,11 @@ ROLLBACK="${ROLLBACK:-$STATE_DIR/defaults-rollback.sh}"
 PLIST_BACKUP_DIR="$STATE_DIR/plist-backups"
 mkdir -p "$STATE_DIR"
 
-# Initialize the rollback file if missing or lacking a valid shebang. Mirrors
-# the check in scripts/defaults.sh — the audit confirmed that logic correct,
-# so we duplicate the shape here for the case where post-install runs before
-# defaults.sh on a given machine.
-if [[ ! -f "$ROLLBACK" ]] || ! grep -q '^#!/usr/bin/env bash$' "$ROLLBACK" 2>/dev/null; then
-  printf '#!/usr/bin/env bash\n' > "$ROLLBACK"
-  chmod +x "$ROLLBACK"
-fi
+# Initialise the rollback file for the case where post-install runs before
+# defaults.sh on a given machine. This used to be a copy of defaults.sh's check,
+# with a comment saying so; both now call the same helper, because the copy is
+# what let one destructive edge case exist in two places at once.
+init_rollback "$ROLLBACK" || exit 1
 
 # ask_yes PROMPT — returns 0 for yes; skipped when NONINTERACTIVE or not a TTY
 ask_yes() {

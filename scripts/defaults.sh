@@ -42,20 +42,6 @@ if ! mkdir -p "$ROLL_DIR"; then
   exit 1
 fi
 
-if [[ -f "$ROLLBACK" ]] && grep -q '^#!/usr/bin/env bash$' "$ROLLBACK" 2>/dev/null; then
-  # Rollback file already exists and has a valid shebang — preserve prior entries
-  chmod +x "$ROLLBACK" 2>/dev/null || true
-else
-  if ! printf '#!/usr/bin/env bash\n' > "$ROLLBACK"; then
-    echo "Error: Failed to initialize rollback script: $ROLLBACK" >&2
-    exit 1
-  fi
-  if ! chmod +x "$ROLLBACK"; then
-    echo "Error: Failed to set executable on rollback script: $ROLLBACK" >&2
-    exit 1
-  fi
-fi
-
 _self="${BASH_SOURCE[0]}"
 while [[ -L "$_self" ]]; do
   _dir="$(cd "$(dirname "$_self")" && pwd)"
@@ -64,6 +50,12 @@ while [[ -L "$_self" ]]; do
 done
 SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
+
+# Initialise the rollback script. This moved below the lib.sh source so that
+# both writers of this file can share one implementation; nothing between the
+# two depended on it. See init_rollback in lib.sh for why it no longer
+# truncates.
+init_rollback "$ROLLBACK" || exit 1
 backup_line(){ grep -qFx "$1" "$ROLLBACK" 2>/dev/null && return 0; echo "$1" >> "$ROLLBACK"; }
 
 # Helper: capture current value (if any) and append the inverse to rollback.

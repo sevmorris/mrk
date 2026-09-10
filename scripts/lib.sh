@@ -92,6 +92,47 @@ mrk_help_guard() {
   done
 }
 
+# init_rollback PATH — make sure PATH is a usable rollback script, without ever
+# discarding undo history.
+#
+# The check this replaces truncated the file whenever it did not contain a line
+# matching exactly `#!/usr/bin/env bash`. That is the right question asked in a
+# way that fails destructively, and it was tested to fail: a shebang retyped as
+# `#!/bin/bash`, or one carrying a trailing space, silently emptied a rollback
+# holding real entries. Neither is reachable through mrk's own history — it has
+# only ever written one shebang — but this file is the undo button for
+# system-wide settings, the one artifact whose loss cannot be recovered, and it
+# lives in the user's home directory where it can be opened and edited.
+#
+# Two changes. The test is now "does line 1 begin with #!", which accepts any
+# shebang and tolerates trailing whitespace; and reading only line 1 also stops
+# a file being accepted because the string appears somewhere in the middle,
+# which the whole-file grep did. And a file that still fails is moved aside
+# rather than overwritten, so nothing is ever silently lost.
+init_rollback() {
+  local rb="$1" aside
+
+  if [[ -f "$rb" ]]; then
+    if head -1 "$rb" 2>/dev/null | grep -q '^#!'; then
+      chmod +x "$rb" 2>/dev/null || true
+      return 0
+    fi
+    if [[ -s "$rb" ]]; then
+      aside="${rb}.unrecognised-$(date +%Y%m%d%H%M%S)"
+      if mv "$rb" "$aside"; then
+        warn "rollback file had no shebang on line 1 — kept the old one at $aside"
+      else
+        err "refusing to overwrite $rb: it has content and could not be moved aside"
+        return 1
+      fi
+    fi
+  fi
+
+  printf '#!/usr/bin/env bash\n' > "$rb" || { err "cannot initialise rollback script: $rb"; return 1; }
+  chmod +x "$rb" || { err "cannot set executable on rollback script: $rb"; return 1; }
+  return 0
+}
+
 # Refresh sudo timestamp to prevent timeout during long-running installs.
 # Uses -n (non-interactive) so it never prompts — only extends an active session.
 sudo_refresh() { sudo -n -v 2>/dev/null || true; }

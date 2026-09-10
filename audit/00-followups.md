@@ -321,6 +321,35 @@ has no equivalent in `scripts/lib.sh`. That looks like the one-of-a-pair class b
 worth closing — exactly one script under `scripts/` does an inline tool check
 (`restore-repos:59`), so a shared helper there would have a single caller.
 
+### The rollback init guard could empty the undo button (2026-09-10)
+
+Entry point: shared mutable state and who writes it. There is **no locking anywhere in mrk**
+— the only `.lock` in the tree is a tar exclude — but that turns out not to matter much: the
+install phases run in sequence, and the appends to `$ROLLBACK` are single `echo`s. The real
+hazard in this area is not concurrency, it is truncation.
+
+`~/.mrk/defaults-rollback.sh` is written by two scripts, and both decided whether to
+**overwrite** it by asking whether the file contained a line matching exactly
+`^#!/usr/bin/env bash$`. Lifting that guard into a harness and driving it through six file
+shapes showed two silent data-loss cases: a shebang retyped as `#!/bin/bash`, and a shebang
+carrying a trailing space, each truncating a file of real entries down to one line. A third
+case was unsound the other way — a shebang appearing anywhere *below* line 1 was accepted,
+because the check grepped the whole file.
+
+Neither loss case is reachable through mrk's own history: `git log -p` over both writers shows
+it has only ever emitted `#!/usr/bin/env bash`, across eight variants of the surrounding code.
+So this was a fragility, not an active bug — but on the one artifact whose loss is not
+recoverable, sitting in a directory the user is told to run scripts from.
+
+Now one shared `init_rollback` in `lib.sh`, called by both. It tests whether **line 1** begins
+with `#!`, which accepts any shebang and tolerates trailing whitespace, and a file that still
+fails is **moved aside**, never overwritten. Verified across all six shapes, with the
+moved-aside copy checksum-identical to the original, and end-to-end: `make defaults` leaves
+the live 130-line rollback byte-for-byte unchanged.
+
+The duplication is what let one destructive edge case exist in two places, so the copy in
+`post-install` — which carried a comment explaining that it was a copy — is gone.
+
 **P-2 was withdrawn as a false finding** and deliberately kept in the module rather than
 deleted: it records that `clear-app-caches`, `clear-derived-data`, `clean-ds` and `decloud`
 were examined and are correct, which a deleted entry would not say. It was re-flagging
