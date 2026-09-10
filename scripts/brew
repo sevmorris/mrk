@@ -81,7 +81,12 @@ TEMP_BREWFILE=""
 
 # Cleanup function for proper resource management
 cleanup() {
-  [[ -n "$TEMP_BREWFILE" && -f "$TEMP_BREWFILE" ]] && rm -f "$TEMP_BREWFILE"
+  # `|| true` for the reason scripts/sync already carries it on every line of
+  # its cleanup: this runs as an EXIT trap, and a bare `[[ … ]] && cmd` whose
+  # test is false returns 1, which becomes the script's exit status. On a dry
+  # run TEMP_BREWFILE is never created, so a wholly successful run reported
+  # failure — `make brew ARGS=-n` exited 2.
+  [[ -n "$TEMP_BREWFILE" && -f "$TEMP_BREWFILE" ]] && rm -f "$TEMP_BREWFILE" || true
 }
 trap cleanup EXIT INT TERM
 

@@ -155,7 +155,10 @@ done
 SIGNING_STAGE=""
 SIGNING_FILE="signing-identities.p12"
 
-cleanup_stage() { [[ -n "$SIGNING_STAGE" ]] && rm -rf "$SIGNING_STAGE"; }
+# `|| true`: as an EXIT trap, a bare `[[ … ]] && cmd` with a false test returns
+# 1 and that becomes the script's exit status. SIGNING_STAGE is empty on a dry
+# run and with --no-signing, so snapshot-keys -n exited 1 having done its job.
+cleanup_stage() { [[ -n "$SIGNING_STAGE" ]] && rm -rf "$SIGNING_STAGE" || true; }
 trap cleanup_stage EXIT
 
 export_signing_identities() {
