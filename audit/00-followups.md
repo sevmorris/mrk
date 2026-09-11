@@ -1333,6 +1333,31 @@ Helium, running since 06:36, rebuilt its cache folder from that minute — creat
 5,845 files since, 464 MB by 22:05. The `runs = 1` in `launchctl print` looked at first like a
 schedule that never fired; it is that reload resetting the counter.
 
+### maintain and the TUI binaries: essentially clean (2026-09-10)
+
+Entry point: whether today's Go fixes — mrk-status's fix command, the menus' argument
+handling, the width clamps — reached the binaries actually run, and whether `maintain`'s
+freshness step would say if they had not.
+
+**They are deployed.** The reflog shows `~/mrk` freshly cloned at 18:37:05 today, and in the
+same minute all 41 `~/bin` links, the three binaries and both LaunchAgent plists were rewritten
+and the origin was switched back to SSH — a full reinstall, run outside this session, while
+everything was already pushed. All three binaries postdate every source file. (The same
+reinstall is what reset `clear_app_caches` to `runs = 1`, in the entry above.)
+
+**The freshness check is sound.** It passes `~/bin/<name>`, a symlink, as the `-newer`
+reference; macOS's `/usr/bin/find` follows it to the binary (tested: binary 10:00, source
+11:00, link 12:00 — flagged as stale), and `make build-tools` recreates the link on every build
+anyway. It also already compares the shared `tools/theme`, which all three import.
+
+Fixed: it compared `.go` files only, so a dependency bump that changed just `go.mod`/`go.sum`
+read as up to date — latent, since no commit has ever done that, and shown in a scratch clone
+where the old step passed a bumped `go.mod` and the new one flags that tool alone. BIN-1
+contradicted itself: its build-tools entry said "nothing warns you that one is older than its
+source" while its maintain entry documents the step that does; SMAC-2 said the same. Both now
+say nothing warns you *on its own*, and point at `make maintain`. The code comment said "all
+four TUIs"; there are three, and `tools/theme` is a library.
+
 ### Closed by module 13, the 2026-08-31 recursive audit
 
 Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the

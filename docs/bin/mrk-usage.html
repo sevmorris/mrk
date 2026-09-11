@@ -1046,7 +1046,7 @@ mrk-push -- "-starts with a dash"</code></pre>
             <li>Delete the old GitHub Pages deployments. maintain keeps the newest N.</li>
             <li>Run <code>git fetch --prune</code> to delete the stale remote-tracking refs.</li>
             <li>Run <code>make check</code> to validate the repository.</li>
-            <li>Compare each TUI binary against its source, and report the binaries that are out of date.</li>
+            <li>Compare each TUI binary against its source, and report the binaries that are out of date. The source is the tool's own directory and the shared <code>tools/theme</code>, counting <code>go.mod</code> and <code>go.sum</code> as well as the <code>.go</code> files — until 2026-09-10 a dependency bump that touched only those two read as up to date.</li>
           </ol>
           <ul>
             <li><code>--dry-run</code> — Show each step. maintain makes no API call, no git call and no make call. Step 4 still runs, because it only reads.</li>
@@ -1395,7 +1395,7 @@ mrk-push -- "-starts with a dash"</code></pre>
             </ul>
             <ul>
               <li>build-tools needs Go on the PATH.</li>
-              <li>The binaries are gitignored build artifacts, and nothing warns you that one is older than its source. Run build-tools after changing anything under <code>tools/</code>, or you keep using the previous binary.</li>
+              <li>The binaries are gitignored build artifacts, and nothing warns you on its own that one is older than its source: <code>make maintain</code> reports it, but only when you run it. Run build-tools after changing anything under <code>tools/</code>, or you keep using the previous binary.</li>
               <li>The Makefile stamps each binary with the version and commit from <code>git describe --tags</code>. That is why the <code>v1.0.0</code> tag is kept even though its GitHub release was deleted — without a tag the binaries report a bare commit SHA.</li>
             </ul>
           </div>

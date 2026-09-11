@@ -225,10 +225,14 @@ for binname in mrk-picker mrk-status mrk-menu; do
     warn "$binname: not installed — run make build-tools"
     continue
   fi
-  # All four TUIs import the shared mrk-theme module (tools/*/go.mod has
+  # All three TUIs import the shared mrk-theme module (tools/*/go.mod has
   # `replace mrk-theme => ../theme`), so a change there makes every binary
-  # stale. Compare against the tool's own sources and against tools/theme.
-  newer=$(find "$src_dir" "$THEME_DIR" -name '*.go' -newer "$bin_path" -print -quit 2>/dev/null || true)
+  # stale. Compare against the tool's own sources and against tools/theme —
+  # go.mod and go.sum included, since a dependency bump changes the binary
+  # without touching a .go file. -newer follows the ~/bin symlink to the
+  # binary itself on macOS's find; `make build-tools` also recreates the link.
+  newer=$(find "$src_dir" "$THEME_DIR" \( -name '*.go' -o -name go.mod -o -name go.sum \) \
+    -newer "$bin_path" -print -quit 2>/dev/null || true)
   if [[ -n "$newer" ]]; then
     warn "$binname: source newer than binary — run make build-tools"
   else
