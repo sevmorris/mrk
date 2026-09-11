@@ -1084,6 +1084,13 @@ four days.
 in a fresh clone, where no build output or gitignored file can answer for it; and a push is not
 finished until its CI run is. Both were skipped nineteen times today.
 
+One more of the same kind, caught before it shipped anywhere that could run it: `commit_paths`
+was first written with `declare -n`, a bash-4.3 nameref, in the library whose `confirm` comment
+records that fourteen of its callers carry no bash-4 guard. Nothing on bash 3.2 calls it today,
+so no test failed. It now fills the caller's array through `eval` on a validated name, with the
+paths expanded as variables and never as code. Under `/bin/bash` 3.2 it lists ten hostile names
+— `$(touch PWNED1)`, a backtick form, `semi;touch PWNED3`, quotes, a glob — and executes none.
+
 ### Closed by module 13, the 2026-08-31 recursive audit
 
 Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the

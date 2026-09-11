@@ -347,11 +347,14 @@ require_clean_secrets() {
 # Returns 1 with ARRAY empty when git cannot produce the list. A caller must
 # not commit then: an empty list scans clean.
 commit_paths() {
-  # Prefixed locals: a nameref resolves to the nearest variable of that name,
-  # so a caller's array called `top` would otherwise be this function's own.
-  declare -n _cp_out=$1
-  local _cp_repo=$2 _cp_target=$3 _cp_top _cp_tmp _cp_f
-  _cp_out=()
+  # eval on a validated name rather than `declare -n`: namerefs need bash 4.3,
+  # and this library is sourced by scripts with no bash-4 guard (see confirm).
+  # The paths themselves never pass through eval — only `$_cp_top/$_cp_f`,
+  # quoted, which eval expands as variables. Prefixed locals keep a caller's
+  # array name from colliding with this function's own.
+  local _cp_name=$1 _cp_repo=$2 _cp_target=$3 _cp_top _cp_tmp _cp_f
+  [[ "$_cp_name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || return 1
+  eval "$_cp_name=()"
   _cp_top=$(git -C "$_cp_repo" rev-parse --show-toplevel 2>/dev/null) || return 1
   _cp_tmp=$(mrk_mktemp) || return 1
   if ! git -C "$_cp_repo" diff "$_cp_target" --name-only --diff-filter=d -z -- >"$_cp_tmp"; then
@@ -359,7 +362,7 @@ commit_paths() {
     return 1
   fi
   while IFS= read -r -d '' _cp_f; do
-    _cp_out+=("$_cp_top/$_cp_f")
+    eval "$_cp_name+=(\"\$_cp_top/\$_cp_f\")"
   done <"$_cp_tmp"
   rm -f "$_cp_tmp"
 }
