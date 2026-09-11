@@ -79,6 +79,10 @@ as ~/Projects/Folder/repo is swept like any other.
 Only the branch each repo is on is pushed. pushall names what it leaves
 behind: commits on other branches that are on no remote, stashes, and
 folders that are not git repositories. Before a migration, deal with each.
+
+A repository named *.git directly in your home folder, such as DoublEnder's
+Cloud overlay, is never committed or pushed, but its unpushed commits,
+stashes and uncommitted changes are named too (not under --projects).
 EOF
 }
 
@@ -114,6 +118,57 @@ report_local_only() {
   if (( n > 0 || s > 0 )); then
     LOCAL_ONLY=$((LOCAL_ONLY + 1))
   fi
+  return 0
+}
+
+# report_bare_repos — name the work that exists only here in each repository
+# named *.git directly in $HOME, where snapshot-prefs finds the bare ones it
+# records in the manifest. pushall does not push them. DoublEnder's Cloud overlay is one: it
+# versions files inside the public repo's working tree, and has its own tool
+# (decloud) and its own pre-commit hook. But until 2026-09-11 nothing else
+# looked at it either, so an overlay commit that was never pushed, or an
+# overlay file edited and never committed, passed every step of the migration
+# checklist in silence — pushall reported "up to date" for the public repo
+# beside it. Uncommitted changes can be checked only for a bare repository
+# that names its working tree in core.worktree, as the overlay's does.
+report_bare_repos() {
+  local g label n s m wt
+  for g in "$HOME"/*.git; do
+    [[ -d "$g" ]] || continue
+    # Any repository named *.git here, as snapshot-prefs records them — not
+    # only one with core.bare set. The overlay sets both core.bare and
+    # core.worktree, which makes git warn on every command; flipping core.bare
+    # off is the usual cure, and must not take it out of this report.
+    git --git-dir="$g" rev-parse --git-dir >/dev/null 2>&1 || continue
+    # shellcheck disable=SC2088  # a display name, meant to be read as ~/…
+    label="~/${g##*/}"
+    # Every git call below is allowed to fail. `stash list` does in any bare
+    # repository — it wants a working tree — and under pipefail a failing git
+    # in `$(git … | wc -l)` fails the assignment, so set -e ended pushall right
+    # here, before its summary, on a machine where one of these exists. That
+    # happened in testing the first version of this function.
+    n=$(git --git-dir="$g" rev-list --count --branches --not --remotes 2>/dev/null || echo 0)
+    m=0
+    wt=$(git --git-dir="$g" config --get core.worktree 2>/dev/null || true)
+    if [[ -n "$wt" && -d "$wt" ]]; then
+      m=$({ git --git-dir="$g" --work-tree="$wt" status --porcelain --untracked-files=no 2>/dev/null || true; } | wc -l | tr -d ' ')
+      s=$({ git --git-dir="$g" --work-tree="$wt" stash list 2>/dev/null || true; } | wc -l | tr -d ' ')
+    else
+      s=0
+    fi
+    if (( n > 0 || s > 0 || m > 0 )); then
+      warn "$label is not pushed by pushall, and holds work that exists only on this machine:"
+      if (( n > 0 )); then info "  $n commit(s) on no remote"; fi
+      if (( m > 0 )); then info "  $m uncommitted change(s) in $wt"; fi
+      if (( s > 0 )); then info "  $s stash(es)"; fi
+      if [[ -n "$(git --git-dir="$g" remote 2>/dev/null)" ]]; then
+        info "  Commit and push it with its own tool (decloud, for DoublEnder's overlay), or: git --git-dir=$label push"
+      else
+        info "  It has no remote at all, so nothing in it exists anywhere else."
+      fi
+      LOCAL_ONLY=$((LOCAL_ONLY + 1))
+    fi
+  done
   return 0
 }
 
@@ -268,12 +323,18 @@ elif [[ -d "$MRK_DIR/.git" ]]; then
   process_repo "$MRK_DIR" "mrk (installed copy)" 1
 fi
 
+# The bare repositories in $HOME, reported and never pushed. Not when the
+# caller has aimed this at one directory, for the reason the mrk sweep is not.
+if (( ! PROJECTS_OVERRIDDEN )); then
+  report_bare_repos
+fi
+
 printf '\n' >&2
 if (( ${#NOT_REPOS[@]} > 0 )); then
   info "Not git repositories, so pushall and restore-repos never carry them: $(printf '%s, ' "${NOT_REPOS[@]}" | sed 's/, $//')"
 fi
 if (( LOCAL_ONLY > 0 )); then
-  warn "$LOCAL_ONLY repo(s) hold commits or stashes that exist only on this machine — see above"
+  warn "$LOCAL_ONLY repo(s) hold work that exists only on this machine — see above"
 fi
 if (( FAILED > 0 )); then
   err "Done — $FAILED repo(s) failed or were skipped"

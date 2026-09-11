@@ -466,6 +466,8 @@ mrk brings `~/Projects` back to the new machine only from GitHub: `restore-repos
 
 Files a repository ignores are not pushed either. Copy any you need by hand, such as a credential file that `.gitignore` keeps out of the repository.
 
+`pushall` does not push DoublEnder's Cloud overlay, `~/DoublEnder-cloud.git`: its files are versioned beside the public repository, which ignores them. `pushall` names the overlay's unpushed commits and uncommitted changes with the rest of what it leaves behind. Commit and push them with `decloud commit` and `decloud push`.
+
 **8. Run a Magic Backup Machine backup**
 
 Open Magic Backup Machine and run a full backup to the local and external destinations. It copies the Logic Pro projects, the audio presets, the browser profiles and the other data that mrk does not manage. It does not copy `~/Projects`; step 7 covers that.

@@ -11,8 +11,11 @@
 # half-finished merge. mrk-push also dropped a commit that only deleted files.
 #
 # Everything happens in throwaway repositories with local bare remotes under a
-# temporary directory. pushall is always given --projects and --no-mrk, so a
-# regression in either flag still cannot reach ~/Projects or this repository.
+# temporary directory. pushall is given --projects and --no-mrk, so a
+# regression in either flag still cannot reach ~/Projects or this repository —
+# except in the bare-repository section, which --projects would switch off.
+# There HOME points at a sandbox, and the one real run goes ahead only after
+# the dry run has shown that the sandbox's repository is all it swept.
 
 # Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2)
 if (( BASH_VERSINFO[0] < 4 )); then
@@ -319,6 +322,86 @@ if [[ "$(rev "$R/inner.git")" != "${before[inner]}" ]] && grep -q '^wrapper/inne
   pass "a repo one level down, in a folder that is not one, is swept and pushed"
 else
   fail "wrapper/inner was not swept — pushall is back to looking only at the top level"
+fi
+
+# ── pushall: bare repositories in $HOME ──────────────────────────────────────
+# DoublEnder's Cloud overlay is a bare repository in $HOME that versions files
+# inside a ~/Projects working tree. pushall never pushes it, and until
+# 2026-09-11 never mentioned it: its unpushed commits and uncommitted edits
+# passed a whole migration in silence while pushall said the public repo beside
+# it was up to date. The first version of the report then killed pushall on any
+# bare repository with no working tree — `git stash list` fails there, and under
+# pipefail that ended the run before its summary. Both are planted here. These
+# runs cannot use --projects, which switches the report off, so they get a HOME
+# of their own.
+log "pushall: bare repositories in \$HOME"
+BH="$T/barehome"
+mkdir -p "$BH/Projects"
+git init -q --bare "$R/bh-public.git"
+git clone -q "$R/bh-public.git" "$BH/Projects/public" 2>/dev/null
+printf 'overlay/\n' > "$BH/Projects/public/.gitignore"
+git -C "$BH/Projects/public" add .gitignore && git -C "$BH/Projects/public" commit -qm init
+git -C "$BH/Projects/public" push -q -u origin main 2>/dev/null
+OV="$BH/Overlay.git" OVW="$BH/Projects/public"
+git init -q --bare "$R/bh-overlay.git"
+git init -q --bare "$OV"
+git --git-dir="$OV" config core.worktree "$OVW"      # the real overlay's shape:
+git --git-dir="$OV" config status.showUntrackedFiles no 2>/dev/null  # core.bare and core.worktree both set
+mkdir -p "$OVW/overlay" && printf 'v1\n' > "$OVW/overlay/release.sh"
+git --git-dir="$OV" --work-tree="$OVW" add -f overlay/release.sh 2>/dev/null
+git --git-dir="$OV" --work-tree="$OVW" commit -qm v1 2>/dev/null
+git --git-dir="$OV" remote add origin "$R/bh-overlay.git" 2>/dev/null
+git --git-dir="$OV" push -q -u origin main 2>/dev/null
+printf 'v2\n' > "$OVW/overlay/release.sh"
+git --git-dir="$OV" --work-tree="$OVW" commit -qam "v2, never pushed" 2>/dev/null
+printf 'v3\n' > "$OVW/overlay/release.sh"
+git init -q --bare "$BH/Lonely.git"                   # no working tree, no remote
+git --git-dir="$BH/Lonely.git" --work-tree="$T" commit -q --allow-empty -m lonely 2>/dev/null
+ov_remote_before="$(rev "$R/bh-overlay.git")"
+
+bh_rc=0; HOME="$BH" "$REPO_ROOT/bin/pushall" --dry-run --no-mrk >"$T/bh-dry.log" 2>&1 || bh_rc=$?
+if (( bh_rc == 0 )) && grep -q '✓ Done' "$T/bh-dry.log"; then
+  pass "a bare repository with no working tree does not end pushall before its summary"
+else
+  fail "pushall exited $bh_rc, or stopped before Done, with a bare repository in \$HOME"
+fi
+if grep -q '/Overlay.git is not pushed by pushall' "$T/bh-dry.log" && grep -q '1 commit(s) on no remote' "$T/bh-dry.log" \
+   && grep -q "1 uncommitted change(s) in $OVW" "$T/bh-dry.log"; then
+  pass "names the bare overlay's unpushed commit and its uncommitted edit"
+else
+  fail "did not name the overlay's unpushed commit and uncommitted edit"
+fi
+if grep -q '/Lonely.git is not pushed by pushall' "$T/bh-dry.log" && grep -q 'It has no remote at all' "$T/bh-dry.log"; then
+  pass "names a bare repository with no remote, and does not suggest pushing it"
+else
+  fail "did not name ~/Lonely.git as having no remote"
+fi
+if grep -q '2 repo(s) hold work that exists only on this machine' "$T/bh-dry.log"; then
+  pass "counts both in the closing warning"
+else
+  fail "the closing warning does not count the two bare repositories"
+fi
+# The one real run in this file without --projects. HOME alone keeps it in
+# the sandbox, so it goes ahead only if the dry run above swept nothing but
+# the sandbox's own repository: a pushall that stopped honouring HOME would
+# list real projects there, and must never reach a real run.
+seen="$(grep -o '· [^ ]* (' "$T/bh-dry.log" | sed 's/^· //; s/ ($//' | sort -u | tr '\n' ' ')"
+if [[ "$seen" != "mrk public " ]]; then
+  fail "the \$HOME dry run swept [$seen], not only the sandbox's repository — the real run was not attempted"
+else
+  HOME="$BH" "$REPO_ROOT/bin/pushall" --no-mrk >"$T/bh-real.log" 2>&1 || true
+  if [[ "$(rev "$R/bh-overlay.git")" == "$ov_remote_before" ]] \
+     && [[ -n "$(git --git-dir="$OV" --work-tree="$OVW" status --porcelain 2>/dev/null)" ]]; then
+    pass "the real run reports the overlay and neither commits nor pushes it"
+  else
+    fail "the real run committed or pushed the bare overlay"
+  fi
+fi
+HOME="$BH" "$REPO_ROOT/bin/pushall" --dry-run --projects "$BH/Projects" >"$T/bh-proj.log" 2>&1 || true
+if grep -q 'Overlay.git\|Lonely.git' "$T/bh-proj.log"; then
+  fail "--projects reported the bare repositories in \$HOME, outside the directory it was given"
+else
+  pass "--projects leaves the bare repositories in \$HOME out"
 fi
 
 # ── mrk-push ─────────────────────────────────────────────────────────────────

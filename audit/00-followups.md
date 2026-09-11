@@ -1556,6 +1556,58 @@ comes from a variable, which neither expands. nuke-mrk runs under whichever bash
 `$c`, so a history loop printed "bad substitution" seven times and then its "(none listed =
 never)" summary — a conclusion drawn from zero iterations. Re-run in bash.
 
+### The one repository no step pushed: DoublEnder's Cloud overlay (2026-09-11)
+
+Entry point: `bin/decloud`, and the boundary it maintains — a private bare repository,
+`~/DoublEnder-cloud.git`, versioning files inside the public DoublEnder working tree that
+`pushall` sweeps. Examined by file name and ignore status only, never file contents.
+
+**The boundary holds.** All 38 overlay files are ignored by the public repository and none is
+tracked there; the GCS service-account key and `ingest.env` are ignored by the public repository
+and excluded by the overlay's own `info/exclude`; nothing in the public working tree is
+untracked and unignored, so a stray `git add .` there has nothing to sweep up. The pre-commit
+hook `decloud` enables is effective: in a sandbox with the overlay's exact configuration —
+`core.bare` and `core.worktree` both set, a relative `core.hooksPath` — a commit through
+`decloud` ran the hook and was refused; `--git-dir` without a work tree cannot commit at all.
+
+**The gap: nothing pushed or reported the overlay.** `pushall` sweeps `~/Projects`; the overlay
+sits in `$HOME`. Of the repositories outside `~/Projects`, `~/mrk` has `mrk-push`,
+`~/.mrk/preferences` has `snapshot-prefs`, `.nvm` and `.oh-my-zsh` are upstream clones — and the
+overlay had nothing. In a sandbox holding an unpushed overlay commit and an uncommitted overlay
+edit, `pushall` reported "DoublEnder (up to date)" and "✓ Done". The migration checklist's step 7
+is `pushall` and "deal with each" thing it names, so the overlay's unpushed work passed the whole
+checklist; only a Time Machine restore by hand would have got it back. It holds no unpushed work
+today (last commit 2026-08-29, pushed).
+
+**Fixed.** `pushall` reports every repository named `*.git` directly in `$HOME` — commits on no
+remote, stashes, and, through `core.worktree`, uncommitted changes — with the rest of what it
+leaves behind, and never commits or pushes one. Off under `--projects`, as the mrk sweep is.
+Not limited to `core.bare`: that is the setting one flips to silence the "core.bare and
+core.worktree do not make sense" warning every `decloud` command prints, and doing so must not
+take the overlay out of the report. The checklist (manual, SMAC-1), SMAC-2's "What pushall
+Leaves Behind", BIN-1's pushall and decloud entries and pushall's help say so.
+
+**The first version killed pushall.** `git stash list` fails in any bare repository — it needs a
+working tree — and under `pipefail` that failed `s=$(git … | wc -l)`, so `set -e` ended the run
+before its summary, with status 128. On this Mac every real `pushall` would have died that way.
+Caught by running the sandbox, not by reading; every git call in the function now tolerates
+failure.
+
+**Tests.** A new `check-commit-gates` section plants an overlay shaped like the real one and a
+bare repository with no working tree and no remote. It cannot use `--projects`, which switches
+the report off, so it breaks the file's promise that pushall always runs under that flag: its one
+real run goes ahead only after the dry run has shown the sandbox's own repository to be all it
+swept — a pushall that stopped honouring `HOME` would list real projects there and never reach
+the real run. Mutation-tested: removing the report, restoring the `stash list` crash, dropping the
+uncommitted check, reporting under `--projects`, and planting an extra project for the guard each
+fail a named assertion.
+
+**Method.** Two more broken measurements, both caught: the first sandbox built the overlay
+wrong — the overlay reads the public repo's `.gitignore`, so its files must be force-added, as the
+real ones were — and the run proved nothing; and zsh's `echo -` prints nothing, which blanked a
+column. The mutation classifier then called three killed mutants "SURVIVED" by matching each
+assertion's *pass* wording against the failure lines.
+
 ### Closed by module 13, the 2026-08-31 recursive audit
 
 Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the
