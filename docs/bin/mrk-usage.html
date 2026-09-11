@@ -1334,6 +1334,9 @@ mrk-push -- "-starts with a dash"</code></pre>
             <li>A LaunchAgent runs clear-app-caches every day at 03:00, and also at load. post-install installs the agent as <code>com.user.clear_app_caches</code>.</li>
             <li>clear-app-caches exits with status 1 when <code>HOME</code> is unset or is not a directory.</li>
             <li>clear-app-caches continues after a failed removal. Each removal is a best effort.</li>
+            <li>It clears every Chrome profile and every Helium profile's GPU caches. Until 2026-09-10 it cleared Chrome's <code>Default</code> profile only, which on this Mac was empty, while Profiles 1, 4 and 10 held 2.3&nbsp;GB of cache it had never touched. Seven of its eight Helium paths named folders Helium does not create; only its <code>~/Library/Caches</code> line had ever removed anything.</li>
+            <li>It leaves Spotify's <code>PersistentCache</code> alone. That is Spotify's default offline-storage location, so the line that used to delete it would have removed every downloaded playlist once a day. Only <code>~/Library/Caches/com.spotify.client</code> goes.</li>
+            <li>It does not wait for an application to quit. A calendar LaunchAgent that misses 03:00 while the Mac sleeps runs at the next wake, when the browsers are usually open. Chromium tolerates this: after the run at 18:37 on 2026-09-10, Helium, running throughout, rebuilt its 464&nbsp;MB cache.</li>
             <li>nuke-mrk and <code>make uninstall</code> unload the agent and delete it.</li>
           </ul>
         </div>

@@ -25,9 +25,11 @@ Options:
   -h, --help      Show this help
 
 clear-app-caches takes no options other than --help. It removes the cache
-directories of Helium, Slack, Discord, VS Code, Spotify and Chrome. Nothing is
-prompted and nothing is kept — the caches rebuild on next launch. The
-com.user.clear_app_caches LaunchAgent runs it on a schedule.
+directories of Helium, Slack, Discord, VS Code, Spotify and Chrome, for every
+browser profile. Nothing is prompted and nothing is kept — the caches rebuild
+on next launch. Profile data, and Spotify's offline downloads, are not caches
+and are left alone. The com.user.clear_app_caches LaunchAgent runs it on a
+schedule.
 EOF
 }
 
@@ -41,15 +43,17 @@ if [[ -z "${HOME:-}" || ! -d "$HOME" ]]; then
   exit 1
 fi
 
-# Helium
-rm -rf "$HOME/Library/Application Support/net.imput.helium/Default/Cache"
-rm -rf "$HOME/Library/Application Support/net.imput.helium/Default/Code Cache"
-rm -rf "$HOME/Library/Application Support/net.imput.helium/ShaderCache"
-rm -rf "$HOME/Library/Application Support/net.imput.helium/GrShaderCache"
-rm -rf "$HOME/Library/Application Support/net.imput.helium/GraphiteDawnCache"
-rm -rf "$HOME/Library/Application Support/net.imput.helium/GPUPersistentCache"
-rm -rf "$HOME/Library/Application Support/net.imput.helium/Crashpad"
+# Helium. Chromium on macOS keeps each profile's HTTP cache and code cache under
+# ~/Library/Caches — the one line below takes every profile's — and its GPU
+# caches inside each profile folder. Measured 2026-09-10: seven of the eight
+# paths this used to name (a Default/Cache and Code Cache under Application
+# Support, four browser-level shader caches, Crashpad) did not exist, so only
+# the Library/Caches line had ever removed anything, and the per-profile GPU
+# caches never went.
 rm -rf "$HOME/Library/Caches/net.imput.helium"
+for _profile in "$HOME/Library/Application Support/net.imput.helium/"*/; do
+  rm -rf "${_profile}GPUCache" "${_profile}DawnGraphiteCache" "${_profile}DawnWebGPUCache"
+done
 
 # Slack
 rm -rf "$HOME/Library/Application Support/Slack/Cache"
@@ -68,11 +72,17 @@ rm -rf "$HOME/Library/Application Support/Code/Code Cache"
 rm -rf "$HOME/Library/Application Support/Code/CachedData"
 rm -rf "$HOME/Library/Caches/com.microsoft.VSCode"
 
-# Spotify
-rm -rf "$HOME/Library/Application Support/Spotify/PersistentCache"
+# Spotify. Only its Library/Caches folder. Application Support/Spotify/
+# PersistentCache used to go too, but Spotify's default offline-storage
+# location is PersistentCache/Storage: that line would have deleted every
+# downloaded playlist once a day, and downloads do not "rebuild on next launch"
+# the way the caches this script promises to clear do.
 rm -rf "$HOME/Library/Caches/com.spotify.client"
 
-# Google Chrome
-rm -rf "$HOME/Library/Caches/Google/Chrome/Default/Cache"
-rm -rf "$HOME/Library/Caches/Google/Chrome/Default/Code Cache"
-rm -rf "$HOME/Library/Caches/Google/Chrome/Default/Media Cache"
+# Google Chrome — every profile, not just Default. Chrome names profiles
+# "Default", "Profile 1", "Profile 4"…, and on this Mac Default was empty while
+# Profiles 1, 4 and 10 held 2.3 GB of cache this job had never touched
+# (measured 2026-09-10). "Media Cache" is gone from Chromium and was dropped.
+for _profile in "$HOME/Library/Caches/Google/Chrome/"*/; do
+  rm -rf "${_profile}Cache" "${_profile}Code Cache"
+done

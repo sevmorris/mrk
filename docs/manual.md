@@ -364,7 +364,7 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 
 | Command | Purpose |
 |---|---|
-| `clear-app-caches` | Clears cache directories for common apps (Helium, Slack, Discord, VS Code, Spotify, Chrome) |
+| `clear-app-caches` | Clears cache directories for common apps (Helium, Slack, Discord, VS Code, Spotify, Chrome — every Chrome profile). It never touches profile data or Spotify's offline downloads |
 | `clear-derived-data` | Clears the Xcode DerivedData directory |
 | `mrk-push` | Commits and pushes `~/mrk`, then deletes the old GitHub Pages deployments. Scans every file the commit carries for secrets first, from whichever directory you run it in. Refuses to run while a merge or rebase in `~/mrk` is unfinished |
 | `prune-deployments` | Deletes the old GitHub Pages deployments and keeps the newest. It finds the repository from the origin remote, or use `--repo OWNER/NAME`. It always protects the deployment that serves the site, so a failed deploy cannot cause it to delete the live one. Use `--dry-run` first |

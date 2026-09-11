@@ -1301,6 +1301,38 @@ non-interactive shell starts with SIGINT ignored, and bash cannot trap a signal 
 ignored at startup. The run finished its install and "passed". Redone with TERM, which the same
 trap covers.
 
+### clear-app-caches cleared the wrong Chrome profile (2026-09-10)
+
+Entry point: `bin/clear-app-caches`, the one destructive job that runs unattended — daily at
+03:00 and at every load of its LaunchAgent. Module 14 examined only its shell options.
+Measured against this Mac rather than read:
+
+- **Chrome: only `Default` was cleared, and on this Mac it was empty.** Profiles 1, 4 and 10
+  held **2.3 GB** of cache (Profile 10 alone 1.3 GB) that the job had never touched.
+- **Helium: seven of its eight paths named folders Helium does not create.** Chromium keeps
+  each profile's HTTP and code cache under `~/Library/Caches` and its GPU caches inside the
+  profile folder; the script named Application Support paths and browser-level shader caches.
+  Only its `~/Library/Caches` line had ever removed anything, and the per-profile
+  `GPUCache`, `DawnGraphiteCache` and `DawnWebGPUCache` were never cleared.
+- **Spotify (latent — not installed here): `PersistentCache` is not a cache.** It is
+  Spotify's default offline-storage location, so the job would have deleted every downloaded
+  playlist daily, against its own promise that "the caches rebuild on next launch".
+- Chrome's "Media Cache" is a folder Chromium no longer creates.
+
+**Fixed**: every Chrome profile's `Cache` and `Code Cache`; Helium's `~/Library/Caches` folder
+plus each profile's GPU caches; Spotify's `~/Library/Caches` folder only. Verified in a
+sandbox `HOME` built from the measured layout, including profile data, Slack's Local Storage
+and a stand-in offline track that must survive: the old script fails 10 of 21 checks — the
+per-profile GPU caches and three profiles' caches survive, and the offline track is deleted —
+and the new one passes all 21. A `HOME` with none of the apps runs cleanly.
+
+**Considered and left**: it does not wait for an application to quit, and a calendar job that
+misses 03:00 during sleep runs at the next wake, when browsers are open. This Mac supplied the
+evidence that this is tolerated: the agents were reloaded at 18:37, the job ran at load, and
+Helium, running since 06:36, rebuilt its cache folder from that minute — created 18:37, all
+5,845 files since, 464 MB by 22:05. The `runs = 1` in `launchctl print` looked at first like a
+schedule that never fired; it is that reload resetting the counter.
+
 ### Closed by module 13, the 2026-08-31 recursive audit
 
 Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the
