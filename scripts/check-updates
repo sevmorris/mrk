@@ -78,8 +78,14 @@ fi
 # Rate-limit before compare so new shells don't re-enter this week
 date +%s > "$TIMESTAMP_FILE"
 
-# Detect default branch name
-default_branch=$(git -C "$REPO_DIR" rev-parse --abbrev-ref origin/HEAD 2>/dev/null | cut -d'/' -f2)
+# Detect default branch name. symbolic-ref, and `|| true`: this used to be
+# `rev-parse --abbrev-ref origin/HEAD | cut`, and with pipefail a missing
+# origin/HEAD failed the assignment, so set -e ended the script silently — every
+# week, after the timestamp above, before any fetch that could restore the ref.
+# The fallback below was unreachable. (rev-parse also prints "origin/HEAD" when
+# it fails, so it cannot simply be made to succeed.)
+default_branch=$(git -C "$REPO_DIR" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)
+default_branch="${default_branch#origin/}"
 default_branch="${default_branch:-main}"
 
 # Compare local HEAD with last fetched remote (no blocking fetch)

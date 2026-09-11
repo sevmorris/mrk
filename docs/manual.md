@@ -739,15 +739,15 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | Command | Description |
 |---|---|
 | `mrk-menu` | Start the TUI launcher (see [mrk-menu](#mrk-menu) above for the keys) |
-| `make status` | Start the mrk-status TUI health dashboard |
+| `make status` | Print the installation checks as a plain-text report. The `status` command is the mrk-status TUI dashboard, a separate program |
 | `make doctor` | Check that `~/bin` is on the PATH. `make doctor ARGS=--fix` adds it to `.zshrc` |
-| `make fix-exec` | Set the executable bit on the scripts and the `~/bin` symlinks |
+| `make fix-exec` | Set the executable bit on the scripts and the `~/bin` symlinks, and remove a `~/bin` symlink whose script is gone from the repository |
 
 ---
 
 # What `make status` checks
 
-`make status` checks the whole installation and shows eight results, plus Backups when there is a backup to report:
+`make status` checks the whole installation and shows eight results, plus Backups when there is a backup to report. It prints them as text. The `status` command runs the same checks in the mrk-status dashboard, where **f** runs the suggested fix; the two are separate programs:
 
 - **Dotfiles** — The files that mrk symlinked into `~/`, and the files that are absent.
 - **Tools** — The `~/bin` symlinks that work, and the symlinks that are broken.

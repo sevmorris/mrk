@@ -100,7 +100,9 @@ if [[ -d "$INSTALL_BIN" ]]; then
     ok "  $linked tool(s) linked"
   fi
   if (( broken > 0 )); then
-    err "  $broken broken symlink(s) — run: fix-exec  or  make install"
+    # Not "make install" as well: setup links only scripts that exist, and a
+    # broken link points at one that is gone. fix-exec prunes these.
+    err "  $broken broken symlink(s) — run: make fix-exec"
   fi
   if (( linked == 0 && broken == 0 )); then
     info "  No mrk tools linked — run: make install"
@@ -190,7 +192,7 @@ if command -v zsh >/dev/null 2>&1; then
       info "    run: chsh -s $zsh_path"
     else
       info "    $zsh_path is not listed in /etc/shells, so chsh will refuse it"
-      info "    run: make setup   (registers the shell, then sets it)"
+      info "    run: make setup ARGS=\"--only shell\"   (registers the shell, then sets it)"
     fi
   fi
 else
@@ -246,15 +248,28 @@ if [[ -f "$BREWFILE" ]]; then
     echo ""
     echo "Installed packages from Brewfile:"
 
+    # A failed `brew list` must not become a screen of "not installed": with
+    # the lists empty, every lookup below misses, and until 2026-09-11 a brew
+    # that could not list its Cellar reported "0/128 installed, 128 missing".
+    # This is module 14's P-4, fixed in mrk-status on 2026-09-09 and never
+    # carried over to this twin. brew being absent is handled above.
+    if ! _formula_list=$(brew list --formula 2>/dev/null) ||
+       ! _cask_list=$(brew list --cask 2>/dev/null); then
+      warn "  Cannot check what is installed — brew list failed (run: brew doctor)"
+      echo ""
+      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      exit 0
+    fi
+
     # Pre-fetch installed package lists for O(1) lookup
     declare -A _installed_formulae=()
     declare -A _installed_casks=()
     while IFS= read -r _pkg; do
       [[ -n "$_pkg" ]] && _installed_formulae["$_pkg"]=1
-    done < <(brew list --formula 2>/dev/null)
+    done <<< "$_formula_list"
     while IFS= read -r _pkg; do
       [[ -n "$_pkg" ]] && _installed_casks["$_pkg"]=1
-    done < <(brew list --cask 2>/dev/null)
+    done <<< "$_cask_list"
 
     installed=0; missing=0; total=0
 

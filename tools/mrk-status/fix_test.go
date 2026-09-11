@@ -86,3 +86,41 @@ func TestEveryFixCommandResolves(t *testing.T) {
 	}
 	t.Logf("checked %d fix command(s)", checked)
 }
+
+// Resolving is not the same as working. Until 2026-09-11 the Tools fix was
+// "make setup": a real target, so the gate above passed, and one that leaves a
+// dead link exactly where it was — setup links only scripts that exist, and a
+// dead link points at one that does not. The dashboard then offered the same fix
+// again. This runs the fix the check names, the way the f key does, against a
+// sandbox HOME, and requires the check to come back clean.
+func TestToolsFixRepairsADeadLink(t *testing.T) {
+	repo, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	bin := filepath.Join(home, "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gone := filepath.Join(repo, "scripts", "a-script-that-was-removed")
+	if _, err := os.Lstat(gone); err == nil {
+		t.Fatalf("%s exists; the fixture needs a path that does not", gone)
+	}
+	if err := os.Symlink(gone, filepath.Join(bin, "a-script-that-was-removed")); err != nil {
+		t.Fatal(err)
+	}
+
+	before := checkTools(repo, bin)
+	if before.sev != sevWarn || before.fix == "" {
+		t.Fatalf("a dead link should warn and carry a fix, got sev=%v fix=%q:\n%s", before.sev, before.fix, texts(before))
+	}
+	cmd := exec.Command("/bin/sh", "-c", "cd '"+repo+"' && "+before.fix)
+	cmd.Env = append(os.Environ(), "HOME="+home)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("fix %q failed: %v\n%s", before.fix, err, out)
+	}
+	if after := checkTools(repo, bin); after.sev != sevOK {
+		t.Errorf("fix %q ran and the check still fails, sev=%v:\n%s", before.fix, after.sev, texts(after))
+	}
+}

@@ -29,7 +29,8 @@ Options:
 fix-exec takes no options other than --help, and is idempotent. It chmods +x
 every file at the top level of scripts/ and bin/, skipping the two sourced
 libraries, then does the same for the ~/bin symlinks that point back into this
-repository.
+repository. A ~/bin symlink that points into this repository at a file that no
+longer exists is removed; nothing else in ~/bin is touched.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"

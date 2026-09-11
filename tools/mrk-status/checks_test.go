@@ -13,8 +13,9 @@ import (
 // as arguments, which makes them exercisable against a constructed directory
 // rather than against whatever this machine happens to look like.
 //
-// checkShell, checkHomebrew and the live half of checkBrewfile are not covered
-// here — they read the real system by design.
+// checkHomebrew and the live half of checkBrewfile are not covered here — they
+// read the real system by design. So does checkShell, but its remediation
+// branch is driven at the end of this file with a fake zsh first on PATH.
 
 func texts(g group) string {
 	var b strings.Builder
@@ -164,5 +165,47 @@ func TestCheckPATH(t *testing.T) {
 	t.Setenv("PATH", binDir+"-extra")
 	if g := checkPATH(binDir); g.sev != sevWarn {
 		t.Errorf("a PATH entry that merely starts with binDir must not count as present")
+	}
+}
+
+// ── Shell ───────────────────────────────────────────────────────────────────
+
+// checkShell reads the real login shell, so this puts a zsh that cannot be it
+// first on PATH to drive the check into its remediation branch. chsh refuses a
+// shell /etc/shells does not list, and a new Mac is in exactly that state after
+// make all: setup runs before brew installs the zsh it would have registered.
+// Until 2026-09-11 the fix was that chsh regardless.
+func TestCheckShellOffersChshOnlyForAListedShell(t *testing.T) {
+	dir := t.TempDir()
+	zsh := filepath.Join(dir, "zsh")
+	if err := os.Symlink("/bin/zsh", zsh); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	shells := filepath.Join(t.TempDir(), "shells")
+	old := shellsFile
+	t.Cleanup(func() { shellsFile = old })
+	shellsFile = shells
+
+	// A "-beta" sibling must not count as the shell itself.
+	if err := os.WriteFile(shells, []byte("/bin/bash\n/bin/zsh\n"+zsh+"-beta\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	g := checkShell()
+	if g.sev != sevWarn || !strings.Contains(g.lines[0].text, "expected: "+zsh) {
+		t.Skipf("the check never reached its remediation branch here: %s", texts(g))
+	}
+	if want := `make setup ARGS="--only shell"`; g.fix != want {
+		t.Errorf("unlisted shell: fix = %q, want %q — chsh would refuse it", g.fix, want)
+	}
+	if !strings.Contains(texts(g), "not listed in /etc/shells") {
+		t.Errorf("unlisted shell: the panel should say why chsh is not offered:\n%s", texts(g))
+	}
+
+	if err := os.WriteFile(shells, []byte("/bin/zsh\n  "+zsh+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if g := checkShell(); g.fix != "chsh -s "+zsh {
+		t.Errorf("listed shell: fix = %q, want %q", g.fix, "chsh -s "+zsh)
 	}
 }

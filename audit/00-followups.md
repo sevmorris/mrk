@@ -1451,6 +1451,62 @@ dots and called every app unsandboxed; zsh's unquoted `$ids` did not word-split 
 iteration; and a variable named `path` — which zsh ties to `PATH` — emptied the search path and
 made every script "fail" with zero writes.
 
+### Two status programs, each missing the other's fix (2026-09-11)
+
+Entry point: `check-updates`, the one mrk script that runs — and can prompt — in every
+interactive shell (`dotfiles/.zshrc:48`), and from there the health report it sits beside.
+
+**check-updates: clean but for one latent line.** Driven in a real pty against sandbox repos
+(`REPO_DIR` and `HOME` pointed at a scratch remote and clone) through nine cases — up to date,
+behind with each answer, behind but not yet fetched, ahead, diverged, a second run in the same
+week, no terminal — eight behave exactly as documented, including the designed one-week lag.
+The ninth: with no `origin/HEAD`, `rev-parse --abbrev-ref origin/HEAD | cut` failed under
+`pipefail`, `set -e` ended the script with 128, and the `${default_branch:-main}` fallback
+on the next line was unreachable. It had written the week's timestamp first and dies before any
+fetch that could restore the ref, so it would do this every week. A clone always has
+`origin/HEAD` and git 2.55 recreates it on any fetch, so this Mac was never affected. Fixed
+with `symbolic-ref --quiet … || true`. `rev-parse` itself could not be rescued with `|| true`:
+it prints `origin/HEAD` to stdout even when it fails. Its background fetch cannot prompt on the
+terminal here — the GitHub key authenticates under `BatchMode` — nor on a new Mac, where the
+remote stays HTTPS until post-install has authenticated.
+
+**The two status programs.** `status` in `~/bin` is the Go dashboard; `make status` runs
+`scripts/status`, which setup deliberately links nowhere. On this healthy Mac they agree on all
+eight checks. In the failure branches — the only place a fix matters — they did not:
+
+- **The dashboard's Shell fix was a `chsh` that cannot work.** The 2026-09-10 fix that stopped
+  suggesting `chsh -s <zsh>` for a zsh missing from `/etc/shells` (commit `001ab72`) changed
+  `scripts/setup` and `scripts/status` only; the ledger said "`status` checks `/etc/shells`",
+  and the `status` on the PATH is the one that did not. With an unlisted zsh first on PATH the
+  dashboard's fix was `chsh -s <that zsh>` while `make status` said chsh would refuse it. Now
+  both offer `make setup ARGS="--only shell"` — narrower than the `make setup` the shell twin
+  had suggested, which re-applies every default.
+- **`make status` still had P-4.** With `brew list` failing, it reported "0/128 installed, 128
+  missing"; the dashboard, fixed 2026-09-09, said it could not check. Guarded the same way.
+- **The dashboard's Tools fix could not fix anything.** For a broken `~/bin` link it offered
+  `make setup`, on the stale reasoning that "fix-exec only chmods existing files; broken links
+  need re-creation". A broken link points at a script that is gone, so nothing can re-create it;
+  setup links only what exists. Run in a sandbox `HOME`: after setup's linking phase the
+  dashboard still reported "1 broken" and offered the same fix again, having re-run all of
+  Phase 1 in the process; `fix-exec` pruned the link in one run. Now `make fix-exec`, and the
+  shell twin drops its "or make install". fix-exec's own help text and BIN-1 never said it
+  deletes those links; both do now.
+- **README and the manual said `make status` opens the dashboard.** It has run `scripts/status`
+  since the first commit; the two rows were wrong from the day they were written (2026-03-10).
+  SMAC-1 had it right, with a caution that the two are different programs.
+
+Tests: `TestCheckShellOffersChshOnlyForAListedShell` drives the real check with a fake zsh first
+on PATH and a fixture `/etc/shells` (a listed `-beta` sibling must not count), and
+`TestToolsFixRepairsADeadLink` runs the Tools fix the way the **f** key does and requires the
+check to pass afterwards — the existing gate only proved that a fix command *resolves*, which
+`make setup` always did. Mutation-tested: restoring `make setup`, a bare `chsh`, a prefix
+match and an untrimmed match each fail a test.
+
+**Method.** Three more broken measurements, all caught before they were reported: `go test`
+suppresses a passing test's output without `-v`, so the first Go probe printed nothing; a
+`^  [A-Z]` filter silently dropped "macOS Defaults"; and the old `scripts/status`, run from the
+scratchpad, resolved `REPO_ROOT` there and "differed" on every section.
+
 ### Closed by module 13, the 2026-08-31 recursive audit
 
 Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the

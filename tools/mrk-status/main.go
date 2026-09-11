@@ -150,8 +150,13 @@ func checkTools(repoRoot, binDir string) group {
 
 	fix := ""
 	if broken > 0 {
-		// fix-exec only chmods existing files; broken links need re-creation.
-		fix = "make setup"
+		// A broken link here points into this repo at a file that is gone — a
+		// script that was deleted or renamed — so there is nothing to re-create
+		// it from. setup links only what exists (and drops a renamed script's
+		// old name), and until 2026-09-11 this offered "make setup", which left
+		// the link broken, re-ran all of Phase 1, and offered itself again.
+		// fix-exec prunes exactly these links, and scripts/status says so too.
+		fix = "make fix-exec"
 	}
 	summary := fmt.Sprintf("%d linked", linked)
 	if broken > 0 {
@@ -279,13 +284,47 @@ func checkShell() group {
 		return group{"Shell", sevOK,
 			[]statusLine{sl(sevOK, "Login shell: "+current)}, ""}
 	}
-	fix := ""
-	if zshPath != "" {
-		fix = "chsh -s " + zshPath
-	}
-	return group{"Shell", sevWarn, []statusLine{
+	lines := []statusLine{
 		sl(sevWarn, fmt.Sprintf("Login shell: %s (expected: %s)", current, zshPath)),
-	}, fix}
+	}
+	fix := ""
+	switch {
+	case zshPath == "":
+	case shellListed(zshPath):
+		fix = "chsh -s " + zshPath
+	default:
+		// chsh refuses a shell that /etc/shells does not list — "Non-standard
+		// is defined as a shell not found in /etc/shells" (man chsh) — and
+		// Homebrew does not register its zsh. That is a new Mac's state after
+		// make all: setup runs before brew installs the zsh it would register.
+		// setup's shell phase registers it, then runs chsh. scripts/status has
+		// said so since 2026-09-10; until 2026-09-11 this panel, which is what
+		// `status` opens, offered the bare chsh that could only fail.
+		lines = append(lines, sl(sevInfo, zshPath+" is not listed in /etc/shells, so chsh will refuse it"))
+		fix = `make setup ARGS="--only shell"`
+	}
+	return group{"Shell", sevWarn, lines, fix}
+}
+
+// shellsFile is the list chsh checks. A variable so the tests can point it at a
+// fixture, as scripts/status reads SHELLS_FILE.
+var shellsFile = "/etc/shells"
+
+// shellListed reports whether path is a whole line of shellsFile, surrounding
+// whitespace aside, so zsh-beta is not taken for zsh. An unreadable file counts
+// as unlisted: the fix it leads to registers the shell only if it is missing,
+// so it is right either way.
+func shellListed(path string) bool {
+	b, err := os.ReadFile(shellsFile)
+	if err != nil {
+		return false
+	}
+	for _, l := range strings.Split(string(b), "\n") {
+		if strings.TrimSpace(l) == path {
+			return true
+		}
+	}
+	return false
 }
 
 func checkPATH(binDir string) group {

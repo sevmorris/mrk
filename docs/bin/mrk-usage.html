@@ -634,6 +634,7 @@
             <li>check-updates never waits for the network. It compares your copy against the last commit that git fetched, and it refreshes the remote in the background.</li>
             <li>check-updates exits and shows nothing when your copy is current.</li>
             <li>check-updates keeps the timestamp in <code>~/.cache/mrk/</code>.</li>
+            <li>check-updates compares against the remote's default branch and falls back to <code>main</code> when the repository has no <code>origin/HEAD</code>. Until 2026-09-11 that fallback was unreachable: the lookup ran through a pipe under <code>pipefail</code>, so a missing <code>origin/HEAD</code> ended the script silently — every week, after it had written the timestamp and before any fetch that could restore the ref. A clone always has one, so this Mac was never affected.</li>
           </ul>
         </div>
       </div>
@@ -669,6 +670,9 @@
         <div class="proc-body">
           <p class="desc">fix-exec sets the executable bit on the mrk scripts. It also sets the bit on the <code>~/bin</code> symlinks that point into the repository. You can run fix-exec more than once.</p>
           <pre><code>fix-exec [--help | -h]</code></pre>
+          <ul>
+            <li>fix-exec removes a <code>~/bin</code> symlink that points into the repository at a file that no longer exists — what a deleted or renamed script leaves behind. It touches no other link and no real file. Nothing else removes these: <code>mrk-setup</code> links only the scripts that exist. That is why it is the fix <code>status</code> offers for a broken tool link. Its help text said nothing about the removal until 2026-09-11.</li>
+          </ul>
         </div>
       </div>
 
@@ -769,6 +773,9 @@ mrk-status [--help | -h]</code></pre>
             <li><strong>r</strong> — Run all the checks again.</li>
             <li><strong>tab / ←→</strong> — Move to the other pane.</li>
             <li>Until 2026-09-10 mrk-status compared only its first argument against <code>--help</code> and <code>-h</code> and opened the dashboard on anything else, so an unrecognised flag was discarded. The same was true of <code>mrk-menu</code>. Both now exit 2.</li>
+            <li><code>make status</code> is a different program: <code>scripts/status</code>, which prints the same checks as plain text and is linked nowhere in <code>~/bin</code>. On a healthy machine the two agree on every check. Until 2026-09-11 they parted in the failure branches, each having had a fix the other lacked. When <code>brew list</code> failed, <code>make status</code> listed all 128 Brewfile packages as not installed — the P-4 defect fixed here on 2026-09-09. And this dashboard offered the bare <code>chsh</code> that <code>make status</code> had stopped offering on 2026-09-10, for the reason in the next item.</li>
+            <li>The Shell fix is <code>chsh -s &lt;zsh&gt;</code> only when that zsh is listed in <code>/etc/shells</code>. <code>chsh</code> refuses a shell that is not, and on a new Mac Homebrew's zsh is not: <code>make all</code> runs Phase&nbsp;1 before Phase&nbsp;2 installs it. Then the fix is <code>make setup ARGS="--only shell"</code>, which registers the shell and sets it.</li>
+            <li>The Tools fix for a broken link is <code>make fix-exec</code>, which removes a link whose script is gone. Until 2026-09-11 it was <code>make setup</code>, which links only scripts that exist: pressing <strong>f</strong> re-ran all of Phase&nbsp;1, left the link broken, and offered the same fix again. A test now runs the fix and requires the check to pass afterwards, because a fix command that merely exists passed the earlier gate.</li>
           </ul>
         </div>
       </div>
