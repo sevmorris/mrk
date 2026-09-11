@@ -1608,6 +1608,47 @@ real ones were — and the run proved nothing; and zsh's `echo -` prints nothing
 column. The mutation classifier then called three killed mutants "SURVIVED" by matching each
 assertion's *pass* wording against the failure lines.
 
+### The defaults undo script restored descriptions, not values (2026-09-11)
+
+Entry point: the undo script `make defaults` writes, `~/.mrk/defaults-rollback.sh` — the only
+way back from 143 preference changes, and never once run end to end. The 2026-09-10 probe
+verified the *forward* writes (126 of 126 read back right) and that this file parses; nothing
+had checked that running it puts back what was there.
+
+**Measured.** `write_default` and `backup_line`, taken verbatim from `scripts/defaults.sh`, were
+driven over a throwaway domain seeded with 23 kinds of prior value, run twice as a re-run would,
+and the generated undo script executed. The re-run guard held — no new lines on the second run —
+and booleans, integers, ordinary floats, absent keys and type changes came back exactly. Seven
+did not: an array, a dictionary, a date and a data value came back as **strings** holding
+`defaults read`'s printout; `café ✓ 日本` came back as `caf\351 \u2713 \u65e5\u672c`; a
+backslash doubled; and a float lost everything past seven digits. The cause was one line: every
+undo value came from `defaults read`, which prints a description, not the value.
+
+**On this Mac** the file holds nothing worse than two floats. Line 19 restores
+`com.apple.mouse.doubleClickThreshold` with `-float 0.8`, which stores the 32-bit
+0.800000011920929 where the value is the double 0.8, and `NSWindowResizeTime` likewise; its 17
+strings are plain ASCII. The flaw needed a value with non-ASCII text, a backslash, or a list to
+bite — a screenshot folder with an accented name would have done it. The existing file is not
+rewritten: a first run's line is never replaced.
+
+**Fixed.** Booleans and integers keep `-bool`/`-int`, which were exact. Everything else is taken
+from `defaults export` as an XML fragment (`<string>…</string>`, `<real>…</real>`,
+`<array>…</array>`…), which `defaults write DOMAIN KEY FRAGMENT` reads back with type and value
+intact — tested for every type, non-ASCII, backslashes, quotes, newlines and the empty string.
+Where the readable form is exact as well — a plain ASCII string, a float such as 0.5 or a whole
+number — it is kept, so the file stays legible: run read-only against this Mac's 22 string and
+float keys, 20 would keep the readable form and the two floats above would get fragments.
+PlistBuddy extracts the key, not plutil, whose key paths split on the dots NSGlobalDomain keys
+are full of; none of the 143 key names contains the `:` or `"` that would trouble PlistBuddy.
+`defaults.sh` runs under bash 3.2 on a new Mac, and the fix is 3.2-clean.
+
+**Test.** `tests/defaults-rollback.sh`, run by `ci-check`: 17 kinds of value round-tripped under
+`/bin/bash` and the current bash, on a plist in a temporary directory — `defaults` accepts a file
+path as a domain for read, read-type, write, export and delete alike, and a path domain never
+appears among the user's domains, so the test touches no real preference. The old capture gets
+8 of the 17 wrong; mutating away the re-run guard or the readable form fails its own case.
+`ci-check`'s shellcheck now covers bash files in `tests/`.
+
 ### cleanempties broke git repositories, and deleted before it asked (2026-09-11)
 
 Entry point: `cleanempties` (`ce`) and `showempties` (`se`) in `dotfiles/.aliases`, a helper

@@ -58,6 +58,34 @@ source "$SCRIPT_DIR/lib.sh"
 init_rollback "$ROLLBACK" || exit 1
 backup_line(){ grep -qFx "$1" "$ROLLBACK" 2>/dev/null && return 0; echo "$1" >> "$ROLLBACK"; }
 
+# value_fragment DOMAIN KEY — print KEY's value as an XML plist fragment
+# (<string>…</string>, <real>…</real>, <array>…</array>, …), which
+# `defaults write DOMAIN KEY FRAGMENT` takes back with its type and value
+# exact. Returns 1 when it cannot. The key is read from an export rather than
+# with `defaults read`, which prints a description, not the value: a
+# non-ASCII string comes back as escape codes, a backslash doubled, a float
+# rounded to seven digits, and an array, dictionary, date or data value as
+# text. Until 2026-09-11 the undo script restored those descriptions — a
+# round trip through it changed 7 of 23 kinds of value, four of them into a
+# string. PlistBuddy, because plutil's key paths split on the dots that
+# NSGlobalDomain keys such as com.apple.sound.beep.sound are full of.
+value_fragment(){
+  local tmp out
+  tmp=$(mrk_mktemp) || return 1
+  if ! defaults export "$1" "$tmp" 2>/dev/null ||
+     ! out=$(/usr/libexec/PlistBuddy -x -c "Print \":$2\"" "$tmp" 2>/dev/null); then
+    rm -f "$tmp"
+    return 1
+  fi
+  rm -f "$tmp"
+  out=${out#*<plist version=\"1.0\">}
+  out=${out%</plist>*}
+  while [[ "$out" == $'\n'* ]]; do out=${out#$'\n'}; done
+  while [[ "$out" == *$'\n' ]]; do out=${out%$'\n'}; done
+  [[ -n "$out" ]] || return 1
+  printf '%s' "$out"
+}
+
 # Helper: capture current value (if any) and append the inverse to rollback.
 # Skips the write if the current value already matches the target (idempotent).
 # Uses `defaults read-type` for authoritative type detection.
@@ -91,8 +119,25 @@ write_default(){
           backup_line "defaults write $esc_domain $esc_key -bool $bool_val"
           ;;
         integer) backup_line "defaults write $esc_domain $esc_key -int $current" ;;
-        float)   backup_line "defaults write $esc_domain $esc_key -float $current" ;;
-        *)       backup_line "defaults write $esc_domain $esc_key -string $esc_current" ;;
+        *)
+          # Float, string, and every other type: the exact value, as a fragment.
+          # Where the readable form is exact too — a plain ASCII string, a float
+          # such as 0.5 — keep the readable form, so the file stays legible.
+          local frag
+          if ! frag=$(value_fragment "$domain" "$key"); then
+            log "could not record $domain $key exactly; its undo line is approximate" >&2
+            backup_line "defaults write $esc_domain $esc_key -string $esc_current"
+          elif [[ "$current_type" == float && ( "$frag" == "<real>$current</real>" ||
+                                                "$frag" == "<real>$current.0</real>" ) ]]; then
+            # The second form is a whole number: XML writes 0.0 where defaults
+            # read prints 0, and -float stores a whole number exactly.
+            backup_line "defaults write $esc_domain $esc_key -float $current"
+          elif [[ "$current_type" == string && "$frag" == "<string>$current</string>" ]]; then
+            backup_line "defaults write $esc_domain $esc_key -string $esc_current"
+          else
+            backup_line "defaults write $esc_domain $esc_key $(printf '%q' "$frag")"
+          fi
+          ;;
       esac
     fi
 

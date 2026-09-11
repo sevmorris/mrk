@@ -950,6 +950,7 @@ mrk-status [--help | -h]</code></pre>
             <li><code>-h</code>, <code>--help</code> — Show the usage summary and exit.</li>
             <li>mrk-defaults continues when a write fails. It counts the failed writes and reports the total when it exits.</li>
             <li>The rollback script covers the system defaults that mrk-defaults writes. It does not cover the browser preferences or the app preferences that <code>mrk-post-install</code> writes.</li>
+            <li>Each undo line puts back the key's previous value exactly, with its type. A boolean, an integer, a plain string and a float such as 0.5 keep their readable <code>-bool</code>/<code>-int</code>/<code>-string</code>/<code>-float</code> form; anything else is recorded as an XML fragment taken from an export, which <code>defaults write</code> reads back verbatim. Until 2026-09-11 every undo line was built from what <code>defaults read</code> prints, which is a description: a round trip turned arrays, dictionaries, dates and data into text strings, non-ASCII text into escape codes, doubled a backslash, and rounded a float — on this Mac, <code>com.apple.mouse.doubleClickThreshold</code> would come back as a 32-bit 0.800000011920929 instead of 0.8. An undo script written before then keeps its lines, since a first run's line is never replaced; the difference in it is in the last digits of two floats.</li>
           </ul>
           <div class="callout">
             <span class="callout-label">Note</span>
@@ -1121,6 +1122,7 @@ mrk-push -- "-starts with a dash"</code></pre>
             <li>Scan every <strong>tracked</strong> file for secrets. mrk-push and pushall scan only what is being staged, so a file that trips the scanner and is then committed stays tripped and trains you to dismiss the gate.</li>
             <li>Run <code>check-commit-gates</code>, which proves that pushall and mrk-push still refuse a planted secret and an unfinished merge.</li>
             <li>Run <code>tests/cleanempties.zsh</code> under an interactive <code>zsh</code>, which drives the <code>cleanempties</code> (<code>ce</code>) and <code>showempties</code> (<code>se</code>) helpers in <code>dotfiles/.aliases</code> against throwaway folders. Until 2026-09-11 <code>ce</code> moved cruft to the Trash before asking, looped forever on a folder the Trash refused, and broke git repositories by trashing their empty <code>refs/</code> and <code>objects/</code> folders.</li>
+            <li>Run <code>tests/defaults-rollback.sh</code>, which writes 17 kinds of value to a plist in a temporary directory, runs <code>mrk-defaults</code>' own <code>write_default</code> over them twice, runs the undo script it produced, and requires every value back with its type — under macOS's bash 3.2 as well, which is what runs <code>mrk-defaults</code> on a new machine.</li>
             <li>Run shellcheck on every bash script in <code>scripts/</code> and <code>bin/</code>.</li>
             <li>Run <code>go test</code> in the four tool directories: picker, mrk-status, mrk-menu and theme.</li>
           </ol>

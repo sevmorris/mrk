@@ -25,8 +25,8 @@ Options:
 
 ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
-the cleanempties test in tests/, shellcheck over the tracked scripts, and
-`go test` for each directory under tools/. It stops at the first gate that fails, so a red gate early on means
+the cleanempties and defaults-rollback tests in tests/, shellcheck over the
+tracked scripts, and `go test` for each directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
 EOF
 }
@@ -84,13 +84,18 @@ log "check-commit-gates"
 log "cleanempties"
 zsh -f -i "$REPO_ROOT/tests/cleanempties.zsh"
 
+# The undo script make defaults writes, round-tripped on a plist in a temporary
+# directory: until 2026-09-11 it restored 7 of 23 kinds of value wrongly.
+log "defaults rollback"
+"$REPO_ROOT/tests/defaults-rollback.sh"
+
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"
   scripts=()
   while IFS= read -r f; do
     [[ -n "$f" ]] && scripts+=("$f")
   done < <(
-    git -C "$REPO_ROOT" ls-files 'scripts/*' 'bin/*' \
+    git -C "$REPO_ROOT" ls-files 'scripts/*' 'bin/*' 'tests/*' \
       | while IFS= read -r f; do
           [[ -f "$REPO_ROOT/$f" ]] && head -1 "$REPO_ROOT/$f" | grep -qE '^#!.*bash' && printf '%s\n' "$REPO_ROOT/$f"
         done

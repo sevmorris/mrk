@@ -69,7 +69,7 @@ Phase 1 configures the shell environment. It runs on a new machine or on an exis
 - The two plugins are pinned to release tags, because `omz update` does not update a custom plugin. To move to a newer plugin release, change the tag in `scripts/setup` and delete the plugin directory. oh-my-zsh itself is not pinned: it publishes no tags, and `.zshrc` sets it to update itself.
 - Writes a rollback script to `~/.mrk/defaults-rollback.sh`.
 
-> **Note:** `scripts/defaults.sh` continues when a write fails. It counts the failed writes and reports the total at the end. The rollback script covers the writes that succeeded.
+> **Note:** `scripts/defaults.sh` continues when a write fails. It counts the failed writes and reports the total at the end. The rollback script covers the writes that succeeded, and puts back each key's previous value exactly, with its type. Until 2026-09-11 it restored what `defaults read` prints instead, which turned lists, dictionaries, dates and data into text and garbled non-ASCII text.
 
 **Options:**
 
@@ -734,7 +734,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | `make uninstall` | Delete the symlinks, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |
 | `make pull` | Fast-forward the mrk repository to origin |
-| `make check` | Run the local validation: picker and defaults descriptions, a secret scan over every tracked file, the commit-gate check, the `cleanempties` test, shellcheck and go test |
+| `make check` | Run the local validation: picker and defaults descriptions, a secret scan over every tracked file, the commit-gate check, the `cleanempties` test, a round trip through the defaults undo script, shellcheck and go test |
 | `make ci` | Run the local validation, and build the TUI binaries |
 | `make tidy` | Run `go mod tidy` in every Go tool directory |
 
