@@ -71,75 +71,136 @@ if command -v sudo >/dev/null 2>&1; then
 fi
 
 # 1) Touch ID for sudo (pam_tid)
+#
+# macOS 14 and later include /etc/pam.d/sudo_local from /etc/pam.d/sudo, and
+# Apple's sudo_local.template calls it the "local config file which survives
+# system update". Until 2026-09-11 this edited /etc/pam.d/sudo itself — the
+# file Apple does not say survives — and overwrote it in place, so a write
+# that failed part-way left sudo's own PAM file truncated. Now the line goes
+# in sudo_local wherever sudo includes it; /etc/pam.d/sudo is edited only on a
+# macOS too old to have sudo_local; and every file is written beside its
+# target and renamed over it. "Already enabled" means an uncommented line, not
+# any mention of pam_tid — the template itself carries a commented one.
+PAM_SUDO=/etc/pam.d/sudo
+PAM_LOCAL=/etc/pam.d/sudo_local
+TID_LINE='auth       sufficient     pam_tid.so'
+tid_on(){ grep -qE '^[[:space:]]*auth[[:space:]]+sufficient[[:space:]]+pam_tid\.so' "$1" 2>/dev/null; }
+# pam_write TARGET CONTENT — copy CONTENT beside TARGET and rename it over TARGET.
+pam_write(){
+  sudo cp "$2" "$1.mrk-new" 2>/dev/null && sudo chmod 444 "$1.mrk-new" 2>/dev/null \
+    && sudo mv "$1.mrk-new" "$1" 2>/dev/null
+}
 if $have_sudo; then
-  if ! grep -q 'pam_tid.so' /etc/pam.d/sudo 2>/dev/null; then
-    log "Touch ID for sudo will modify /etc/pam.d/sudo"
+  if tid_on "$PAM_SUDO" || tid_on "$PAM_LOCAL"; then
+    log "Touch ID for sudo already enabled"
+  else
+    pam_target=$PAM_SUDO
+    if grep -qE '^[[:space:]]*auth[[:space:]]+include[[:space:]]+sudo_local' "$PAM_SUDO" 2>/dev/null; then
+      pam_target=$PAM_LOCAL
+    fi
+    log "Touch ID for sudo will modify $pam_target"
     if confirm; then
-      log "Enabling Touch ID for sudo"
-      if sudo cp /etc/pam.d/sudo /etc/pam.d/sudo.backup.mrk 2>/dev/null; then
-        rollback "sudo mv /etc/pam.d/sudo.backup.mrk /etc/pam.d/sudo"
-        tmpfile="$(mrk_mktemp)"
-        { echo 'auth       sufficient     pam_tid.so'; cat /etc/pam.d/sudo; } > "$tmpfile"
-        if [[ ! -s "$tmpfile" ]] || ! grep -q 'pam_tid\.so' "$tmpfile" || \
-           ! grep -qE 'pam_smartcard\.so|pam_opendirectory\.so' "$tmpfile"; then
-          warn "Generated PAM config appears invalid — aborting Touch ID setup"
-          rm -f "$tmpfile"
-          sudo mv /etc/pam.d/sudo.backup.mrk /etc/pam.d/sudo 2>/dev/null || true
-        elif sudo cp "$tmpfile" /etc/pam.d/sudo 2>/dev/null; then
-          log "Touch ID for sudo enabled"
+      tmpfile="$(mrk_mktemp)"
+      pam_ready=1
+      if [[ -e "$pam_target" ]]; then
+        # Someone's file — sudo_local may already hold other lines. Prepend,
+        # keep the rest, and keep the original to put back.
+        { echo "$TID_LINE"; cat "$pam_target"; } > "$tmpfile"
+        if sudo cp "$pam_target" "$pam_target.backup.mrk" 2>/dev/null; then
+          rollback "sudo mv $pam_target.backup.mrk $pam_target"
         else
-          warn "Failed to write new sudo PAM config (may require password)"
-          sudo mv /etc/pam.d/sudo.backup.mrk /etc/pam.d/sudo 2>/dev/null || true
+          warn "Failed to back up $pam_target (may require password) — leaving Touch ID alone"
+          pam_ready=0
         fi
-        rm -f "$tmpfile"
       else
-        warn "Failed to backup sudo PAM config (may require password)"
+        echo "$TID_LINE" > "$tmpfile"
+        rollback "sudo rm -f $pam_target"
       fi
+      if (( pam_ready )) && [[ "$pam_target" == "$PAM_SUDO" ]] && \
+         ! grep -qE 'pam_smartcard\.so|pam_opendirectory\.so' "$tmpfile"; then
+        warn "Generated PAM config appears invalid — aborting Touch ID setup"
+        pam_ready=0
+      fi
+      if (( pam_ready )); then
+        if pam_write "$pam_target" "$tmpfile"; then
+          log "Touch ID for sudo enabled ($pam_target)"
+        else
+          sudo rm -f "$pam_target.mrk-new" 2>/dev/null || true
+          warn "Failed to write $pam_target (may require password) — it is unchanged"
+        fi
+      fi
+      rm -f "$tmpfile"
     else
       log "Skipping Touch ID setup"
     fi
-  else
-    log "Touch ID for sudo already enabled"
   fi
 else
   log "Skipping Touch ID (sudo unavailable)"
 fi
 
+# recorded [-currentHost] DOMAIN KEY — true when the rollback script already
+# holds a line for KEY, in either form such a line takes: write, which puts a
+# value back, or delete, for a key that was absent. First-run originals win on
+# re-runs only if both forms are checked. The Analytics and Handoff guards
+# below used to check the write form alone, so a key absent on the first run
+# got a delete line then, and on the second run a write line recording mrk's
+# own value — the rollback ran both, and ended on mrk's value. (A trailing
+# space stops one key being taken for a longer key it prefixes.)
+recorded(){
+  local host=""
+  if [[ "$1" == -currentHost ]]; then host="-currentHost "; shift; fi
+  grep -qF "defaults ${host}write $1 $2 " "$ROLL" 2>/dev/null ||
+    grep -qF "defaults ${host}delete $1 $2 " "$ROLL" 2>/dev/null
+}
+
 # 2) Require password immediately after sleep/screensaver
-log "Requiring password immediately on wake"
-prev1_absent=0 prev2_absent=0
-if prev1=$(defaults read com.apple.screensaver askForPassword 2>/dev/null); then
-  :
-else
-  prev1_absent=1
-  prev1="0"
+#
+# Through sysadminctl, the interface macOS reads. This used to write the
+# com.apple.screensaver keys askForPassword and askForPasswordDelay, which
+# current macOS ignores: on the machine this was found on (2026-09-11, macOS
+# 15.7.4) they read 1 and 0 — "immediately" — while `sysadminctl -screenLock
+# status` reported the delay macOS was enforcing, 3600 seconds. The step said
+# "Requiring password immediately on wake" and changed nothing.
+#
+# Setting it needs the login password, which sysadminctl asks for itself, so
+# it runs only at a terminal; otherwise this prints the command to run.
+lock_prev=""
+lock_status=$(sysadminctl -screenLock status 2>&1) || true
+if [[ "$lock_status" =~ delay\ is\ ([0-9]+)\ seconds ]]; then
+  lock_prev=${BASH_REMATCH[1]}
+  (( lock_prev == 0 )) && lock_prev=immediate
+elif [[ "$lock_status" == *immediate* ]]; then
+  lock_prev=immediate
+elif [[ "$lock_status" =~ [Oo]ff|disabled ]]; then
+  lock_prev=off
 fi
-if prev2=$(defaults read com.apple.screensaver askForPasswordDelay 2>/dev/null); then
-  :
+case "$lock_prev" in
+  off) lock_desc="never" ;;
+  *)   lock_desc="$lock_prev seconds after sleep" ;;
+esac
+if [[ "$lock_prev" == immediate ]]; then
+  log "A password is already required immediately on wake"
+elif [[ -z "$lock_prev" ]]; then
+  warn "Could not read the screen-lock delay — leaving it alone (sysadminctl: ${lock_status##*] })"
+elif [[ ! -t 0 ]] || (( ${NONINTERACTIVE:-0} )); then
+  warn "A password is required $lock_desc, not immediately. Setting it needs your login password:"
+  warn "  sysadminctl -screenLock immediate -password -"
 else
-  prev2_absent=1
-  prev2="0"
-fi
-# Guard: only record if no entry for this key exists — first-run originals win on re-runs.
-# Match both forms the rollback lines take (trailing space stops prefix collisions).
-if ! grep -qF "defaults write com.apple.screensaver askForPassword " "$ROLL" 2>/dev/null && \
-   ! grep -qF "defaults delete com.apple.screensaver askForPassword " "$ROLL" 2>/dev/null; then
-  if (( prev1_absent )); then
-    rollback 'defaults delete com.apple.screensaver askForPassword >/dev/null 2>&1 || true'
+  log "A password is required $lock_desc; requiring it immediately (sysadminctl asks for your login password)"
+  if confirm; then
+    # Recorded first, like every other step: if the change then fails, the
+    # line merely puts back the value that is still there.
+    grep -qF "sysadminctl -screenLock " "$ROLL" 2>/dev/null || \
+      rollback "sysadminctl -screenLock $lock_prev -password -"
+    if sysadminctl -screenLock immediate -password -; then
+      log "A password is now required immediately on wake"
+    else
+      warn "sysadminctl did not change the screen-lock delay"
+    fi
   else
-    rollback "defaults write com.apple.screensaver askForPassword -int ${prev1}"
+    log "Skipping the screen-lock delay"
   fi
 fi
-if ! grep -qF "defaults write com.apple.screensaver askForPasswordDelay " "$ROLL" 2>/dev/null && \
-   ! grep -qF "defaults delete com.apple.screensaver askForPasswordDelay " "$ROLL" 2>/dev/null; then
-  if (( prev2_absent )); then
-    rollback 'defaults delete com.apple.screensaver askForPasswordDelay >/dev/null 2>&1 || true'
-  else
-    rollback "defaults write com.apple.screensaver askForPasswordDelay -int ${prev2}"
-  fi
-fi
-defaults write com.apple.screensaver askForPassword -int 1
-defaults write com.apple.screensaver askForPasswordDelay -int 0
 
 # 3) Enable firewall (global + stealth)
 if $have_sudo; then
@@ -275,17 +336,21 @@ if $have_sudo; then
   #   the plain read alone would reintroduce exactly the same bug.
   #
   # Only the write needs privilege; the reads are belt and braces.
-  if prev_auto=$(defaults read "$DIAG" AutoSubmit 2>/dev/null) \
-     || prev_auto=$(sudo -n defaults read "$DIAG" AutoSubmit 2>/dev/null) \
-     || prev_auto=$(sudo defaults read "$DIAG" AutoSubmit 2>/dev/null); then
-    if ! grep -qF "defaults write \"$DIAG\" AutoSubmit " "$ROLL" 2>/dev/null; then
-      auto_bool=false
-      [[ "$prev_auto" == "1" ]] && auto_bool=true
-      rollback "sudo defaults write \"$DIAG\" AutoSubmit -bool ${auto_bool}"
+  # Both keys, and each recorded before it changes: ThirdPartyDataSubmit was
+  # written with no rollback line at all until 2026-09-11, so undoing hardening
+  # left it off.
+  for dk in AutoSubmit ThirdPartyDataSubmit; do
+    recorded "\"$DIAG\"" "$dk" && continue
+    if prev_d=$(defaults read "$DIAG" "$dk" 2>/dev/null) \
+       || prev_d=$(sudo -n defaults read "$DIAG" "$dk" 2>/dev/null) \
+       || prev_d=$(sudo defaults read "$DIAG" "$dk" 2>/dev/null); then
+      d_bool=false
+      [[ "$prev_d" == "1" ]] && d_bool=true
+      rollback "sudo defaults write \"$DIAG\" $dk -bool ${d_bool}"
+    else
+      rollback "sudo defaults delete \"$DIAG\" $dk >/dev/null 2>&1 || true"
     fi
-  else
-    rollback "sudo defaults delete \"$DIAG\" AutoSubmit >/dev/null 2>&1 || true"
-  fi
+  done
   sudo defaults write "$DIAG" AutoSubmit -bool false 2>/dev/null \
     || warn "Failed to write AutoSubmit (may require Full Disk Access for the terminal)"
   sudo defaults write "$DIAG" ThirdPartyDataSubmit -bool false 2>/dev/null || true
@@ -301,14 +366,14 @@ fi
 # relay and iPhone widgets are already off; this is the rest of that story.
 log "Turning off Handoff"
 for hk in ActivityAdvertisingAllowed ActivityReceivingAllowed; do
-  if prev_h=$(defaults -currentHost read com.apple.coreservices.useractivityd "$hk" 2>/dev/null); then
-    if ! grep -qF "defaults -currentHost write com.apple.coreservices.useractivityd $hk " "$ROLL" 2>/dev/null; then
+  if ! recorded -currentHost com.apple.coreservices.useractivityd "$hk"; then
+    if prev_h=$(defaults -currentHost read com.apple.coreservices.useractivityd "$hk" 2>/dev/null); then
       h_bool=false
       [[ "$prev_h" == "1" ]] && h_bool=true
       rollback "defaults -currentHost write com.apple.coreservices.useractivityd $hk -bool ${h_bool}"
+    else
+      rollback "defaults -currentHost delete com.apple.coreservices.useractivityd $hk >/dev/null 2>&1 || true"
     fi
-  else
-    rollback "defaults -currentHost delete com.apple.coreservices.useractivityd $hk >/dev/null 2>&1 || true"
   fi
   defaults -currentHost write com.apple.coreservices.useractivityd "$hk" -bool false
 done

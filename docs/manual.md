@@ -378,7 +378,7 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 
 > `nuke-mrk` deletes more than `make uninstall`. Use `make uninstall` to unlink mrk only. Use `nuke-mrk` to get a clean machine for a test installation.
 >
-> **Caution:** before it deletes anything, `nuke-mrk` lists any uncommitted change, unpushed commit or stash in `~/mrk` or `~/.mrk/preferences` and stops unless you answer `y`. The fresh clone it tells you to make cannot contain them. Until 2026-09-11 it trashed them without a word — including the Brewfile commit its own pre-nuke `sync -c` had just made, because `sync -c` commits and does not push. That commit is now pushed when it is the only one waiting.
+> **Caution:** before it deletes anything, `nuke-mrk` lists any uncommitted change, unpushed commit or stash in `~/mrk` or `~/.mrk/preferences` and stops unless you answer `y`. The fresh clone it tells you to make cannot contain them. Until 2026-09-11 it trashed them without a word — including the Brewfile commit its own pre-nuke `sync -c` had just made, because `sync -c` commits and does not push. That commit is now pushed when it is the only one waiting. If you decline to run the rollback scripts, `nuke-mrk` keeps them, with `~/.mrk/plist-backups/`, in `~/.mrk` — the settings they undo are still in force, and a reinstall adds to them rather than recording mrk's own values as the originals. Until 2026-09-11 they went to the Trash with the rest.
 
 ## How to update the manual
 
@@ -734,7 +734,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | `make uninstall` | Delete the symlinks, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |
 | `make pull` | Fast-forward the mrk repository to origin |
-| `make check` | Run the local validation: picker and defaults descriptions, a secret scan over every tracked file, the commit-gate check, the `cleanempties` test, a round trip through the defaults undo script, shellcheck and go test |
+| `make check` | Run the local validation: picker and defaults descriptions, a secret scan over every tracked file, the commit-gate check, the `cleanempties` test, round trips through the defaults and harden undo scripts, shellcheck and go test |
 | `make ci` | Run the local validation, and build the TUI binaries |
 | `make tidy` | Run `go mod tidy` in every Go tool directory |
 

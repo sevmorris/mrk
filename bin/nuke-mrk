@@ -357,11 +357,40 @@ if (( has_rollbacks )); then
   fi
 fi
 
-# Remove state directory
+# Remove state directory — except the undo scripts, when they were not run.
+#
+# Declined, they are the one record of what this Mac held before mrk, and
+# every setting they would undo is still in force. Trashed with the rest of
+# ~/.mrk, they left a reinstall to write new ones on an already-configured Mac,
+# recording mrk's own values as the originals: that is how this machine lost
+# its hardening undo script outright, and every original in its defaults one,
+# at the reinstall of 2026-09-10. plist-backups/ goes with them, because the
+# defaults undo script imports from it. A reinstall keeps what it finds:
+# init_rollback does not truncate, and each key's first-run line wins.
+keep_undo=()
+if (( has_rollbacks )) && [[ ! "${run_rollbacks:-}" =~ ^[Yy]$ ]]; then
+  for f in defaults-rollback.sh hardening-rollback.sh; do
+    if [[ -e "$STATE_DIR/$f" ]]; then keep_undo+=("$f"); fi
+  done
+  if [[ -e "$STATE_DIR/defaults-rollback.sh" && -d "$STATE_DIR/plist-backups" ]]; then
+    keep_undo+=(plist-backups)
+  fi
+fi
 if [[ -d "$STATE_DIR" ]]; then
+  undo_stash=""
+  if (( ${#keep_undo[@]} > 0 )); then
+    undo_stash=$(mktemp -d "${TMPDIR:-/tmp}/mrk-undo.XXXXXX")
+    for f in "${keep_undo[@]}"; do mv "$STATE_DIR/$f" "$undo_stash/"; done
+  fi
   log "Moving $STATE_DIR to Trash..."
   trash_item "$STATE_DIR"
   ok "$STATE_DIR"
+  if [[ -n "$undo_stash" ]]; then
+    mkdir -p "$STATE_DIR"
+    for f in "${keep_undo[@]}"; do mv "$undo_stash/$f" "$STATE_DIR/"; done
+    rmdir "$undo_stash" 2>/dev/null || true
+    ok "Kept the undo scripts in $STATE_DIR — the settings they undo are still applied"
+  fi
 else
   dim "$STATE_DIR (not found)"
 fi

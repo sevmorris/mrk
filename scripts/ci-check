@@ -25,8 +25,9 @@ Options:
 
 ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
-the cleanempties and defaults-rollback tests in tests/, shellcheck over the
-tracked scripts, and `go test` for each directory under tools/. It stops at the first gate that fails, so a red gate early on means
+the cleanempties, defaults-rollback and hardening-rollback tests in tests/,
+shellcheck over the tracked scripts, and `go test` for each directory under
+tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
 EOF
 }
@@ -88,6 +89,12 @@ zsh -f -i "$REPO_ROOT/tests/cleanempties.zsh"
 # directory: until 2026-09-11 it restored 7 of 23 kinds of value wrongly.
 log "defaults rollback"
 "$REPO_ROOT/tests/defaults-rollback.sh"
+
+# harden, run against a sandbox with every system path redirected: until
+# 2026-09-11 its password-on-wake step changed nothing macOS reads, and its undo
+# left three settings changed.
+log "hardening rollback"
+"$REPO_ROOT/tests/hardening-rollback.sh"
 
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"

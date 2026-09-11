@@ -271,7 +271,11 @@ Recorded so a later pass does not re-derive them. Each was *run*, not read.
   halfway.
 - **Still not verifiable here:** `harden` has never run on this machine, so
   `hardening-rollback.sh` has never existed, and `harden` has no `--dry-run`. It stays in the
-  VM bucket with `setup`, `brew` and `post-install`.
+  VM bucket with `setup`, `brew` and `post-install`. **Wrong, corrected 2026-09-11:** harden
+  ran here on 2026-09-02 — `/etc/pam.d/sudo.backup.mrk` carries that timestamp — and its
+  rollback script was lost with the rest of `~/.mrk` at the reinstall of 2026-09-10. It is now
+  run against a sandbox by `tests/hardening-rollback.sh`; see "harden's password-on-wake step
+  changed nothing" below.
 
 ### The secret scanner, tested rather than read (2026-09-10)
 
@@ -1607,6 +1611,66 @@ wrong — the overlay reads the public repo's `.gitignore`, so its files must be
 real ones were — and the run proved nothing; and zsh's `echo -` prints nothing, which blanked a
 column. The mutation classifier then called three killed mutants "SURVIVED" by matching each
 assertion's *pass* wording against the failure lines.
+
+### harden's password-on-wake step changed nothing, and its undo was lost (2026-09-11)
+
+Entry point: `scripts/hardening.sh`, the one script that edits PAM, described in this ledger as
+never run here and left for a VM. Probed read-only on this Mac, then run in a sandbox: a copy
+with `/etc/pam.d`, the firewall tool and every preferences domain rewritten into a temporary
+directory, and `sudo`, `socketfilterfw` and `sysadminctl` replaced by stubs; the copy refuses to
+run if any system reference survives the rewrite.
+
+- **The password-on-wake step did nothing.** It wrote `com.apple.screensaver`'s
+  `askForPassword` and `askForPasswordDelay`, which current macOS ignores. On this Mac (15.7.4)
+  they read 1 and 0 — "immediately" — while `sysadminctl -screenLock status` reported the delay
+  macOS was enforcing: **3600 seconds**. harden logged "Requiring password immediately on wake".
+  The step now reads the real delay and sets it with `sysadminctl -screenLock immediate
+  -password -`, which asks for the login password, so it runs only at a terminal; without one
+  it reports the delay and prints the command.
+- **A second run corrupted the undo for Mac Analytics and Handoff.** A key absent on the first
+  run got a `delete` line; the guard on the second run looked only for a `write` line, so it
+  recorded mrk's own value too, and the undo — running both — ended on mrk's value. Measured:
+  `AutoSubmit` and `ActivityAdvertisingAllowed`, absent before, stayed `0` after the undo. The
+  guard now checks both forms, for every key, through one helper.
+- **`ThirdPartyDataSubmit` had no undo line**; it stayed off after the undo.
+- **Touch ID went into the file Apple does not keep.** harden prepended `pam_tid.so` to
+  `/etc/pam.d/sudo` and wrote it back in place. macOS 14 and later include
+  `/etc/pam.d/sudo_local`, which Apple's own `sudo_local.template` on this Mac calls the "local
+  config file which survives system update"; the line now goes there, an existing `sudo_local`
+  keeps its lines, and every PAM file is written beside its target and renamed over it. On a
+  macOS with no `sudo_local`, `/etc/pam.d/sudo` is still the target. "Already enabled" now means
+  an uncommented line. The old edit's undo was exact — the sandbox restored `/etc/pam.d/sudo`
+  byte for byte — so this is about updates and partial writes, not a broken undo.
+
+**This Mac's own state.** harden ran on 2026-09-02: `/etc/pam.d/sudo.backup.mrk` holds the
+original, and every hardening setting is in force. `~/.mrk/hardening-rollback.sh` does not exist:
+everything in `~/.mrk` was created at 18:37 on 2026-09-10, the reinstall, and the Trash no longer
+holds the old directory. **nuke-mrk was the cause.** It offers to run the rollback scripts,
+defaulting to no, and then moved all of `~/.mrk` to the Trash regardless — the undo scripts
+included, while their settings stayed applied. The reinstall's `make defaults` then wrote a new
+undo script on an already-configured Mac: that is why this Mac's defaults undo has no `delete`
+lines and records mrk's values as the originals. nuke-mrk now keeps both undo scripts, and
+`plist-backups/` for the defaults one, whenever they were not run; a reinstall adds to them. The
+lost originals exist only in a Time Machine backup from before 2026-09-10 18:37. The mrk-status
+Security Hardening check, which takes the rollback script as its evidence, has reported "Not
+applied" here since then, with the hardening applied.
+
+**Test.** `tests/hardening-rollback.sh`, run by `ci-check`, under `/bin/bash` and the current
+bash: a stock macOS 15 with no terminal (Touch ID into a new `sudo_local`, `sudo` untouched, the
+3600 s delay reported and left, a second run adding nothing, the undo exact); the same at a
+terminal through a pty (delay set to immediate, 3600 recorded and put back); an older macOS with
+no `sudo_local` and an existing `sudo_local` (each restored byte for byte); and Touch ID already
+enabled (no PAM file touched). Mutation-tested five ways: a write-only guard, dropping
+`ThirdPartyDataSubmit`, Touch ID always into `sudo`, an unreadable delay, and a missing lock undo
+line each fail a case. nuke-mrk's keeping of the undo set was run in its sandbox: declined, both
+scripts and `plist-backups/` stay; run, all of `~/.mrk` goes; with none present, nothing is kept
+and nothing is claimed. Left unverified: whether `LSQuarantine` still suppresses the quarantine
+prompt on current macOS — it reads `0` here, and nothing on this Mac can show its effect.
+
+**Method.** Two more zsh traps — `"$c:scripts/…"` read as the `:s` modifier, and an unmatched
+`~/.Trash/.mrk-*` glob aborting a whole command — both redone in bash. The sandbox's first
+version stripped `-currentHost` from the `defaults` calls but not from the new guard's call site,
+which would have faked the very re-run bug under test; its own safety check caught the leftover.
 
 ### The defaults undo script restored descriptions, not values (2026-09-11)
 
