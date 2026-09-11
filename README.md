@@ -103,7 +103,7 @@ data in them is not.
 | Snapshotted apps | `scripts/snapshot-prefs` | The 18 plist domains and the Application Support trees I care about. |
 | Dock | `DOCK_APPS` in `scripts/dock-setup` | Wipes the Dock before it rebuilds it. |
 | macOS defaults | `scripts/defaults.sh` | 143 keys, each one a preference of mine. Documented in the [defaults reference](https://sevmorris.github.io/mrk/defaults/). |
-| Companion apps | `install_github_app` in `scripts/post-install` | Installs Barkeep and KeyVault, both mine. |
+| Companion apps | `install_github_app` in `scripts/post-install` | Installs Barkeep and KeyVault, both mine, and refuses any app not signed by `GITHUB_APP_TEAM_ID` — my Developer ID team. |
 | Dotfiles | `dotfiles/` | My shell, aliases and git config. |
 
 `make setup-dry`, `make sync ARGS=-n` and `make snapshot-keys ARGS=-n` all preview without

@@ -909,7 +909,8 @@ mrk-status [--help | -h]</code></pre>
           </ul>
           <ul>
             <li>Before 2026-09-10 mrk-post-install discarded any argument it did not recognise and ran in full regardless, so <code>mrk-post-install --help</code> configured applications rather than describing them. It now exits 2 on an unknown argument.</li>
-            <li>mrk-post-install continues when a step fails. It counts the failed steps and reports the total when it exits.</li>
+            <li>mrk-post-install continues when a step fails. It counts the failed steps, reports the total, and exits 1 when there are any, as mrk-setup and mrk-brew already did. Until 2026-09-10 it exited 0 whatever had failed, so <code>make all</code> printed "mrk installed successfully" after it.</li>
+            <li>Barkeep and KeyVault are installed from their latest GitHub release only when the app in the DMG verifies in full (<code>codesign --verify --deep --strict</code>), is signed by <code>GITHUB_APP_TEAM_ID</code>, and is accepted by Gatekeeper as notarized — checked in the DMG, and again once copied. Until 2026-09-10 nothing looked at a signature: the installer copied whatever the DMG held and stripped every extended attribute from it, and <code>curl</code> sets no quarantine, so Gatekeeper never assessed it either. It also refuses a DMG whose app is not named as the path it checks, and removes a copy that fails part-way — before, a differently named app printed success and was downloaded again on every run, and a half-copied one was skipped as installed from then on.</li>
             <li>mrk-post-install imports a plist only when the app has no preferences yet, so it never overwrites a live configuration.</li>
           </ul>
         </div>

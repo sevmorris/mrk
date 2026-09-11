@@ -21,7 +21,7 @@ source "$SCRIPT_DIR/lib.sh"
 
 usage() {
   cat <<'EOF'
-mrk-post-install — phase 3: configure apps, browser policy and login items
+mrk-post-install — phase 3: configure apps and login items
 
 Usage:
   mrk-post-install [--yes]
@@ -30,10 +30,12 @@ Options:
   -y, --yes       Answer yes to every prompt and run unattended
   -h, --help      Show this help
 
-post-install writes app defaults, installs the managed browser policy files,
-installs Barkeep and KeyVault from GitHub, and loads the mrk LaunchAgents.
-Every domain it overwrites is exported to ~/.mrk/plist-backups first, and each
-change appends to the shared ~/.mrk/defaults-rollback.sh. Normally run as
+post-install writes app defaults, imports the app preferences, installs
+Barkeep and KeyVault from GitHub — only when each is signed by the expected
+Developer ID and accepted by Gatekeeper — registers the login items, and loads
+the mrk LaunchAgents. Every domain it overwrites is exported to
+~/.mrk/plist-backups first, and each change appends to the shared
+~/.mrk/defaults-rollback.sh. It exits 1 when any step failed. Normally run as
 `make post-install`.
 EOF
 }
@@ -96,7 +98,6 @@ apply_defaults(){
   fi
 }
 
-# Copy a managed policy JSON to the browser's policy directory
 # Chrome and Brave managed policy used to be installed here, as JSON under
 # ~/Library/Application Support/<browser>/policies/managed/. That is the Linux
 # mechanism: Chromium's own docs say only Linux reads a policies/managed
@@ -335,6 +336,22 @@ fi
 # Companion apps (installed from GitHub releases)                             #
 ###############################################################################
 
+# The Developer ID team every app installed this way must be signed by. A
+# release asset is only as trustworthy as the GitHub account that uploaded it;
+# the signature ties it to the one key that account's owner signs with.
+GITHUB_APP_TEAM_ID="T9RLNAXPWU"
+
+# github_app_trusted APP — true when APP's signature verifies in full, it is
+# signed by GITHUB_APP_TEAM_ID, and Gatekeeper accepts it, which for a
+# Developer ID app means notarized.
+github_app_trusted(){
+  local app="$1" team
+  codesign --verify --deep --strict "$app" 2>/dev/null || return 1
+  team=$(codesign -dv "$app" 2>&1 | sed -n 's/^TeamIdentifier=//p')
+  [[ "$team" == "$GITHUB_APP_TEAM_ID" ]] || return 1
+  spctl --assess --type execute "$app" 2>/dev/null || return 1
+}
+
 install_github_app(){
   local app_path="$1" repo="$2" name="$3"
   # Install-only: skips if the app is already present.
@@ -344,41 +361,74 @@ install_github_app(){
     logskip "$name" "installed — skipping"
     return 0
   fi
-  local dmg_url
-  dmg_url=$(curl -sf "https://api.github.com/repos/${repo}/releases/latest" \
-    | jq -r '.assets[] | select(.name | endswith(".dmg")) | .browser_download_url' | head -1)
+  local release_json dmg_url
+  # A failed API call used to read as "could not find the DMG".
+  if ! release_json=$(curl -sf "https://api.github.com/repos/${repo}/releases/latest"); then
+    log "Warning: could not read the latest $name release from GitHub — not installed"
+    return 1
+  fi
+  dmg_url=$(jq -r '.assets[] | select(.name | endswith(".dmg")) | .browser_download_url' <<<"$release_json" | head -1)
   if [[ -z "$dmg_url" ]]; then
     log "Warning: could not find $name DMG in latest release"
     return 1
   fi
   name="${name//[^[:alnum:]._-]/}"
-  local tmp_dmg tmp_mount
+  local tmp_dmg tmp_mount found_app
   tmp_dmg=$(mrk_mktemp)
   tmp_mount=$(mrk_mktemp_d)
-  _cleanup_github_app() {
+  # Every path out of here goes through _github_app_done, which detaches,
+  # deletes both temporary paths and drops the EXIT trap. The trap is for
+  # Ctrl-C: the INT trap above exits, and the exit runs this. The failure
+  # paths used to return with it still set, so it fired again when
+  # post-install ended — with this function's locals gone, and `set -u`
+  # stopped it with "tmp_mount: unbound variable".
+  _github_app_done() {
     hdiutil detach "$tmp_mount" -quiet 2>/dev/null || true
     rm -f "$tmp_dmg"
     rm -rf "$tmp_mount" 2>/dev/null || true
+    trap - EXIT
   }
-  trap _cleanup_github_app EXIT
+  trap _github_app_done EXIT
   log "Downloading $name..."
-  curl -L -sf -o "$tmp_dmg" "$dmg_url" || { log "Warning: failed to download $name"; rm -f "$tmp_dmg"; return 1; }
-  hdiutil attach "$tmp_dmg" -mountpoint "$tmp_mount" -quiet -nobrowse \
-    || { log "Warning: failed to mount $name DMG"; rm -f "$tmp_dmg"; rm -rf "$tmp_mount" 2>/dev/null; return 1; }
-  local found_app
+  if ! curl -L -sf -o "$tmp_dmg" "$dmg_url"; then
+    _github_app_done; log "Warning: failed to download $name"; return 1
+  fi
+  if ! hdiutil attach "$tmp_dmg" -mountpoint "$tmp_mount" -quiet -nobrowse -readonly; then
+    _github_app_done; log "Warning: failed to mount $name DMG"; return 1
+  fi
   found_app=$(find "$tmp_mount" -maxdepth 2 -name "*.app" -type d | head -1)
   if [[ -z "$found_app" ]]; then
-    log "Warning: no .app found in $name DMG"
-    hdiutil detach "$tmp_mount" -quiet; rm -f "$tmp_dmg"; return 1
+    _github_app_done; log "Warning: no .app found in $name DMG"; return 1
   fi
-  cp -R "$found_app" /Applications/ \
-    || { log "Warning: failed to copy $name to /Applications"; hdiutil detach "$tmp_mount" -quiet; rm -f "$tmp_dmg"; return 1; }
-  hdiutil detach "$tmp_mount" -quiet
-  rm -f "$tmp_dmg"
-  rm -rf "$tmp_mount" 2>/dev/null || true
-  trap - EXIT
-  if [[ -d "$app_path" ]]; then
-    xattr -cr "$app_path" 2>/dev/null || true
+  # The app must be the one the skip test above looks for. Copying whatever
+  # the DMG held into /Applications printed success for a differently named
+  # bundle, left $app_path absent, and downloaded it again on every run.
+  if [[ "$(basename "$found_app")" != "$(basename "$app_path")" ]]; then
+    _github_app_done
+    log "Warning: the $name DMG holds $(basename "$found_app"), not $(basename "$app_path") — not installed"
+    return 1
+  fi
+  # Checked before anything reaches /Applications. This function used to
+  # install whatever the DMG held and then strip every extended attribute
+  # from it, and nothing ever looked at a signature: curl sets no quarantine,
+  # so Gatekeeper never assesses an app installed this way on its own.
+  if ! github_app_trusted "$found_app"; then
+    _github_app_done
+    log "Warning: $name in the DMG is not a notarized app signed by team $GITHUB_APP_TEAM_ID — not installed"
+    return 1
+  fi
+  # ditto, not cp: on this Mac `cp` is GNU coreutils, which does not keep
+  # macOS metadata. A copy that fails part-way is removed, so the skip test
+  # above does not mistake the remains for an installed app on the next run.
+  if ! ditto "$found_app" "$app_path"; then
+    rm -rf "$app_path"
+    _github_app_done; log "Warning: failed to copy $name to $app_path"; return 1
+  fi
+  _github_app_done
+  if ! github_app_trusted "$app_path"; then
+    rm -rf "$app_path"
+    log "Warning: the installed copy of $name failed its signature check — removed"
+    return 1
   fi
   ok "$name → $app_path"
 }
@@ -842,3 +892,9 @@ else
 fi
 
 echo ""
+# Exit 1 on any failed step, as setup and brew already do. Until 2026-09-10 this
+# script ended on the echo above, so it exited 0 whatever had failed, and
+# `make all` went on to print "mrk installed successfully".
+if (( failed > 0 )); then
+  exit 1
+fi

@@ -31,8 +31,8 @@ Keep both repositories current. You can then restore the full setup on a new mac
 > 4. Edit the `add_login_item` list in `scripts/post-install`. It adds eight applications.
 > 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 18 named plist domains, plus every `io.github.sevmorris.*` domain as a group.
 > 6. Edit `DOCK_APPS` in `scripts/dock-setup`. The script clears the Dock before it adds the applications.
-> 7. Read `scripts/defaults.sh` before you run it. It writes 77 preference keys, and each key is a personal choice.
-> 8. Remove the `install_github_app` calls in `scripts/post-install` if you do not want Barkeep and KeyVault.
+> 7. Read `scripts/defaults.sh` before you run it. It writes 143 preference keys, and each key is a personal choice.
+> 8. Remove the `install_github_app` calls in `scripts/post-install` if you do not want Barkeep and KeyVault. To install your own apps that way instead, set `GITHUB_APP_TEAM_ID` to your Developer ID team: it refuses any app not signed by that team.
 >
 > Use `make setup-dry` and `make sync ARGS=-n` to see the result of a phase before you apply it.
 
@@ -117,8 +117,8 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
 - **Plist imports (18 apps):** Imports your preference plists. Phase 3 skips an app that already has a preferences file, so it never overwrites a live configuration.
 - **My own applications:** Imports every `io.github.sevmorris.*` plist that `snapshot-prefs` captured. This one does not check that the application is installed: several are tools with no bundle in `/Applications`, and on a new machine the preferences usually arrive before the application does, so an early import means the app finds its settings on first launch.
-- **Barkeep:** Installs Barkeep from the most recent GitHub release. Phase 3 skips this step when `/Applications/Barkeep.app` exists. To update Barkeep, use Barkeep, or delete the app first.
-- **KeyVault:** Installs KeyVault from the most recent GitHub release. Phase 3 skips this step when `/Applications/KeyVault.app` exists. To update KeyVault, use KeyVault, or delete the app first.
+- **Barkeep:** Installs Barkeep from the most recent GitHub release, and only when the app in the release's DMG verifies, is signed by my Developer ID team, and is accepted by Gatekeeper as notarized; anything else is refused and counted as a failed step. Phase 3 skips this step when `/Applications/Barkeep.app` exists. To update Barkeep, use Barkeep, or delete the app first.
+- **KeyVault:** Installs KeyVault from the most recent GitHub release, with the same signature checks as Barkeep. Phase 3 skips this step when `/Applications/KeyVault.app` exists. To update KeyVault, use KeyVault, or delete the app first.
 - **Application Support restore:** Restores the Loopback and SoundSource configuration files. Phase 3 skips a file that exists.
 - **Fonts:** Restores the fonts captured by `snapshot-prefs` into `~/Library/Fonts`. Phase 3 skips a font that is already installed.
 - **GPG pinentry:** Points `gpg-agent` at `pinentry-mac`, so gpg asks for a passphrase in a window. Phase 3 adds one line to `~/.gnupg/gpg-agent.conf`, and it skips this step when the file already sets `pinentry-program`.

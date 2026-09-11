@@ -1254,6 +1254,53 @@ exist. Before failing, mas 7 found an App Store app missing from Spotlight and p
 and `mas help install` had already answered the question. Also hit again: GNU `stat -f`, for the
 fourth time today, and zsh expanding a `======` divider as `=command`.
 
+### The one installer that fetches code checked nothing (2026-09-10)
+
+Entry point: `install_github_app` in `scripts/post-install`, the only place mrk downloads
+executable code and puts it in `/Applications` — Barkeep and KeyVault, from their latest GitHub
+releases, in Phase 3 of every new machine. Driven by a harness that loads the real function and
+stubs `curl`, `hdiutil` and `cp`, so nothing was downloaded or mounted and `/Applications` was
+never written, under `/bin/bash` 3.2 with `set -euo pipefail` as post-install runs.
+
+- **No signature was ever checked.** It copied whatever the DMG held, then ran `xattr -cr` on
+  it; `curl` sets no quarantine, so Gatekeeper never assessed it either. An unsigned app
+  installed with a ✓. The real apps are Developer ID, team `T9RLNAXPWU`, pass
+  `codesign --verify --deep --strict` and are accepted as notarized, so a check costs a
+  legitimate release nothing.
+- **The failure paths left their EXIT trap set**, so it fired again when post-install ended,
+  with the function's locals gone: `tmp_mount: unbound variable`. A temp directory leaked too.
+- **A DMG whose app is named differently** printed ✓ for a path that did not exist and was
+  downloaded again on every run. Latent: both release scripts name the bundles correctly.
+- **A copy that failed part-way was left in place**, and every later run skipped it as
+  installed.
+- **post-install exited 0 whatever had failed** — it ended on an `echo` — so `make all` printed
+  "mrk installed successfully" after it, although mrk-setup and mrk-brew both exit 1.
+- Stale beside it: post-install's `--help` still said it installs the managed browser policy
+  files, removed at 18:54 today; a leftover comment line from the same removal; manual.md's
+  fork list said `defaults.sh` writes 77 keys, not 143; SMAC-1's Phase 3 list named Barkeep and
+  not KeyVault.
+
+**Fixed**: `github_app_trusted` requires a full strict verify, the team in
+`GITHUB_APP_TEAM_ID`, and a Gatekeeper accept, in the DMG and again after the copy. The app must
+carry the name the skip test checks; `ditto` copies it to that exact path (on this Mac `cp` is
+GNU coreutils); a partial copy is removed; every exit runs `_github_app_done`, which also clears
+the trap; an API failure is no longer reported as "no DMG in the release". post-install exits 1
+when any step failed. The fork instructions now mention `GITHUB_APP_TEAM_ID`, since it refuses
+anyone else's apps.
+
+Verified: the six harness cases (a genuine notarized app, a failed download, a misnamed app, a
+failed copy, an unsigned app, and an app signed by another team — Stats, `RP2S87B72W`) against
+the old code and the new; an interrupt mid-download under both, which cleans up either way, so
+the mount-leak fix (H2) is intact; a GNU `cp -R` copy of KeyVault still verifies, so that risk
+was latent; post-install uses no bash-4 syntax, so running under 3.2 on a new Mac is fine.
+**Not verified**: a real download and install, which writes `/Applications`. The harness is
+not in CI, because it borrows KeyVault.app and Stats.app from this Mac.
+
+One measurement error: the first interrupt test sent SIGINT to a background job, which a
+non-interactive shell starts with SIGINT ignored, and bash cannot trap a signal that was
+ignored at startup. The run finished its install and "passed". Redone with TERM, which the same
+trap covers.
+
 ### Closed by module 13, the 2026-08-31 recursive audit
 
 Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the
