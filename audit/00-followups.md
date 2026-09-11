@@ -1162,6 +1162,43 @@ an ISO timestamp and a control file that must appear: nothing changed. And a "co
 core.worktree do not make sense" warning looked like a decloud defect; it came from my own
 `--git-dir` calls without `--work-tree`, and `decloud status` is clean.
 
+### Two repositories one folder down, and a claim Time Machine falsified (2026-09-10)
+
+Follow-up to the entry above, from looking inside the four "non-repository" folders before
+recommending a home for each. **Two of them are wrappers around repositories**:
+`FloppyLetters/FloppyLetter2601` (origin `sevmorris/wp-sim-93`, 145 commits) and `JustIn/JustIn`
+(origin `sevmorris/JustIn`, 18 commits). Both were fully pushed, but pushall and the manifest look
+only at `~/Projects/*/`, so neither had ever been pushed by pushall or recorded for
+`restore-repos` — a new machine would not have cloned them — and pushall's new report, shipped an
+hour earlier, called both folders "not git repositories". (`FL2601`, Cypher's GitHub name, is a
+coincidence: the two repos share no commit.)
+
+**Fixed with one walk for both commands**: `project_repos` in `scripts/lib.sh` lists every repo
+directly in `~/Projects` and every repo one level down in a folder that is not one, and names
+what holds no repo. pushall sweeps that list and snapshot-prefs records the same list, so the two
+cannot drift apart — two copies of the walk is the one-of-a-pair shape this repo keeps
+producing. Never deeper, never inside a repository, and a linked worktree is skipped. Verified:
+unit-tested under `/bin/bash` 3.2 against seven shapes and an empty and a missing root; pushall's
+real dry run now sweeps both nested repos and names only Graphics assets and hacks-checklist;
+the manifest snapshot-prefs would write differs from the committed one by exactly the two new
+lines; `restore-repos` clones a nested path into a fresh and into an existing wrapper folder, and
+skips both on a second run. check-commit-gates gains the cases (44 assertions); three mutations
+of the walk are all caught. The committed manifest gains the two lines at the next
+`snapshot-prefs` run; it was not run here, because it quits applications.
+
+**Correction to the entry above.** It said a migration "would lose" what is not on GitHub, and
+SMAC-1 and manual.md said such work "is gone". Time Machine is configured — a network
+destination on the Raspberry Pi, `~/Projects` included, macOS's own schedule off
+(`AutoBackup = 0`) and TimeMachineEditor's scheduler daemon installed in its place — so the
+accurate claim is narrower: nothing in mrk restores from Time Machine, so such work comes back
+only by hand, and only as of the last backup, whose date needs Full Disk Access to read. Both
+checklists, SMAC-2, BIN-1 and the pushall comment now say that.
+
+**Decisions taken by Seven the same evening**: the ClipHack worktree branch, whose change had
+reached main as `6a15c71`, was deleted with its worktree; `audit/sevmac` was exported to a zip
+(verified intact: three documents, 24,776 bytes) and then deleted rather than pushed, since
+sevmac is public; KeyVault holds DoublEnder's two overlay secrets.
+
 ### Closed by module 13, the 2026-08-31 recursive audit
 
 Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the

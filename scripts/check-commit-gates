@@ -130,6 +130,28 @@ got_cached_s="$(printf '%s\n' "${got_cached[@]}" | sort)"
 if [[ "$got_cached_s" == "$want" ]]; then pass "lists renamed, type-changed and quoted-name files as absolute paths"; else fail "commit_paths --cached listed: $(tr '\n' ' ' <<<"$got_cached_s")"; fi
 if [[ "$got_head_s" == "$got_cached_s" ]]; then pass "the dry-run view (HEAD) matches what add -u then stages"; else fail "dry-run view differs: $(tr '\n' ' ' <<<"$got_head_s")"; fi
 
+# ── project_repos ────────────────────────────────────────────────────────────
+# What pushall sweeps and the manifest records. A repo one level down in a
+# folder that is not one counts; a repo inside a repo, or two levels down,
+# does not; a linked worktree is neither listed nor reported.
+log "project_repos"
+Q="$T/tree"
+mkdir -p "$Q/wrap/loose sub" "$Q/plain/deeper"
+git init -q "$Q/top repo"
+git init -q "$Q/wrap/inner repo"
+git init -q "$Q/plain/deeper/too deep"
+git init -q "$Q/outer" && git init -q "$Q/outer/inside"
+git -C "$Q/top repo" commit -q --allow-empty -m x
+git -C "$Q/top repo" worktree add -q -b wt "$Q/linked" 2>/dev/null
+got_repos=() got_other=()
+project_repos "$Q" got_repos got_other
+want_repos="outer|top repo|wrap/inner repo"
+want_other="plain|wrap/loose sub"
+got_r="$(IFS='|'; echo "${got_repos[*]}")"
+got_o="$(IFS='|'; echo "${got_other[*]}")"
+if [[ "$got_r" == "$want_repos" ]]; then pass "finds repos at the top and one level down, and no deeper"; else fail "repos: [$got_r], expected [$want_repos]"; fi
+if [[ "$got_o" == "$want_other" ]]; then pass "names the folders that hold no repo"; else fail "others: [$got_o], expected [$want_other]"; fi
+
 # ── pushall ──────────────────────────────────────────────────────────────────
 log "pushall"
 P="$T/projects" R="$T/remotes" O="$T/other"
@@ -200,6 +222,16 @@ printf 'notes\n' > "$P/plain folder/notes.txt"
 mk ahead a.txt x
 printf 'more\n' >> "$P/ahead/a.txt"
 git -C "$P/ahead" commit -qam "committed, not pushed"
+# A project kept one level down, in a folder that is not a repo — the shape
+# FloppyLetters/FloppyLetter2601 has — with a change to push, and a sibling
+# folder beside it that nothing carries.
+git init -q --bare "$R/inner.git"
+git clone -q "$R/inner.git" "$P/wrapper/inner" 2>/dev/null
+printf 'x\n' > "$P/wrapper/inner/a.txt"
+git -C "$P/wrapper/inner" add -A && git -C "$P/wrapper/inner" commit -qm init
+git -C "$P/wrapper/inner" push -q -u origin main 2>/dev/null
+printf 'more\n' >> "$P/wrapper/inner/a.txt"
+mkdir -p "$P/wrapper/loose"
 
 # The fixtures are only worth anything if each is in the state it claims.
 expect_busy() {
@@ -215,9 +247,11 @@ expect_busy control        "idle"
 declare -A before=()
 for r in "$R"/*.git; do before["$(basename "$r" .git)"]="$(rev "$r")"; done
 declare -A head_before=()
-for d in "$P"/*/; do
+# Listed by hand, one and two levels down — not with project_repos, which is
+# one of the things under test.
+for d in "$P"/*/ "$P"/*/*/; do
   [[ -d "$d/.git" ]] || continue          # "plain folder" is the point, not a repo
-  n="$(basename "$d")"; head_before["$n"]="$(git -C "$d" rev-parse HEAD)"
+  n="${d#"$P"/}"; n="${n%/}"; head_before["$n"]="$(git -C "$d" rev-parse HEAD)"
 done
 
 run_pushall() {  # run_pushall LOG [--dry-run]
@@ -268,10 +302,10 @@ for log in "$T/dry.log" "$T/real.log"; do
     fail "$mode did not name the unpushed commit on local-branch/side"
   fi
   if grep -q 'stashed: 1 stash(es)' "$log"; then pass "$mode names the stash"; else fail "$mode did not name the stash"; fi
-  if grep -q 'Not git repositories, so pushall and restore-repos never carry them: plain folder$' "$log"; then
-    pass "$mode names the folder that is not a repository"
+  if grep -q 'Not git repositories, so pushall and restore-repos never carry them: plain folder, wrapper/loose$' "$log"; then
+    pass "$mode names the folders that hold no repo, and not the one wrapping a repo"
   else
-    fail "$mode did not name the plain folder"
+    fail "$mode did not list exactly plain folder and wrapper/loose as holding no repo"
   fi
   if grep -q '^ *⚠ control:' "$log"; then fail "$mode warned about control, which has nothing unpushed"; fi
   if grep -q '^ *⚠ ahead:' "$log"; then
@@ -281,6 +315,11 @@ for log in "$T/dry.log" "$T/real.log"; do
   fi
 done
 if [[ "$(rev "$R/ahead.git")" != "${before[ahead]}" ]]; then pass "ahead: the committed-but-unpushed commit was pushed"; else fail "ahead: not pushed"; fi
+if [[ "$(rev "$R/inner.git")" != "${before[inner]}" ]] && grep -q '^wrapper/inner$' "$T/real.log"; then
+  pass "a repo one level down, in a folder that is not one, is swept and pushed"
+else
+  fail "wrapper/inner was not swept — pushall is back to looking only at the top level"
+fi
 
 # ── mrk-push ─────────────────────────────────────────────────────────────────
 # mrk-push acts on the repository it is run in and sources that repository's

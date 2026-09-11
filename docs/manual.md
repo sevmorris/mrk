@@ -458,7 +458,7 @@ git push
 pushall
 ```
 
-The new machine gets `~/Projects` back from `restore-repos`, which clones from GitHub, and from nothing else: Magic Backup Machine does not back up `~/Projects`. Anything that is not on GitHub when you wipe is gone. `pushall` commits and pushes the branch each repository is on, and then names what it leaves behind — commits on other branches that are on no remote, stashes, and folders in `~/Projects` that are not repositories. Deal with each one: push the branch, apply or drop the stash, copy the folder to the transfer disk.
+mrk brings `~/Projects` back to the new machine only from GitHub: `restore-repos` clones what the manifest records, and Magic Backup Machine does not back up `~/Projects`. Time Machine may hold a copy, but nothing in mrk restores from it — anything that is not on GitHub when you wipe comes back only if you dig it out of a Time Machine backup by hand, and only as it was at the last backup. `pushall` commits and pushes the branch each repository is on, including a repository kept one folder down, such as `JustIn/JustIn`, and then names what it leaves behind — commits on other branches that are on no remote, stashes, and folders in `~/Projects` that are not repositories. Deal with each one: push the branch, apply or drop the stash, copy the folder to the transfer disk.
 
 Files a repository ignores are not pushed either. Copy any you need by hand, such as a credential file that `.gitignore` keeps out of the repository.
 

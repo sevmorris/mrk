@@ -73,6 +73,9 @@ conflicts is left untouched and counted as a failure.
 Only tracked changes are staged; untracked files are never committed.
 Every commit is gated behind the mrk secret scan.
 
+A folder that is not a repo is searched one level down, so a project kept
+as ~/Projects/Folder/repo is swept like any other.
+
 Only the branch each repo is on is pushed. pushall names what it leaves
 behind: commits on other branches that are on no remote, stashes, and
 folders that are not git repositories. Before a migration, deal with each.
@@ -84,10 +87,12 @@ EOF
 #
 # pushall pushes the current branch and nothing else, so before 2026-09-10 a
 # commit on any other branch, or a stash, went unmentioned and "Done" read as
-# "everything is on GitHub". On a migration that is exactly wrong: the new
-# machine gets ~/Projects back from restore-repos, which clones from GitHub,
-# and Magic Backup Machine does not back ~/Projects up at all. Informational —
-# it does not count as a failure.
+# "everything is on GitHub". On a migration that is exactly wrong: mrk brings
+# ~/Projects back only through restore-repos, which clones from GitHub, and
+# Magic Backup Machine does not back ~/Projects up at all. Time Machine may
+# hold a copy, but nothing in mrk restores from it — whatever is not on GitHub
+# comes back only by hand, and only as of the last backup. Informational — it
+# does not count as a failure.
 report_local_only() {
   local repo=$1 label=$2 n s cur b c
   # Reachable from a local branch, but from no remote-tracking branch and not
@@ -241,16 +246,15 @@ if [[ ! -d "$PROJECTS_DIR" ]]; then
   exit 1
 fi
 
-for repo in "$PROJECTS_DIR"/*/; do
-  # A folder with no .git at all is noted rather than passed over in silence:
-  # nothing in mrk carries it to a new machine. A .git *file* is a linked
-  # worktree, whose repository lives elsewhere; that one stays quiet.
-  if [[ ! -e "$repo/.git" ]]; then
-    NOT_REPOS+=("$(basename "$repo")")
-    continue
-  fi
-  [[ -d "$repo/.git" ]] || continue
-  process_repo "$repo" "$(basename "$repo")"
+# project_repos (scripts/lib.sh) decides what counts as a project — a repo
+# directly in the folder, or one level down in a folder that is not a repo —
+# and snapshot-prefs records the same list in the manifest. Folders holding
+# no repo come back in NOT_REPOS and are named at the end rather than passed
+# over in silence: nothing in mrk carries them to a new machine.
+PROJECT_REPOS=()
+project_repos "$PROJECTS_DIR" PROJECT_REPOS NOT_REPOS
+for rel in ${PROJECT_REPOS[@]+"${PROJECT_REPOS[@]}"}; do
+  process_repo "$PROJECTS_DIR/$rel" "$rel"
 done
 
 # The mrk sweep is implicit, so it must not fire when the caller has aimed

@@ -367,6 +367,63 @@ commit_paths() {
   rm -f "$_cp_tmp"
 }
 
+# project_repos ROOT REPOS OTHERS — fill the array named REPOS with the path,
+# relative to ROOT, of every git repository a sweep of ROOT should cover, and
+# OTHERS with every folder that holds none. pushall pushes exactly the REPOS
+# list and snapshot-prefs records exactly the same list in the manifest, so
+# the two cannot disagree about what counts as a project.
+#
+#   ROOT/repo/            a repository                    → REPOS "repo"
+#   ROOT/folder/repo/     one level down, in a folder
+#                         that is not one itself          → REPOS "folder/repo"
+#   ROOT/folder/other/    beside such a repo, not one     → OTHERS "folder/other"
+#   ROOT/folder/          no repository at either level   → OTHERS "folder"
+#
+# One level down because that is how a folder wraps a project here —
+# FloppyLetters/FloppyLetter2601 and JustIn/JustIn — and until 2026-09-10
+# neither pushall nor the manifest looked, so both repos were invisible to
+# them. Never deeper, and never inside a repository, so a worktree kept in a
+# repo is not mistaken for a project. A .git *file* (a linked worktree, whose
+# repository lives elsewhere) is neither listed nor reported.
+#
+# eval on validated names, as commit_paths does: this library stays
+# bash-3.2-clean, and the paths are expanded as variables, never as code.
+project_repos() {
+  local _pr_root=$1 _pr_repos=$2 _pr_other=$3 _pr_top _pr_sub _pr_t _pr_s _pr_nested
+  [[ "$_pr_repos" =~ ^[A-Za-z_][A-Za-z0-9_]*$ && "$_pr_other" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || return 1
+  eval "$_pr_repos=()"
+  eval "$_pr_other=()"
+  for _pr_top in "$_pr_root"/*/; do
+    _pr_top=${_pr_top%/}
+    [[ -d "$_pr_top" ]] || continue        # the unexpanded glob of an empty ROOT
+    _pr_t=${_pr_top##*/}
+    if [[ -d "$_pr_top/.git" ]]; then
+      eval "$_pr_repos+=(\"\$_pr_t\")"
+      continue
+    fi
+    [[ -e "$_pr_top/.git" ]] && continue
+    _pr_nested=0
+    for _pr_sub in "$_pr_top"/*/; do
+      _pr_sub=${_pr_sub%/}
+      [[ -d "$_pr_sub/.git" ]] || continue
+      _pr_s="$_pr_t/${_pr_sub##*/}"
+      eval "$_pr_repos+=(\"\$_pr_s\")"
+      _pr_nested=1
+    done
+    if (( _pr_nested )); then
+      for _pr_sub in "$_pr_top"/*/; do
+        _pr_sub=${_pr_sub%/}
+        [[ -e "$_pr_sub/.git" ]] && continue
+        _pr_s="$_pr_t/${_pr_sub##*/}"
+        eval "$_pr_other+=(\"\$_pr_s\")"
+      done
+    else
+      eval "$_pr_other+=(\"\$_pr_t\")"
+    fi
+  done
+  return 0
+}
+
 # git_in_progress REPO — print what REPO is in the middle of and return 0, or
 # return 1 when it is idle.
 #
