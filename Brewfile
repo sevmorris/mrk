@@ -5,6 +5,7 @@ tap "sevmorris/tap"
 ## CLI Tools - General Utilities & Power User Tools
 brew "autoconf"
 brew "bash"
+brew "bash-completion@2"
 brew "bat"
 brew "cliclick"
 # GNU coreutils — prepend gnubin so ls/cat/sed use GNU names (see Brewfile comment)
@@ -113,6 +114,7 @@ cask "macwhisper", greedy: true
 cask "mdrp", greedy: true
 cask "mediainfo", greedy: true
 cask "minecraft", greedy: true
+cask "nordpass", greedy: true
 cask "nordvpn", greedy: true
 cask "omnidisksweeper", greedy: true
 cask "onyx", greedy: true
