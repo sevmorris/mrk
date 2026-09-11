@@ -490,6 +490,7 @@
   <a href="#dock-setup">2.21 dock-setup</a>
   <a href="#ci-check">2.22 ci-check</a>
   <a href="#check-picker-desc">2.23 check-picker-desc</a>
+  <a href="#check-commit-gates">2.24 check-commit-gates</a>
   <a href="#snapshot-keys">2.25 snapshot-keys</a>
   <a href="#restore-keys">2.26 restore-keys</a>
   <a href="#restore-repos">2.27 restore-repos</a>
@@ -523,7 +524,7 @@
 
       <div class="callout">
         <span class="callout-label">Asking a Command What It Does</span>
-        <div class="callout-body">Every command in this manual answers <code>-h</code> and <code>--help</code> by printing a usage summary and exiting 0, and refuses any argument it does not recognise with exit 2. Both halves are deliberate. A script with no option parser does not ignore an unrecognised flag — it runs, with the flag discarded. Twelve commands here behaved that way until 2026-09-10, so <code>mrk-uninstall --help</code> unlinked <code>~/bin</code> and <code>mrk-post-install --help</code> installed applications. This manual has 38 command entries, one for each executable mrk puts on the PATH — <code>status</code> and <code>mrk-status</code> are two names for the same binary, and <code>bin/lib/</code> is a directory rather than a command. Thirty-seven of the 38 answer <code>--help</code> and refuse an unknown argument with exit 2. <code>decloud</code> is the single exception and forwards every argument to git by design. Where a command takes no options of its own, the contract comes from <code>mrk_help_guard</code> in <code>scripts/lib.sh</code>; the two LaunchAgent scripts spell it out inline so that an unattended job depends on nothing but itself. Exit 2 always means the command line was wrong and nothing was attempted. A command that ran and then failed exits 1, so the two are worth telling apart: <code>restore-keys nope.gpg</code> exits 1 because the archive is missing, while <code>restore-keys a.gpg b.gpg</code> exits 2 because it never started.</div>
+        <div class="callout-body">Every command in this manual answers <code>-h</code> and <code>--help</code> by printing a usage summary and exiting 0, and refuses any argument it does not recognise with exit 2. Both halves are deliberate. A script with no option parser does not ignore an unrecognised flag — it runs, with the flag discarded. Twelve commands here behaved that way until 2026-09-10, so <code>mrk-uninstall --help</code> unlinked <code>~/bin</code> and <code>mrk-post-install --help</code> installed applications. This manual has 39 command entries, one for each executable mrk puts on the PATH — <code>status</code> and <code>mrk-status</code> are two names for the same binary, and <code>bin/lib/</code> is a directory rather than a command. Thirty-eight of the 39 answer <code>--help</code> and refuse an unknown argument with exit 2. An option given without its value, or with a value it cannot use, is a wrong command line too and also exits 2 — <code>pushall --projects</code> with no directory, <code>snapshot-keys -o ""</code>, <code>prune-deployments --keep abc</code>. Until 2026-09-10 five options exited 1 when their value was missing, four of them with bash's own message and no usage. <code>decloud</code> is the single exception and forwards every argument to git by design. Where a command takes no options of its own, the contract comes from <code>mrk_help_guard</code> in <code>scripts/lib.sh</code>; the two LaunchAgent scripts spell it out inline so that an unattended job depends on nothing but itself. Exit 2 always means the command line was wrong and nothing was attempted. A command that ran and then failed exits 1, so the two are worth telling apart: <code>restore-keys nope.gpg</code> exits 1 because the archive is missing, while <code>restore-keys a.gpg b.gpg</code> exits 2 because it never started.</div>
       </div>
 
       <div class="callout callout-caution">
@@ -570,7 +571,7 @@
           <pre><code>snapshot [--brewfile] [--help]</code></pre>
           <ul>
             <li>snapshot writes the plists and then stops. It does not commit or push them, and gitignore excludes them.</li>
-            <li>snapshot does not scan the exported plists for secrets. Only <code>snapshot-prefs</code> and <code>mrk-push</code> do that.</li>
+            <li>snapshot does not scan the exported plists for secrets, because it commits nothing. The commands that commit — <code>snapshot-prefs</code>, <code>mrk-push</code> and <code>pushall</code> — scan what they commit.</li>
             <li><code>--brewfile</code> — also runs <code>brew bundle dump</code>. This command overwrites the comments in the Brewfile, so snapshot asks you to confirm first.</li>
             <li><strong>Apps:</strong> AlDente, Amphetamine, BetterSnapTool, Descript, Fission, HandBrake, Helium, Ice, iTerm2, ScreenFlow</li>
           </ul>
@@ -739,6 +740,8 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
             <li><strong>Application Support:</strong> Loopback (devices and routing), SoundSource (presets and sources)</li>
             <li><strong>Config directories:</strong> Calibre (<code>~/Library/Preferences/calibre/</code>). Calibre keeps a tree of files, not a defaults domain, so snapshot-prefs copies the files. <code>~/.config/MusicBrainz</code> is deliberately not copied: Picard writes its OAuth tokens into the same INI as its settings.</li>
             <li>snapshot-prefs converts each binary plist to xml1 before it scans the file, because the scan cannot read a binary plist.</li>
+            <li>The scan before the commit covers every staged file that carries content, fonts excepted. Until 2026-09-10 it skipped a renamed file: <code>git add -A</code> stages a plist whose name changed as a rename, and the list the scan read held only added and modified files, so a secret in it went unread.</li>
+            <li>snapshot-prefs refuses to start while a merge, rebase or cherry-pick in <code>~/.mrk/preferences</code> is unfinished, or while a file there has unresolved conflicts, and exits 1. It checks before it quits any app or exports anything. pull-prefs pulls with <code>--ff-only</code>, so only a git command run by hand leaves the repository in that state.</li>
             <li>snapshot-prefs skips an app that is not installed, and it reports the skipped apps when it exits.</li>
           </ul>
         </div>
@@ -993,7 +996,7 @@ mrk-status [--help | -h]</code></pre>
         <div class="proc-body">
           <div class="callout callout-caution">
             <span class="callout-label">Caution</span>
-            <div class="callout-body">mrk-push scans every staged file for API keys and tokens before it commits. If the scan finds a match, mrk-push stops and asks you to confirm. It does not ask when <code>NONINTERACTIVE=1</code> is set or when there is no terminal — in those two cases it aborts. Read the reported lines before you answer.</div>
+            <div class="callout-body">mrk-push scans every file the commit carries for API keys and tokens before it commits. If the scan finds a match, mrk-push stops and asks you to confirm. It does not ask when <code>NONINTERACTIVE=1</code> is set or when there is no terminal — in those two cases it aborts. Read the reported lines before you answer. A file the scan cannot read counts as a match, not as clean.</div>
           </div>
           <p class="desc">mrk-push commits the mrk repository and pushes it. It then deletes the old GitHub Pages deployments with the GitHub CLI. If you give no commit message, mrk-push asks you for one.</p>
           <pre><code>mrk-push "commit message"
@@ -1008,6 +1011,11 @@ mrk-push -- "-starts with a dash"</code></pre>
           <ul>
             <li>mrk-push takes one argument for the message, so quote it. Until 2026-09-10 it read only the first word and discarded the rest, so <code>mrk-push fix the login bug</code> committed <code>fix</code> without saying so. It now refuses and prints the quoted form you meant.</li>
             <li>mrk-push refuses any other argument that begins with a dash. Before 2026-09-09 it had no option parsing at all and took every argument as the commit message, so <code>mrk-push --help</code> committed and pushed with <code>--help</code> as the subject.</li>
+          </ul>
+          <ul>
+            <li>mrk-push refuses to stage anything while a merge, rebase, cherry-pick or revert is unfinished, or while a file still has unresolved conflicts, and exits 1. <code>git add -u</code> would otherwise mark the conflicted files resolved with their conflict markers in, and the commit would conclude the merge.</li>
+            <li>Until 2026-09-10 the secret scan had three holes, each of which let a planted secret through in a sandbox. Run from a subdirectory such as <code>docs/</code>, mrk-push handed the scanner paths relative to the top of the repository, the scanner found none of them from where it stood, and it reported clean having read nothing. A renamed file and a symlink replaced by a file were left off the list entirely. A file with a non-ASCII name was listed in git's quoted form, which names no file. The list now comes from <code>commit_paths</code> in <code>scripts/lib.sh</code>, and <code>check-commit-gates</code> plants each case in a throwaway repository on every <code>make check</code>.</li>
+            <li>A commit that only deletes or renames files is committed. Until 2026-09-10 mrk-push decided whether there was anything to commit from the list of files it scans, which holds no deleted file, so it answered "Nothing to commit.", pushed without the change, left it staged and discarded the message.</li>
           </ul>
           <ul>
             <li>mrk-push needs the <code>gh</code> CLI on the PATH.</li>
@@ -1082,6 +1090,7 @@ mrk-push -- "-starts with a dash"</code></pre>
             <li>Run <code>check-picker-desc</code>.</li>
             <li>Run <code>check-defaults-desc</code>.</li>
             <li>Scan every <strong>tracked</strong> file for secrets. mrk-push and pushall scan only what is being staged, so a file that trips the scanner and is then committed stays tripped and trains you to dismiss the gate.</li>
+            <li>Run <code>check-commit-gates</code>, which proves that pushall and mrk-push still refuse a planted secret and an unfinished merge.</li>
             <li>Run shellcheck on every bash script in <code>scripts/</code> and <code>bin/</code>.</li>
             <li>Run <code>go test</code> in the four tool directories: picker, mrk-status, mrk-menu and theme.</li>
           </ol>
@@ -1109,6 +1118,24 @@ mrk-push -- "-starts with a dash"</code></pre>
         </div>
       </div>
 
+      <div class="proc" id="check-commit-gates">
+        <div class="proc-header">
+          <span class="proc-num">2.24</span>
+          <h3>check-commit-gates <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">check-commit-gates proves that the commands which commit and push keep secrets and conflict markers off a remote. It builds throwaway repositories, each with a local bare remote, in a temporary directory, plants a case in each, and runs <code>pushall</code> and <code>mrk-push</code> against them.</p>
+          <pre><code>check-commit-gates [--help | -h]</code></pre>
+          <ul>
+            <li>The cases are a secret in an ordinary file, in a file with a non-ASCII name, in a renamed file, in a symlink replaced by a file and in a file added by hand; a repository stopped mid-merge, mid-cherry-pick and with a conflicted <code>git stash pop</code>; mrk-push run from a subdirectory; and a commit that only deletes. Every one of them reached a remote, or lost a commit, in a sandbox before 2026-09-10.</li>
+            <li>Each refusal is checked against a control that must succeed — an ordinary change must be pushed — because a harness in which nothing is ever pushed would pass every "was refused" test.</li>
+            <li>It fails if the dry run of pushall and the real run disagree about which repositories they refuse. On 2026-09-10 the dry run caught a secret in a renamed file that the real run then pushed.</li>
+            <li>pushall is always run with <code>--projects</code> and <code>--no-mrk</code>, and <code>HOME</code> points into the temporary directory, so a regression in either flag still cannot reach <code>~/Projects</code> or the mrk repository. It uses its own git configuration, so your global <code>pull.rebase</code>, hooks or signing key cannot change the result.</li>
+            <li>check-commit-gates exits with status 1 when any case fails, and names it. <code>ci-check</code> runs it after the tracked-file secret scan, so <code>make check</code> covers it.</li>
+          </ul>
+        </div>
+      </div>
+
       <div class="proc" id="snapshot-keys">
         <div class="proc-header">
           <span class="proc-num">2.25</span>
@@ -1118,7 +1145,7 @@ mrk-push -- "-starts with a dash"</code></pre>
           <p class="desc">snapshot-keys puts <code>~/.ssh</code>, <code>~/.gnupg</code> and the code-signing identities into one archive. The archive is a symmetric OpenPGP message with AES-256 and ASCII armor. It asks for a passphrase.</p>
           <pre><code>snapshot-keys [-o PATH] [-n] [-f] [--no-signing] [--help | -h]</code></pre>
           <ul>
-            <li><code>-o</code> or <code>--output PATH</code> — Write the archive to PATH. The default is <code>~/Desktop/mrk-keys-&lt;timestamp&gt;.asc</code>.</li>
+            <li><code>-o</code> or <code>--output PATH</code> — Write the archive to PATH. The default is <code>~/Desktop/mrk-keys-&lt;timestamp&gt;.asc</code>. A missing or empty PATH exits 2. Until 2026-09-10 a missing one exited 1, and <code>-o ""</code> quietly used the default.</li>
             <li><code>-n</code> or <code>--dry-run</code> — List the contents. snapshot-keys writes no file.</li>
             <li><code>-f</code> or <code>--force</code> — Overwrite the output file when it exists.</li>
             <li><code>--no-signing</code> — Skip the code-signing identities. The export of an identity needs a macOS dialog.</li>
@@ -1199,6 +1226,7 @@ mrk-push -- "-starts with a dash"</code></pre>
           <ul>
             <li>prune-deployments protects the most recent deployment whose status is success, whether or not <code>--keep</code> covers it. That deployment serves the site. A failed build makes the newest deployment the broken one, so a count alone is not sufficient.</li>
             <li>prune-deployments marks a deployment inactive before it deletes it. The API needs this order.</li>
+            <li>An option without its value, a <code>--keep</code> that is not a positive whole number, and a <code>--repo</code> that is not OWNER/NAME all exit 2 before anything else runs, as <code>maintain</code> already did for <code>--keep</code>. Until 2026-09-10 they exited 1, the first with bash's own <code>line 71: 2: --keep needs a number</code>. A repository read from the origin remote that is not OWNER/NAME still exits 1: the command line was right and the environment was not.</li>
             <li>prune-deployments needs <code>gh</code> on the PATH.</li>
           </ul>
         </div>
@@ -1218,8 +1246,11 @@ mrk-push -- "-starts with a dash"</code></pre>
             <li><code>--no-mrk</code> — Leave the mrk repository out of a default sweep.</li>
           </ul>
           <ul>
-            <li>pushall skips a repository that has no remote.</li>
-            <li>pushall scans the staged files for secrets before each commit.</li>
+            <li>pushall skips a repository that has no remote or no upstream tracking branch, and one that is already level with its upstream.</li>
+            <li>pushall leaves a repository alone while a merge, rebase, cherry-pick or revert in it is unfinished, or while a file has unresolved conflicts, and counts it as a failure. Until 2026-09-10 it ran <code>git add -u</code> there, which marks every conflicted file resolved with its conflict markers in, committed — concluding the merge — and pushed <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</code> to the remote.</li>
+            <li>pushall stages only the tracked files, then scans every file the commit carries for secrets. A repository whose scan finds a match is skipped and its changes are left staged. Until 2026-09-10 the scan skipped a renamed file, a symlink replaced by a file and a file with a non-ASCII name, and pushed a planted secret in each; its dry run caught the renamed one, so a clean dry run did not mean a clean push.</li>
+            <li>pushall pulls the mrk repository before it pushes it, and no other repository.</li>
+            <li>pushall exits 1 when any repository fails or is refused, and exits 2 on a wrong command line, including <code>--projects</code> without a directory.</li>
           </ul>
         </div>
       </div>
@@ -1392,8 +1423,12 @@ mrk-push -- "-starts with a dash"</code></pre>
           <tr><td><code>check_macos</code></td><td>Exits when the operating system is not macOS.</td></tr>
           <tr><td><code>setup_logging</code></td><td>Creates <code>~/.mrk</code>. Rotates <code>~/.mrk/install.log</code> when the log is larger than 10&nbsp;MB.</td></tr>
           <tr><td><code>mrk_mktemp / mrk_mktemp_d</code></td><td>Creates a temporary file or directory. Uses an explicit template, because GNU mktemp rejects the BSD form <code>-t mrk</code>.</td></tr>
-          <tr><td><code>scan_for_secrets</code></td><td>Searches files for API keys, tokens and private keys. Converts a binary plist to xml1 first. Returns non-zero when it finds a match.</td></tr>
+          <tr><td><code>mrk_help_guard USAGE ARGS…</code></td><td>The whole option parser of a command that takes no options: prints USAGE and exits 0 on <code>-h</code> or <code>--help</code>, and exits 2 on any other argument.</td></tr>
+          <tr><td><code>init_rollback PATH</code></td><td>Starts a rollback script at PATH: creates the directory, keeps a script that already starts with <code>#!</code>, and moves any other file aside to <code>PATH.unrecognised-&lt;timestamp&gt;</code> rather than overwrite it.</td></tr>
+          <tr><td><code>scan_for_secrets</code></td><td>Searches files for API keys, tokens and private keys. Converts a binary plist to xml1 first. Returns non-zero when it finds a match, and when it is given a path it cannot read — that used to be skipped as clean. Skips symlinks and directories, which commit no file content.</td></tr>
           <tr><td><code>require_clean_secrets</code></td><td>Runs <code>scan_for_secrets</code> and gates the commit. Asks you to confirm a match. Aborts instead when <code>NONINTERACTIVE=1</code> is set or when there is no terminal.</td></tr>
+          <tr><td><code>commit_paths ARRAY REPO TARGET</code></td><td>Fills ARRAY with the absolute path of every file whose content the next commit carries: <code>--cached</code> for what is staged, <code>HEAD</code> for what <code>git add -u</code> would stage. It lists renamed files, type changes and names git would quote, which the list it replaced did not. mrk-push, pushall and snapshot-prefs build their scan lists with it.</td></tr>
+          <tr><td><code>git_in_progress REPO</code></td><td>Prints what REPO is in the middle of — a merge, rebase, cherry-pick, revert, <code>git am</code> or bisect, or unresolved conflicts left by <code>git stash pop</code> — and returns 1 when it is idle. mrk-push, pushall and snapshot-prefs refuse to stage while it answers.</td></tr>
         </tbody>
       </table>
         </div>
@@ -1444,7 +1479,7 @@ mrk-push -- "-starts with a dash"</code></pre>
           <tr><td><code>mrk-push "msg"</code></td><td>Commit and push the mrk repository, then delete the old Pages deployments</td></tr>
           <tr><td><code>maintain</code></td><td>Delete the old Pages deployments, fetch, validate, and check the builds</td></tr>
           <tr><td><code>dock-setup</code></td><td>Replace the Dock contents with the preferred apps</td></tr>
-          <tr><td><code>ci-check</code></td><td>Run the local validation: picker descriptions, shellcheck and go test</td></tr>
+          <tr><td><code>ci-check</code></td><td>Run the local validation: picker and defaults descriptions, the secret scan, the commit gates, shellcheck and go test</td></tr>
           <tr><td><code>check-picker-desc</code></td><td>Check that every Brewfile package has a picker description</td></tr>
           <tr><td><code>nuke-mrk</code></td><td>Delete every mrk file, so that you can install mrk again</td></tr>
           <tr><td><code>harden</code></td><td>Apply the optional macOS security settings</td></tr>

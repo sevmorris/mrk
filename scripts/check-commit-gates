@@ -1,0 +1,323 @@
+#!/usr/bin/env bash
+
+# check-commit-gates — prove the commit gates keep secrets and conflict markers
+# off a remote
+#
+# pushall, mrk-push and snapshot-prefs each stage, scan for secrets, commit and
+# push. Until 2026-09-10 every one of the cases below put something on a
+# remote in a sandbox: a secret in a renamed file, a symlink turned file, or a
+# file with a non-ASCII name, none of which the scan ever read; a secret
+# anywhere, when mrk-push ran from a subdirectory; the conflict markers of a
+# half-finished merge. mrk-push also dropped a commit that only deleted files.
+#
+# Everything happens in throwaway repositories with local bare remotes under a
+# temporary directory. pushall is always given --projects and --no-mrk, so a
+# regression in either flag still cannot reach ~/Projects or this repository.
+
+# Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2)
+if (( BASH_VERSINFO[0] < 4 )); then
+  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
+  done
+  echo "error: bash 4+ required (system bash is ${BASH_VERSION}; install via 'brew install bash')" >&2
+  exit 1
+fi
+
+set -euo pipefail
+
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+usage() {
+  cat <<'EOF'
+check-commit-gates — prove the commit gates keep secrets and conflict markers off a remote
+
+Usage:
+  check-commit-gates
+
+Options:
+  -h, --help      Show this help
+
+check-commit-gates takes no options other than --help. It builds throwaway
+repositories with local bare remotes in a temporary directory, runs pushall
+and mrk-push against them, and fails if a planted secret or a conflict marker
+reaches a remote, or if a commit that should happen does not. ci-check runs it.
+EOF
+}
+mrk_help_guard "$(usage)" "$@"
+
+T="$(mrk_mktemp_d)"
+trap 'rm -rf "$T"' EXIT
+# Hermetic in the current directory too. A scan handed relative names reads
+# whatever files of those names sit here: in a mutation run from a directory
+# that happened to hold a clean a.txt and b.txt, that is what got scanned, and
+# two planted secrets were pushed.
+cd "$T"
+
+# The user's git configuration must not decide the result: a global
+# pull.rebase, hooks path or signing key would each change what happens.
+export GIT_CONFIG_GLOBAL="$T/gitconfig" GIT_CONFIG_NOSYSTEM=1
+git config --global user.name  "check-commit-gates"
+git config --global user.email "check-commit-gates@invalid"
+git config --global init.defaultBranch main
+git config --global advice.detachedHead false
+# The scan has to refuse rather than ask: make check usually runs at a terminal.
+export NONINTERACTIVE=1
+
+# Built at run time so this file holds no string the secret scan would flag.
+SECRET="ghp_$(printf 'Q%.0s' $(seq 1 36))"
+
+FAILS=0
+pass() { ok "$*"; }
+fail() { err "$*"; FAILS=$((FAILS + 1)); }
+
+# rev BARE — the commit main points at in a bare remote
+rev() { git -C "$1" rev-parse -q --verify refs/heads/main 2>/dev/null || echo none; }
+
+# ── scan_for_secrets ─────────────────────────────────────────────────────────
+log "scan_for_secrets"
+U="$T/unit"
+mkdir -p "$U/dir"
+printf 'token: %s\n' "$SECRET" > "$U/secret.txt"
+ln -s "$U/secret.txt" "$U/link-to-secret"
+ln -s "$U/absent" "$U/dangling"
+
+rc=0; scan_for_secrets "$U/secret.txt" 2>/dev/null || rc=$?
+if (( rc == 1 )); then pass "flags a planted secret"; else fail "missed a planted secret (rc=$rc) — every other result here is void"; fi
+rc=0; scan_for_secrets "$U/no-such-file" 2>/dev/null || rc=$?
+if (( rc == 1 )); then pass "fails closed on a path it cannot read"; else fail "passed a path it could not read (rc=$rc)"; fi
+rc=0; scan_for_secrets "$U/link-to-secret" "$U/dangling" "$U/dir" 2>/dev/null || rc=$?
+if (( rc == 0 )); then pass "skips symlinks and directories, which commit no file content"; else fail "read through a symlink or a directory (rc=$rc)"; fi
+
+# ── commit_paths ─────────────────────────────────────────────────────────────
+log "commit_paths"
+C="$T/paths"
+git init -q "$C"
+mkdir -p "$C/sub"
+seq 1 40 > "$C/a.txt"
+printf 'x\n' > "$C/café.txt"
+printf 'gone\n' > "$C/gone.txt"
+printf 'x\n' > "$C/sub/x.txt"
+ln -s a.txt "$C/link"
+git -C "$C" add -A && git -C "$C" commit -qm init
+git -C "$C" mv a.txt b.txt              # staged rename, then edited
+printf 'more\n' >> "$C/b.txt"
+printf 'y\n' >> "$C/café.txt"           # a name git C-quotes
+rm "$C/link"; printf 'z\n' > "$C/link"  # symlink replaced by a file
+rm "$C/gone.txt"                        # deletion: no content, not listed
+printf 'y\n' >> "$C/sub/x.txt"
+# git reports the physical path, and macOS's temporary directory sits behind
+# a symlink (/var → /private/var), so build the expectation from git's answer.
+top="$(git -C "$C" rev-parse --show-toplevel)"
+want="$(printf '%s\n' "$top/b.txt" "$top/café.txt" "$top/link" "$top/sub/x.txt" | sort)"
+
+# Asked from the subdirectory, which is where mrk-push used to go wrong.
+got_head=() got_cached=()
+commit_paths got_head "$C/sub" HEAD
+git -C "$C" add -u
+commit_paths got_cached "$C/sub" --cached
+got_head_s="$(printf '%s\n' "${got_head[@]}" | sort)"
+got_cached_s="$(printf '%s\n' "${got_cached[@]}" | sort)"
+if [[ "$got_cached_s" == "$want" ]]; then pass "lists renamed, type-changed and quoted-name files as absolute paths"; else fail "commit_paths --cached listed: $(tr '\n' ' ' <<<"$got_cached_s")"; fi
+if [[ "$got_head_s" == "$got_cached_s" ]]; then pass "the dry-run view (HEAD) matches what add -u then stages"; else fail "dry-run view differs: $(tr '\n' ' ' <<<"$got_head_s")"; fi
+
+# ── pushall ──────────────────────────────────────────────────────────────────
+log "pushall"
+P="$T/projects" R="$T/remotes" O="$T/other"
+mkdir -p "$P" "$R" "$O"
+
+mk() {  # mk NAME FILE CONTENT — repo with one pushed commit and an upstream
+  git init -q --bare "$R/$1.git"
+  git clone -q "$R/$1.git" "$P/$1" 2>/dev/null
+  printf '%s\n' "$3" > "$P/$1/$2"
+  git -C "$P/$1" add -A
+  git -C "$P/$1" commit -qm init
+  git -C "$P/$1" push -q -u origin main 2>/dev/null
+}
+
+mk control a.txt x;            printf 'more\n' >> "$P/control/a.txt"
+mk delete-only a.txt x;        printf 'y\n' > "$P/delete-only/b.txt"
+git -C "$P/delete-only" add b.txt && git -C "$P/delete-only" commit -qm b && git -C "$P/delete-only" push -q
+rm "$P/delete-only/b.txt"
+mk secret-plain a.txt x;       printf 'token: %s\n' "$SECRET" >> "$P/secret-plain/a.txt"
+mk secret-unicode café.txt x;  printf 'token: %s\n' "$SECRET" >> "$P/secret-unicode/café.txt"
+mk secret-rename a.txt "$(seq 1 40)"
+git -C "$P/secret-rename" mv a.txt b.txt; printf 'token: %s\n' "$SECRET" >> "$P/secret-rename/b.txt"
+mk secret-typechange a.txt x
+ln -s a.txt "$P/secret-typechange/link"
+git -C "$P/secret-typechange" add link && git -C "$P/secret-typechange" commit -qm link && git -C "$P/secret-typechange" push -q
+rm "$P/secret-typechange/link"; printf 'token: %s\n' "$SECRET" > "$P/secret-typechange/link"
+mk secret-staged a.txt x;      printf 'token: %s\n' "$SECRET" > "$P/secret-staged/new.txt"
+git -C "$P/secret-staged" add new.txt
+
+conflict() {  # conflict NAME — a local and a remote commit that disagree on a.txt
+  mk "$1" a.txt base
+  git clone -q "$R/$1.git" "$O/$1" 2>/dev/null
+  printf 'theirs\n' > "$O/$1/a.txt"
+  git -C "$O/$1" commit -qam theirs && git -C "$O/$1" push -q
+  printf 'ours\n' > "$P/$1/a.txt"
+}
+conflict merge-conflict
+git -C "$P/merge-conflict" commit -qam ours
+git -C "$P/merge-conflict" pull -q --no-rebase >/dev/null 2>&1 || true
+conflict stash-conflict
+git -C "$P/stash-conflict" stash -q
+git -C "$P/stash-conflict" pull -q --ff-only >/dev/null 2>&1
+printf 'mine\n' > "$P/stash-conflict/a.txt"
+git -C "$P/stash-conflict" commit -qam mine
+git -C "$P/stash-conflict" stash pop >/dev/null 2>&1 || true
+mk pick-conflict a.txt base
+git -C "$P/pick-conflict" checkout -q -b side
+printf 'side\n' > "$P/pick-conflict/a.txt"; git -C "$P/pick-conflict" commit -qam side
+git -C "$P/pick-conflict" checkout -q main
+printf 'main\n' > "$P/pick-conflict/a.txt"; git -C "$P/pick-conflict" commit -qam main
+git -C "$P/pick-conflict" push -q
+git -C "$P/pick-conflict" cherry-pick side >/dev/null 2>&1 || true
+
+# The fixtures are only worth anything if each is in the state it claims.
+expect_busy() {
+  local got
+  got="$(git_in_progress "$P/$1" || echo idle)"
+  if [[ "$got" == "$2" ]]; then pass "git_in_progress: $1 → $2"; else fail "git_in_progress: $1 → $got, expected $2"; fi
+}
+expect_busy merge-conflict "merge in progress"
+expect_busy pick-conflict  "cherry-pick in progress"
+expect_busy stash-conflict "unresolved conflicts"
+expect_busy control        "idle"
+
+declare -A before=()
+for r in "$R"/*.git; do before["$(basename "$r" .git)"]="$(rev "$r")"; done
+declare -A head_before=()
+for d in "$P"/*/; do n="$(basename "$d")"; head_before["$n"]="$(git -C "$d" rev-parse HEAD)"; done
+
+run_pushall() {  # run_pushall LOG [--dry-run]
+  local log=$1; shift
+  local rc=0
+  HOME="$T/home" "$REPO_ROOT/bin/pushall" --projects "$P" --no-mrk "$@" >"$log" 2>&1 || rc=$?
+  echo "$rc"
+}
+flagged() { grep -o '[a-z-]*: secret scan not cleared' "$1" | cut -d: -f1 | sort | tr '\n' ' '; }
+secret_repos="secret-plain secret-rename secret-staged secret-typechange secret-unicode "
+
+rc="$(run_pushall "$T/dry.log" --dry-run)"
+changed=0
+for n in "${!before[@]}"; do [[ "$(rev "$R/$n.git")" == "${before[$n]}" ]] || changed=1; done
+for n in "${!head_before[@]}"; do [[ "$(git -C "$P/$n" rev-parse HEAD)" == "${head_before[$n]}" ]] || changed=1; done
+if (( changed == 0 )); then pass "--dry-run committed and pushed nothing"; else fail "--dry-run changed a repository"; fi
+if (( rc == 1 )); then pass "--dry-run exits 1 when a repository would fail"; else fail "--dry-run exited $rc"; fi
+dry_flagged="$(flagged "$T/dry.log")"
+if [[ "$dry_flagged" == "$secret_repos" ]]; then pass "--dry-run flags every planted secret"; else fail "--dry-run flagged [$dry_flagged], expected [$secret_repos]"; fi
+
+rc="$(run_pushall "$T/real.log")"
+real_flagged="$(flagged "$T/real.log")"
+if [[ "$real_flagged" == "$dry_flagged" ]]; then pass "the real run refuses exactly what the dry run flagged"; else fail "real run flagged [$real_flagged], the dry run [$dry_flagged]"; fi
+if (( rc == 1 )); then pass "pushall exits 1 when a repository fails"; else fail "pushall exited $rc"; fi
+for n in control delete-only; do
+  if [[ "$(rev "$R/$n.git")" != "${before[$n]}" ]]; then pass "$n was pushed"; else fail "$n was not pushed — nothing else here means anything if pushall pushed nothing"; fi
+done
+if git -C "$R/delete-only.git" cat-file -e main:b.txt 2>/dev/null; then
+  fail "delete-only: the deletion was not committed"
+else
+  pass "delete-only: the deletion was committed"
+fi
+for n in secret-plain secret-unicode secret-rename secret-typechange secret-staged \
+         merge-conflict pick-conflict stash-conflict; do
+  if [[ "$(rev "$R/$n.git")" == "${before[$n]}" ]]; then pass "$n: remote untouched"; else fail "$n: pushed"; fi
+done
+for r in "$R"/*.git; do
+  if git -C "$r" grep -q -e "$SECRET" -e '^<<<<<<< ' main -- 2>/dev/null; then
+    fail "$(basename "$r" .git): a secret or a conflict marker is on the remote"
+  fi
+done
+if grep -q 'merge-conflict: merge in progress' "$T/real.log"; then pass "pushall names the unfinished merge"; else fail "pushall did not report the unfinished merge"; fi
+
+# ── mrk-push ─────────────────────────────────────────────────────────────────
+# mrk-push acts on the repository it is run in and sources that repository's
+# scripts/lib.sh, so each case gets a small repository holding copies of this
+# tree's mrk-push and lib.sh. origin names GitHub, because mrk-push parses it,
+# but pushes go to a local bare. bin/prune-deployments is left out, so the
+# pruning step skips itself, and the `gh` on PATH refuses to run.
+log "mrk-push"
+mkdir -p "$T/stub"
+printf '#!/bin/sh\necho "check-commit-gates: gh must not be called" >&2\nexit 97\n' > "$T/stub/gh"
+chmod +x "$T/stub/gh"
+
+syn() {  # syn NAME — echo the path of a fresh mrk-push test repository
+  local d="$T/mp/$1"
+  mkdir -p "$d/bin" "$d/scripts" "$d/docs"
+  git init -q --bare "$d.git"
+  git init -q "$d"
+  cp "$REPO_ROOT/bin/mrk-push" "$d/bin/"
+  cp "$REPO_ROOT/scripts/lib.sh" "$d/scripts/"
+  printf 'page\n' > "$d/docs/page.md"
+  printf 'other\n' > "$d/docs/other.md"
+  git -C "$d" add -A && git -C "$d" commit -qm init
+  git -C "$d" remote add origin https://github.com/example/example.git
+  git -C "$d" remote set-url --push origin "$d.git"
+  git -C "$d" push -q -u origin main 2>/dev/null
+  echo "$d"
+}
+mrk_push() {  # mrk_push REPO SUBDIR LOG ARGS... — echo the exit status
+  local d=$1 sub=$2 log=$3; shift 3
+  local rc=0
+  ( cd "$d/$sub" && PATH="$T/stub:$PATH" HOME="$T/home" "$d/bin/mrk-push" "$@" ) >"$log" 2>&1 || rc=$?
+  echo "$rc"
+}
+
+d="$(syn clean)"
+printf 'edit\n' >> "$d/docs/page.md"
+b="$(rev "$d.git")"; rc="$(mrk_push "$d" docs "$T/mp-clean.log" "edit page")"
+if [[ "$rc" == 0 && "$(rev "$d.git")" != "$b" ]]; then pass "pushes an ordinary change from a subdirectory"; else fail "did not push an ordinary change (rc=$rc) — the refusals below mean nothing"; fi
+
+d="$(syn subdir-secret)"
+printf 'token: %s\n' "$SECRET" >> "$d/docs/page.md"
+b="$(rev "$d.git")"; rc="$(mrk_push "$d" docs "$T/mp-dry.log" --dry-run)"
+if [[ "$rc" != 0 ]]; then pass "--dry-run from a subdirectory flags a secret"; else fail "--dry-run from a subdirectory passed a secret"; fi
+rc="$(mrk_push "$d" docs "$T/mp-secret.log" "leak")"
+if [[ "$rc" != 0 && "$(rev "$d.git")" == "$b" ]]; then pass "refuses a secret when run from a subdirectory"; else fail "pushed a secret when run from a subdirectory (rc=$rc)"; fi
+
+d="$(syn rename-secret)"
+git -C "$d" mv docs/other.md docs/moved.md
+printf 'token: %s\n' "$SECRET" >> "$d/docs/moved.md"
+b="$(rev "$d.git")"; rc="$(mrk_push "$d" . "$T/mp-rename.log" "move")"
+if [[ "$rc" != 0 && "$(rev "$d.git")" == "$b" ]]; then pass "refuses a secret in a renamed file"; else fail "pushed a secret in a renamed file (rc=$rc)"; fi
+
+d="$(syn delete-only)"
+rm "$d/docs/other.md"
+rc="$(mrk_push "$d" . "$T/mp-delete.log" "remove other")"
+if [[ "$rc" == 0 && "$(git -C "$d.git" log -1 --format=%s main)" == "remove other" ]] \
+   && [[ -z "$(git -C "$d" status --porcelain)" ]]; then
+  pass "commits and pushes a change that only deletes"
+else
+  fail "did not commit a deletion-only change (rc=$rc)"
+fi
+
+d="$(syn merge-conflict)"
+git -C "$d" checkout -q -b side
+printf 'side\n' > "$d/docs/page.md"; git -C "$d" commit -qam side
+git -C "$d" checkout -q main
+printf 'main\n' > "$d/docs/page.md"; git -C "$d" commit -qam main
+git -C "$d" merge side >/dev/null 2>&1 || true
+b="$(rev "$d.git")"; h="$(git -C "$d" rev-parse HEAD)"
+rc="$(mrk_push "$d" . "$T/mp-merge.log" "snapshot")"
+if [[ "$rc" != 0 && "$(rev "$d.git")" == "$b" && "$(git -C "$d" rev-parse HEAD)" == "$h" ]]; then pass "refuses to commit over an unfinished merge"; else fail "committed over an unfinished merge (rc=$rc)"; fi
+
+if grep -q 'gh must not be called' "$T"/mp-*.log; then
+  fail "mrk-push called gh — the sandbox leaked"
+fi
+
+printf '\n' >&2
+if (( FAILS > 0 )); then
+  err "$FAILS commit-gate check(s) failed"
+  exit 1
+fi
+ok "commit gates hold"

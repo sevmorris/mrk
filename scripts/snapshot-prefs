@@ -88,6 +88,16 @@ if [[ ! -d "$LOCAL_PREFS_DIR/.git" ]]; then
   fi
 fi
 
+# Before any app is quit or any file is exported into the tree. In a repository
+# stopped mid-merge, the `git add -A` below would mark the conflicted files
+# resolved, conflict markers and all, and the commit would conclude the merge.
+# pull-prefs pulls with --ff-only, so only a git command run by hand can leave
+# the tree like that.
+if busy=$(git_in_progress "$LOCAL_PREFS_DIR"); then
+  err "$busy in $LOCAL_PREFS_DIR — resolve it first. Nothing was exported or pushed."
+  exit 1
+fi
+
 # ── Plist exports (defaults export) ──────────────────────────────────────────
 
 snapshot_plist(){
@@ -454,8 +464,20 @@ fi
 # narrowed out of scope above. Excluding them here rather than teaching
 # scan_for_secrets to skip binaries keeps the scanner's behaviour unchanged
 # for everything else.
-mapfile -t changed_files < <(git diff --cached --name-only --diff-filter=AM \
-  | grep -v '^fonts/' || true)
+#
+# commit_paths, not `git diff --cached --name-only --diff-filter=AM`: `git add
+# -A` stages a renamed plist as R, which that filter drops unread.
+staged_paths=()
+if ! commit_paths staged_paths . --cached; then
+  err "Could not list the staged files — nothing was committed."
+  exit 1
+fi
+prefs_top=$(git rev-parse --show-toplevel)
+changed_files=()
+for f in ${staged_paths[@]+"${staged_paths[@]}"}; do
+  [[ "${f#"$prefs_top"/}" == fonts/* ]] && continue
+  changed_files+=("$f")
+done
 if (( ${#changed_files[@]} > 0 )); then
   require_clean_secrets "${changed_files[@]}" || exit 1
 fi

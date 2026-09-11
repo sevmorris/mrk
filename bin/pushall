@@ -54,7 +54,7 @@ usage() {
 pushall — commit and push every git repo in ~/Projects, then sync mrk
 
 Usage:
-  pushall [--dry-run] [--projects DIR]
+  pushall [--dry-run] [--projects DIR] [--no-mrk]
 
 Options:
       --dry-run       Report what would be committed and pushed; change nothing.
@@ -66,6 +66,8 @@ Options:
   -h, --help          Show this help
 
 A repo is skipped when it has no remote or no upstream tracking branch.
+A repo stopped mid-merge, mid-rebase, mid-cherry-pick or with unresolved
+conflicts is left untouched and counted as a failure.
 Only tracked changes are staged; untracked files are never committed.
 Every commit is gated behind the mrk secret scan.
 EOF
@@ -74,8 +76,10 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run)   DRY_RUN=1; shift ;;
-    --projects)  PROJECTS_DIR="${2:?--projects needs a directory}"
-                 PROJECTS_OVERRIDDEN=1; shift 2 ;;
+    --projects)  if [[ -z "${2:-}" ]]; then
+                   err "--projects needs a directory"; echo >&2; usage >&2; exit 2
+                 fi
+                 PROJECTS_DIR="$2"; PROJECTS_OVERRIDDEN=1; shift 2 ;;
     --no-mrk)    SKIP_MRK=1; shift ;;
     -h|--help)   usage; exit 0 ;;
     *)           err "Unknown option: $1"; echo >&2; usage >&2; exit 2 ;;
@@ -91,6 +95,16 @@ process_repo() {
     logskip "$label" "no remote configured"
     return 0
   fi
+  # Before anything is staged: `git add -u` in a repository stopped mid-merge
+  # marks the conflicted files resolved with their markers in, and the commit
+  # below then concludes the merge. It also names a mid-rebase repository
+  # correctly, where the upstream test would only say "no upstream".
+  local busy
+  if busy=$(git_in_progress "$repo"); then
+    err "$label: $busy — left untouched; resolve it, then run pushall again"
+    FAILED=$((FAILED + 1))
+    return 0
+  fi
   if ! git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
     logskip "$label" "no upstream tracking branch"
     return 0
@@ -102,26 +116,29 @@ process_repo() {
   fi
 
   if (( dirty )); then
-    local -a changed=()
-    if (( DRY_RUN )); then
-      mapfile -t changed < <(
-        { git -C "$repo" diff --name-only --diff-filter=AM
-          git -C "$repo" diff --cached --name-only --diff-filter=AM; } | sort -u
-      )
-    else
+    # HEAD against the working tree is what `git add -u` is about to stage,
+    # so the dry run scans the same files the real run does.
+    local target=HEAD
+    if (( ! DRY_RUN )); then
       git -C "$repo" add -u
-      mapfile -t changed < <(git -C "$repo" diff --cached --name-only --diff-filter=AM)
+      target=--cached
     fi
 
-    # Absolute paths: the scanner stats each file, and we are not inside $repo.
-    local -a staged_abs=()
-    local f
-    for f in ${changed[@]+"${changed[@]}"}; do
-      [[ -n "$f" ]] && staged_abs+=("$repo/$f")
-    done
+    local -a scan=() all=()
+    if ! commit_paths scan "$repo" "$target"; then
+      err "$label: could not list the changed files — not committing"
+      if (( ! DRY_RUN )); then
+        warn "$label: changes left staged for review (git -C '$repo' reset to unstage)"
+      fi
+      FAILED=$((FAILED + 1))
+      return 0
+    fi
+    # The count is git's own (renames as one, deletions included); the scan
+    # list above leaves deletions out, since they carry no content.
+    mapfile -d '' -t all < <(git -C "$repo" diff "$target" --name-only -z --)
 
-    if (( ${#staged_abs[@]} > 0 )); then
-      if ! require_clean_secrets "${staged_abs[@]}"; then
+    if (( ${#scan[@]} > 0 )); then
+      if ! require_clean_secrets "${scan[@]}"; then
         err "$label: secret scan not cleared — skipping this repo"
         if (( ! DRY_RUN )); then
           warn "$label: changes left staged for review (git -C '$repo' reset to unstage)"
@@ -132,10 +149,10 @@ process_repo() {
     fi
 
     if (( DRY_RUN )); then
-      info "would commit ${#staged_abs[@]} file(s)"
+      info "would commit ${#all[@]} file(s)"
     else
       if git -C "$repo" commit -m "snapshot $(date '+%Y-%m-%d %H:%M')" >/dev/null 2>&1; then
-        ok "committed ${#staged_abs[@]} file(s)"
+        ok "committed ${#all[@]} file(s)"
       else
         err "commit failed"
         FAILED=$((FAILED + 1))

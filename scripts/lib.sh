@@ -233,7 +233,22 @@ scan_for_secrets() {
   local pat file hits=0 line target tmp_xml out rc pass gflags
   local -a active
   for file in "$@"; do
-    [[ -f "$file" ]] || continue
+    # A symlink commits its target PATH, not the target's content, so there is
+    # nothing of it to scan; following it read a file that was not being
+    # committed. A directory here is a submodule pointer.
+    [[ -L "$file" || -d "$file" ]] && continue
+
+    # Anything else that cannot be read is a bug in the caller's file list,
+    # and it used to be skipped as though it were clean. That is how a secret
+    # got past every commit gate in a sandbox on 2026-09-10: git C-quotes an
+    # unusual name ("caf\303\251.txt"), and mrk-push run from a subdirectory
+    # handed over root-relative paths. Each named no file, so nothing was
+    # read and the scan returned clean. Fail closed, as for a bad pattern.
+    if [[ ! -f "$file" || ! -r "$file" ]]; then
+      err "secret scan could not read ${file} — treating it as a failure"
+      hits=1
+      continue
+    fi
 
     # Binary plists are not greppable — the patterns below would silently match
     # nothing. snapshot-prefs converts its own `defaults export` output, but
@@ -310,4 +325,65 @@ require_clean_secrets() {
   read -r _ans </dev/tty
   _ans=$(printf '%s' "$_ans" | tr '[:upper:]' '[:lower:]')
   [[ "$_ans" =~ ^(y|yes)$ ]]
+}
+
+# commit_paths ARRAY REPO TARGET — fill ARRAY with the absolute path of every
+# file whose content the next commit would carry: the list to hand to
+# require_clean_secrets. TARGET is --cached for what is staged now, or HEAD
+# for what `git add -u` is about to stage, which is the dry-run view.
+#
+# It replaces `git diff --cached --name-only --diff-filter=AM`, the list all
+# three commit gates used, which let a secret reach a remote in a sandbox on
+# 2026-09-10 in three separate ways:
+#   - git C-quotes an unusual name, and "caf\303\251.txt" is not a path;
+#   - a staged rename is R, not A, so the renamed file was never read;
+#   - a symlink replaced by a regular file is T, not M.
+# -z stops the quoting, and =d keeps every status except deletion, so a rename
+# and a type change are both listed, by their new path. The paths are made
+# absolute because --name-only answers relative to the top level, not to the
+# current directory — and a relative name the scanner resolves from the
+# current directory reads whatever file of that name happens to be there.
+#
+# Returns 1 with ARRAY empty when git cannot produce the list. A caller must
+# not commit then: an empty list scans clean.
+commit_paths() {
+  # Prefixed locals: a nameref resolves to the nearest variable of that name,
+  # so a caller's array called `top` would otherwise be this function's own.
+  declare -n _cp_out=$1
+  local _cp_repo=$2 _cp_target=$3 _cp_top _cp_tmp _cp_f
+  _cp_out=()
+  _cp_top=$(git -C "$_cp_repo" rev-parse --show-toplevel 2>/dev/null) || return 1
+  _cp_tmp=$(mrk_mktemp) || return 1
+  if ! git -C "$_cp_repo" diff "$_cp_target" --name-only --diff-filter=d -z -- >"$_cp_tmp"; then
+    rm -f "$_cp_tmp"
+    return 1
+  fi
+  while IFS= read -r -d '' _cp_f; do
+    _cp_out+=("$_cp_top/$_cp_f")
+  done <"$_cp_tmp"
+  rm -f "$_cp_tmp"
+}
+
+# git_in_progress REPO — print what REPO is in the middle of and return 0, or
+# return 1 when it is idle.
+#
+# Anything that stages with `git add -u` or `-A` and then commits must leave
+# such a repository alone. add -u marks every conflicted file resolved,
+# conflict markers and all, and the commit then concludes the merge; pushall
+# did exactly that to a sandbox repo on 2026-09-10 and pushed `<<<<<<< HEAD`
+# to its remote. The last test catches a conflicted `git stash pop`, which
+# leaves unmerged files and no *_HEAD behind.
+git_in_progress() {
+  local repo=$1 gd
+  gd=$(git -C "$repo" rev-parse --absolute-git-dir 2>/dev/null) || return 1
+  if   [[ -e "$gd/MERGE_HEAD" ]];                   then echo "merge in progress"
+  elif [[ -e "$gd/CHERRY_PICK_HEAD" ]];             then echo "cherry-pick in progress"
+  elif [[ -e "$gd/REVERT_HEAD" ]];                  then echo "revert in progress"
+  elif [[ -d "$gd/rebase-merge" ]];                 then echo "rebase in progress"
+  elif [[ -e "$gd/rebase-apply/applying" ]];        then echo "git am in progress"
+  elif [[ -d "$gd/rebase-apply" ]];                 then echo "rebase in progress"
+  elif [[ -e "$gd/BISECT_LOG" ]];                   then echo "bisect in progress"
+  elif [[ -n "$(git -C "$repo" ls-files -u 2>/dev/null)" ]]; then echo "unresolved conflicts"
+  else return 1
+  fi
 }

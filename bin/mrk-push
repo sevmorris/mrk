@@ -130,41 +130,80 @@ push_log "Repo: $repo"
 echo ""
 
 # ── Commit ────────────────────────────────────────────────────────────────────
+# Before anything is staged. `git add -u` in a repository stopped mid-merge
+# marks the conflicted files resolved, markers and all, and the commit below
+# would then conclude the merge with them in.
+if busy=$(git_in_progress "$REPO_ROOT"); then
+  err "$busy in $REPO_ROOT — resolve it first. Nothing was staged, committed or pushed."
+  exit 1
+fi
+
 push_log "Staging changes..."
 # Tracked updates + known repo paths only — never `git add -A`
 PATHS=(Brewfile Makefile README.md dotfiles scripts bin tools docs assets)
 
+# Two separate questions. staged_files answers "what does the secret scan
+# read": the absolute path of every file whose content the commit carries.
+# `nothing` answers "is there a commit at all". They used to be one list, so a
+# commit that only deletes or renames — no content to scan — was reported as
+# "Nothing to commit.", pushed without it, and left staged with the message
+# discarded. And the list held root-relative paths the scanner then opened from
+# the current directory, so run from docs/ it read no file at all and passed.
 staged_files=()
+nothing=0
 if (( DRY_RUN )); then
   # `git add --dry-run` is git's own answer to "what would this stage", which
   # beats reconstructing it from `git status`: it applies the same pathspec and
   # gitignore rules the real add would, including untracked files inside the
-  # listed directories. Output is `add 'path'`, one per line.
-  mapfile -t staged_files < <(
-    {
-      git add -u --dry-run
-      for path in "${PATHS[@]}"; do
-        [[ -e "$REPO_ROOT/$path" ]] && git add --dry-run "$REPO_ROOT/$path" 2>/dev/null || true
-      done
-    } | sed -n "s/^add '\(.*\)'$/\1/p" | sort -u
+  # listed directories. Output is `add 'path'` or `remove 'path'`, one per
+  # line, relative to the top level whatever the current directory.
+  mapfile -t would_stage < <(
+    git add -u --dry-run
+    for path in "${PATHS[@]}"; do
+      [[ -e "$REPO_ROOT/$path" ]] && git add --dry-run "$REPO_ROOT/$path" 2>/dev/null || true
+    done
   )
+  # It does not mention what is already staged, which is committed all the
+  # same: a `git mv`, or a file added by hand.
+  if ! commit_paths staged_files "$REPO_ROOT" --cached; then
+    err "Could not list the staged files."
+    exit 1
+  fi
+  declare -A seen=()
+  for f in ${staged_files[@]+"${staged_files[@]}"}; do seen["$f"]=1; done
+  for line in ${would_stage[@]+"${would_stage[@]}"}; do
+    [[ "$line" =~ ^add\ \'(.*)\'$ ]] || continue
+    f="$REPO_ROOT/${BASH_REMATCH[1]}"
+    [[ -n "${seen[$f]:-}" ]] && continue
+    seen["$f"]=1
+    staged_files+=("$f")
+  done
+  if (( ${#would_stage[@]} == 0 )) && git diff --cached --quiet; then nothing=1; fi
 else
   git add -u
   for path in "${PATHS[@]}"; do
     [[ -e "$REPO_ROOT/$path" ]] && git add "$REPO_ROOT/$path" 2>/dev/null || true
   done
-  mapfile -t staged_files < <(git diff --cached --name-only --diff-filter=AM)
+  if ! commit_paths staged_files "$REPO_ROOT" --cached; then
+    err "Could not list the staged files — nothing was committed."
+    exit 1
+  fi
+  if git diff --cached --quiet; then nothing=1; fi
 fi
 
-if (( ${#staged_files[@]} == 0 )); then
+if (( nothing )); then
   warn "Nothing to commit."
 else
   # The scan runs in both modes on purpose: a dry run is the safe way to see
   # what a push would expose before it exposes it.
-  require_clean_secrets "${staged_files[@]}" || exit 1
+  if (( ${#staged_files[@]} > 0 )); then
+    require_clean_secrets "${staged_files[@]}" || exit 1
+  fi
   if (( DRY_RUN )); then
-    dry "Would commit ${#staged_files[@]} file(s): $msg"
-    printf '      %s\n' "${staged_files[@]}" >&2
+    dry "Would commit: $msg"
+    for f in ${staged_files[@]+"${staged_files[@]}"}; do
+      printf '      %s\n' "${f#"$REPO_ROOT"/}" >&2
+    done
   else
     git commit -m "$msg"
     ok "Committed: $msg"

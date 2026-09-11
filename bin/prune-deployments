@@ -18,7 +18,7 @@
 # whether or not it falls inside --keep.
 #
 # Usage:
-#   prune-deployments [--repo OWNER/NAME] [--keep N] [--dry-run]
+#   prune-deployments [--repo OWNER/NAME] [--keep N] [--environment ENV] [--dry-run]
 
 # Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2)
 if (( BASH_VERSINFO[0] < 4 )); then
@@ -52,7 +52,7 @@ usage() {
 prune-deployments — delete old GitHub Pages deployments, keep the newest
 
 Usage:
-  prune-deployments [--repo OWNER/NAME] [--keep N] [--dry-run]
+  prune-deployments [--repo OWNER/NAME] [--keep N] [--environment ENV] [--dry-run]
 
 Options:
   --repo OWNER/NAME   Target repository (default: the origin remote here)
@@ -65,23 +65,38 @@ Deployments are marked inactive before deletion, which the API requires.
 EOF
 }
 
+# An option's value must be present. These arms used `${2:?…}`, which exits 1
+# with bash's own "line 71: 2: --keep needs a number" rather than the exit 2
+# every other command line mrk refuses gets.
+need_value() {
+  if [[ -z "${2:-}" ]]; then
+    err "$1"; echo >&2; usage >&2; exit 2
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --repo)         REPO="${2:?--repo needs OWNER/NAME}"; shift 2 ;;
-    --keep)         KEEP="${2:?--keep needs a number}"; shift 2 ;;
-    --environment)  ENVIRONMENT="${2:?--environment needs a name}"; shift 2 ;;
+    --repo)         need_value "--repo needs OWNER/NAME" "${2:-}"; REPO="$2"; shift 2 ;;
+    --keep)         need_value "--keep needs a number" "${2:-}"; KEEP="$2"; shift 2 ;;
+    --environment)  need_value "--environment needs a name" "${2:-}"; ENVIRONMENT="$2"; shift 2 ;;
     --dry-run)      DRY_RUN=1; shift ;;
     -h|--help)      usage; exit 0 ;;
     *)              err "Unknown option: $1"; echo >&2; usage >&2; exit 2 ;;
   esac
 done
 
-require_cmd gh || exit 1
-
+# A bad value is a wrong command line too, so it exits 2 and is checked before
+# anything else — bin/maintain already refuses the same --keep that way.
 if ! [[ "$KEEP" =~ ^[0-9]+$ ]] || (( KEEP < 1 )); then
   err "--keep must be a positive integer (got: $KEEP)"
-  exit 1
+  exit 2
 fi
+if [[ -n "$REPO" && ! "$REPO" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
+  err "--repo '$REPO' does not match the expected OWNER/NAME format"
+  exit 2
+fi
+
+require_cmd gh || exit 1
 
 # Derive the repo from the origin remote when not given
 if [[ -z "$REPO" ]]; then

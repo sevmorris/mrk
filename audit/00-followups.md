@@ -965,6 +965,96 @@ were examined and are correct, which a deleted entry would not say. It was re-fl
 module 13's P-10, missed because detection used `head -5` and the `set -` lines sit at 7,
 8, 15 and 25.
 
+### The commit gates, driven rather than read (2026-09-10)
+
+Entry point: `bin/pushall`, which commits and pushes every repository in `~/Projects`, so a
+defect in it multiplies by sixteen. Probed in a sandbox of repositories with local bare remotes;
+the real `~/Projects` was only ever given `--dry-run`. What pushall got wrong, mrk-push and
+snapshot-prefs got wrong too, because all three built their scan list the same way.
+
+**1. The scan list let three kinds of file through unread.** All three gates listed files with
+`git diff --cached --name-only --diff-filter=AM`, and `scan_for_secrets` skipped any path that
+was not a regular file (`[[ -f "$file" ]] || continue`). A name git C-quotes
+(`"caf\303\251.txt"`) is not a path, so it was skipped as clean; a staged rename is R and a
+symlink replaced by a file is T, so neither was listed. Planted in the sandbox, all three secrets
+reached their remotes through pushall, which reported "committed 0 file(s)" for two of them.
+pushall's dry run *did* flag the renamed file — its dry run read unstaged changes, where the edit
+shows as M — so a clean dry run was not a promise about the real run. snapshot-prefs is the
+likeliest trigger: `git add -A` stages a plist whose name changed as R069, and the old list for
+that case was empty, which skipped the gate entirely.
+
+**2. mrk-push scanned nothing when run from a subdirectory.** `--name-only` answers relative to
+the top level; mrk-push has no `cd`; the scanner resolved each path from the current directory.
+In a clone of mrk with a planted secret in `docs/manual.md`, `mrk-push --dry-run` from the root
+caught it and exited 1; from `docs/` it printed "Would commit 2 file(s) … Would push to origin."
+and exited 0. This one needs nothing unusual — only a shell that is not at the repo root.
+
+**3. mrk-push dropped commits that only delete or rename.** It decided "is there anything to
+commit" from the scan list, which holds no deleted file. In a clone pushing to a local bare:
+`rm docs/STE-CONVERSION.md; mrk-push "test: delete only"` printed "Nothing to commit.", pushed,
+exited 0, and left `D  docs/STE-CONVERSION.md` staged with the message discarded.
+
+**4. An unfinished merge was concluded with its conflict markers and pushed.** `git add -u` marks
+every conflicted file resolved, markers and all, and `git commit` then concludes the merge. In
+the sandbox pushall did this to a mid-merge and a mid-cherry-pick repository and pushed
+`<<<<<<< HEAD` to both remotes. mrk-push (`add -u`) and snapshot-prefs (`add -A`) have the same
+shape. A conflicted `git stash pop` leaves unmerged files and no `*_HEAD`, so the guard also
+tests the index.
+
+**Live versus latent on this machine.** Zero C-quoted tracked paths in all sixteen repositories,
+in mrk, and in `~/.mrk/preferences` (131 files); mrk's two historical rename commits are pure
+R100, whose content was scanned under the old name; no repository is mid-operation. So nothing
+has escaped through 1 or 4. Findings 2 and 3 need nothing unusual.
+
+**Fixed** in `scripts/lib.sh`: `commit_paths` (:349) lists with `-z` and `--diff-filter=d` and
+makes every path absolute; `git_in_progress` (:376) names a merge, rebase, cherry-pick, revert,
+`git am`, bisect or unmerged index; `scan_for_secrets` now skips symlinks and directories (:239),
+which commit no content, and **fails closed** on any other path it cannot read (:247), so the
+next listing bug is loud. Callers: `bin/pushall:103,121-128`, `bin/mrk-push:136,168-191` (the
+commit decision is now `git diff --cached --quiet`), `scripts/snapshot-prefs:96` (before any app
+is quit) and `:471`. `scripts/ci-check:59` lists tracked files with `-z` as well.
+
+**New gate: `scripts/check-commit-gates`**, run by ci-check and so by CI. It plants all of the
+above in throwaway repositories — 32 assertions, about five seconds — and pairs every "was
+refused" with a control that must be pushed, because a harness in which nothing is ever pushed
+passes every refusal test. It also fails if pushall's dry run and real run disagree about what
+they refuse. It is hermetic three ways: its own git configuration, `HOME` and working directory,
+and pushall always gets both `--projects` and `--no-mrk`, so a regression in either flag cannot
+reach `~/Projects` or mrk.
+
+**Mutation-tested: 11 mutations, 10 caught, and the survivor was right to survive.** Dropping
+`--no-renames` changed nothing, because `=d` already lists a rename by its new name; the flag was
+removed rather than kept under a comment claiming it mattered. The relative-path mutation made
+the point of finding 2 by accident: run from a directory that happened to hold a clean `a.txt`
+and `b.txt`, the scanner read *those*, and two planted secrets were pushed. The check now `cd`s
+into its temporary directory. Its first run also failed on a fixture trap — macOS's temporary
+directory is `/var`, git reports `/private/var` — fixed by building the expectation from git's
+own answer.
+
+**5. Five options exited 1 on a missing value.** `${2:?…}` in `pushall --projects` and
+`prune-deployments --repo/--keep/--environment` exits 1 with bash's own
+`line 71: 2: --keep needs a number` and no usage — the exit-2 sweep this morning covered unknown
+flags and missed this form. `snapshot-keys -o` exited 1 too, and `-o ""` fell through to the
+Desktop default. prune-deployments also exited 1 for a `--keep` or `--repo` it could not use,
+where `bin/maintain` already exits 2 for the identical `--keep` message. All now exit 2
+(`bin/pushall:80`, `bin/prune-deployments:71,92,96`, `scripts/snapshot-keys:86`).
+
+Smaller, fixed in passing: pushall's usage omitted `--no-mrk` and prune-deployments' omitted
+`--environment`; snapshot-keys printed its usage to stdout on an error; BIN-1's Table 3.1-1 had
+no row for `mrk_help_guard` or `init_rollback`, both added to lib.sh this morning — drift of my
+own; BIN-1 numbering skipped 2.24 since `846f0ba` removed `adventure-prologue` on 2026-09-02, and
+check-commit-gates now fills it; BIN-1 said only snapshot-prefs and mrk-push scan for secrets.
+
+Verified on the real machine afterwards: `pushall --dry-run` over `~/Projects` reports sixteen
+repositories up to date and mrk "would commit 7 file(s)", scan clean, exit 0; `make check` green.
+
+Not acted on: ci-check's shellcheck step still lists scripts without `-z` — a lint, not a gate,
+over names that are typed at a prompt. pushall's mrk pull discards git's error text, so a
+divergent pull reports only "pull failed"; with `pull.rebase` and `pull.ff` unset, git 2.55
+refuses before merging, so it fails safe. And mrk-status's Tools panel counts broken `~/bin`
+links but not missing ones, so check-commit-gates has no link until the next `make setup` and
+nothing says so.
+
 ### Closed by module 13, the 2026-08-31 recursive audit
 
 Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the

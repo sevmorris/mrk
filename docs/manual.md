@@ -232,7 +232,7 @@ You can run snapshot-prefs more than once. When nothing changed, it reports "No 
 > regenerated without a re-authorization — and the secret scanner does not flag it, because its XML element names match none
 > of the scanner's patterns. Nothing else will warn you it is there. This is why `sevmorris/mrk-prefs` must stay private.
 
-> **Caution:** snapshot-prefs scans every staged file for API keys and tokens before it commits. If the scan finds a match, snapshot-prefs stops and asks you to confirm. It does not ask when `NONINTERACTIVE=1` is set or when there is no terminal — in those two cases it aborts. Read the reported lines before you answer. `mrk-push` applies the same gate to the mrk repository, and `pushall` applies it to every repository it commits.
+> **Caution:** snapshot-prefs scans every staged file for API keys and tokens before it commits. If the scan finds a match, snapshot-prefs stops and asks you to confirm. It does not ask when `NONINTERACTIVE=1` is set or when there is no terminal — in those two cases it aborts. Read the reported lines before you answer. `mrk-push` applies the same gate to the mrk repository, and `pushall` applies it to every repository it commits. snapshot-prefs also refuses to start while a merge or rebase in `~/.mrk/preferences` is unfinished, and it checks before it quits any app.
 
 ## How to pull the app preferences
 
@@ -366,9 +366,9 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 |---|---|
 | `clear-app-caches` | Clears cache directories for common apps (Helium, Slack, Discord, VS Code, Spotify, Chrome) |
 | `clear-derived-data` | Clears the Xcode DerivedData directory |
-| `mrk-push` | Commits and pushes `~/mrk`, then deletes the old GitHub Pages deployments. Scans the staged files for secrets first |
+| `mrk-push` | Commits and pushes `~/mrk`, then deletes the old GitHub Pages deployments. Scans every file the commit carries for secrets first, from whichever directory you run it in. Refuses to run while a merge or rebase in `~/mrk` is unfinished |
 | `prune-deployments` | Deletes the old GitHub Pages deployments and keeps the newest. It finds the repository from the origin remote, or use `--repo OWNER/NAME`. It always protects the deployment that serves the site, so a failed deploy cannot cause it to delete the live one. Use `--dry-run` first |
-| `pushall` | Commits and pushes each repository in `~/Projects`, and then syncs `~/mrk`. Scans the staged files for secrets before each commit. It stages only the tracked files. Use `pushall --dry-run` to run the scan and change nothing |
+| `pushall` | Commits and pushes each repository in `~/Projects`, and then syncs `~/mrk`. Scans the staged files for secrets before each commit. It stages only the tracked files. It leaves a repository alone, and reports it as failed, while a merge, rebase or cherry-pick in it is unfinished. Use `pushall --dry-run` to run the scan and change nothing |
 | `update-full` | Full update pass: pulls mrk, quits the applications, runs the macOS and package updates, builds the Go tools again, runs `clean-ds` and `brew doctor`, and then offers a reboot. It stops with an error when there is no terminal, unless you give `--yes`. The `update --full` command is the same command |
 | `clean-ds` | Removes the `.DS_Store` files from the local disk. It does not examine `~/Library`, `~/Desktop`, the network volumes, or the external volumes. Use `clean-ds --dry-run` to see the files first |
 | `hide_tm.sh` | Hides the Time Machine volumes from the Finder sidebar. The default name is `TimeMachine`. Give the volume names, or set `TM_VOLUMES` |
@@ -696,7 +696,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | `make uninstall` | Delete the symlinks, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |
 | `make pull` | Fast-forward the mrk repository to origin |
-| `make check` | Run the local validation: picker descriptions, shellcheck and go test |
+| `make check` | Run the local validation: picker and defaults descriptions, a secret scan over every tracked file, the commit-gate check, shellcheck and go test |
 | `make ci` | Run the local validation, and build the TUI binaries |
 | `make tidy` | Run `go mod tidy` in every Go tool directory |
 

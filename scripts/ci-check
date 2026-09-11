@@ -23,10 +23,11 @@ Usage:
 Options:
   -h, --help      Show this help
 
-ci-check takes no options other than --help. It runs check-picker-desc, check-
-defaults-desc, a secret scan over every tracked file, shellcheck over the
-tracked scripts, and `go test` for each directory under tools/. It stops at the first gate that fails, so a red gate
-early on means the later ones did not run.
+ci-check takes no options other than --help. It runs check-picker-desc,
+check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
+shellcheck over the tracked scripts, and `go test` for each directory under
+tools/. It stops at the first gate that fails, so a red gate early on means
+the later ones did not run.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"
@@ -50,10 +51,12 @@ log "check-defaults-desc"
 # example secret assignment verbatim while explaining false positives, so the
 # file flagged itself on every push that staged it.
 log "secret scan (tracked files)"
+# -z: without it git C-quotes an unusual name, "caf\303\251.txt" fails the -f
+# test below, and the file drops out of the scan without a word.
 scan_files=()
-while IFS= read -r f; do
+while IFS= read -r -d '' f; do
   [[ -f "$REPO_ROOT/$f" ]] && scan_files+=("$REPO_ROOT/$f")
-done < <(git -C "$REPO_ROOT" ls-files)
+done < <(git -C "$REPO_ROOT" ls-files -z)
 if (( ${#scan_files[@]} == 0 )); then
   err "secret scan matched no tracked files — the gate would pass vacuously"
   exit 1
@@ -67,6 +70,12 @@ if ! scan_for_secrets "${scan_files[@]}"; then
   exit 1
 fi
 ok "secret scan clean (${#scan_files[@]} tracked files)"
+
+# The scan above covers what is already committed; this covers what the
+# commit paths let through — pushall, mrk-push, and the helpers snapshot-prefs
+# shares with them — by planting secrets and conflicts in throwaway repos.
+log "check-commit-gates"
+"$SCRIPT_DIR/check-commit-gates"
 
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"
