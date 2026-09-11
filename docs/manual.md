@@ -374,9 +374,11 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 | `update-full` | Full update pass: pulls mrk, quits the applications, runs the macOS and package updates, builds the Go tools again, runs `clean-ds` and `brew doctor`, and then offers a reboot. It stops with an error when there is no terminal, unless you give `--yes`. The `update --full` command is the same command |
 | `clean-ds` | Removes the `.DS_Store` files from the local disk. It does not examine `~/Library`, `~/Desktop`, the network volumes, or the external volumes. Use `clean-ds --dry-run` to see the files first |
 | `hide_tm.sh` | Hides the Time Machine volumes from the Finder sidebar. The default name is `TimeMachine`. Give the volume names, or set `TM_VOLUMES` |
-| `nuke-mrk` | Moves `~/mrk` and `~/.mrk` to the Trash, deletes the `~/bin` symlinks and the dotfile symlinks, and offers the rollbacks. It does NOT change Homebrew. `mrk-menu` lists it under Nuclear options |
+| `nuke-mrk` | Moves `~/mrk` and `~/.mrk` to the Trash, deletes the `~/bin` symlinks, the dotfile symlinks and the `~/Projects/CLAUDE.md` link, and offers the rollbacks. It does NOT change Homebrew. `mrk-menu` lists it under Nuclear options |
 
 > `nuke-mrk` deletes more than `make uninstall`. Use `make uninstall` to unlink mrk only. Use `nuke-mrk` to get a clean machine for a test installation.
+>
+> **Caution:** before it deletes anything, `nuke-mrk` lists any uncommitted change, unpushed commit or stash in `~/mrk` or `~/.mrk/preferences` and stops unless you answer `y`. The fresh clone it tells you to make cannot contain them. Until 2026-09-11 it trashed them without a word — including the Brewfile commit its own pre-nuke `sync -c` had just made, because `sync -c` commits and does not push. That commit is now pushed when it is the only one waiting.
 
 ## How to update the manual
 
@@ -669,7 +671,7 @@ Then install the App Store apps with the command `make brew` printed, and run `m
 >
 > `snapshot-prefs` pushes to a git repository, so a private key must never reach it. `snapshot-keys` writes one encrypted file to a path you choose, and it pushes nowhere. The two share no destination, on purpose.
 >
-> `snapshot-keys` refuses to write inside `~/mrk` or `~/.mrk`. `nuke-mrk` and `make uninstall` delete both directories, and an archive that a wipe deletes is not a backup.
+> `snapshot-keys` refuses to write inside `~/mrk` or `~/.mrk`. `nuke-mrk` moves both directories to the Trash, and an archive that a wipe deletes is not a backup. (`make uninstall` deletes neither.)
 >
 > The archive is ordinary OpenPGP. `gpg -d <archive> | tar -tvf -` reads it on any machine, with no mrk installed.
 >

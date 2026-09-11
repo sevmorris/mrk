@@ -26,6 +26,29 @@ trash_item() {
   mv "$path" "$dest"
 }
 
+# local_only REPO — print, indented, what REPO holds that exists on no remote,
+# and return 1 when it holds nothing. The repository is about to go to the
+# Trash, and the fresh clone this script ends by suggesting cannot contain any
+# of it. Until 2026-09-11 nothing looked: an unpushed commit and an uncommitted
+# edit went into the Trash with "✔ Nuked." and no word said.
+local_only() {
+  local repo="$1" n out=""
+  [[ -d "$repo/.git" ]] || return 1
+  n=$(git -C "$repo" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+  (( n > 0 )) && out+="      $n uncommitted change(s)\n"
+  n=$(git -C "$repo" rev-list --count --branches --not --remotes 2>/dev/null || echo 0)
+  if (( n > 0 )); then
+    out+="      $n commit(s) on no remote:\n"
+    while IFS= read -r line; do
+      out+="        $line\n"
+    done < <(git -C "$repo" log --oneline --branches --not --remotes 2>/dev/null | head -5)
+  fi
+  n=$(git -C "$repo" stash list 2>/dev/null | wc -l | tr -d ' ')
+  (( n > 0 )) && out+="      $n stash(es)\n"
+  [[ -n "$out" ]] || return 1
+  printf '%b' "$out"
+}
+
 MRK_DIR="$HOME/mrk"
 STATE_DIR="$HOME/.mrk"
 BIN_DIR="$HOME/bin"
@@ -44,11 +67,13 @@ Usage:
   nuke-mrk [--help | -h]
 
 nuke-mrk takes no options other than --help. It moves ~/mrk and ~/.mrk to the
-Trash, removes the ~/bin and dotfile symlinks that point into them, and
-unloads and deletes the mrk LaunchAgents. It offers to run the defaults and
-hardening rollback scripts first. It does NOT uninstall Homebrew packages or
-undo the macOS defaults on its own, and it asks for confirmation before it
-starts.
+Trash, removes the ~/bin, dotfile and ~/Projects/CLAUDE.md symlinks that point
+into them, and unloads and deletes the mrk LaunchAgents. It offers to run the
+defaults and hardening rollback scripts first. It does NOT uninstall Homebrew
+packages or undo the macOS defaults on its own, and it asks for confirmation
+before it starts. Before deleting anything it lists any uncommitted change,
+unpushed commit or stash in ~/mrk or ~/.mrk/preferences, and stops unless you
+say otherwise.
 
 To remove only the symlinks and keep the repository, use mrk-uninstall.
 EOF
@@ -79,7 +104,8 @@ fi
 # ── Pre-nuke snapshot ─────────────────────────────────────────────────────────
 echo ""
 printf "  ${_B}Pre-nuke snapshot${_R}\n\n"
-printf "  Sync the Brewfile and snapshot app preferences before wiping.\n"
+printf "  Sync the Brewfile and snapshot app preferences before wiping. Both are\n"
+printf "  pushed, so the fresh install gets them.\n"
 echo ""
 printf "${_B}Run make sync + snapshot-prefs now? [Y/n]:${_R} "
 read -r do_snapshot
@@ -87,8 +113,23 @@ if [[ ! "$do_snapshot" =~ ^[Nn]$ ]]; then
   if [[ -f "$MRK_DIR/Makefile" ]]; then
     echo ""
     log "Running make sync..."
+    head_before=$(git -C "$MRK_DIR" rev-parse HEAD 2>/dev/null || true)
     if make -C "$MRK_DIR" sync ARGS=-c; then
       ok "Brewfile synced and committed"
+      # sync commits and does not push, and until 2026-09-11 that commit went
+      # to the Trash with the repository: the pre-nuke sync never reached the
+      # fresh clone it existed for. Push it — but only when it is the one
+      # commit waiting and touches only the Brewfile, so this never publishes
+      # other work of yours. Anything else is left to the check below.
+      if [[ -n "$head_before" && "$(git -C "$MRK_DIR" rev-parse HEAD)" != "$head_before" ]] &&
+         [[ "$(git -C "$MRK_DIR" rev-parse HEAD~1 2>/dev/null)" == "$(git -C "$MRK_DIR" rev-parse '@{u}' 2>/dev/null)" ]] &&
+         [[ "$(git -C "$MRK_DIR" diff --name-only HEAD~1 HEAD)" == "Brewfile" ]]; then
+        if git -C "$MRK_DIR" push --quiet; then
+          ok "Brewfile commit pushed"
+        else
+          warn "could not push the Brewfile commit — it is only in $MRK_DIR"
+        fi
+      fi
     else
       warn "make sync exited with errors"
     fi
@@ -143,10 +184,42 @@ else
   dim "Skipping key bundle"
 fi
 
+# ── Work that exists only here ────────────────────────────────────────────────
+# Last check before anything is deleted, and after the snapshot, so it sees
+# what the snapshot left behind as well — a sync commit that could not be
+# pushed, or exports snapshot-prefs staged and then stopped on at its secret
+# scan.
+held=""
+tilde="~"   # from a variable: bash 3.2 and 5 disagree on a literal ~ or \~ here
+for repo in "$MRK_DIR" "$STATE_DIR/preferences"; do
+  if what=$(local_only "$repo"); then
+    held+="    ${repo/#$HOME/$tilde}\n$what"
+  fi
+done
+if [[ -n "$held" ]]; then
+  echo ""
+  printf "  ${_YLW}${_B}These exist only on this machine.${_R}\n"
+  printf "  They would go to the Trash with the repository, and a fresh clone\n"
+  printf "  would not have them:\n\n"
+  printf '%b' "$held"
+  echo ""
+  printf "  Save them first: ${_B}mrk-push${_R} commits and pushes ~/mrk, and\n"
+  printf "  ${_B}snapshot-prefs${_R} does the same for ~/.mrk/preferences.\n"
+  echo ""
+  printf "${_B}Continue with the nuke anyway? [y/N]:${_R} "
+  read -r held_continue
+  if [[ ! "$held_continue" =~ ^[Yy]$ ]]; then
+    echo "Aborted — nothing has been deleted."
+    exit 1
+  fi
+fi
+
 echo ""
-# Remove ~/bin symlinks that point into mrk
-if [[ -d "$BIN_DIR" ]]; then
-  log "Removing mrk symlinks from $BIN_DIR..."
+# Remove the ~/bin symlinks that point into mrk, and any left in ~/.local/bin by
+# an installation old enough to have linked there (mrk-uninstall cleans both).
+for bin_dir in "$BIN_DIR" "$HOME/.local/bin"; do
+  [[ -d "$bin_dir" ]] || continue
+  log "Removing mrk symlinks from $bin_dir..."
   while read -r link; do
     target=$(readlink "$link" 2>/dev/null || true)
     if [[ "$target" == "$MRK_DIR"/dotfiles/* || \
@@ -155,8 +228,8 @@ if [[ -d "$BIN_DIR" ]]; then
       rm -f "$link"
       ok "$(basename "$link")"
     fi
-  done < <(find "$BIN_DIR" -maxdepth 1 -type l)
-fi
+  done < <(find "$bin_dir" -maxdepth 1 -type l)
+done
 
 # Remove dotfile symlinks that point into mrk (both hidden and non-hidden)
 log "Removing mrk dotfile symlinks from $HOME..."
@@ -178,6 +251,18 @@ if [[ -L "$topgrade_link" ]]; then
   if [[ "$target" == "$MRK_DIR"/* ]]; then
     rm -f "$topgrade_link"
     ok "topgrade.toml symlink"
+  fi
+fi
+
+# Remove the ~/Projects/CLAUDE.md link post-install makes into assets/. It is
+# neither in ~/bin nor at the top of $HOME, so until 2026-09-11 it survived the
+# nuke pointing at a repository that had gone to the Trash.
+claude_link="$HOME/Projects/CLAUDE.md"
+if [[ -L "$claude_link" ]]; then
+  target=$(readlink "$claude_link" 2>/dev/null || true)
+  if [[ "$target" == "$MRK_DIR"/* ]]; then
+    rm -f "$claude_link"
+    ok "Projects/CLAUDE.md symlink"
   fi
 fi
 

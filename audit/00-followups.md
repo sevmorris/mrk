@@ -1507,6 +1507,55 @@ suppresses a passing test's output without `-v`, so the first Go probe printed n
 `^  [A-Z]` filter silently dropped "macOS Defaults"; and the old `scripts/status`, run from the
 scratchpad, resolved `REPO_ROOT` there and "differed" on every section.
 
+### nuke-mrk trashed unpushed work, its own sync commit included (2026-09-11)
+
+Entry point: `bin/nuke-mrk`, the most destructive command in the repo. The 2026-09-10 probe
+looked only at the login items it leaves. Run end to end in a sandbox `HOME` — a fake GitHub
+remote, `~/mrk` cloned from it, and the `/Applications` and `/Library` paths in a copy of the
+script rewritten into the sandbox so no real app or system link was reachable — driven through
+a pty.
+
+- **An unpushed commit and an uncommitted edit went into the Trash with "✔ Nuked."** Nothing
+  looked. The fresh clone the script prints as the next step (`git clone … ~/mrk`) had neither;
+  both existed only in `~/.Trash/mrk`, which macOS can empty on its own after 30 days.
+- **The pre-nuke snapshot's Brewfile half never reached GitHub.** It runs `make sync ARGS=-c`,
+  and `sync -c` commits and does not push (`scripts/sync:888-889`); the commit then went to the
+  Trash with the repository. `snapshot-prefs`, the other half, pushes.
+- **`~/Projects/CLAUDE.md` survived, dangling.** post-install links it into `assets/`; the nuke
+  removed only `~/bin` and top-of-`$HOME` links.
+- **`snapshot-keys` and the manual said `make uninstall` deletes `~/mrk` and `~/.mrk`.** It
+  never has: all seven versions of `scripts/uninstall` in the history leave both, and its own
+  help says it removes "no user data … and not the repository itself". The manual contradicted
+  itself (line 379 had it right). The refusal it justified is correct — nuke-mrk does trash both —
+  only the reason overreached.
+
+**Fixed.** A guard before the first deletion lists, per repository (`~/mrk` and
+`~/.mrk/preferences`), uncommitted changes, commits on no remote with their subjects, and
+stashes, and stops — exit 1, "nothing has been deleted" — unless answered `y`. The snapshot now
+pushes the sync commit when it is the one commit waiting and touches only the Brewfile, so it
+can never publish other work; anything else falls to the guard. The CLAUDE.md link and legacy
+`~/.local/bin` links are removed. Six sandbox scenarios on the fixed script: decline stops with
+everything intact; accept proceeds and removes the new links; a clean repo sees no extra prompt;
+a lone sync commit is pushed; a sync commit on top of earlier local work is not, and the guard
+names both; an uncommitted change in the prefs repo is caught — that one under `/bin/bash` 3.2.
+With the "only commit waiting" condition mutated away, the fifth scenario publishes the
+earlier work — so that condition is tested, not assumed.
+
+**Checked and clean.** Moving into `~/.Trash` works without Full Disk Access — only *listing*
+it is refused, and `[[ -e ]]` inside it still answers, so `trash_item`'s collision check holds
+(tested with an empty probe file, removed afterwards). SMAC-1's "each has a preview or dry-run
+mode" holds for all three commands it names: nuke-mrk lists what it will remove and update-full
+summarises its steps before asking; prune-deployments has `--dry-run`.
+
+**Portability, found while fixing.** The guard names each repository with `~`. bash 3.2 and 5.3
+disagree about a literal tilde in a `${var/#pattern/~}` replacement — 3.2 needs `~`, 5.3
+expands it back to the full path unless escaped, and escaping breaks 3.2 — so the replacement
+comes from a variable, which neither expands. nuke-mrk runs under whichever bash `env` finds.
+
+**Method.** One more zsh trap: `"$c:scripts/uninstall"` is zsh's `:s` substitution modifier on
+`$c`, so a history loop printed "bad substitution" seven times and then its "(none listed =
+never)" summary — a conclusion drawn from zero iterations. Re-run in bash.
+
 ### Closed by module 13, the 2026-08-31 recursive audit
 
 Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the

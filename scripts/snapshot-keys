@@ -114,14 +114,15 @@ out_dir="$(cd "$(dirname "$OUTPUT")" 2>/dev/null && pwd)" || {
 }
 OUTPUT="$out_dir/$(basename "$OUTPUT")"
 
-# The archive must outlive a wipe. Everything below is deleted by nuke-mrk or
-# by make uninstall, and the repo path would additionally put private keys in
-# reach of a stray `git add`. Refusing here is the whole safety property of this
-# script, so it is a hard error rather than a warning.
+# The archive must outlive a wipe. nuke-mrk moves both of these to the Trash
+# (make uninstall deletes neither — until 2026-09-11 this said it did), and the
+# repo path would additionally put private keys in reach of a stray `git add`.
+# Refusing here is the whole safety property of this script, so it is a hard
+# error rather than a warning.
 for forbidden in "$HOME/mrk" "$HOME/.mrk"; do
   if [[ "$OUTPUT" == "$forbidden"/* ]]; then
     err "Refusing to write inside $forbidden"
-    info "nuke-mrk and make uninstall delete that directory — the archive must survive them."
+    info "nuke-mrk moves that directory to the Trash — the archive must survive it."
     info "Write it to an encrypted external disk, or leave the default (~/Desktop)."
     exit 1
   fi
