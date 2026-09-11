@@ -15,10 +15,17 @@ import (
 //
 // Deliberately repo-relative, never PATH-relative. CI runs scripts/ci-check on
 // a fresh macos-latest runner with no `make setup`, so ~/bin holds no mrk
-// symlinks; a LookPath check would fail there for the wrong reason. Every
-// cmdBin target is a literal filename under bin/ or scripts/, so the repo is
+// symlinks; a LookPath check would fail there for the wrong reason. The repo is
 // both the CI-safe question and the more correct one: does this command ship
 // with mrk?
+//
+// Not every cmdBin target is a file in the checkout, though. mrk-status is a
+// Go binary that `make build-tools` writes into bin/, and .gitignore keeps it
+// out of git. A check on the file passed on every machine that had built it
+// and failed on the fresh CI checkout, which builds the tools only after the
+// tests — red on all 19 pushes from 2026-09-10 17:26 until it was noticed.
+// Built targets are therefore checked against the Makefile rule that builds
+// them, never against the file, so the answer is the same everywhere.
 
 func allItems() []item {
 	var out []item
@@ -35,9 +42,37 @@ func TestMenuHasItems(t *testing.T) {
 	}
 }
 
+// `$(call go-build,<binary>,<tool-dir>)` in the Makefile.
+var goBuildCall = regexp.MustCompile(`\$\(call go-build,([^,)]+),([^,)]+)\)`)
+
+// goBuildTargets maps each binary the Makefile builds to its tools/ directory.
+func goBuildTargets(t *testing.T) map[string]string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("..", "..", "Makefile"))
+	if err != nil {
+		t.Fatalf("cannot read Makefile: %v", err)
+	}
+	built := map[string]string{}
+	for _, m := range goBuildCall.FindAllStringSubmatch(string(b), -1) {
+		built[strings.TrimSpace(m[1])] = strings.TrimSpace(m[2])
+	}
+	if len(built) == 0 {
+		t.Fatal("parsed no go-build calls from the Makefile — the built-target branch would never run")
+	}
+	return built
+}
+
 func TestEveryCmdBinTargetShipsWithMrk(t *testing.T) {
+	built := goBuildTargets(t)
 	for _, it := range allItems() {
 		if it.cmdType != cmdBin {
+			continue
+		}
+		if dir, ok := built[it.target]; ok {
+			if !exists(filepath.Join("..", "..", "tools", dir, "main.go")) {
+				t.Errorf("item %q runs %q, which the Makefile builds from tools/%s — and tools/%s/main.go does not exist",
+					it.name, it.target, dir, dir)
+			}
 			continue
 		}
 		bin := filepath.Join("..", "..", "bin", it.target)

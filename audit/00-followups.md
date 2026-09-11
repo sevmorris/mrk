@@ -1055,6 +1055,35 @@ refuses before merging, so it fails safe. And mrk-status's Tools panel counts br
 links but not missing ones, so check-commit-gates has no link until the next `make setup` and
 nothing says so.
 
+### CI was red for nineteen pushes, and a gate written today was the cause (2026-09-10)
+
+Found only because the commit-gate work above was the first change today whose CI run was
+checked after the push. **Every CI run from `c924fdd` (17:26) to `6213a03` failed**, nineteen
+in a row, on `TestEveryCmdBinTargetShipsWithMrk` in `tools/mrk-menu/data_test.go` — a test
+added in `c924fdd` itself, whose own comment argued it was CI-safe: *"Every cmdBin target is a
+literal filename under bin/ or scripts/."* mrk-status is not. It is a Go binary that
+`make build-tools` writes into `bin/`, `.gitignore:61` keeps out of git, and the workflow builds
+only after `ci-check`. On this machine the file exists, and `go test` answered "(cached)" on every
+local `make check` since, so local was green all afternoon while every push was red.
+
+Fixed by checking a built target against the Makefile rule that builds it — the
+`$(call go-build,NAME,DIR)` line and `tools/DIR/main.go` — never against the file, so the answer
+is the same on every checkout. Verified the only way that counts here: a fresh `git clone`
+reproduced CI's exact failure at HEAD, passed with the fix, and failed again under two mutations
+(the target renamed, and the Makefile rule pointed at a missing directory). The complete
+`ci-check` then passed in that clone.
+
+The CI run for the commit-gate work failed earlier still, at a second environment gap: the
+`macos-latest` runner has only `/bin/bash` 3.2, and check-commit-gates — like pushall and
+mrk-push, which it runs — needs bash 4 and found no Homebrew bash to re-exec into. The workflow
+now installs `bash` beside `shellcheck`. Skipping the gate when bash is old was not an option:
+that is the warn-and-skip shape rejected for `go` this morning, which hid the picker tests for
+four days.
+
+**Method, recorded so it is not relearned.** A gate that reads the working tree must be proven
+in a fresh clone, where no build output or gitignored file can answer for it; and a push is not
+finished until its CI run is. Both were skipped nineteen times today.
+
 ### Closed by module 13, the 2026-08-31 recursive audit
 
 Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the

@@ -19,8 +19,11 @@ jobs:
           # restore failed every run with "Dependencies file is not found".
           cache-dependency-path: tools/*/go.sum
 
-      - name: Install shellcheck
-        run: brew install shellcheck
+      # bash: the runner has only macOS's bash 3.2. pushall and mrk-push need 4+
+      # and re-exec into Homebrew's, and check-commit-gates runs both — without
+      # it that gate dies with "bash 4+ required" before testing anything.
+      - name: Install shellcheck and bash
+        run: brew install shellcheck bash
 
       - name: CI checks
         run: scripts/ci-check
