@@ -30,7 +30,7 @@ help: ## Show available make commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-check: ## Run local CI checks (descriptions, secret scan, commit gates, shellcheck, go test)
+check: ## Run local CI checks (descriptions, secret scan, commit gates, cleanempties, shellcheck, go test)
 	@"$(SCRIPTS)/ci-check"
 
 ci: check build-tools ## Full CI pipeline locally (check + build all TUIs)

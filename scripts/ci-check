@@ -25,8 +25,8 @@ Options:
 
 ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
-shellcheck over the tracked scripts, and `go test` for each directory under
-tools/. It stops at the first gate that fails, so a red gate early on means
+the cleanempties test in tests/, shellcheck over the tracked scripts, and
+`go test` for each directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
 EOF
 }
@@ -76,6 +76,13 @@ ok "secret scan clean (${#scan_files[@]} tracked files)"
 # shares with them — by planting secrets and conflicts in throwaway repos.
 log "check-commit-gates"
 "$SCRIPT_DIR/check-commit-gates"
+
+# cleanempties (ce) in dotfiles/.aliases moves folders to the Trash, and until
+# 2026-09-11 it broke git repositories and could loop forever. The test lives in
+# tests/ rather than scripts/, which setup links into ~/bin, and runs under an
+# interactive zsh because that is the only shell .aliases loads in.
+log "cleanempties"
+zsh -f -i "$REPO_ROOT/tests/cleanempties.zsh"
 
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"

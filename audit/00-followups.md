@@ -1608,6 +1608,53 @@ real ones were — and the run proved nothing; and zsh's `echo -` prints nothing
 column. The mutation classifier then called three killed mutants "SURVIVED" by matching each
 assertion's *pass* wording against the failure lines.
 
+### cleanempties broke git repositories, and deleted before it asked (2026-09-11)
+
+Entry point: `cleanempties` (`ce`) and `showempties` (`se`) in `dotfiles/.aliases`, a helper
+that moves folders to the Trash and is documented nowhere. The 2026-09-10 dotfiles probe checked
+that every command in the file is guarded; it did not run this one. Driven here in a clean
+`zsh -f` with the real functions sourced and `trash` replaced by a stub that fails with 5, as
+`/usr/bin/trash` does (measured: "couldn't be moved … permission", exit 5, item left in
+place). `ce` uses the macOS 15 `/usr/bin/trash`: Homebrew's `trash` is keg-only now.
+
+- **It deleted before it asked.** Every `.DS_Store`, `._*`, `.localized`, `.gitkeep` and
+  `Icon` file in the whole tree went to the Trash before the `[y/N]`; answering `n` printed
+  "Cancelled." with four files already gone. A `.gitkeep` is tracked, so pushall would commit
+  the deletion.
+- **It broke git repositories.** `find` walked into `.git`. After `git gc`, `refs/heads` and
+  `refs/tags` are empty; `ce -f` trashed both, then the emptied `refs/`, and git answered
+  "fatal: not a git repository". A fresh `git init` lost `objects/` and `refs/` the same way.
+- **It never finished on a folder the Trash refused.** Failures were discarded and the loop ran
+  until no empty folder remained: 627 trash calls in the ten seconds before the timeout.
+- **It stripped the `._` sidecar of files that still exist** — on a non-APFS volume, where that
+  sidecar is the file's tags and resource fork — and swept cruft out of folders full of real
+  files, resetting Finder layouts and custom icons across the tree for no purpose: a folder with
+  a real file in it was never going to become empty.
+
+**Rewritten, not patched.** One pass decides everything before anything moves: a folder goes
+only if it holds nothing but cruft and other such folders, and only the outermost is listed and
+trashed; the list is shown, and nothing moves until the answer. It never enters `.git`, a
+bundle (apps and plug-ins, Logic and Final Cut projects, Photos and Music libraries, document
+packages — each keeps empty folders on purpose) or another volume. `.gitkeep` is not cruft. A
+folder that cannot be listed counts as holding something — a hazard the rewrite itself
+introduced, since a glob of an unreadable folder comes back empty, and the reason the test uses
+mode 300: writable, so the Trash could move it, but not listable. What the Trash refuses is
+checked afterwards and reported, with exit 1. `se` lists exactly what `ce` would move. macOS
+find ignores `-prune` under `-depth`, so the walk is pre-order and read backwards.
+
+**Test.** `tests/cleanempties.zsh`, run by `ci-check` under `zsh -f -i` — the only shell
+`.aliases` loads in — and kept out of `scripts/`, which setup links into `~/bin`. Twelve cases:
+the four failures above, and what must still happen or still be left alone. The refused-folder
+case has a five-second watchdog, so a returning loop fails the test rather than hanging CI.
+The old code fails ten of the twelve; mutating away the `.git` pruning, the bundle list, the
+unreadable-folder check, or `.gitkeep`'s exemption each fails its case. The unreadable-folder
+mutant first survived: at mode 000 the Trash cannot move the folder anyway, so the assertion
+held for the wrong reason — hence mode 300.
+
+**Also fixed.** BIN-1's check-commit-gates entry still said pushall "is always run with
+`--projects`" after the previous entry's bare-repository section made that untrue, and did not
+list those cases; the script's own header had been corrected, BIN-1 had not.
+
 ### Closed by module 13, the 2026-08-31 recursive audit
 
 Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the
