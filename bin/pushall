@@ -48,6 +48,8 @@ PROJECTS_OVERRIDDEN=0
 MRK_DIR="$REPO_ROOT"
 SKIP_MRK=0
 FAILED=0
+LOCAL_ONLY=0
+NOT_REPOS=()
 
 usage() {
   cat <<'EOF'
@@ -70,7 +72,44 @@ A repo stopped mid-merge, mid-rebase, mid-cherry-pick or with unresolved
 conflicts is left untouched and counted as a failure.
 Only tracked changes are staged; untracked files are never committed.
 Every commit is gated behind the mrk secret scan.
+
+Only the branch each repo is on is pushed. pushall names what it leaves
+behind: commits on other branches that are on no remote, stashes, and
+folders that are not git repositories. Before a migration, deal with each.
 EOF
+}
+
+# report_local_only REPO LABEL — name the work in REPO that exists on no remote
+# and that this run will not push.
+#
+# pushall pushes the current branch and nothing else, so before 2026-09-10 a
+# commit on any other branch, or a stash, went unmentioned and "Done" read as
+# "everything is on GitHub". On a migration that is exactly wrong: the new
+# machine gets ~/Projects back from restore-repos, which clones from GitHub,
+# and Magic Backup Machine does not back ~/Projects up at all. Informational —
+# it does not count as a failure.
+report_local_only() {
+  local repo=$1 label=$2 n s cur b c
+  # Reachable from a local branch, but from no remote-tracking branch and not
+  # from HEAD, whose branch this run pushes.
+  n=$(git -C "$repo" rev-list --count --branches --not --remotes HEAD 2>/dev/null || echo 0)
+  s=$(git -C "$repo" stash list 2>/dev/null | wc -l | tr -d ' ')
+  if (( n > 0 )); then
+    warn "$label: $n commit(s) on other branches exist on no remote, and pushall will not push them:"
+    cur=$(git -C "$repo" symbolic-ref --short -q HEAD || true)
+    while IFS= read -r b; do
+      [[ "$b" == "$cur" ]] && continue
+      c=$(git -C "$repo" rev-list --count "refs/heads/$b" --not --remotes HEAD 2>/dev/null || echo 0)
+      if (( c > 0 )); then info "  $b ($c)"; fi
+    done < <(git -C "$repo" for-each-ref --format='%(refname:short)' refs/heads)
+  fi
+  if (( s > 0 )); then
+    warn "$label: $s stash(es), which are never pushed"
+  fi
+  if (( n > 0 || s > 0 )); then
+    LOCAL_ONLY=$((LOCAL_ONLY + 1))
+  fi
+  return 0
 }
 
 while [[ $# -gt 0 ]]; do
@@ -109,6 +148,8 @@ process_repo() {
     logskip "$label" "no upstream tracking branch"
     return 0
   fi
+
+  report_local_only "$repo" "$label"
 
   local dirty=0
   if ! git -C "$repo" diff --quiet || ! git -C "$repo" diff --cached --quiet; then
@@ -201,6 +242,13 @@ if [[ ! -d "$PROJECTS_DIR" ]]; then
 fi
 
 for repo in "$PROJECTS_DIR"/*/; do
+  # A folder with no .git at all is noted rather than passed over in silence:
+  # nothing in mrk carries it to a new machine. A .git *file* is a linked
+  # worktree, whose repository lives elsewhere; that one stays quiet.
+  if [[ ! -e "$repo/.git" ]]; then
+    NOT_REPOS+=("$(basename "$repo")")
+    continue
+  fi
   [[ -d "$repo/.git" ]] || continue
   process_repo "$repo" "$(basename "$repo")"
 done
@@ -217,6 +265,12 @@ elif [[ -d "$MRK_DIR/.git" ]]; then
 fi
 
 printf '\n' >&2
+if (( ${#NOT_REPOS[@]} > 0 )); then
+  info "Not git repositories, so pushall and restore-repos never carry them: $(printf '%s, ' "${NOT_REPOS[@]}" | sed 's/, $//')"
+fi
+if (( LOCAL_ONLY > 0 )); then
+  warn "$LOCAL_ONLY repo(s) hold commits or stashes that exist only on this machine — see above"
+fi
 if (( FAILED > 0 )); then
   err "Done — $FAILED repo(s) failed or were skipped"
   exit 1

@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
 usage() {
-  cat >&2 <<'EOF'
+  cat <<'EOF'
 Usage: harden [--yes | -y] [--help | -h]
 
 Apply the macOS security settings, with a rollback script.
@@ -33,7 +33,7 @@ for _arg in "$@"; do
   case "$_arg" in
     --yes|-y)  NONINTERACTIVE=1 ;;
     --help|-h) usage; exit 0 ;;
-    *)         echo "harden: unknown option: $_arg" >&2; usage; exit 2 ;;
+    *)         echo "harden: unknown option: $_arg" >&2; usage >&2; exit 2 ;;
   esac
 done
 

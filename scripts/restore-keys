@@ -48,7 +48,7 @@ LIST_ONLY=0
 ARCHIVE=""
 
 usage() {
-  cat >&2 <<'EOF'
+  cat <<'EOF'
 Usage: restore-keys [-l] <archive>
 
 Restore ~/.ssh, ~/.gnupg and any code-signing identities from a
@@ -66,7 +66,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -l|--list) LIST_ONLY=1; shift ;;
     -h|--help) usage; exit 0 ;;
-    -*)        err "Unknown option: $1"; usage; exit 2 ;;
+    -*)        err "Unknown option: $1"; echo >&2; usage >&2; exit 2 ;;
     # One archive, not several. This arm used to be a bare assignment inside
     # the loop, so a second path overwrote the first: `restore-keys a.gpg
     # b.gpg` restored b and discarded a without a word. On the key-restore
@@ -76,12 +76,21 @@ while [[ $# -gt 0 ]]; do
     *)         if [[ -n "$ARCHIVE" ]]; then
                  err "Too many arguments — restore-keys takes one archive"
                  printf '\n  already given: %s\n  and then: %s\n\n' "$ARCHIVE" "$1" >&2
-                 usage
+                 usage >&2
                  exit 2
                fi
                ARCHIVE="$1"; shift ;;
   esac
 done
+
+# No archive is a wrong command line, so it exits 2 like the two-archive case
+# above, and before anything else runs. It used to exit 1 after the gpg check.
+if [[ -z "$ARCHIVE" ]]; then
+  err "No archive given."
+  echo >&2
+  usage >&2
+  exit 2
+fi
 
 section "Restore keys"
 
@@ -89,12 +98,6 @@ command -v gpg >/dev/null 2>&1 || {
   err "gpg not found — install it with: brew install gnupg"
   exit 1
 }
-
-if [[ -z "$ARCHIVE" ]]; then
-  err "No archive given."
-  usage
-  exit 1
-fi
 
 if [[ ! -f "$ARCHIVE" ]]; then
   err "Archive not found: $ARCHIVE"

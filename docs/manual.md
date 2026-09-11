@@ -394,25 +394,9 @@ GitHub renders this file in the repository, so the [link in the README](../READM
 
 # How to prepare for a new machine
 
-Do these seven steps on the **old machine** before you transfer.
+Do these ten steps on the **old machine** before you transfer. They run in the same order as the migration checklist in SMAC-1, and the first one is first for a reason: it is the only step with no second chance.
 
-**1. Sync the Brewfile**
-
-```bash
-make sync ARGS=-c
-```
-
-This command adds the packages that you installed since the last sync. It then commits the Brewfile.
-
-**2. Snapshot app preferences**
-
-```bash
-make snapshot-prefs
-```
-
-This command exports the 14 app preference plists, the Application Support files, the config directories, your installed fonts and a manifest of your git repositories. It then pushes them. Check that the push succeeded: the output ends with "Pushed to git@github.com:sevmorris/mrk-prefs.git".
-
-**3. Bundle your SSH and GPG keys**
+**1. Bundle your SSH and GPG keys**
 
 > **Caution:** `snapshot-prefs` carries no private key, and it must not. `mrk-prefs` is a git repository. Keys go into their own encrypted archive instead.
 
@@ -428,7 +412,7 @@ make snapshot-keys
 
 The script refuses to write inside `~/mrk` or `~/.mrk`, because `nuke-mrk` deletes both. Copy the archive to an encrypted external disk, and keep the passphrase in your password manager.
 
-**4. Export the KeyVault vault**
+**2. Export the KeyVault vault**
 
 `snapshot-keys` covers the key files. It does not cover the secrets KeyVault owns.
 
@@ -436,7 +420,31 @@ Start KeyVault, and export the vault. KeyVault writes its own passphrase-encrypt
 
 > **Note:** The two archives hold different things, and you need both. `snapshot-keys` holds the files in `~/.ssh` and `~/.gnupg`. The KeyVault export holds the API keys and the notes from the login Keychain. Neither one holds the other's contents.
 
-**5. Push any pending mrk changes**
+**3. Sync the Brewfile**
+
+```bash
+make sync ARGS=-c
+```
+
+This command adds the packages that you installed since the last sync. It then commits the Brewfile.
+
+**4. Snapshot app preferences**
+
+```bash
+make snapshot-prefs
+```
+
+This command exports the 18 app preference plists, the Application Support files, the config directories, your installed fonts and a manifest of your git repositories. It then pushes them. Check that the push succeeded: the output ends with "Pushed to git@github.com:sevmorris/mrk-prefs.git".
+
+**5. Capture the login items**
+
+```bash
+make sync-login-items ARGS=-c
+```
+
+Login items live in the system's LaunchServices database, and `scripts/post-install` knows only the ones captured the last time this ran. Anything added since exists on this machine and nowhere else, and Phase 3 on the new machine would restore the stale list.
+
+**6. Push any pending mrk changes**
 
 ```bash
 cd ~/mrk
@@ -444,7 +452,21 @@ git status
 git push
 ```
 
-**6. Verify SSH authentication**
+**7. Push the project repositories**
+
+```bash
+pushall
+```
+
+The new machine gets `~/Projects` back from `restore-repos`, which clones from GitHub, and from nothing else: Magic Backup Machine does not back up `~/Projects`. Anything that is not on GitHub when you wipe is gone. `pushall` commits and pushes the branch each repository is on, and then names what it leaves behind — commits on other branches that are on no remote, stashes, and folders in `~/Projects` that are not repositories. Deal with each one: push the branch, apply or drop the stash, copy the folder to the transfer disk.
+
+Files a repository ignores are not pushed either. Copy any you need by hand, such as a credential file that `.gitignore` keeps out of the repository.
+
+**8. Run a Magic Backup Machine backup**
+
+Open Magic Backup Machine and run a full backup to the local and external destinations. It copies the Logic Pro projects, the audio presets, the browser profiles and the other data that mrk does not manage. It does not copy `~/Projects`; step 7 covers that.
+
+**9. Verify SSH authentication**
 
 ```bash
 ssh -T git@github.com
@@ -453,7 +475,7 @@ ssh -T git@github.com
 
 The new machine needs your SSH key. `make post-install` uses it to pull mrk-prefs.
 
-**7. Note anything not covered by mrk**
+**10. Note anything not covered by mrk**
 
 Write down the apps, the license keys and the settings that mrk does not manage:
 

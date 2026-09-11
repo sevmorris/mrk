@@ -183,6 +183,24 @@ printf 'main\n' > "$P/pick-conflict/a.txt"; git -C "$P/pick-conflict" commit -qa
 git -C "$P/pick-conflict" push -q
 git -C "$P/pick-conflict" cherry-pick side >/dev/null 2>&1 || true
 
+# Work pushall does not push must at least be named: a commit on another
+# branch, a stash, and a folder that is not a repository at all.
+mk local-branch a.txt x
+git -C "$P/local-branch" checkout -q -b side
+printf 'side\n' > "$P/local-branch/b.txt"
+git -C "$P/local-branch" add b.txt && git -C "$P/local-branch" commit -qm side
+git -C "$P/local-branch" checkout -q main
+mk stashed a.txt x
+printf 'wip\n' >> "$P/stashed/a.txt"
+git -C "$P/stashed" stash -q
+mkdir -p "$P/plain folder"
+printf 'notes\n' > "$P/plain folder/notes.txt"
+# ...and must not be confused with what it is about to push: a commit on the
+# current branch that is not on the remote yet is pushall's job, not a warning.
+mk ahead a.txt x
+printf 'more\n' >> "$P/ahead/a.txt"
+git -C "$P/ahead" commit -qam "committed, not pushed"
+
 # The fixtures are only worth anything if each is in the state it claims.
 expect_busy() {
   local got
@@ -197,7 +215,10 @@ expect_busy control        "idle"
 declare -A before=()
 for r in "$R"/*.git; do before["$(basename "$r" .git)"]="$(rev "$r")"; done
 declare -A head_before=()
-for d in "$P"/*/; do n="$(basename "$d")"; head_before["$n"]="$(git -C "$d" rev-parse HEAD)"; done
+for d in "$P"/*/; do
+  [[ -d "$d/.git" ]] || continue          # "plain folder" is the point, not a repo
+  n="$(basename "$d")"; head_before["$n"]="$(git -C "$d" rev-parse HEAD)"
+done
 
 run_pushall() {  # run_pushall LOG [--dry-run]
   local log=$1; shift
@@ -239,6 +260,27 @@ for r in "$R"/*.git; do
   fi
 done
 if grep -q 'merge-conflict: merge in progress' "$T/real.log"; then pass "pushall names the unfinished merge"; else fail "pushall did not report the unfinished merge"; fi
+for log in "$T/dry.log" "$T/real.log"; do
+  mode=$([[ "$log" == *dry* ]] && echo "--dry-run" || echo "real run")
+  if grep -q 'local-branch: 1 commit(s) on other branches exist on no remote' "$log" && grep -q '^ *side (1)$' "$log"; then
+    pass "$mode names the unpushed commit on another branch"
+  else
+    fail "$mode did not name the unpushed commit on local-branch/side"
+  fi
+  if grep -q 'stashed: 1 stash(es)' "$log"; then pass "$mode names the stash"; else fail "$mode did not name the stash"; fi
+  if grep -q 'Not git repositories, so pushall and restore-repos never carry them: plain folder$' "$log"; then
+    pass "$mode names the folder that is not a repository"
+  else
+    fail "$mode did not name the plain folder"
+  fi
+  if grep -q '^ *⚠ control:' "$log"; then fail "$mode warned about control, which has nothing unpushed"; fi
+  if grep -q '^ *⚠ ahead:' "$log"; then
+    fail "$mode reported the current branch's own unpushed commit as work it will not push"
+  else
+    pass "$mode does not mistake the current branch's unpushed commit for left-behind work"
+  fi
+done
+if [[ "$(rev "$R/ahead.git")" != "${before[ahead]}" ]]; then pass "ahead: the committed-but-unpushed commit was pushed"; else fail "ahead: not pushed"; fi
 
 # ── mrk-push ─────────────────────────────────────────────────────────────────
 # mrk-push acts on the repository it is run in and sources that repository's

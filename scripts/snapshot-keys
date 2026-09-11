@@ -60,7 +60,7 @@ WITH_SIGNING=1
 OUTPUT=""
 
 usage() {
-  cat >&2 <<'EOF'
+  cat <<'EOF'
 Usage: snapshot-keys [-o PATH] [-n] [-f] [--no-signing]
 
 Bundle ~/.ssh, ~/.gnupg and your code-signing identities into one

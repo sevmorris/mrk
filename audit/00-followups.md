@@ -968,7 +968,7 @@ module 13's P-10, missed because detection used `head -5` and the `set -` lines 
 ### The commit gates, driven rather than read (2026-09-10)
 
 Entry point: `bin/pushall`, which commits and pushes every repository in `~/Projects`, so a
-defect in it multiplies by sixteen. Probed in a sandbox of repositories with local bare remotes;
+defect in it multiplies across all fifteen of them and mrk. Probed in a sandbox of repositories with local bare remotes;
 the real `~/Projects` was only ever given `--dry-run`. What pushall got wrong, mrk-push and
 snapshot-prefs got wrong too, because all three built their scan list the same way.
 
@@ -1001,7 +1001,7 @@ the sandbox pushall did this to a mid-merge and a mid-cherry-pick repository and
 shape. A conflicted `git stash pop` leaves unmerged files and no `*_HEAD`, so the guard also
 tests the index.
 
-**Live versus latent on this machine.** Zero C-quoted tracked paths in all sixteen repositories,
+**Live versus latent on this machine.** Zero C-quoted tracked paths in all fifteen repositories,
 in mrk, and in `~/.mrk/preferences` (131 files); mrk's two historical rename commits are pure
 R100, whose content was scanned under the old name; no repository is mid-operation. So nothing
 has escaped through 1 or 4. Findings 2 and 3 need nothing unusual.
@@ -1045,7 +1045,7 @@ no row for `mrk_help_guard` or `init_rollback`, both added to lib.sh this mornin
 own; BIN-1 numbering skipped 2.24 since `846f0ba` removed `adventure-prologue` on 2026-09-02, and
 check-commit-gates now fills it; BIN-1 said only snapshot-prefs and mrk-push scan for secrets.
 
-Verified on the real machine afterwards: `pushall --dry-run` over `~/Projects` reports sixteen
+Verified on the real machine afterwards: `pushall --dry-run` over `~/Projects` reports fifteen
 repositories up to date and mrk "would commit 7 file(s)", scan clean, exit 0; `make check` green.
 
 Not acted on: ci-check's shellcheck step still lists scripts without `-z` — a lint, not a gate,
@@ -1090,6 +1090,77 @@ records that fourteen of its callers carry no bash-4 guard. Nothing on bash 3.2 
 so no test failed. It now fills the caller's array through `eval` on a validated name, with the
 paths expanded as variables and never as code. Under `/bin/bash` 3.2 it lists ten hostile names
 — `$(touch PWNED1)`, a backtick form, `semi;touch PWNED3`, quotes, a glob — and executes none.
+
+### The repository manifest's round trip, and the checklist around it (2026-09-10)
+
+Entry point: `snapshot_repos` in snapshot-prefs → `~/.mrk/preferences/repos.tsv` →
+`restore-repos`. Module 14 confirmed the manifest *has* a replay path, and ran `restore-repos
+--dry-run` inside a fingerprint; nobody had compared the manifest's contents with `~/Projects`,
+driven a real restore, or asked what the round trip cannot carry.
+
+**The manifest itself is right.** Regenerated read-only and diffed against the committed copy
+(last written 2026-08-29): identical — fifteen work repositories and the DoublEnder overlay, names
+with spaces included. `~/Projects` holds fifteen repositories, not the sixteen stated in the
+entries above this morning; those counts are corrected in place.
+
+**`restore-repos`, driven in a sandbox `HOME`** with a manifest built to hurt: a name with
+spaces, a bad remote, a folder in the way, an already-cloned repo, a bare overlay, a line short
+of its fields. It clones and skips correctly and leaves the colliding folder's contents alone.
+Two defects: **it exited 0 after failing** — an unconditional `exit 0` after printing
+"2 repo(s) had problems" — and **a malformed line vanished**, named nowhere in either run.
+Now exit 1 (`scripts/restore-repos` end) and a warning with the line number.
+
+**What the round trip cannot carry, measured on this machine.** Magic Backup Machine has 17
+sources and none covers `~/Projects`, so the new machine gets `~/Projects` back from GitHub and
+from nothing else — and the migration checklist had no step that pushes `~/Projects` at all
+(step 5 pushed only mrk). Today that would lose:
+- **Two commits that exist on no remote**, verified against `ls-remote` so the local view is
+  current: sevmac `audit/sevmac` (`3c88fe1`, 2026-04-25, 670 lines of audit documents) and
+  ClipHack `claude/trusting-borg-522b76` (`798519d`, a three-line `.gitignore` change in a Claude
+  worktree). pushall would not have saved them either: it pushes only the current branch.
+  Neither is mine to push or delete; both are reported to Seven.
+- **Four folders that are not repositories**: FloppyLetters, Graphics assets, hacks-checklist,
+  JustIn. Neither the manifest nor Magic Backup Machine carries them.
+- **DoublEnder's two overlay secrets**, `DoublEnderCloud/doublender-10af32ff2d11.json` (the GCS
+  service-account key) and `ingest.env`, refused by the overlay's pre-commit hook by design.
+  DoublEnder's own setup doc says "restore from secure backup" without naming one. Whether
+  KeyVault holds them is Seven's to check; the checklist now says to copy ignored credential files.
+The overlay itself is fully pushed (`main` = `origin/main`) and tracks the other 38 files.
+
+**Fixed**: pushall now names all of it — commits on other branches on no remote, stashes, and
+non-repository folders — and says so again in its summary, without changing its exit status
+(`bin/pushall` `report_local_only`). snapshot-prefs names the folders the manifest cannot record.
+check-commit-gates covers the report in both modes (six assertions, 38 in all). Mutation-tested:
+14 of 14 caught, after one real survivor — dropping `HEAD` from `--not --remotes HEAD` changed
+nothing because no sandbox repo had an unpushed commit on its current branch, which is exactly
+the case the exclusion exists for (without it, pushall calls its own next push "work it will not
+push"). A fixture for it was added; the mutation is now caught.
+
+**The two checklists had drifted in both directions**, the thing CLAUDE.md's "the check runs both
+ways" exists to catch. SMAC-1 never mentioned KeyVault — manual.md has had "Export the KeyVault
+vault" since `1fa38e8` on 2026-08-29, and the 2026-08-31 audit added snapshot-keys to SMAC-1 but
+not this — so the published checklist would have lost the API keys and notes KeyVault holds,
+and its new-machine walkthrough never imported them. manual.md lacked "Capture the login items",
+which I added to SMAC-1 at 12:13 today and did not copy, and the Magic Backup Machine step. Both
+are now the same ten steps in the same order, with step 7 "Push the project repositories".
+
+**Stale since 2026-09-02** (`4429ebc`, when snapshot-prefs took over Helium, Descript, Waves
+Central and MusicBrainz Picard from Magic Backup Machine): manual.md, SMAC-1 and the README said
+14 plist apps where there are 18, and BIN-1 said 18 while listing 14 names. The README also said
+`defaults.sh` holds "~77 keys"; it holds 143.
+
+**Help went to stderr in five commands** — harden, restore-keys, restore-repos, snapshot-keys,
+trim-services — so `restore-repos --help | less` showed nothing; this morning's `--help` sweep
+checked exit codes, not streams. Now stdout, and a sweep of all 39 commands finds only
+`mrk-picker` on stderr, which is right: its stdout is the selection `mrk-brew` captures with
+`$(…)`. restore-keys with no archive exited 1 after checking for gpg; now 2, first.
+
+**Two measurement errors, both caught before they became claims.** The "nothing changed" check
+after that sweep used `find -newermt '-10 minutes'`; in this shell `find` is `bfs`, which rejects
+that format, and `2>/dev/null` hid the error — an empty result that proved nothing. Redone with
+an ISO timestamp and a control file that must appear: nothing changed. And a "core.bare and
+core.worktree do not make sense" warning looked like a decloud defect; it came from my own
+`--git-dir` calls without `--work-tree`, and `decloud status` is clean.
 
 ### Closed by module 13, the 2026-08-31 recursive audit
 

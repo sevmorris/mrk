@@ -28,7 +28,7 @@ MANIFEST="$HOME/.mrk/preferences/repos.tsv"
 DRY_RUN=0
 
 usage() {
-  cat >&2 <<'EOF'
+  cat <<'EOF'
 Usage: restore-repos [-n]
 
 Clone the repositories listed in ~/.mrk/preferences/repos.tsv.
@@ -36,6 +36,9 @@ Run `make pull-prefs` first if that file is not present.
 
   -n, --dry-run   Show what would be cloned, clone nothing
   -h, --help      Show this help
+
+Exits 1 when a clone fails, a destination is in the way, or a manifest line
+cannot be read — in a dry run too, for the last two.
 EOF
 }
 
@@ -43,7 +46,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -n|--dry-run) DRY_RUN=1; shift ;;
     -h|--help)    usage; exit 0 ;;
-    *)            err "Unknown option: $1"; usage; exit 2 ;;
+    *)            err "Unknown option: $1"; echo >&2; usage >&2; exit 2 ;;
   esac
 done
 
@@ -64,9 +67,17 @@ failed=0
 bare=()
 
 # Field order is fixed by snapshot_repos: name, remote, path-under-HOME, kind.
+lineno=0
 while IFS=$'\t' read -r name remote relpath kind; do
+  lineno=$(( lineno + 1 ))
   [[ -z "${name:-}" || "$name" == \#* ]] && continue
-  [[ -n "${remote:-}" && -n "${relpath:-}" ]] || continue
+  # A line short of its fields used to be skipped without a word, so the
+  # repository it named was simply never restored.
+  if [[ -z "${remote:-}" || -z "${relpath:-}" ]]; then
+    warn "line $lineno of the manifest has no remote or no path — skipped: $name"
+    failed=$(( failed + 1 ))
+    continue
+  fi
 
   dest="$HOME/$relpath"
 
@@ -124,4 +135,10 @@ if (( ${#bare[@]} > 0 )); then
   info "normally puts the files in the wrong place. Set it up by hand."
 fi
 
+# Until 2026-09-10 this was an unconditional `exit 0`, so a restore that failed
+# to clone half the manifest looked, to make and to anything chaining on it,
+# exactly like one that worked.
+if (( failed > 0 )); then
+  exit 1
+fi
 exit 0
