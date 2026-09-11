@@ -479,7 +479,7 @@ The new machine needs your SSH key. `make post-install` uses it to pull mrk-pref
 
 Write down the apps, the license keys and the settings that mrk does not manage:
 
-- The App Store apps are tracked in the Brewfile as `mas` entries, so `make brew` reinstalls them. Sign in to App Store.app by hand once first: `mas` has had no `signin` command since macOS 12, and `brew bundle` cannot do it for you.
+- The App Store apps are listed in the Brewfile as `mas` entries, but `make brew` does not install them — `mas install` needs root, and `brew bundle` never runs as root. On the new machine, sign in to App Store.app by hand (`mas` has had no `signin` command since macOS 12), then run the command `make brew` prints at the end: `grep '^mas ' ~/mrk/Brewfile | sed 's/.*id: //' | xargs sudo mas install`.
 - The software licenses. Export them from your license manager.
 - The system settings that `defaults write` does not cover.
 - The VPN configurations and the certificates.
@@ -540,7 +540,13 @@ ssh -T git@github.com
 make brew
 ```
 
-This step installs Homebrew and every package in the Brewfile. It is the slowest step, and its duration depends on the number of packages.
+This step installs Homebrew and every formula and cask in the Brewfile. It is the slowest step, and its duration depends on the number of packages.
+
+It does not install the Mac App Store apps the Brewfile lists — `mas install` needs root, and `brew bundle` never runs as root. It ends by printing the command that does. Sign in to App Store.app by hand, then run that command:
+
+```bash
+grep '^mas ' ~/mrk/Brewfile | sed 's/.*id: //' | xargs sudo mas install
+```
 
 ## Step 5 — Phase 3: the app configuration
 

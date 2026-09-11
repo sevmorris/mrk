@@ -572,7 +572,7 @@
           <ul>
             <li>snapshot writes the plists and then stops. It does not commit or push them, and gitignore excludes them.</li>
             <li>snapshot does not scan the exported plists for secrets, because it commits nothing. The commands that commit — <code>snapshot-prefs</code>, <code>mrk-push</code> and <code>pushall</code> — scan what they commit.</li>
-            <li><code>--brewfile</code> — also runs <code>brew bundle dump</code>. This command overwrites the comments in the Brewfile, so snapshot asks you to confirm first.</li>
+            <li><code>--brewfile</code> — also runs <code>brew bundle dump</code>. This command overwrites the comments in the Brewfile, so snapshot asks you to confirm first. When the dump holds no Mac App Store entries but the Brewfile it replaced did, snapshot puts them back from <code>Brewfile.bak</code>: <code>brew bundle dump</code> lists only the apps <code>mas list</code> reports, and with Spotlight indexing off that is none, so until 2026-09-10 a dump here silently dropped all 22.</li>
             <li><strong>Apps:</strong> AlDente, Amphetamine, BetterSnapTool, Descript, Fission, HandBrake, Helium, Ice, iTerm2, ScreenFlow</li>
           </ul>
         </div>
@@ -868,14 +868,12 @@ mrk-status [--help | -h]</code></pre>
           <h3>mrk-brew <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">mrk-brew is phase 2. It installs the Homebrew formulae and casks that the Brewfile lists, and since 2026-09-10 the Mac App Store applications it lists as <code>mas</code> entries too.</p>
+          <p class="desc">mrk-brew is phase 2. It installs the Homebrew formulae and casks that the Brewfile lists. The Mac App Store applications the Brewfile lists as <code>mas</code> entries it does not install: it ends every run with the one command that does.</p>
           <pre><code>mrk-brew [options]</code></pre>
           <ul>
             <li><code>-n</code>, <code>--dry-run</code> — Report what would be installed and change nothing.</li>
             <li><code>-y</code>, <code>--yes</code> — Answer every prompt yes. Use for unattended runs.</li>
             <li><code>--no-casks</code> — Install the formulae only, skipping the GUI applications.</li>
-              <li>The <code>mas</code> entries need one manual step that cannot be automated: <code>mas</code> has had no <code>signin</code> command since macOS 12, so sign in to App Store.app by hand once before the first <code>mrk-brew</code> on a new machine. <code>mas</code> also requests sudo to install on macOS 13 and later, because Apple made <code>installd</code> root-only.</li>
-              <li><code>mas list</code> reads the App Store id from Spotlight, so <code>brew bundle dump --mas</code> returns nothing on a machine with indexing disabled — which is how this machine is configured. Installing by id does not use Spotlight, so the entries work; regenerating them does not. Add a new one with <code>mas search &lt;name&gt;</code> and confirm the id with <code>mas info &lt;id&gt;</code> before trusting it: App Store display names carry marketing suffixes the bundle names do not, and matching on name alone picked the wrong application for one of the 22.</li>
             <li><code>--no-formulae</code> — Install the casks only.</li>
             <li><code>--only-formulae</code> — Install the formulae only.</li>
             <li><code>--skip-brew-install</code> — Assume Homebrew is present and do not install it.</li>
@@ -884,6 +882,15 @@ mrk-status [--help | -h]</code></pre>
           </ul>
           <ul>
             <li>The short <code>-n</code> was added 2026-09-10. Before that mrk-brew took <code>--dry-run</code> only, so <code>make brew ARGS=-n</code> failed with "Unknown option" although the Makefile advertises <code>ARGS=-n</code> for sync.</li>
+          </ul>
+          <div class="callout callout-caution">
+            <span class="callout-label">Caution — the App Store Apps Are Listed, Not Installed</span>
+            <div class="callout-body">mrk-brew leaves the Brewfile's <code>mas</code> entries out of every <code>brew bundle</code> run and ends with this command, to run by hand once App Store.app is signed in: <code>grep '^mas ' ~/mrk/Brewfile | sed 's/.*id: //' | xargs sudo mas install</code>. It cannot do this itself. <code>brew bundle</code> installs a <code>mas</code> entry with <code>mas install</code>, which mas&nbsp;7 documents as requiring root, and brew never runs anything as root. The <code>mas</code> entries were added on 2026-09-10 with the claim that <code>make brew</code> would reinstall them; it never did. Its interactive path had skipped every <code>mas</code> line since the first commit, and its <code>--yes</code> path handed them to <code>brew bundle</code>, where each became a <code>mas install</code> without root.</div>
+          </div>
+          <ul>
+            <li>Sign in to App Store.app by hand before that command: <code>mas</code> has had no <code>signin</code> command since macOS 12.</li>
+            <li><code>brew bundle</code> decides whether an App Store app is installed from <code>mas list</code>, and <code>mas list</code> reads the App Store id from Spotlight. With indexing off, which is how this machine is set up, it reports none: <code>brew bundle check</code> called all 22 installed apps missing, and <code>brew bundle dump</code> writes no <code>mas</code> lines. mas itself cannot see them either, so the command above may download every one again on such a Mac. Keep it for a new machine.</li>
+            <li>Add a new entry with <code>mas search &lt;name&gt;</code>, and confirm the id with <code>mas info &lt;id&gt;</code> before trusting it: App Store display names carry marketing suffixes the bundle names do not, and matching on name alone picked the wrong application for one of the 22.</li>
           </ul>
         </div>
       </div>

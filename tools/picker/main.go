@@ -59,7 +59,7 @@ var descriptions = map[string]string{
 	"htop":            "Interactive process viewer and system monitor",
 	"jq":              "Lightweight, flexible command-line JSON processor",
 	"lsd":             "Modern ls replacement with colors and icons",
-	"mas":             "Mac App Store CLI — lets brew bundle install the App Store apps",
+	"mas":             "Mac App Store CLI — installs the Brewfile's App Store apps; mrk-brew prints the command",
 	"mkdocs":          "Static site generator for project documentation",
 	"moreutils":       "Useful Unix utilities: sponge, vidir, ts, and more",
 	"nano":            "Simple terminal text editor",

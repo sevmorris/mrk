@@ -1199,6 +1199,61 @@ reached main as `6a15c71`, was deleted with its worktree; `audit/sevmac` was exp
 (verified intact: three documents, 24,776 bytes) and then deleted rather than pushed, since
 sevmac is public; KeyVault holds DoublEnder's two overlay secrets.
 
+### The App Store entries never reached brew bundle (2026-09-10)
+
+Entry point: the 22 `mas` entries added at 19:49 (`c56e4c2`), and the claim written into
+manual.md, SMAC-1 and BIN-1 the same hour that "`make brew` reinstalls them" — traced through
+every reader of the Brewfile rather than through `brew bundle` alone.
+
+**`make brew` never installed one.** `scripts/brew` has two paths. The interactive one — every
+`make brew` from a terminal — skipped every `mas` line, under a comment from the first commit
+(`10e5f86`) reading "Mac App Store support removed due to reliability issues"; it did nothing
+until this afternoon gave it 22 lines to skip. The `--yes`/no-terminal path passed the Brewfile
+through whole, and that fails differently: Homebrew's bundle installs a `mas` entry by running
+`mas install <id>` (`bundle/extensions/mac_app_store.rb`, the install and `mas get` fallback)
+as the user, and `mas help install` in mas 7.0.0 says "Requires root privileges to install
+apps". brew never runs as root.
+
+**brew bundle cannot see them on this Mac either.** It decides what is installed from
+`mas list` alone, and `mas list` reads Spotlight, which is off here: `brew bundle check`
+reported **all 22 installed App Store apps missing** (32 unsatisfied in all; the other 10 were
+cask and formula updates). `brew bundle dump` writes **0 of the 22** `mas` lines, so
+`snapshot --brewfile`, which overwrites the Brewfile with a dump, would have dropped the whole
+section — its warning named the comments and the `greedy` annotations, not this.
+
+**Unaffected, and checked rather than assumed**: `sync` (its add path preserves lines it does
+not parse; its prune path matches only `brew`/`cask`), `status` and mrk-status (only
+`brew`/`cask` regexes), the picker (the same), and topgrade, whose config in
+`assets/topgrade.toml` already disables its `mas` step.
+
+**Fixed**: both bundle paths now leave the `mas` entries out, and every run — the dry run too —
+ends by naming how many there are and the one command that installs them after an App Store
+sign-in, `grep '^mas ' Brewfile | sed 's/.*id: //' | xargs sudo mas install`. The `--yes` path no
+longer fails on them. `snapshot --brewfile` puts the section back from `Brewfile.bak` when a dump
+holds no App Store entries but the Brewfile did. Corrected: the picker's description of `mas`,
+BIN-1's mrk-brew entry (whose two `mas` notes had also been nested inside its options list),
+BIN-1's snapshot entry, manual.md and SMAC-1.
+
+Verified: the command's pipeline yields exactly the 22 ids, all numeric; the filtered Brewfile
+keeps all 129 formula, cask and tap entries and `brew bundle list` parses it with no `mas`; the
+dry run prints the note; the snapshot block, extracted and run against a real mas-less dump,
+restores all 22 lines byte-identical, and leaves a Brewfile that has them unchanged. **Not
+verified, and why**: a real `brew bundle` run, because it installs, and `resolve_homebrew`
+hardcodes `/opt/homebrew/bin/brew`, so no stub on the PATH can intercept one; and
+`sudo mas install` itself, which needs a sign-in, root and a download.
+
+**Correction to "App Store apps: the ecosystem already covered a gap" above.** "mrk already
+runs `brew bundle`" and "the entries still install" were never true of `make brew`, and its
+"Verified" meant only that `brew bundle` could parse the entries. The gap it closed was the
+*record* of which apps to reinstall; the reinstall is one manual command, not zero.
+
+**A near-miss of my own.** To see mas's root error I ran `mas install 1`, an id that cannot
+exist. Before failing, mas 7 found an App Store app missing from Spotlight and printed
+"Indexing now". Indexing stayed disabled on both volumes and the app's
+`kMDItemAppStoreAdamID` stayed null, so nothing changed; but an install command is not a probe,
+and `mas help install` had already answered the question. Also hit again: GNU `stat -f`, for the
+fourth time today, and zsh expanding a `======` divider as `=command`.
+
 ### Closed by module 13, the 2026-08-31 recursive audit
 
 Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the
