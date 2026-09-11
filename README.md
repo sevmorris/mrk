@@ -32,9 +32,9 @@ did not choose, rearranges the Dock, and installs two apps of mine. Fork first �
 |-------|---------|--------------|
 | **1 — Setup** | `make setup` | Xcode CLI tools, dotfile symlinks, tool linking, macOS defaults, login shell |
 | **2 — Brew** | `make brew` | Installs Homebrew, then interactively selects formulae & casks from `Brewfile` |
-| **3 — Post-install** | `make post-install` | App preferences, browser policies, login items |
+| **3 — Post-install** | `make post-install` | App preferences, browser preferences, login items |
 
-Run `make all` to execute all three phases at once. On a fresh machine, run Phase 1 first — it installs Xcode CLI tools and the login shell that later phases depend on. After that, Phases 2 and 3 can run in either order or together. On an already-configured machine all phases can be re-run freely in any order.
+Run `make all` to execute all three phases at once. On a fresh machine, run them in order. Phase 1 installs Xcode CLI tools and the login shell that later phases depend on, and Phase 3 configures only what Phase 2 has installed: it skips the preferences, login items and settings of any app that is not there yet, and a later Phase 2 does not go back for them. The App Store apps are installed by hand after `make brew` — run `make post-install` again once they are in. On an already-configured machine all phases can be re-run freely in any order.
 
 ## Make Targets
 

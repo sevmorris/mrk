@@ -146,7 +146,10 @@ tool was green beforehand.
   therefore aborted on the first phase that failed. Twelve sites matched by grep; eight were
   harmless because the enclosing function is invoked in a condition, which suppresses
   `set -e` through its whole body. All twelve converted to `X=$(( X + 1 ))`, because the
-  eight are safe only by virtue of a call site in another function.
+  eight are safe only by virtue of a call site in another function. The twelve were all
+  in `scripts/`. 35 more, in the six `assets/` app-defaults scripts, survived until 2026-09-11 —
+  written `cmd || ((failed++))`, which looks guarded and is not: under bash 5 the command after
+  the last `||` still trips `set -e`. See "The preferences round trip read abandoned containers" below.
 - **P-3 — a failed firewall read was recorded as "was off".** `|| true` folded a failed
   read into the same value a successful read of a disabled firewall gives, so the rollback
   would have disabled a firewall that was on. Now tracked apart with `prev_absent`, the
@@ -1357,6 +1360,96 @@ contradicted itself: its build-tools entry said "nothing warns you that one is o
 source" while its maintain entry documents the step that does; SMAC-2 said the same. Both now
 say nothing warns you *on its own*, and point at `make maintain`. The code comment said "all
 four TUIs"; there are three, and `tools/theme` is a library.
+
+### The preferences round trip read abandoned containers (2026-09-11)
+
+Entry point: `pull-prefs`, which no probe had covered — and behind it the restore it feeds,
+`post-install`'s imports, checked against where each app on this Mac actually keeps its
+settings rather than against the code on either side. The two lists agree exactly (18 apps,
+same ids, files and paths). What they disagree with is macOS.
+
+**The measured rule.** Given a bare bundle id, `defaults` reads and writes the copy inside the
+app's sandbox container whenever the container holds one, and `~/Library/Preferences` otherwise.
+A sandboxed app's first launch *moves* `~/Library/Preferences/ID.plist` into its container.
+Both were measured with an ad-hoc-signed sandboxed test app (`local.mrkprobe.sbx`), since doing
+it to a real app would have overwritten its settings: imported before first launch, the value
+reached the app through that move; imported after, it went into the container; a container that
+existed but held no copy sent the import to `~/Library/Preferences`, where the app never saw it.
+The path form (`defaults export ~/Library/Preferences/ID`) always reads that exact file.
+
+- **snapshot-prefs saved stale copies of five of my own apps.** DoubleEnder, FilmStrip, JustIn,
+  JustLoop and WaxOn each kept a container from an earlier sandboxed build; the installed builds
+  are not sandboxed and write `~/Library/Preferences`, whose copies are the newer in every case.
+  By id, `defaults export` read the containers. The repository held all five container copies:
+  JustIn's one key (a window frame) where the live file has five, missing `justInDiag_*` and
+  `justInWaveformPanelHeight`; WaxOn's one key, missing `WaxOnSettings`; FilmStrip's five `fs_*`
+  keys from a build that no longer uses them. A new machine would have restored those.
+- **post-install's "won't overwrite" check was blind to sandboxed apps.** It tested for
+  `~/Library/Preferences/ID.plist`. Keka is sandboxed, so after its first launch that file does
+  not exist: on this Mac, with Keka set up, the check found nothing, and a second run of
+  `post-install` would have imported the snapshot over Keka's live settings — shown end to end on
+  the test app, where the old `import_plist` printed "Imported" and replaced the live value and
+  the new one skips. BIN-1's mrk-post-install entry promised it "never overwrites a live
+  configuration".
+- **An app with no domain was exported as an empty dict and pushed.** `defaults export` exits 0
+  on an absent domain and writes `<dict/>` (`backup_plist` already knew). Installed-but-unset-up
+  is BetterSnapTool's state on a new Mac: it comes from the App Store, installed by hand after
+  `make all` has run `post-install`.
+- **Nothing restored BetterSnapTool at all, or registered two login items.** `post-install`
+  imports and registers only apps that are installed, and on SMAC-1's path (`make -C ~/mrk all`)
+  it runs before the App Store command can be. BetterSnapTool's preferences and the BetterSnapTool
+  and Chrono Plus login items were skipped and nothing said to run it again. README said that
+  after Phase 1 "Phases 2 and 3 can run in either order" — written 2026-04-25 from module 7's
+  finding that Phase 3 *degrades gracefully* without Phase 2, which is not the same thing: a Phase
+  3 run first skips every preference, login item and app-settings script, and a later Phase 2
+  never returns for them. README's Phase 3 row still listed "browser policies", removed 2026-09-10.
+- **The help text, BIN-1, the manual and SMAC-1 said snapshot-prefs quits each app** "so the app
+  flushes its preferences first". It never had: no version contains any quitting code. The
+  sentence entered its usage text on 2026-09-10, and I repeated it in three documents and a code
+  comment the same day. It also shaped behaviour: that session declined to run snapshot-prefs
+  because "it quits apps". Quitting is not needed — a running test process's unsynchronised
+  write was visible to `defaults export` within 1.5 s.
+- **Ten empty ClipHack test domains had been saved.** `ScratchDefaults` names a suite per test
+  process and accepts the leftovers by design; each is a 42-byte empty dict.
+- **Latent, not live:** FL2601 is sandboxed, so its domain exists only in its container and the
+  `~/Library/Preferences` glob never listed it — it holds only a window frame. `bin/snapshot`
+  computed the right file (outside the container first) and then exported by id regardless; none
+  of its ten apps has a stale container, so nothing it wrote was wrong.
+
+**Fixed.** `prefs_source` in `lib.sh` (bash-3.2-clean) exports by path when the file outside the
+container exists, and by id otherwise; `snapshot_plist` and `snapshot_own_apps` use it, skip a
+domain `defaults read` cannot read (absent or empty), and the own-app group is listed with
+`defaults domains`, which includes container-only domains without the script reading another
+app's container itself. `post-install` asks `defaults read ID` whether the domain holds
+anything. `bin/snapshot` exports the file it chose. `make brew`'s hint and `make all`'s summary
+say to run `post-install` again after the App Store command. Verified: patched copies of the old
+and new snapshot-prefs run against this Mac's real domains into scratch repositories — the five
+now match the live files, FL2601 and SevmoPodcastLeveler are captured, the ten empties are not,
+all 17 third-party plists and the app-support, config, fonts and manifest output are
+byte-identical, and a saved copy survives an absent domain where the old run emptied it. The new
+gate still imports on a fresh domain, with the `defaults delete` rollback line.
+
+**The P-1 class survived in `assets/`: 35 sites.** Module 14's sweep converted twelve
+`((x++))` sites, all in `scripts/`; the six app-defaults scripts in `assets/` each count with
+`|| ((failed++))` under `set -euo pipefail` — a form that looks guarded and is not, because under
+bash 5 the command after the last `||` still trips `set -e`. Under Homebrew's bash, which `apply_defaults` runs,
+the first failed write returned 1 from zero and ended the script — measured against a failing
+`defaults` stub: one write tried of 12, no summary. Under `/bin/bash` 3.2 the same line does not
+exit. Safari is the realistic trigger: a terminal without Full Disk Access cannot write its
+domain. Converted to `failed=$(( failed + 1 ))`, and each script now exits 1 after trying every
+write if any failed, so the exit status `apply_defaults` branches on is unchanged in both the
+failing and the clean case — only the abort is gone.
+
+**Left for you:** the ten `io.github.sevmorris.ClipHack.tests.*.plist` files are still in
+mrk-prefs' `sevmorris-apps/`; snapshot-prefs no longer adds them but does not delete what is
+there. The test app left `~/Library/Containers/local.mrkprobe.sbx` holding only macOS's own
+metadata file, which the system will not let a shell remove.
+
+**Method.** Three measurements were wrong before they were right, each in a way that would have
+produced a finding: a `plutil -extract` keypath split `com.apple.security.app-sandbox` on its
+dots and called every app unsandboxed; zsh's unquoted `$ids` did not word-split and ran one
+iteration; and a variable named `path` — which zsh ties to `PATH` — emptied the search path and
+made every script "fail" with zero writes.
 
 ### Closed by module 13, the 2026-08-31 recursive audit
 

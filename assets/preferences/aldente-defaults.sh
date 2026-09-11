@@ -18,35 +18,42 @@ failed=0
 
 # Maximum charge level (%)
 # Why: lithium cells degrade fastest above ~80% SOC; capping charge extends long-term battery capacity
-defaults write com.apphousekitchen.aldente-pro chargeVal -int 80 || ((failed++))
+defaults write com.apphousekitchen.aldente-pro chargeVal -int 80 || failed=$(( failed + 1 ))
 
 # Calibration backup percentage
-defaults write com.apphousekitchen.aldente-pro calibrationBackupPercentage -int 80 || ((failed++))
+defaults write com.apphousekitchen.aldente-pro calibrationBackupPercentage -int 80 || failed=$(( failed + 1 ))
 
 # Enable sailing mode (maintain charge level without micro-charging)
 # Why: prevents continuous micro-charging cycles at the charge limit, which cause incremental wear
-defaults write com.apphousekitchen.aldente-pro sailingMode -bool true || ((failed++))
+defaults write com.apphousekitchen.aldente-pro sailingMode -bool true || failed=$(( failed + 1 ))
 
 # Sailing level tolerance (%)
-defaults write com.apphousekitchen.aldente-pro sailingLevel -int 5 || ((failed++))
+defaults write com.apphousekitchen.aldente-pro sailingLevel -int 5 || failed=$(( failed + 1 ))
 
 # Enable automatic discharge when above charge limit
 # Why: maintains charge at target level when plugged in for extended periods, not just on initial plug-in
-defaults write com.apphousekitchen.aldente-pro automaticDischarge -bool true || ((failed++))
+defaults write com.apphousekitchen.aldente-pro automaticDischarge -bool true || failed=$(( failed + 1 ))
 
 # Don't allow discharge below limit
-defaults write com.apphousekitchen.aldente-pro allowDischarge -bool false || ((failed++))
+defaults write com.apphousekitchen.aldente-pro allowDischarge -bool false || failed=$(( failed + 1 ))
 
 # Blink MagSafe LED during discharge
 # Why: provides visible confirmation that AlDente is actively discharging rather than just idle
-defaults write com.apphousekitchen.aldente-pro magsafeBlinkDischarge -bool true || ((failed++))
+defaults write com.apphousekitchen.aldente-pro magsafeBlinkDischarge -bool true || failed=$(( failed + 1 ))
 
 # Enable Sparkle auto-updates
-defaults write com.apphousekitchen.aldente-pro SUAutomaticallyUpdate -bool true || ((failed++))
-defaults write com.apphousekitchen.aldente-pro SUEnableAutomaticChecks -bool true || ((failed++))
+defaults write com.apphousekitchen.aldente-pro SUAutomaticallyUpdate -bool true || failed=$(( failed + 1 ))
+defaults write com.apphousekitchen.aldente-pro SUEnableAutomaticChecks -bool true || failed=$(( failed + 1 ))
 
 if (( failed > 0 )); then
   warn "$failed default(s) failed to apply"
 else
   ok "All defaults applied"
 fi
+
+# Exit 1 when any write failed, after every write has been tried and counted, so
+# post-install's apply_defaults reports this script as failed rather than
+# printing "Applied" under the warning above. Until 2026-09-11 each failure was
+# counted with ((failed++)), which returns 1 from zero: under set -e that ended
+# the script at the first failed write under bash 5, and never under bash 3.2.
+if (( failed > 0 )); then exit 1; fi

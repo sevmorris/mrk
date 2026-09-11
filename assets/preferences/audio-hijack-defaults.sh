@@ -18,19 +18,26 @@ source "$SCRIPT_DIR/lib.sh"
 failed=0
 
 # Dark theme (0=light, 1=auto, 2=dark)
-defaults write com.rogueamoeba.audiohijack applicationTheme -int 2 || ((failed++))
+defaults write com.rogueamoeba.audiohijack applicationTheme -int 2 || failed=$(( failed + 1 ))
 
 # Preferred external audio editor — iZotope RX
-defaults write com.rogueamoeba.audiohijack audioEditorBundleID -string "com.izotope.RXPro" || ((failed++))
+defaults write com.rogueamoeba.audiohijack audioEditorBundleID -string "com.izotope.RXPro" || failed=$(( failed + 1 ))
 
 # Audio buffer size (frames)
-defaults write com.rogueamoeba.audiohijack bufferFrames -int 512 || ((failed++))
+defaults write com.rogueamoeba.audiohijack bufferFrames -int 512 || failed=$(( failed + 1 ))
 
 # Disable external command execution (security)
-defaults write com.rogueamoeba.audiohijack allowExternalCommands -int 0 || ((failed++))
+defaults write com.rogueamoeba.audiohijack allowExternalCommands -int 0 || failed=$(( failed + 1 ))
 
 if (( failed > 0 )); then
   warn "$failed default(s) failed to apply"
 else
   ok "All defaults applied"
 fi
+
+# Exit 1 when any write failed, after every write has been tried and counted, so
+# post-install's apply_defaults reports this script as failed rather than
+# printing "Applied" under the warning above. Until 2026-09-11 each failure was
+# counted with ((failed++)), which returns 1 from zero: under set -e that ended
+# the script at the first failed write under bash 5, and never under bash 3.2.
+if (( failed > 0 )); then exit 1; fi

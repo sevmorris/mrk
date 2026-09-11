@@ -61,7 +61,9 @@ Usage: scripts/brew [options]
 
 The Brewfile's Mac App Store (mas) entries are listed, not installed: mas
 needs root and brew bundle never runs as root. Each run ends with the one
-command that installs them, to run after signing in to App Store.app.
+command that installs them, to run after signing in to App Store.app. Run
+make post-install after that command: it restores an app's preferences and
+login item only if the app is installed when it runs.
 USAGE
       exit 0
       ;;
@@ -429,6 +431,7 @@ report_mas_entries() {
   warn "$n Mac App Store app(s) in the Brewfile are listed but not installed by mrk-brew."
   info "Sign in to App Store.app once, then install them with:"
   info "  $MAS_INSTALL_HINT"
+  info "Then run make post-install (again, after make all): it restores an app's preferences and login item only if the app is installed when it runs."
   info "On a Mac with Spotlight indexing off, mas cannot tell what is already installed, and may download every one again."
   return 0
 }

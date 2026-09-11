@@ -501,7 +501,7 @@ fi
 
 import_own_apps(){
   local src="$LOCAL_PREFS_DIR/sevmorris-apps"
-  local f base bundle_id existing restored=0 skipped=0
+  local f base bundle_id restored=0 skipped=0
 
   if [[ ! -d "$src" ]]; then
     logskip "my own apps" "not in preferences — run: make snapshot-prefs"
@@ -512,9 +512,9 @@ import_own_apps(){
     [[ -f "$f" ]] || continue          # no match leaves the glob unexpanded
     base="$(basename "$f")"
     bundle_id="${base%.plist}"
-    existing="$HOME/Library/Preferences/${bundle_id}.plist"
 
-    if [[ -f "$existing" ]]; then
+    # The domain, not the file — see import_plist below. FL2601 is sandboxed.
+    if defaults read "$bundle_id" >/dev/null 2>&1; then
       skipped=$(( skipped + 1 ))
       continue
     fi
@@ -566,9 +566,15 @@ import_plist(){
     logskip "$name plist" "not found in $LOCAL_PREFS_DIR — run: make snapshot-prefs"
     return 0
   fi
-  # Only import if the app hasn't been configured yet (no existing plist)
-  local existing="$HOME/Library/Preferences/${bundle_id}.plist"
-  if [[ -f "$existing" ]]; then
+  # Only import if the app hasn't been configured yet. Ask defaults whether the
+  # domain holds anything, rather than test for ~/Library/Preferences/ID.plist:
+  # a sandboxed app keeps its domain in its container, and its first launch
+  # moves that file inside. Until 2026-09-11 the file test found no Keka
+  # preferences on a Mac where Keka was set up, so every run after the first
+  # would have imported over its live settings — `defaults import` writes into
+  # the container once the container holds a copy. `defaults read` exits 1 for
+  # an absent or empty domain, and looks in the container itself.
+  if defaults read "$bundle_id" >/dev/null 2>&1; then
     logskip "$name plist" "exists — skipping import (won't overwrite)"
     return 0
   fi

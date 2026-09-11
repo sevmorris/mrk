@@ -56,13 +56,13 @@ export_plist() {
     log "Skipping $name (no preferences found)"
     return 0
   fi
-  local pref_file="$existing"
-  [[ ! -f "$pref_file" ]] && pref_file="$sandboxed"
-  if [[ ! -f "$pref_file" ]]; then
-    log "Skipping $name (preference file not found)"
-    return 0
-  fi
-  defaults export "$bundle_id" "$dest_file"
+  # The file outside the container first, by path. Given the bare bundle id,
+  # defaults reads the container's copy whenever it holds one — including a
+  # copy left behind by a sandboxed build the app has since dropped — so the
+  # preference order this function used to compute never reached the export.
+  local src="$bundle_id"
+  [[ -f "$existing" ]] && src="${existing%.plist}"
+  defaults export "$src" "$dest_file"
   plutil -convert xml1 "$dest_file"
   log "Exported $name → assets/preferences/$(basename "$dest_file")"
 }

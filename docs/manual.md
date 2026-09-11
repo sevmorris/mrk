@@ -115,7 +115,7 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 - **Browsers:** Applies the Safari defaults and the Helium defaults. It opens the extension URLs when you ask for them. It no longer installs Chrome and Brave managed policies: those were JSON files in `policies/managed/`, which is the Linux policy mechanism, and Chrome on macOS never read them.
 - **App defaults:** Writes the settings for Audio Hijack, Fission, AlDente, and the Rogue Amoeba update options.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
-- **Plist imports (18 apps):** Imports your preference plists. Phase 3 skips an app that already has a preferences file, so it never overwrites a live configuration.
+- **Plist imports (18 apps):** Imports your preference plists. Phase 3 skips an app that already has preferences — in `~/Library/Preferences`, or in its sandbox container for a sandboxed app such as Keka — so it never overwrites a live configuration. It also skips an app that is not installed yet.
 - **My own applications:** Imports every `io.github.sevmorris.*` plist that `snapshot-prefs` captured. This one does not check that the application is installed: several are tools with no bundle in `/Applications`, and on a new machine the preferences usually arrive before the application does, so an early import means the app finds its settings on first launch.
 - **Barkeep:** Installs Barkeep from the most recent GitHub release, and only when the app in the release's DMG verifies, is signed by my Developer ID team, and is accepted by Gatekeeper as notarized; anything else is refused and counted as a failed step. Phase 3 skips this step when `/Applications/Barkeep.app` exists. To update Barkeep, use Barkeep, or delete the app first.
 - **KeyVault:** Installs KeyVault from the most recent GitHub release, with the same signature checks as Barkeep. Phase 3 skips this step when `/Applications/KeyVault.app` exists. To update KeyVault, use KeyVault, or delete the app first.
@@ -154,6 +154,8 @@ exec zsh        # Reload shell after setup
 ```
 
 To skip every confirmation prompt, pass `--yes` or set `NONINTERACTIVE=1`.
+
+`make all` does not install the App Store apps. Afterwards, sign in to App Store.app, run the command `make brew` printed, and then run `make post-install` again — it restores preferences and login items only for apps that are installed.
 
 ---
 
@@ -220,7 +222,7 @@ snapshot-prefs
 
 **How snapshot-prefs works**
 
-1. snapshot-prefs exports the preference plist for each managed app with `defaults export`.
+1. snapshot-prefs exports the preference plist for each managed app with `defaults export`. It reads the copy the app uses: `~/Library/Preferences/<id>.plist` when that file exists, and the app's sandbox container otherwise. It skips an app with no preferences yet and keeps the copy it saved before. It does not quit any app, because `defaults export` already sees an open app's changes.
 2. snapshot-prefs copies the config directories that are not defaults domains into `config/`. Calibre is one example: its settings and conversion presets live in `~/Library/Preferences/calibre/`. It does not copy the plugin code, which reinstalls from Calibre's plugin manager. It copies only `plugins/*.json` (the per-plugin settings) and `plugins/*/account` (the DeACSM Adobe activation, which cannot be recreated without a re-authorization).
 3. snapshot-prefs converts each binary plist to xml1, and then scans every file for secrets.
 4. snapshot-prefs commits the changes in `~/.mrk/preferences/` with a timestamped message.
@@ -232,7 +234,7 @@ You can run snapshot-prefs more than once. When nothing changed, it reports "No 
 > regenerated without a re-authorization — and the secret scanner does not flag it, because its XML element names match none
 > of the scanner's patterns. Nothing else will warn you it is there. This is why `sevmorris/mrk-prefs` must stay private.
 
-> **Caution:** snapshot-prefs scans every staged file for API keys and tokens before it commits. If the scan finds a match, snapshot-prefs stops and asks you to confirm. It does not ask when `NONINTERACTIVE=1` is set or when there is no terminal — in those two cases it aborts. Read the reported lines before you answer. `mrk-push` applies the same gate to the mrk repository, and `pushall` applies it to every repository it commits. snapshot-prefs also refuses to start while a merge or rebase in `~/.mrk/preferences` is unfinished, and it checks before it quits any app.
+> **Caution:** snapshot-prefs scans every staged file for API keys and tokens before it commits. If the scan finds a match, snapshot-prefs stops and asks you to confirm. It does not ask when `NONINTERACTIVE=1` is set or when there is no terminal — in those two cases it aborts. Read the reported lines before you answer. `mrk-push` applies the same gate to the mrk repository, and `pushall` applies it to every repository it commits. snapshot-prefs also refuses to start while a merge or rebase in `~/.mrk/preferences` is unfinished, and it checks before it exports anything.
 
 ## How to pull the app preferences
 
@@ -244,7 +246,7 @@ pull-prefs
 
 `pull-prefs` only fetches the data. `post-install` does the restore. It imports each defaults-domain plist with `defaults import`, restores the Application Support files, and copies the config directories back into `~/Library/Preferences/`.
 
-`post-install` skips an app that it finds already configured, so it does not overwrite your live settings. For a defaults domain, it skips when the preferences plist exists. For a config directory such as Calibre, it skips when `gui.json` exists, and it also skips when the directory holds any other file. To restore into a directory that already has files, delete the directory first. Quit an app before you restore it.
+`post-install` skips an app that it finds already configured, so it does not overwrite your live settings. For a defaults domain, it skips when the domain holds any settings — in `~/Library/Preferences`, or in the app's sandbox container, where a sandboxed app such as Keka keeps them. It restores the preferences of an app, and registers its login item, only if the app is installed when it runs, so run it again after you install the App Store apps. For a config directory such as Calibre, it skips when `gui.json` exists, and it also skips when the directory holds any other file. To restore into a directory that already has files, delete the directory first. Quit an app before you restore it.
 
 > **Note:** `make post-install` runs `pull-prefs` for you when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
 
@@ -479,7 +481,7 @@ The new machine needs your SSH key. `make post-install` uses it to pull mrk-pref
 
 Write down the apps, the license keys and the settings that mrk does not manage:
 
-- The App Store apps are listed in the Brewfile as `mas` entries, but `make brew` does not install them — `mas install` needs root, and `brew bundle` never runs as root. On the new machine, sign in to App Store.app by hand (`mas` has had no `signin` command since macOS 12), then run the command `make brew` prints at the end: `grep '^mas ' ~/mrk/Brewfile | sed 's/.*id: //' | xargs sudo mas install`.
+- The App Store apps are listed in the Brewfile as `mas` entries, but `make brew` does not install them — `mas install` needs root, and `brew bundle` never runs as root. On the new machine, sign in to App Store.app by hand (`mas` has had no `signin` command since macOS 12), then run the command `make brew` prints at the end: `grep '^mas ' ~/mrk/Brewfile | sed 's/.*id: //' | xargs sudo mas install`. Then run `make post-install` again: it restores preferences and login items only for apps that are installed, and BetterSnapTool and Chrono Plus come from the App Store.
 - The software licenses. Export them from your license manager.
 - The system settings that `defaults write` does not cover.
 - The VPN configurations and the certificates.
@@ -547,6 +549,8 @@ It does not install the Mac App Store apps the Brewfile lists — `mas install` 
 ```bash
 grep '^mas ' ~/mrk/Brewfile | sed 's/.*id: //' | xargs sudo mas install
 ```
+
+Run it before Step 5. `post-install` restores the preferences and login item of an app only if the app is installed, and BetterSnapTool and Chrono Plus are App Store apps. If you install them later, run `make post-install` again.
 
 ## Step 5 — Phase 3: the app configuration
 
@@ -623,6 +627,8 @@ cd ~/mrk
 make all
 exec zsh
 ```
+
+Then install the App Store apps with the command `make brew` printed, and run `make post-install` again to restore the preferences and login items it skipped for them.
 
 ---
 

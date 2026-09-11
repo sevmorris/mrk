@@ -447,3 +447,25 @@ git_in_progress() {
   else return 1
   fi
 }
+
+# prefs_source ID — print the domain to hand `defaults export` so that it reads
+# the preferences app ID really uses: the path of ~/Library/Preferences/ID.plist
+# when that file exists, and otherwise ID itself.
+#
+# Given a bare ID, defaults reads the copy in the app's sandbox container
+# whenever the container holds one. That is right for a sandboxed app and wrong
+# for one that has since shipped unsandboxed, because the container outlives
+# the build that wrote it. Five of my own apps are in that state, and until
+# 2026-09-11 snapshot-prefs saved their abandoned container copies: JustIn's
+# with one key where the live file has five, WaxOn's without its settings at
+# all. A sandboxed app leaves nothing outside its container for this to prefer:
+# its first launch moves ~/Library/Preferences/ID.plist inside (measured with a
+# sandboxed test app, 2026-09-11).
+prefs_source() {
+  local f="$HOME/Library/Preferences/$1.plist"
+  if [[ -f "$f" ]]; then
+    printf '%s\n' "${f%.plist}"
+  else
+    printf '%s\n' "$1"
+  fi
+}

@@ -19,7 +19,7 @@ source "$SCRIPT_DIR/lib.sh"
 failed=0
 
 # Dark theme
-defaults write com.rogueamoeba.Fission applicationTheme -int 2 || ((failed++))
+defaults write com.rogueamoeba.Fission applicationTheme -int 2 || failed=$(( failed + 1 ))
 
 # Custom WAV format: 24-bit mono 44.1kHz with dither
 defaults write com.rogueamoeba.Fission CustomFormatWAV -dict \
@@ -31,7 +31,7 @@ defaults write com.rogueamoeba.Fission CustomFormatWAV -dict \
   Type -int 5 \
   TypeExtra -int 0 \
   UseSDM -int 0 \
-  UseVBR -int 1 || ((failed++))
+  UseVBR -int 1 || failed=$(( failed + 1 ))
 
 # Custom MP3 format: 160kbps stereo 44.1kHz VBR
 defaults write com.rogueamoeba.Fission CustomFormatMP3 -dict \
@@ -43,7 +43,7 @@ defaults write com.rogueamoeba.Fission CustomFormatMP3 -dict \
   Type -int 3 \
   TypeExtra -int 0 \
   UseSDM -int 0 \
-  UseVBR -int 1 || ((failed++))
+  UseVBR -int 1 || failed=$(( failed + 1 ))
 
 # Custom AAC format: 160kbps stereo 44.1kHz VBR
 defaults write com.rogueamoeba.Fission CustomFormatAAC -dict \
@@ -55,16 +55,23 @@ defaults write com.rogueamoeba.Fission CustomFormatAAC -dict \
   Type -int 2 \
   TypeExtra -int 0 \
   UseSDM -int 0 \
-  UseVBR -int 1 || ((failed++))
+  UseVBR -int 1 || failed=$(( failed + 1 ))
 
 # Default export format: WAV (type 5, preset index 3)
-defaults write com.rogueamoeba.Fission exportFormatType -int 5 || ((failed++))
+defaults write com.rogueamoeba.Fission exportFormatType -int 5 || failed=$(( failed + 1 ))
 
 # Don't show start window
-defaults write com.rogueamoeba.Fission showStartWindow -bool false || ((failed++))
+defaults write com.rogueamoeba.Fission showStartWindow -bool false || failed=$(( failed + 1 ))
 
 if (( failed > 0 )); then
   warn "$failed default(s) failed to apply"
 else
   ok "All defaults applied"
 fi
+
+# Exit 1 when any write failed, after every write has been tried and counted, so
+# post-install's apply_defaults reports this script as failed rather than
+# printing "Applied" under the warning above. Until 2026-09-11 each failure was
+# counted with ((failed++)), which returns 1 from zero: under set -e that ended
+# the script at the first failed write under bash 5, and never under bash 3.2.
+if (( failed > 0 )); then exit 1; fi
