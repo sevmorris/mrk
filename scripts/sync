@@ -595,13 +595,13 @@ fi
 
 # ─── 5. Section assignment for formulae ──────────────────────────────────────
 
-# Extract formula section headers (skip Taps, Casks, Mac App Store)
+# Extract formula section headers (skip Taps and Casks)
 declare -a formula_sections=()
 while IFS= read -r line || [[ -n "$line" ]]; do
   if [[ "$line" =~ ^##[[:space:]](.+) ]]; then
     header="${BASH_REMATCH[1]}"
     case "$header" in
-      Taps|"Mac App Store Apps") continue ;;
+      Taps) continue ;;
       Casks*) continue ;;
     esac
     formula_sections+=("$header")

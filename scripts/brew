@@ -59,11 +59,10 @@ Usage: scripts/brew [options]
   --debug               Enable bash tracing (set -x)
   --yes, -y             Skip confirmation prompts
 
-The Brewfile's Mac App Store (mas) entries are listed, not installed: mas
-needs root and brew bundle never runs as root. Each run ends with the one
-command that installs them, to run after signing in to App Store.app. Run
-make post-install after that command: it restores an app's preferences and
-login item only if the app is installed when it runs.
+App Store apps are not installed by mrk and are not in the Brewfile. They are
+listed in docs/app-store-apps.md; install them by hand from App Store.app, then
+run make post-install again — it restores an app's preferences and login item
+only if the app is installed when it runs.
 USAGE
       exit 0
       ;;
@@ -410,32 +409,6 @@ _run_mrk_picker() {
   done <<< "$picker_out"
 }
 
-# The Brewfile's Mac App Store entries are listed, never installed, here.
-#
-# brew bundle installs a `mas` entry by running `mas install <id>`, and mas 7
-# says of that command "Requires root privileges to install apps" — while
-# brew bundle never runs anything as root. It also decides what is already
-# installed from `mas list`, which reads Spotlight and sees nothing on a Mac
-# whose indexing is off: on this one, `brew bundle check` reported all 22
-# installed apps missing. Handing the entries to brew bundle therefore fails
-# on a new machine, and on this one would try to install all 22 again. So they are
-# left out of every bundle run and handed back as one command instead. The
-# 2026-09-10 docs said `make brew` reinstalled them; it never did.
-MAS_INSTALL_HINT="grep '^mas ' \"$BREWFILE\" | sed 's/.*id: //' | xargs sudo mas install"
-
-report_mas_entries() {
-  local n
-  n=$(grep -c '^mas[[:space:]]' "$BREWFILE" 2>/dev/null || true)
-  (( ${n:-0} > 0 )) || return 0
-  echo "" >&2
-  warn "$n Mac App Store app(s) in the Brewfile are listed but not installed by mrk-brew."
-  info "Sign in to App Store.app once, then install them with:"
-  info "  $MAS_INSTALL_HINT"
-  info "Then run make post-install (again, after make all): it restores an app's preferences and login item only if the app is installed when it runs."
-  info "On a Mac with Spotlight indexing off, mas cannot tell what is already installed, and may download every one again."
-  return 0
-}
-
 # Install packages from Brewfile
 install_brewfile() {
   local ORIG_STTY
@@ -455,32 +428,23 @@ install_brewfile() {
   log "Installing packages from Brewfile..."
 
   if (( DRY_RUN )); then
-    dry "Would run: brew bundle on the Brewfile, without its Mac App Store entries"
+    dry "Would run: brew bundle on the Brewfile"
     log "Brewfile contains:"
     echo "  - Packages/casks: $(grep -cE "^(brew|cask|tap)" "$BREWFILE")"
-    echo "  - Mac App Store apps (listed, not installed by mrk-brew): $(grep -c '^mas[[:space:]]' "$BREWFILE" || true)"
-    report_mas_entries
     return 0
   fi
 
   # Non-interactive mode (--yes / no TTY): skip the picker entirely and install
-  # the whole Brewfile but its `mas` entries (see report_mas_entries) — no
-  # /dev/tty. --no-upgrade installs missing packages without upgrading
-  # existing ones (idempotent re-runs). This path used to pass the Brewfile
-  # through whole, so each of the 22 `mas` entries became a `mas install` run
-  # without root, and the phase failed.
+  # the whole Brewfile — no /dev/tty. --no-upgrade installs missing packages
+  # without upgrading existing ones (idempotent re-runs).
   if (( ${NONINTERACTIVE:-0} )) || [[ ! -t 0 ]]; then
     log "Non-interactive mode — installing the full Brewfile (no package selection)"
-    TEMP_BREWFILE=$(mrk_mktemp)
-    grep -v '^mas[[:space:]]' "$BREWFILE" > "$TEMP_BREWFILE" || true
-    if $HOMEBREW bundle --file="$TEMP_BREWFILE" --no-upgrade --verbose; then
+    if $HOMEBREW bundle --file="$BREWFILE" --no-upgrade --verbose; then
       log "Brewfile installation completed successfully"
-      report_mas_entries
       return 0
     else
       err "Brewfile installation failed"
       ERRORS=$(( ERRORS + 1 ))
-      report_mas_entries
       return 1
     fi
   fi
@@ -567,11 +531,14 @@ install_brewfile() {
       continue
     fi
 
-    # Mac App Store entries stay out of the bundle run; report_mas_entries
-    # hands them back as one command at the end. (The old comment here said
-    # "support removed due to reliability issues" — a line from before mrk
-    # tracked any, which the 22 entries added on 2026-09-10 walked into.)
+    # mrk stopped tracking App Store apps on 2026-09-11 (docs/app-store-apps.md),
+    # and ci-check fails a Brewfile that has a `mas` line. This guard is for the
+    # copy that has one anyway — a `brew bundle dump` on a Mac where mas is
+    # installed writes them back. Handing one to brew bundle runs `mas install`,
+    # which needs root that brew bundle never has, and fails the phase.
     if [[ "$line" =~ ^mas[[:space:]] ]]; then
+      warn "Ignoring a Mac App Store entry in the Brewfile: ${line}"
+      info "mrk does not install App Store apps — see docs/app-store-apps.md"
       continue
     fi
 
@@ -666,12 +633,10 @@ install_brewfile() {
   # Run brew bundle with stdin from terminal (for any interactive prompts)
   if $HOMEBREW bundle --file="$TEMP_BREWFILE" --verbose < /dev/tty; then
     log "Brewfile installation completed successfully"
-    report_mas_entries
     return 0
   else
     err "Brewfile installation failed"
     ERRORS=$(( ERRORS + 1 ))
-    report_mas_entries
     return 1
   fi
 }

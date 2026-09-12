@@ -577,7 +577,7 @@
             <li>snapshot writes the plists and then stops. It does not commit or push them, and gitignore excludes them.</li>
             <li>snapshot does not scan the exported plists for secrets, because it commits nothing. The commands that commit — <code>snapshot-prefs</code>, <code>mrk-push</code> and <code>pushall</code> — scan what they commit.</li>
             <li>snapshot exports <code>~/Library/Preferences/ID.plist</code> when that file exists, and the sandbox container's copy otherwise. Until 2026-09-11 it worked out that order and then exported by bundle id regardless, which reads the container's copy whenever there is one; none of its ten apps had a stale container, so no export was wrong.</li>
-            <li><code>--brewfile</code> — also runs <code>brew bundle dump</code>. This command overwrites the comments in the Brewfile, so snapshot asks you to confirm first. When the dump holds no Mac App Store entries but the Brewfile it replaced did, snapshot puts them back from <code>Brewfile.bak</code>: <code>brew bundle dump</code> lists only the apps <code>mas list</code> reports, and with Spotlight indexing off that is none, so until 2026-09-10 a dump here silently dropped all 22.</li>
+            <li><code>--brewfile</code> — also runs <code>brew bundle dump</code>. This command overwrites the comments in the Brewfile, so snapshot asks you to confirm first. A dump on a Mac where mas is installed writes <code>mas</code> entries into the Brewfile; snapshot strips them and says how many, because mrk does not install App Store apps (<a href="https://github.com/sevmorris/mrk/blob/main/docs/app-store-apps.md">docs/app-store-apps.md</a>) and <code>check-picker-desc</code> fails on such a line. Until 2026-09-11 it did the opposite, putting entries back from <code>Brewfile.bak</code> when a dump dropped them.</li>
             <li><strong>Apps:</strong> AlDente, Amphetamine, BetterSnapTool, Descript, Fission, HandBrake, Helium, Ice, iTerm2, ScreenFlow</li>
           </ul>
         </div>
@@ -887,7 +887,7 @@ mrk-status [--help | -h]</code></pre>
           <h3>mrk-brew <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">mrk-brew is phase 2. It installs the Homebrew formulae and casks that the Brewfile lists. The Mac App Store applications the Brewfile lists as <code>mas</code> entries it does not install: it ends every run with the one command that does.</p>
+          <p class="desc">mrk-brew is phase 2. It installs the Homebrew formulae and casks that the Brewfile lists. App Store applications are not in the Brewfile and mrk does not install them: <a href="https://github.com/sevmorris/mrk/blob/main/docs/app-store-apps.md">docs/app-store-apps.md</a> lists the 22 that belong on this Mac.</p>
           <pre><code>mrk-brew [options]</code></pre>
           <ul>
             <li><code>-n</code>, <code>--dry-run</code> — Report what would be installed and change nothing.</li>
@@ -902,16 +902,13 @@ mrk-status [--help | -h]</code></pre>
           <ul>
             <li>The short <code>-n</code> was added 2026-09-10. Before that mrk-brew took <code>--dry-run</code> only, so <code>make brew ARGS=-n</code> failed with "Unknown option" although the Makefile advertises <code>ARGS=-n</code> for sync.</li>
           </ul>
-          <div class="callout callout-caution">
-            <span class="callout-label">Caution — the App Store Apps Are Listed, Not Installed</span>
-            <div class="callout-body">mrk-brew leaves the Brewfile's <code>mas</code> entries out of every <code>brew bundle</code> run and ends with this command, to run by hand once App Store.app is signed in: <code>grep '^mas ' ~/mrk/Brewfile | sed 's/.*id: //' | xargs sudo mas install</code>. It cannot do this itself. <code>brew bundle</code> installs a <code>mas</code> entry with <code>mas install</code>, which mas&nbsp;7 documents as requiring root, and brew never runs anything as root. The <code>mas</code> entries were added on 2026-09-10 with the claim that <code>make brew</code> would reinstall them; it never did. Its interactive path had skipped every <code>mas</code> line since the first commit, and its <code>--yes</code> path handed them to <code>brew bundle</code>, where each became a <code>mas install</code> without root.</div>
+          <div class="callout callout-note">
+            <span class="callout-label">Note — App Store Apps Are Not mrk's</span>
+            <div class="callout-body">mrk tracked 22 App Store apps as Brewfile <code>mas</code> entries from 2026-09-10 until 2026-09-11, and nothing here could install one. <code>brew bundle</code> installs a <code>mas</code> entry with <code>mas install</code>, which mas&nbsp;7 documents as requiring root, and brew never runs anything as root; <code>mas list</code>, which <code>brew bundle</code> reads to decide what is already installed, gets its answers from Spotlight, whose indexing is off on this Mac, so <code>brew bundle check</code> called all 22 missing. mrk-brew filtered the entries out of every run and printed a <code>sudo mas install</code> command instead — the command you would type anyway. The entries, the <code>mas</code> formula and that special case were removed on 2026-09-11; the apps are listed in <a href="https://github.com/sevmorris/mrk/blob/main/docs/app-store-apps.md">docs/app-store-apps.md</a>.</div>
           </div>
           <ul>
-            <li>Sign in to App Store.app by hand before that command: <code>mas</code> has had no <code>signin</code> command since macOS 12.</li>
-            <li>Run <code>make post-install</code> after that command, again if <code>make all</code> already ran it: it restores an app's preferences and login item only if the app is installed, and BetterSnapTool and Chrono Plus come from the App Store. mrk-brew's closing hint and <code>make all</code>'s summary both say so.</li>
-            <li><code>brew bundle</code> decides whether an App Store app is installed from <code>mas list</code>, and <code>mas list</code> reads the App Store id from Spotlight. With indexing off, which is how this machine is set up, it reports none: <code>brew bundle check</code> called all 22 installed apps missing, and <code>brew bundle dump</code> writes no <code>mas</code> lines. mas itself cannot see them either, so the command above may download every one again on such a Mac. Keep it for a new machine.</li>
-            <li>Add a new entry with <code>mas search &lt;name&gt;</code>, and confirm the id with <code>mas info &lt;id&gt;</code> before trusting it: App Store display names carry marketing suffixes the bundle names do not, and matching on name alone picked the wrong application for one of the 22.</li>
-          </ul>
+            <li>Install the App Store apps from App Store.app by hand, then run <code>make post-install</code>, again if <code>make all</code> already ran it: it restores an app's preferences and login item only if the app is installed, and BetterSnapTool and Chrono Plus come from the App Store. <code>make all</code>'s summary says so.</li>
+            <li>mrk-brew ignores a <code>mas</code> line and says so, rather than handing it to <code>brew bundle</code>: a <code>brew bundle dump</code> on a Mac where mas is installed writes the entries back. <code>check-picker-desc</code> fails on such a line, so <code>make check</code> catches it before a commit.</li>          </ul>
         </div>
       </div>
 
@@ -1147,6 +1144,7 @@ mrk-push -- "-starts with a dash"</code></pre>
           <pre><code>check-picker-desc [--help | -h]</code></pre>
           <ul>
             <li>check-picker-desc exits with status 1 when a package has no description.</li>
+            <li>It refuses a Brewfile holding a <code>mas</code> line, naming the count: mrk stopped tracking App Store apps on 2026-09-11 and nothing can install one, so a line written back by a <code>brew bundle dump</code> must not travel.</li>
             <li>It also refuses a Brewfile holding any line it cannot parse, and names the lines. A Brewfile is Ruby, so <code>brew  "x"</code> with two spaces, a tab, a leading space and <code>brew 'x'</code> in single quotes are all valid to <code>brew bundle</code> and all invisible to mrk's parsers — and a package this gate cannot see is a package it silently exempts from needing a description. Rewrite each as <code>keyword "name"</code>: one space, double quotes, no indent.</li>
             <li><code>ci-check</code> runs check-picker-desc first, so <code>make check</code> covers it.</li>
           </ul>

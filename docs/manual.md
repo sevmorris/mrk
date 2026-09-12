@@ -155,7 +155,7 @@ exec zsh        # Reload shell after setup
 
 To skip every confirmation prompt, pass `--yes` or set `NONINTERACTIVE=1`.
 
-`make all` does not install the App Store apps. Afterwards, sign in to App Store.app, run the command `make brew` printed, and then run `make post-install` again — it restores preferences and login items only for apps that are installed.
+`make all` does not install the App Store apps. mrk does not install them at all; [docs/app-store-apps.md](app-store-apps.md) lists the 22 that belong on this Mac. Install them from App Store.app, then run `make post-install` again — it restores preferences and login items only for apps that are installed.
 
 ---
 
@@ -485,7 +485,7 @@ The new machine needs your SSH key. `make post-install` uses it to pull mrk-pref
 
 Write down the apps, the license keys and the settings that mrk does not manage:
 
-- The App Store apps are listed in the Brewfile as `mas` entries, but `make brew` does not install them — `mas install` needs root, and `brew bundle` never runs as root. On the new machine, sign in to App Store.app by hand (`mas` has had no `signin` command since macOS 12), then run the command `make brew` prints at the end: `grep '^mas ' ~/mrk/Brewfile | sed 's/.*id: //' | xargs sudo mas install`. Then run `make post-install` again: it restores preferences and login items only for apps that are installed, and BetterSnapTool and Chrono Plus come from the App Store.
+- The App Store apps. mrk does not install them, and they are not in the Brewfile; [docs/app-store-apps.md](app-store-apps.md) is the list. On the new machine, sign in to App Store.app and install them by hand. Then run `make post-install` again: it restores preferences and login items only for apps that are installed, and BetterSnapTool and Chrono Plus come from the App Store.
 - The software licenses. Export them from your license manager.
 - The system settings that `defaults write` does not cover.
 - The VPN configurations and the certificates.
@@ -548,13 +548,9 @@ make brew
 
 This step installs Homebrew and every formula and cask in the Brewfile. It is the slowest step, and its duration depends on the number of packages.
 
-It does not install the Mac App Store apps the Brewfile lists — `mas install` needs root, and `brew bundle` never runs as root. It ends by printing the command that does. Sign in to App Store.app by hand, then run that command:
+It does not install App Store apps. mrk tracked them as Brewfile `mas` entries until 2026-09-11, and nothing could install one: `mas install` needs root, `brew bundle` never runs as root, and `mas list` — which `brew bundle` reads to see what is already installed — gets its answers from Spotlight, whose indexing is off on this Mac. [docs/app-store-apps.md](app-store-apps.md) lists the 22 apps instead. Install them from App Store.app before Step 5.
 
-```bash
-grep '^mas ' ~/mrk/Brewfile | sed 's/.*id: //' | xargs sudo mas install
-```
-
-Run it before Step 5. `post-install` restores the preferences and login item of an app only if the app is installed, and BetterSnapTool and Chrono Plus are App Store apps. If you install them later, run `make post-install` again.
+`post-install` restores the preferences and login item of an app only if the app is installed, and BetterSnapTool and Chrono Plus are App Store apps. If you install them later, run `make post-install` again.
 
 ## Step 5 — Phase 3: the app configuration
 
@@ -632,7 +628,7 @@ make all
 exec zsh
 ```
 
-Then install the App Store apps with the command `make brew` printed, and run `make post-install` again to restore the preferences and login items it skipped for them.
+Then install the App Store apps in [docs/app-store-apps.md](app-store-apps.md) from App Store.app, and run `make post-install` again to restore the preferences and login items it skipped for them.
 
 ---
 

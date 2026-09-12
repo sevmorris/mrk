@@ -1760,6 +1760,40 @@ held for the wrong reason — hence mode 300.
 `--projects`" after the previous entry's bare-repository section made that untrue, and did not
 list those cases; the script's own header had been corrected, BIN-1 had not.
 
+### mas was three special cases and no work it could do (2026-09-11)
+
+Entry point: Seven asked to remove `mas` from mrk. It had been in the Brewfile since
+2026-09-10, with 22 App Store apps, and nothing in mrk could install one — `brew bundle`
+installs a `mas` entry by running `mas install <id>`, which mas 7 requires root for, and
+`brew bundle` never runs as root; `mas list`, which `brew bundle` reads to decide what is
+already installed, answers from Spotlight, whose indexing is off on this Mac, so
+`brew bundle check` called all 22 missing. mrk-brew filtered the entries out of every run and
+printed `grep '^mas ' Brewfile | sed 's/.*id: //' | xargs sudo mas install` — the command you
+would type anyway.
+
+Removed: `brew "mas"` and the 22 entries from the Brewfile; `report_mas_entries`, the install
+hint, the dry-run count and the temp-Brewfile filter from `scripts/brew`; the entry-restoring
+guard in `bin/snapshot`; the `mas` description in `tools/picker/main.go`; the Makefile's
+conditional App Store epilogue, now an unconditional pointer; and the never-matching
+`"Mac App Store Apps"` case in `scripts/sync` (the Brewfile's header read `## Mac App Store`,
+so that skip had never fired).
+
+The list the entries carried is the part worth keeping, so it became `docs/app-store-apps.md`:
+22 apps, each linked to its App Store page, with the two `post-install` configures
+(BetterSnapTool, Chrono Plus) marked. manual.md, BIN-1 §2.13 (mrk-brew), §1.2 (snapshot) and §2.23 (check-picker-desc), and SMAC-1 §2.2 and
+§2.6 point at it.
+
+Two guards keep the entries from coming back by accident, because a `brew bundle dump` on a
+Mac where mas is installed writes them: `check-picker-desc` fails on any `mas` line and names
+the count, and `bin/snapshot --brewfile` strips them after a dump and says how many. mrk-brew
+ignores one with a warning rather than handing it to `brew bundle`, where it would fail the
+phase.
+
+**Found on the way:** `check-picker-desc` was already failing, and CI with it, on Seven's own
+`68a33a2` — `sync -c` had added `bash-completion@2` and `nordpass` to the Brewfile without
+picker descriptions. Both now have one.
+
+
 ### Closed by module 13, the 2026-08-31 recursive audit
 
 Fourteen defects, `P-1`…`P-14`, found and fixed in one pass. Full detail, including the

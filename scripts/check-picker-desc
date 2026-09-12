@@ -58,10 +58,22 @@ fi
 # it silently exempts, and the gate reports OK. So refuse the file instead.
 # mrk never writes these shapes — scripts/sync emits `printf 'brew "%s"\n'` —
 # which is exactly why a hand edit that does is worth stopping here.
+# mrk stopped tracking App Store apps on 2026-09-11: nothing here can install a
+# `mas` entry (see docs/app-store-apps.md), and `brew bundle dump` writes them
+# back on any Mac where mas is installed. Fail rather than carry a line that
+# every other tool has to filter out again.
+mas_entries=$(grep -c '^mas[[:space:]]' "$BREWFILE" 2>/dev/null || true)
+if (( ${mas_entries:-0} > 0 )); then
+  echo "check-picker-desc: the Brewfile has ${mas_entries} Mac App Store entr(ies)." >&2
+  echo "mrk does not install App Store apps; they are listed in docs/app-store-apps.md." >&2
+  echo "Remove the mas line(s) from the Brewfile." >&2
+  exit 1
+fi
+
 unparsable=()
 while IFS= read -r line; do
   [[ -z "$line" || "$line" == \#* ]] && continue
-  [[ "$line" =~ ^(brew|cask|tap|mas)\ \"[^\"]+\" ]] && continue
+  [[ "$line" =~ ^(brew|cask|tap)\ \"[^\"]+\" ]] && continue
   unparsable+=("$line")
 done < "$BREWFILE"
 if (( ${#unparsable[@]} > 0 )); then

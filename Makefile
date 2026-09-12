@@ -45,11 +45,9 @@ all: fix-exec setup brew post-install build-tools ## Full install: setup + brew 
 		printf '  Preferences not restored — add your SSH key to GitHub, then run \033[43;1;30m make pull-prefs \033[0m\n'; \
 		printf '  \033[2mhttps://github.com/settings/keys\033[0m\n'; \
 	fi
-	@if grep -q '^mas[[:space:]]' "$(REPO_ROOT)/Brewfile" 2>/dev/null; then \
-		printf '\n'; \
-		printf '  make all does not install the App Store apps. Sign in to App Store.app, run the command make brew printed,\n'; \
-		printf '  then run \033[43;1;30m make post-install \033[0m again — it skipped the preferences and login items of apps not installed yet.\n'; \
-	fi
+	@printf '\n'
+	@printf '  App Store apps are not installed by mrk — the list is docs/app-store-apps.md.\n'
+	@printf '  Install them from App Store.app, then run \033[43;1;30m make post-install \033[0m again — it skipped the preferences and login items of apps not installed yet.\n'
 	@printf '\n'
 	@printf '  \033[2mManual: \033[4mhttps://sevmorris.github.io/mrk\033[0m\n'
 	@printf '\n'

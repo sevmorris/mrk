@@ -112,15 +112,15 @@ if (( OPT_BREWFILE )); then
       log "Backed up Brewfile → Brewfile.bak"
     fi
     brew bundle dump --force --file="$REPO_ROOT/Brewfile"
-    # dump writes App Store entries only for the apps `mas list` reports, and
-    # mas list reads Spotlight: on a Mac with indexing off it reports none, so
-    # the dump silently dropped all 22 `mas` lines on this one (measured
-    # 2026-09-10). A dump with no App Store entries at all, from a Brewfile
-    # that had some, is that blindness rather than 22 uninstalls — keep them.
-    if [[ -f "$REPO_ROOT/Brewfile.bak" ]] && ! grep -q '^mas[[:space:]]' "$REPO_ROOT/Brewfile" \
-       && grep -q '^mas[[:space:]]' "$REPO_ROOT/Brewfile.bak"; then
-      { printf '\n## Mac App Store\n'; grep '^mas[[:space:]]' "$REPO_ROOT/Brewfile.bak"; } >> "$REPO_ROOT/Brewfile"
-      warn "The dump held no App Store entries (mas list sees none here) — kept the $(grep -c '^mas[[:space:]]' "$REPO_ROOT/Brewfile.bak") from Brewfile.bak"
+    # A dump on a Mac with mas installed writes `mas` entries back into the
+    # Brewfile. mrk stopped tracking App Store apps on 2026-09-11
+    # (docs/app-store-apps.md), and ci-check fails on such a line, so strip them.
+    if grep -q '^mas[[:space:]]' "$REPO_ROOT/Brewfile"; then
+      n=$(grep -c '^mas[[:space:]]' "$REPO_ROOT/Brewfile")
+      stripped=$(mrk_mktemp)
+      grep -v '^mas[[:space:]]' "$REPO_ROOT/Brewfile" > "$stripped" &&
+        mv "$stripped" "$REPO_ROOT/Brewfile"
+      warn "Dropped $n Mac App Store entr(ies) the dump added — mrk does not install them (docs/app-store-apps.md)"
     fi
     log "Brewfile updated"
   else

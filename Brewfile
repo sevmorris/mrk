@@ -19,7 +19,6 @@ brew "gnupg"
 brew "htop"
 brew "libpng"
 brew "lsd"
-brew "mas"
 brew "mkdocs"
 brew "moreutils"
 brew "nano"
@@ -144,27 +143,3 @@ cask "waves-central", greedy: true
 cask "waxonwaxoff", greedy: true
 cask "whatsapp", greedy: true
 cask "zoom", greedy: true
-
-## Mac App Store
-mas "Amphetamine", id: 937984704
-mas "BetterSnapTool", id: 417375580
-mas "Blackmagic Disk Speed Test", id: 425264550
-mas "Chrono Plus - Time Tracker", id: 946047238
-mas "Code of War Mobile Shooter", id: 1310262344
-mas "Compressor", id: 424390742
-mas "DM1 - The Drum Machine", id: 522349879
-mas "Encrypto: Secure Your Files", id: 935235287
-mas "Final Cut Pro", id: 424389933
-mas "GarageBand", id: 682658836
-mas "Hush | AI for Spoken Audio", id: 1664181766
-mas "iMovie", id: 408981434
-mas "Keynote: Design Presentations", id: 361285480
-mas "Logic Pro", id: 634148309
-mas "Mactracker", id: 430255202
-mas "Numbers: Make Spreadsheets", id: 361304891
-mas "Pages: Create Documents", id: 361309726
-mas "Parcel Classic", id: 639968404
-mas "Pixelmator Pro", id: 1289583905
-mas "Pure Paste", id: 1611378436
-mas "Speedtest by Ookla", id: 1153157709
-mas "Xcode", id: 497799835
