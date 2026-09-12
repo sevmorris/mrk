@@ -10,7 +10,7 @@ while [[ -L "$_self" ]]; do
   _self="$(readlink "$_self")"
   [[ "$_self" != /* ]] && _self="$_dir/$_self"
 done
-BASE_DIR="$(cd "$(dirname "$_self")" && pwd)"
+BASE_DIR="$(cd "$(dirname "$_self")" && pwd -P)"
 PROJECT_ROOT="$(dirname "$BASE_DIR")"
 
 # shellcheck source=lib.sh
@@ -56,7 +56,7 @@ done
 # dangling link in ~/bin forever. Removing adventure mode is what surfaced it —
 # ~/bin/adventure-prologue outlived scripts/adventure-prologue.
 #
-# The delete is deliberately narrow. A link is removed only when it points
+# The delete is deliberately narrow. A link is removed only when it resolves
 # INSIDE this repo and its target is gone, so a link to anywhere else, and a
 # real file of the same name, are both left alone.
 if [ -d "$HOME/bin" ]; then
@@ -64,16 +64,28 @@ if [ -d "$HOME/bin" ]; then
   pruned=0
   while IFS= read -r -d '' link; do
     target="$(readlink "$link" 2>/dev/null || true)"
-    case "$target" in
+    # Compare resolved paths, not the strings. On macOS /var is a symlink to
+    # /private/var, so a repo under a temp directory has a PROJECT_ROOT of
+    # /private/var/... while its links read /var/... — the same place, and the
+    # case below never matched, so nothing was pruned or chmod'd. A symlinked
+    # home does the same. dirname is used because the target of a dead link
+    # cannot be resolved, while the directory it sits in usually still exists.
+    target_dir="$(cd "$(dirname "$target")" 2>/dev/null && pwd -P || true)"
+    if [ -n "$target_dir" ]; then
+      target_resolved="$target_dir/$(basename "$target")"
+    else
+      target_resolved="$target"
+    fi
+    case "$target_resolved" in
       "$PROJECT_ROOT"/*) ;;
       *) continue ;;
     esac
-    if [ -e "$target" ]; then
+    if [ -e "$target_resolved" ]; then
       chmod +x "$link" 2>/dev/null || true
       fixed=$((fixed + 1))
     else
       rm -f "$link"
-      echo "  ✂ pruned dead link: $(basename "$link") -> ${target#"$PROJECT_ROOT"/}"
+      echo "  ✂ pruned dead link: $(basename "$link") -> ${target_resolved#"$PROJECT_ROOT"/}"
       pruned=$((pruned + 1))
     fi
   done < <(find "$HOME/bin" -maxdepth 1 -type l -print0 2>/dev/null || true)
