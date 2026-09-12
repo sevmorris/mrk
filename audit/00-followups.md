@@ -1130,8 +1130,11 @@ from nothing else — and the migration checklist had no step that pushes `~/Pro
   JustIn. Neither the manifest nor Magic Backup Machine carries them.
 - **DoublEnder's two overlay secrets**, `DoublEnderCloud/doublender-10af32ff2d11.json` (the GCS
   service-account key) and `ingest.env`, refused by the overlay's pre-commit hook by design.
-  DoublEnder's own setup doc says "restore from secure backup" without naming one. Whether
-  KeyVault holds them is Seven's to check; the checklist now says to copy ignored credential files.
+  DoublEnder's own setup doc says "restore from secure backup" without naming one. **Answered
+  2026-09-11: not KeyVault** — it holds Keychain items, not files, and Seven wants file storage
+  there later. Both files live in `SecureVault.sparseimage` under `~/Documents/Encrypted`, an
+  encrypted image that Magic Backup Machine mirrors as `Users-sev-Documents-Encrypted`. The
+  checklist still says to copy ignored credential files.
 The overlay itself is fully pushed (`main` = `origin/main`) and tracks the other 38 files.
 
 **Fixed**: pushall now names all of it — commits on other branches on no remote, stashes, and
