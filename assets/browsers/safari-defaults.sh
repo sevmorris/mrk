@@ -21,6 +21,13 @@ failed=0
 # General                                                                     #
 ###############################################################################
 
+# Check for Full Disk Access first. Without it, defaults write to Safari's container fails with code 1.
+if ! defaults write com.apple.Safari mrk_test_write -bool true 2>/dev/null; then
+  logskip "Safari defaults" "Terminal lacks Full Disk Access to write to Safari. Skipping."
+  exit 0
+fi
+defaults delete com.apple.Safari mrk_test_write 2>/dev/null || true
+
 # Show full URL in Smart Search Field
 # Why: partial URL display hides the actual domain, making phishing and spoofed links harder to spot
 defaults write com.apple.Safari ShowFullURLInSmartSearchField -bool true || failed=$(( failed + 1 ))
