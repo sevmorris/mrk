@@ -94,9 +94,6 @@ export_plist "/Applications/HandBrake.app" "fr.handbrake.HandBrake" \
 export_plist "/Applications/Helium.app" "net.imput.helium" \
   "$PREFS_DIR/Helium.plist" "Helium"
 
-export_plist "/Applications/ScreenFlow.app" "net.telestream.screenflow10" \
-  "$PREFS_DIR/ScreenFlow.plist" "ScreenFlow"
-
 ###############################################################################
 # Brewfile (opt-in)                                                           #
 ###############################################################################
