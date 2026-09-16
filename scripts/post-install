@@ -317,7 +317,7 @@ if command -v pyenv >/dev/null 2>&1 && [[ -f "$PYENV_VERSION_FILE" ]]; then
       logskip "pyenv Python ${pyenv_wanted}" "already installed"
     else
       log "Installing Python ${pyenv_wanted} via pyenv..."
-      if pyenv install -s "$pyenv_wanted"; then
+      if PYTHON_CONFIGURE_OPTS="--without-ensurepip" pyenv install -s "$pyenv_wanted"; then
         ok "pyenv Python ${pyenv_wanted} installed"
         if pyenv global "$pyenv_wanted" 2>/dev/null; then
           ok "pyenv global → ${pyenv_wanted}"
