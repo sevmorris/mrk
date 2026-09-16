@@ -67,7 +67,7 @@ brew "pyenv"
 ## CLI Tools - Media
 brew "chromaprint"    # Core component of the AcoustID project (Audio fingerprinting)
 brew "ffmpeg"
-brew "whisper-cpp"
+brew "whisper.cpp"
 brew "yt-dlp"
 
 ## Casks - General Applications & Utilities
@@ -75,10 +75,8 @@ cask "4k-video-downloader+", greedy: true
 cask "a-better-finder-rename", greedy: true
 cask "adapter", greedy: true
 cask "aldente", greedy: true
-cask "android-platform-tools", greedy: true
 cask "appcleaner", greedy: true
 cask "audio-hijack", greedy: true
-cask "auto-claude", greedy: true
 cask "balenaetcher", greedy: true
 cask "brave-browser", greedy: true
 cask "calibre", greedy: true
@@ -123,14 +121,11 @@ cask "piezo", greedy: true
 cask "pulsar", greedy: true
 cask "raspberry-pi-imager", greedy: true
 cask "raycast", greedy: true
-cask "screenflow", greedy: true
 cask "shutter-encoder", greedy: true
 cask "signal", greedy: true
 cask "slack", greedy: true
 cask "soundsource", greedy: true
 cask "stats", greedy: true
-cask "steam", greedy: true
-cask "subler", greedy: true
 cask "swift-publisher", greedy: true
 cask "temurin@21", greedy: true
 cask "the-unarchiver", greedy: true

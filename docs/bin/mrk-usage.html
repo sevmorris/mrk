@@ -578,7 +578,7 @@
             <li>snapshot does not scan the exported plists for secrets, because it commits nothing. The commands that commit — <code>snapshot-prefs</code>, <code>mrk-push</code> and <code>pushall</code> — scan what they commit.</li>
             <li>snapshot exports <code>~/Library/Preferences/ID.plist</code> when that file exists, and the sandbox container's copy otherwise. Until 2026-09-11 it worked out that order and then exported by bundle id regardless, which reads the container's copy whenever there is one; none of its ten apps had a stale container, so no export was wrong.</li>
             <li><code>--brewfile</code> — also runs <code>brew bundle dump</code>. This command overwrites the comments in the Brewfile, so snapshot asks you to confirm first. A dump on a Mac where mas is installed writes <code>mas</code> entries into the Brewfile; snapshot strips them and says how many, because mrk does not install App Store apps (<a href="https://github.com/sevmorris/mrk/blob/main/docs/app-store-apps.md">docs/app-store-apps.md</a>) and <code>check-picker-desc</code> fails on such a line. Until 2026-09-11 it did the opposite, putting entries back from <code>Brewfile.bak</code> when a dump dropped them.</li>
-            <li><strong>Apps:</strong> AlDente, Amphetamine, BetterSnapTool, Descript, Fission, HandBrake, Helium, Ice, iTerm2, ScreenFlow</li>
+            <li><strong>Apps:</strong> AlDente, Amphetamine, BetterSnapTool, Descript, Fission, HandBrake, Helium, Ice, iTerm2</li>
           </ul>
         </div>
       </div>
