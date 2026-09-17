@@ -906,6 +906,8 @@ mrk-status [--help | -h]</code></pre>
           </ul>
           <ul>
             <li>The short <code>-n</code> was added 2026-09-10. Before that mrk-brew took <code>--dry-run</code> only, so <code>make brew ARGS=-n</code> failed with "Unknown option" although the Makefile advertises <code>ARGS=-n</code> for sync.</li>
+            <li>When mrk-picker is not built, mrk-brew asks with <code>gum</code>. On a new Mac that is always the case, because Phase&nbsp;2 runs before <code>make build-tools</code>. The list shows each formula and cask with its description from the table that mrk-picker uses, in <code>tools/picker/main.go</code>, and <code>check-picker-desc</code> keeps that table in step with the Brewfile. Until 2026-09-17 mrk-brew kept its own copy, which described no casks and lacked 15 of the 57 formulae.</li>
+            <li>The dry run gives the number of formulae, casks and taps separately. Until 2026-09-17 it gave one "Packages/casks" number, which also counted the tap.</li>
           </ul>
           <div class="callout callout-note">
             <span class="callout-label">Note — App Store Apps Are Not mrk's</span>
