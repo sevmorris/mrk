@@ -115,7 +115,6 @@ var descriptions = map[string]string{
 	"calibre":                "E-book manager, reader, and format converter",
 	"claude":                 "Claude — Anthropic's desktop app",
 	"disk-drill":             "Data recovery software and disk health monitoring",
-	"doublender":             "Guest-side double-ender podcast recorder",
 	"dropbox":                "Cloud storage and file synchronization service",
 	"etrecheckpro":           "macOS system maintenance and diagnostics tool",
 	"farrago":                "Robust, rapid-fire soundboard for Mac",
@@ -169,7 +168,6 @@ var descriptions = map[string]string{
 	"veracrypt":              "Disk encryption software (TrueCrypt successor)",
 	"vlc":                    "Free, open-source media player for any format",
 	"waves-central":          "Waves audio plugin installer and license manager",
-	"waxonwaxoff":            "WaxOn/WaxOff — podcast audio conditioning and delivery normalization",
 	"whatsapp":               "WhatsApp desktop messaging client",
 	"zoom":                   "Video conferencing and online meetings",
 }

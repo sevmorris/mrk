@@ -194,6 +194,34 @@ else
 fi
 
 ###############################################################################
+# Projects Claude skills                                                      #
+###############################################################################
+
+# Same reasoning as CLAUDE.md above: skills Claude Code loads for work under
+# ~/Projects, tracked here rather than living untracked in a directory that is
+# not a repository. The whole directory is linked, not each skill, so adding a
+# skill needs no change here.
+PSKILLS_SRC="$REPO_ROOT/assets/projects-skills"
+PSKILLS_DST="$HOME/Projects/.claude/skills"
+
+if [[ -d "$PSKILLS_SRC" && -d "$HOME/Projects" ]]; then
+  if [[ -L "$PSKILLS_DST" ]] && [[ "$(readlink "$PSKILLS_DST")" == "$PSKILLS_SRC" ]]; then
+    logskip "Projects Claude skills" "linked"
+  else
+    mkdir -p "$HOME/Projects/.claude"
+    [[ -d "$PSKILLS_DST" && ! -L "$PSKILLS_DST" ]] && mv "$PSKILLS_DST" "${PSKILLS_DST}.bak"
+    if ln -sfn "$PSKILLS_SRC" "$PSKILLS_DST"; then
+      ok "Linked Projects Claude skills → $PSKILLS_DST"
+    else
+      log "Warning: failed to link Projects Claude skills"
+      ((++failed))
+    fi
+  fi
+else
+  logskip "Projects Claude skills" "$HOME/Projects not found"
+fi
+
+###############################################################################
 # Browser preferences                                                        #
 ###############################################################################
 

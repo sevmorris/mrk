@@ -1,5 +1,10 @@
 ## Taps
-# Required for doublender, fl2601 and waxonwaxoff below.
+# Required for fl2601 below. doublender and waxonwaxoff were dropped on
+# 2026-09-17: both apps check GitHub for their own updates, so the cask was a
+# second update path whose records went stale the moment an in-app update was
+# installed. Their casks are deprecated in the tap rather than deleted. fl2601
+# stays because it is sandboxed with no network entitlement and cannot check
+# for itself — Homebrew is its update path by design, not by omission.
 tap "sevmorris/tap"
 
 ## CLI Tools - General Utilities & Power User Tools
@@ -82,7 +87,6 @@ cask "calibre", greedy: true
 cask "claude", greedy: true
 cask "cryptomator", greedy: true
 cask "disk-drill", greedy: true
-cask "doublender", greedy: true
 cask "dropbox", greedy: true
 cask "etrecheckpro", greedy: true
 cask "farrago", greedy: true
@@ -136,6 +140,5 @@ cask "utm", greedy: true
 cask "veracrypt", greedy: true
 cask "vlc", greedy: true
 cask "waves-central", greedy: true
-cask "waxonwaxoff", greedy: true
 cask "whatsapp", greedy: true
 cask "zoom", greedy: true
