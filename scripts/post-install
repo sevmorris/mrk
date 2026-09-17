@@ -309,21 +309,64 @@ fi
 
 # Install the version pinned in ~/mrk/.python-version when pyenv is available.
 # pyenv init lives in dotfiles/.zshrc; this only ensures the runtime exists.
+#
+# The build must use an SDK no newer than the running macOS. python-build passes
+# Xcode's default SDK explicitly, and when an Xcode ships ahead of the OS it
+# targets — Xcode 27's macOS 27 SDK on macOS 26.7, found on the 2026-09-15
+# migration — configure finds pipe2 and dup3, which this OS's libSystem lacks,
+# and CPython calls them without an availability check. The interpreter then
+# segfaults in os.pipe(), which is every subprocess call: ensurepip, dmgbuild,
+# anything that shells out. `CC=/usr/bin/clang` (a path, not "clang") stops
+# python-build adding its own -isysroot, so SDKROOT decides the SDK.
+#
+# The smoke test runs on an existing install too. A broken interpreter imports
+# and prints its version like a healthy one, so "already installed" proves
+# nothing on its own.
 PYENV_VERSION_FILE="$REPO_ROOT/.python-version"
 if command -v pyenv >/dev/null 2>&1 && [[ -f "$PYENV_VERSION_FILE" ]]; then
   pyenv_wanted="$(tr -d '[:space:]' < "$PYENV_VERSION_FILE")"
   if [[ -n "$pyenv_wanted" ]]; then
+    os_major="$(sw_vers -productVersion | cut -d. -f1)"
+    sdk_major="$(xcrun --sdk macosx --show-sdk-version 2>/dev/null | cut -d. -f1 || true)"
+    pyenv_sdk=""
+    if [[ "$sdk_major" =~ ^[0-9]+$ ]] && (( sdk_major > os_major )); then
+      pyenv_sdk="/Library/Developer/CommandLineTools/SDKs/MacOSX${os_major}.sdk"
+      [[ -d "$pyenv_sdk" ]] || pyenv_sdk=""
+    fi
+    pyenv_rebuild="pyenv install --force ${pyenv_wanted}"
+    [[ -n "$pyenv_sdk" ]] && pyenv_rebuild="CC=/usr/bin/clang SDKROOT=${pyenv_sdk} ${pyenv_rebuild}"
+
+    pyenv_installed=0
     if pyenv versions --bare 2>/dev/null | grep -qxF "$pyenv_wanted"; then
       logskip "pyenv Python ${pyenv_wanted}" "already installed"
+      pyenv_installed=1
     else
       log "Installing Python ${pyenv_wanted} via pyenv..."
-      if PYTHON_CONFIGURE_OPTS="--without-ensurepip" pyenv install -s "$pyenv_wanted"; then
+      [[ -n "$pyenv_sdk" ]] && info "building against the macOS ${os_major} SDK — Xcode's is macOS ${sdk_major}"
+      if (
+        [[ -n "$pyenv_sdk" ]] && export CC=/usr/bin/clang SDKROOT="$pyenv_sdk"
+        pyenv install -s "$pyenv_wanted"
+      ); then
         ok "pyenv Python ${pyenv_wanted} installed"
+        pyenv_installed=1
         if pyenv global "$pyenv_wanted" 2>/dev/null; then
           ok "pyenv global → ${pyenv_wanted}"
         fi
       else
-        warn "pyenv install ${pyenv_wanted} failed — run: pyenv install ${pyenv_wanted}"
+        warn "pyenv install ${pyenv_wanted} failed — run: ${pyenv_rebuild}"
+        ((++failed))
+      fi
+    fi
+
+    if (( pyenv_installed )); then
+      if PYENV_VERSION="$pyenv_wanted" pyenv exec python -c \
+          'import subprocess; subprocess.run(["/usr/bin/true"], check=True)' >/dev/null 2>&1; then
+        ok "pyenv Python ${pyenv_wanted} can run a subprocess"
+      else
+        warn "pyenv Python ${pyenv_wanted} cannot run a subprocess — rebuild it: ${pyenv_rebuild}"
+        if [[ -n "$sdk_major" ]] && (( sdk_major > os_major )) && [[ -z "$pyenv_sdk" ]]; then
+          info "Xcode's SDK is macOS ${sdk_major} and no macOS ${os_major} SDK was found — install the Command Line Tools first"
+        fi
         ((++failed))
       fi
     fi
