@@ -134,10 +134,18 @@ while IFS= read -r _a; do
   [[ -n "$_a" ]] && HOST_APPS+=("$_a")
 done < <(detect_host_apps | sort -u)
 
+# Said before the prompt, so the answer can take it into account. Until
+# 2026-09-16 a second warning followed the prompt whenever TERM_PROGRAM was
+# unrecognised — "It is not protected and will be quit" — including when the
+# tree walk had found the host and step 2 was going to keep it. In a Claude Code
+# session, where TERM_PROGRAM is unset, that was false on every run.
 if [[ -z "$CURRENT_TERM" ]] && (( ${#HOST_APPS[@]} == 0 )); then
   warn "Could not identify the application hosting this session."
   warn "Step 2 quits applications by name; if this one has a bundle in"
   warn "/Applications it will be quit too, ending this run part-way."
+elif [[ -z "$CURRENT_TERM" ]]; then
+  printf -v _kept '%s, ' "${HOST_APPS[@]}"
+  info "Step 2 keeps the applications this session runs in: ${_kept%, }"
 fi
 
 echo "This will pull mrk, quit running applications, install the macOS updates"
@@ -155,11 +163,6 @@ if (( ! ASSUME_YES )); then
   if [[ -n "$reply" && ! "$reply" =~ ^[Yy]$ ]]; then
     exit 0
   fi
-fi
-
-if [[ -z "$CURRENT_TERM" ]]; then
-  warn "Unrecognized terminal (TERM_PROGRAM='${TERM_PROGRAM:-unset}')."
-  warn "It is not protected and will be quit with the other applications."
 fi
 
 # ── 1. Pull mrk ───────────────────────────────────────────────────────────────
