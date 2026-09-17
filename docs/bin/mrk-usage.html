@@ -868,7 +868,7 @@ mrk-status [--help | -h]</code></pre>
             <li><code>--no-dotfiles</code> — Skip linking the dotfiles.</li>
             <li><code>--no-defaults</code> — Skip the macOS defaults.</li>
             <li><code>--no-link-tools</code> — Skip linking <code>scripts/</code> and <code>bin/</code> into <code>~/bin</code>.</li>
-            <li><code>--dry-run</code> — Preview the changes and apply none of them.</li>
+            <li><code>--dry-run</code> — Preview the changes and apply none of them. A dry run still creates <code>~/.mrk</code> and <code>~/bin</code> if they are absent, and appends to <code>~/.mrk/install.log</code>. Until 2026-09-16 it also created an empty <code>~/.mrk/defaults-rollback.sh</code>, or touched the existing one, which then made mrk-status report "Rollback script present but empty" in place of "Not applied — run: make defaults".</li>
             <li><code>--validate</code> — Validate the configuration before installing.</li>
             <li><code>--continue-on-error</code> — Carry on with the remaining phases when one fails.</li>
             <li><code>--debug</code> — Trace execution with <code>set -x</code>.</li>

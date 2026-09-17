@@ -117,7 +117,12 @@ fi
 # in `status` as a Backups panel with nothing to report and no fix to offer.
 
 # Ensure rollback script exists (don't truncate — defaults.sh manages its own content)
-if ! touch "$ROLLBACK" || ! chmod +x "$ROLLBACK"; then
+#
+# Not in a dry run. Until 2026-09-16 `make setup-dry` touched this file too, so
+# on a Mac where make defaults had never run it left an empty rollback script
+# behind — and mrk-status reads an empty one as "Rollback script present but
+# empty", with no fix to offer, instead of "Not applied — run: make defaults".
+if (( ! DRY_RUN )) && { ! touch "$ROLLBACK" || ! chmod +x "$ROLLBACK"; }; then
   err "Failed to initialize rollback script: $ROLLBACK"
   exit 1
 fi
