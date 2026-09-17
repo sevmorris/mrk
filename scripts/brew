@@ -185,57 +185,30 @@ resolve_homebrew() {
   eval "$($HOMEBREW shellenv)"
 }
 
-# Formula descriptions (associative array for O(1) lookup)
-declare -A FORMULA_DESCRIPTIONS=(
-  ["bash"]="Bourne Again SHell - Modern shell with improved features"
-  ["bash-completion@2"]="Programmable tab completion for Bash 4.1+"
-  ["bat"]="Cat clone with syntax highlighting and Git integration"
-  ["coreutils"]="GNU core utilities - Enhanced versions of basic Unix tools"
-  ["fastfetch"]="Fast system information display tool"
-  ["gh"]="GitHub CLI - Official command-line tool for GitHub"
-  ["git"]="Distributed version control system"
-  ["gnupg"]="GNU Privacy Guard - Encryption and signing tool"
-  ["htop"]="Interactive process viewer and system monitor"
-  ["lsd"]="Modern ls replacement with colors and icons"
-  ["moreutils"]="Collection of useful Unix utilities (sponge, vidir, etc.)"
-  ["nano"]="Simple terminal-based text editor"
-  ["nanorc"]="Syntax highlighting configuration for nano"
-  ["ncdu"]="Disk usage analyzer with ncurses interface"
-  ["nethogs"]="Monitor network usage per process"
-  ["nmap"]="Network exploration and security auditing tool"
-  ["openssh"]="OpenSSH client and server for secure remote access"
-  ["paperkey"]="Extract secret keys from GnuPG keyrings for backup"
-  ["pinentry-mac"]="PIN entry dialog for GnuPG on macOS"
-  ["pwgen"]="Password generator utility"
-  ["qemu"]="Generic machine emulator and virtualizer"
-  ["qrencode"]="QR Code generator from text strings"
-  ["rclone"]="Cloud storage sync tool"
-  ["tealdeer"]="Fast tldr client - Simplified man pages"
-  ["topgrade"]="Upgrade everything - Updates all package managers at once"
-  ["trash"]="Move files to macOS Trash instead of deleting"
-  ["watch"]="Execute a program periodically and display output"
-  ["zsh"]="Z shell - Advanced shell with many features"
-  ["ripgrep"]="Fast text search tool (rg)"
-  ["shellcheck"]="Static analysis tool for shell scripts"
-  ["shfmt"]="Shell formatter - Format shell scripts automatically"
-  ["pipx"]="Install and run Python apps in isolated environments"
-  ["pyenv"]="Python version manager (canonical; see ~/mrk/.python-version)"
-  ["openjdk"]="OpenJDK - Open-source Java Development Kit"
-  ["ffmpeg"]="Complete solution for audio/video conversion"
-  ["chromaprint"]="Audio fingerprinting library (used by AcoustID)"
-  ["whisper.cpp"]="Speech-to-text engine (C/C++ port of OpenAI Whisper)"
-  ["yt-dlp"]="Video/audio downloader from YouTube and other sites"
-  ["mkdocs"]="Static site generator for project documentation"
-  ["pandoc"]="Universal document converter"
-  ["tree"]="Display directory trees in the terminal"
-  ["wget"]="Internet file retriever"
-)
-
-# Get description for a formula
-get_formula_description() {
-  local name="$1"
-  echo "${FORMULA_DESCRIPTIONS[$name]:-}"
+# Package descriptions for the gum fallback, read from the one table mrk keeps:
+# the descriptions map in tools/picker/main.go, which check-picker-desc holds to
+# the Brewfile in both directions.
+#
+# Until 2026-09-17 this script kept its own copy: 42 formulae, no casks, and no
+# check, so it lacked 15 of the Brewfile's 57 formulae and every cask. It
+# mattered more than it looks, because on a new Mac the gum fallback is the
+# picker: Phase 2 runs before build-tools makes mrk-picker.
+declare -A PKG_DESCRIPTIONS=()
+load_descriptions() {
+  local picker_go="$REPO_ROOT/tools/picker/main.go" line
+  local re=$'^\t"([^"]+)":[[:space:]]*"(.*)",$'
+  [[ -f "$picker_go" ]] || return 0
+  while IFS= read -r line; do
+    [[ "$line" =~ $re ]] && PKG_DESCRIPTIONS["${BASH_REMATCH[1]}"]="${BASH_REMATCH[2]}"
+  done < "$picker_go"
+  return 0
 }
+
+# Get the description for a formula or cask
+get_description() {
+  echo "${PKG_DESCRIPTIONS[$1]:-}"
+}
+load_descriptions
 
 # Ensure gum is available (auto-install if missing)
 ensure_gum() {
@@ -302,15 +275,11 @@ interactive_selection() {
       ((skipped++)) || true
     else
       not_installed_names+=("$name")
-      # Build display label with description for formulae
-      if [[ "$type" == "formula" ]]; then
-        local desc
-        desc=$(get_formula_description "$name")
-        if [[ -n "$desc" ]]; then
-          not_installed_labels+=("$name — $desc")
-        else
-          not_installed_labels+=("$name")
-        fi
+      # Build the display label, with the description when there is one
+      local desc
+      desc=$(get_description "$name")
+      if [[ -n "$desc" ]]; then
+        not_installed_labels+=("$name — $desc")
       else
         not_installed_labels+=("$name")
       fi
@@ -430,7 +399,11 @@ install_brewfile() {
   if (( DRY_RUN )); then
     dry "Would run: brew bundle on the Brewfile"
     log "Brewfile contains:"
-    echo "  - Packages/casks: $(grep -cE "^(brew|cask|tap)" "$BREWFILE")"
+    # One count each; this printed brew, cask and tap lines as one number of
+    # "packages/casks", so the tap was counted as a package.
+    echo "  - Formulae: $(grep -c '^brew "' "$BREWFILE" || true)"
+    echo "  - Casks: $(grep -c '^cask "' "$BREWFILE" || true)"
+    echo "  - Taps: $(grep -c '^tap "' "$BREWFILE" || true)"
     return 0
   fi
 

@@ -161,7 +161,6 @@ snapshot_plist "com.goodsnooze.MacWhisper"              "MacWhisper.plist"      
 # rsync mirror, which keeps the current state and no history. They are settings,
 # they are tiny, and a regression in one is worth being able to diff.
 snapshot_plist "net.imput.helium"                       "Helium.plist"            "/Applications/Helium.app"           "Helium"
-snapshot_plist "com.descript.beachcube"                 "Descript.plist"          "/Applications/Descript.app"         "Descript"
 snapshot_plist "com.WavesAudio.central"                 "WavesCentral.plist"      "/Applications/Waves Central.app"    "Waves Central"
 snapshot_plist "org.musicbrainz.Picard"                 "Picard.plist"            "/Applications/MusicBrainz Picard.app" "MusicBrainz Picard"
 

@@ -12,7 +12,9 @@ elif [ -x /usr/local/bin/brew ]; then
   eval "$(/usr/local/bin/brew shellenv)"
 fi
 
-# GNU coreutils — prepend gnubin so ls/cat/sed use GNU names (see Brewfile coreutils comment)
+# GNU coreutils — prepend gnubin so ls, cat, date, stat and the rest are the GNU
+# versions (coreutils has no sed, so sed stays macOS's). The Brewfile's coreutils
+# entry is here for this.
 if command -v brew >/dev/null 2>&1; then
   _coreutils_gnubin="$(brew --prefix coreutils 2>/dev/null)/libexec/gnubin"
   if [[ -d "$_coreutils_gnubin" ]]; then

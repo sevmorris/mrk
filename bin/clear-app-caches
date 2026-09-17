@@ -25,10 +25,9 @@ Options:
   -h, --help      Show this help
 
 clear-app-caches takes no options other than --help. It removes the cache
-directories of Helium, Slack, Discord, VS Code, Spotify and Chrome, for every
-browser profile. Nothing is prompted and nothing is kept — the caches rebuild
-on next launch. Profile data, and Spotify's offline downloads, are not caches
-and are left alone. The com.user.clear_app_caches LaunchAgent runs it on a
+directories of Helium, Slack and Chrome, for every browser profile. Nothing is
+prompted and nothing is kept — the caches rebuild on next launch. Profile data
+is not a cache and is left alone. The com.user.clear_app_caches LaunchAgent runs it on a
 schedule.
 EOF
 }
@@ -61,23 +60,11 @@ rm -rf "$HOME/Library/Application Support/Slack/Code Cache"
 rm -rf "$HOME/Library/Application Support/Slack/Service Worker/CacheStorage"
 rm -rf "$HOME/Library/Caches/com.tinyspeck.slackmacgap"
 
-# Discord
-rm -rf "$HOME/Library/Application Support/discord/Cache"
-rm -rf "$HOME/Library/Application Support/discord/Code Cache"
-rm -rf "$HOME/Library/Caches/com.hnc.Discord"
-
-# VS Code
-rm -rf "$HOME/Library/Application Support/Code/Cache"
-rm -rf "$HOME/Library/Application Support/Code/Code Cache"
-rm -rf "$HOME/Library/Application Support/Code/CachedData"
-rm -rf "$HOME/Library/Caches/com.microsoft.VSCode"
-
-# Spotify. Only its Library/Caches folder. Application Support/Spotify/
-# PersistentCache used to go too, but Spotify's default offline-storage
-# location is PersistentCache/Storage: that line would have deleted every
-# downloaded playlist once a day, and downloads do not "rebuild on next launch"
-# the way the caches this script promises to clear do.
-rm -rf "$HOME/Library/Caches/com.spotify.client"
+# Discord, VS Code and Spotify were cleared here until 2026-09-17. None of them
+# is installed on this Mac. If Spotify comes back, clear only its
+# Library/Caches folder: its default offline-storage location is
+# Application Support/Spotify/PersistentCache/Storage, and a line that deleted
+# PersistentCache would delete every downloaded playlist once a day.
 
 # Google Chrome — every profile, not just Default. Chrome names profiles
 # "Default", "Profile 1", "Profile 4"…, and on this Mac Default was empty while

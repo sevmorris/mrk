@@ -82,9 +82,6 @@ export_plist "/Applications/AlDente.app" "com.apphousekitchen.aldente-pro" \
 export_plist "/Applications/Amphetamine.app" "com.if.Amphetamine" \
   "$PREFS_DIR/Amphetamine.plist" "Amphetamine"
 
-export_plist "/Applications/Descript.app" "com.descript.beachcube" \
-  "$PREFS_DIR/Descript.plist" "Descript"
-
 export_plist "/Applications/Fission.app" "com.rogueamoeba.Fission" \
   "$PREFS_DIR/Fission.plist" "Fission"
 

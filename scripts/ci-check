@@ -109,7 +109,7 @@ if command -v shellcheck >/dev/null 2>&1; then
   while IFS= read -r f; do
     [[ -n "$f" ]] && scripts+=("$f")
   done < <(
-    git -C "$REPO_ROOT" ls-files 'scripts/*' 'bin/*' 'tests/*' \
+    git -C "$REPO_ROOT" ls-files 'scripts/*' 'bin/*' 'tests/*' '.claude/skills/*' \
       | while IFS= read -r f; do
           [[ -f "$REPO_ROOT/$f" ]] && head -1 "$REPO_ROOT/$f" | grep -qE '^#!.*bash' && printf '%s\n' "$REPO_ROOT/$f"
         done

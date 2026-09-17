@@ -31,8 +31,9 @@ backups/
 # State directories (user-specific)
 .mrk/
 
-# Claude Code runtime data
-.claude/
+# Claude Code runtime data — but not the skills, which are versioned here
+.claude/*
+!.claude/skills/
 dotfiles/.claude/
 
 # Test files

@@ -29,7 +29,7 @@ Keep both repositories current. You can then restore the full setup on a new mac
 > 2. Replace the dotfiles in `dotfiles/` with your own.
 > 3. Edit the `Brewfile`. Keep the `##` section headers, because the sync tools read them.
 > 4. Edit the `add_login_item` list in `scripts/post-install`. It adds eight applications.
-> 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 18 named plist domains, plus every `io.github.sevmorris.*` domain as a group.
+> 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 17 named plist domains, plus every `io.github.sevmorris.*` domain as a group.
 > 6. Edit `DOCK_APPS` in `scripts/dock-setup`. The script clears the Dock before it adds the applications.
 > 7. Read `scripts/defaults.sh` before you run it. It writes 143 preference keys, and each key is a personal choice.
 > 8. Remove the `install_github_app` calls in `scripts/post-install` if you do not want Barkeep and KeyVault. To install your own apps that way instead, set `GITHUB_APP_TEAM_ID` to your Developer ID team: it refuses any app not signed by that team.
@@ -115,7 +115,7 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 - **Browsers:** Applies the Safari defaults and the Helium defaults. The Safari defaults need Full Disk Access for your terminal, because Safari keeps its preferences in its sandbox container. Without it, Phase 3 skips them with one log line and still reports success. It opens the extension URLs when you ask for them. It no longer installs Chrome and Brave managed policies: those were JSON files in `policies/managed/`, which is the Linux policy mechanism, and Chrome on macOS never read them.
 - **App defaults:** Writes the settings for Audio Hijack, Fission, AlDente, and the Rogue Amoeba update options.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
-- **Plist imports (18 apps):** Imports your preference plists. Phase 3 skips an app that already has preferences — in `~/Library/Preferences`, or in its sandbox container for a sandboxed app such as Keka — so it never overwrites a live configuration. It also skips an app that is not installed yet.
+- **Plist imports (17 apps):** Imports your preference plists. Phase 3 skips an app that already has preferences — in `~/Library/Preferences`, or in its sandbox container for a sandboxed app such as Keka — so it never overwrites a live configuration. It also skips an app that is not installed yet.
 - **My own applications:** Imports every `io.github.sevmorris.*` plist that `snapshot-prefs` captured. This one does not check that the application is installed: several are tools with no bundle in `/Applications`, and on a new machine the preferences usually arrive before the application does, so an early import means the app finds its settings on first launch.
 - **Barkeep:** Installs Barkeep from the most recent GitHub release, and only when the app in the release's DMG verifies, is signed by my Developer ID team, and is accepted by Gatekeeper as notarized; anything else is refused and counted as a failed step. Phase 3 skips this step when `/Applications/Barkeep.app` exists. To update Barkeep, use Barkeep, or delete the app first.
 - **KeyVault:** Installs KeyVault from the most recent GitHub release, with the same signature checks as Barkeep. Phase 3 skips this step when `/Applications/KeyVault.app` exists. To update KeyVault, use KeyVault, or delete the app first.
@@ -146,7 +146,6 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 | TimeMachineEditor | ✓ |
 | MacWhisper | ✓ |
 | Helium | ✓ |
-| Descript | ✓ |
 | Waves Central | ✓ |
 | MusicBrainz Picard | ✓ |
 
@@ -370,7 +369,7 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 
 | Command | Purpose |
 |---|---|
-| `clear-app-caches` | Clears cache directories for common apps (Helium, Slack, Discord, VS Code, Spotify, Chrome — every Chrome profile). It never touches profile data or Spotify's offline downloads |
+| `clear-app-caches` | Clears the cache directories of Helium, Slack and Chrome — every Chrome profile. It never touches profile data |
 | `clear-derived-data` | Clears the Xcode DerivedData directory |
 | `mrk-push` | Commits and pushes `~/mrk`, then deletes the old GitHub Pages deployments. Scans every file the commit carries for secrets first, from whichever directory you run it in. Refuses to run while a merge or rebase in `~/mrk` is unfinished |
 | `prune-deployments` | Deletes the old GitHub Pages deployments and keeps the newest. It finds the repository from the origin remote, or use `--repo OWNER/NAME`. It always protects the deployment that serves the site, so a failed deploy cannot cause it to delete the live one. Use `--dry-run` first |
@@ -444,7 +443,7 @@ This command adds the packages that you installed since the last sync. It then c
 make snapshot-prefs
 ```
 
-This command exports the 18 app preference plists, the Application Support files, the config directories, your installed fonts and a manifest of your git repositories. It then pushes them. Check that the push succeeded: the output ends with "Pushed to git@github.com:sevmorris/mrk-prefs.git".
+This command exports the 17 app preference plists, the Application Support files, the config directories, your installed fonts and a manifest of your git repositories. It then pushes them. Check that the push succeeded: the output ends with "Pushed to git@github.com:sevmorris/mrk-prefs.git".
 
 **5. Capture the login items**
 

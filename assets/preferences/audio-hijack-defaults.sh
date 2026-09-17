@@ -20,8 +20,29 @@ failed=0
 # Dark theme (0=light, 1=auto, 2=dark)
 defaults write com.rogueamoeba.audiohijack applicationTheme -int 2 || failed=$(( failed + 1 ))
 
-# Preferred external audio editor — iZotope RX
-defaults write com.rogueamoeba.audiohijack audioEditorBundleID -string "com.izotope.RXPro" || failed=$(( failed + 1 ))
+# Preferred external audio editor — iZotope RX, the newest one installed.
+#
+# RX's bundle ID changes with its version. This line used to write
+# com.izotope.RXPro, and on 2026-09-17 the RX on this Mac was the standalone
+# "iZotope RX 12 Audio Editor", com.izotope.RX12, so Audio Hijack's editor
+# pointed at an app that was not there. The ID is now read from the app. With no
+# RX installed, the setting is left alone.
+rx_app=""
+rx_best=-1
+for app in "/Applications/iZotope RX "*" Audio Editor.app"; do
+  [[ -d "$app" ]] || continue
+  rx_ver=${app#/Applications/iZotope RX }
+  rx_ver=${rx_ver%% *}
+  if [[ "$rx_ver" =~ ^[0-9]+$ ]] && (( rx_ver > rx_best )); then
+    rx_best=$rx_ver
+    rx_app=$app
+  fi
+done
+if [[ -n "$rx_app" ]] && rx_id=$(defaults read "$rx_app/Contents/Info" CFBundleIdentifier 2>/dev/null); then
+  defaults write com.rogueamoeba.audiohijack audioEditorBundleID -string "$rx_id" || failed=$(( failed + 1 ))
+else
+  logskip "Audio Hijack external editor" "no iZotope RX Audio Editor in /Applications"
+fi
 
 # Audio buffer size (frames)
 defaults write com.rogueamoeba.audiohijack bufferFrames -int 512 || failed=$(( failed + 1 ))

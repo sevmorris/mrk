@@ -3,12 +3,12 @@
 tap "sevmorris/tap"
 
 ## CLI Tools - General Utilities & Power User Tools
-brew "autoconf"
 brew "bash"
 brew "bash-completion@2"
 brew "bat"
 brew "cliclick"
-# GNU coreutils — prepend gnubin so ls/cat/sed use GNU names (see Brewfile comment)
+# GNU coreutils. dotfiles/.zprofile puts its gnubin first on PATH, so ls, cat, date,
+# stat and the rest are the GNU versions; sed is not part of it and stays macOS's.
 brew "coreutils"
 brew "fastfetch"
 brew "flac"
@@ -17,9 +17,7 @@ brew "git"
 brew "git-filter-repo"
 brew "gnupg"
 brew "htop"
-brew "libpng"
 brew "lsd"
-brew "mkdocs"
 brew "moreutils"
 brew "nano"
 brew "nanorc"
@@ -33,7 +31,6 @@ brew "pinentry-mac"
 brew "pngquant"
 brew "poppler"
 brew "pwgen"
-brew "python@3.14"
 brew "qemu"
 brew "qrencode"
 brew "rclone"
@@ -41,12 +38,12 @@ brew "tealdeer"
 brew "topgrade"
 brew "trash"
 brew "tree"
-brew "unbound"
 brew "watch"
 brew "wget"
 brew "zsh"
 
 ## Repo essentials
+brew "dockutil"
 brew "gum"
 brew "jq"
 brew "ripgrep"
@@ -75,11 +72,14 @@ cask "4k-video-downloader+", greedy: true
 cask "a-better-finder-rename", greedy: true
 cask "adapter", greedy: true
 cask "aldente", greedy: true
+cask "antigravity", greedy: true
 cask "appcleaner", greedy: true
+cask "arctic", greedy: true
 cask "audio-hijack", greedy: true
 cask "balenaetcher", greedy: true
 cask "brave-browser", greedy: true
 cask "calibre", greedy: true
+cask "claude", greedy: true
 cask "cryptomator", greedy: true
 cask "disk-drill", greedy: true
 cask "doublender", greedy: true
@@ -98,11 +98,11 @@ cask "handbrake-app", greedy: true
 cask "helium-browser", greedy: true
 cask "ilok-license-manager", greedy: true
 cask "iterm2", greedy: true
-cask "izotope-product-portal", greedy: true
 cask "jordanbaird-ice", greedy: true
 cask "keka", greedy: true
 cask "keyboardcleantool", greedy: true
 cask "kid3", greedy: true
+cask "kindle-previewer", greedy: true
 cask "kobo", greedy: true
 cask "loopback", greedy: true
 cask "losslesscut", greedy: true
@@ -121,6 +121,7 @@ cask "piezo", greedy: true
 cask "pulsar", greedy: true
 cask "raspberry-pi-imager", greedy: true
 cask "raycast", greedy: true
+cask "samsung-magician", greedy: true
 cask "shutter-encoder", greedy: true
 cask "signal", greedy: true
 cask "slack", greedy: true

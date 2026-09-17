@@ -662,7 +662,6 @@ else
   import_plist "/Applications/Keka.app"           "com.aone.keka"                             "$LOCAL_PREFS_DIR/Keka.plist"              "Keka"              || failed=$(( failed + 1 ))
   # Migrated from Magic Backup Machine, 2026-09-02 — see snapshot-prefs.
   import_plist "/Applications/Helium.app"         "net.imput.helium"                          "$LOCAL_PREFS_DIR/Helium.plist"            "Helium"            || failed=$(( failed + 1 ))
-  import_plist "/Applications/Descript.app"       "com.descript.beachcube"                    "$LOCAL_PREFS_DIR/Descript.plist"          "Descript"          || failed=$(( failed + 1 ))
   import_plist "/Applications/Waves Central.app"  "com.WavesAudio.central"                    "$LOCAL_PREFS_DIR/WavesCentral.plist"      "Waves Central"     || failed=$(( failed + 1 ))
   import_plist "/Applications/MusicBrainz Picard.app" "org.musicbrainz.Picard"                "$LOCAL_PREFS_DIR/Picard.plist"            "MusicBrainz Picard" || failed=$(( failed + 1 ))
 
