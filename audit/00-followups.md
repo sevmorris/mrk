@@ -1,7 +1,7 @@
 # Followups
 
 This file indexes every deferred item, known limitation, and explicitly-out-of-scope
-finding from the mrk audit (modules 1–14, six fix sessions, runtime verification).
+finding from the mrk audit (modules 1–15, six fix sessions, runtime verification).
 It is not a punch list of unfixed bugs — most items here were explicitly chosen to defer,
 accept as a known limitation, or scope out. The value of the file is that "what's still
 open?" has a single answer without grepping the whole audit directory.
@@ -9,14 +9,23 @@ open?" has a single answer without grepping the whole audit directory.
 For each item: what it is, where it's documented, why it was deferred, what action
 would close it.
 
-**Last re-verified:** 2026-09-09 against `605ff9f` by module 14
+**Last re-verified:** 2026-09-16 against `6a38545` by module 15
+(`15-audit-2026-09-16.md`), on the new Mac: an M5 Pro on macOS 26.7, migrated from a macOS 15
+Mac the day before. It began with a HIGH defect, T-1: `make updates`, and `update-full` through
+it, ran `softwareupdate -ia`, and on this Mac the only update listed was macOS 27, so the
+command started downloading it. Nothing in mrk had changed; Apple's list had. Module 15 found
+16 items, fixed seven in full or in part, and left six decisions below. Its lesson is the same
+as module 14's, from another direction: a claim that held on the old Mac (a disable survives a
+restart; a key is applied; a Finder property exists) must be checked against the new one.
+
+**Previously re-verified:** 2026-09-09 against `605ff9f` by module 14
 (`14-audit-2026-09-09.md`), which found nine items, fixed eight, and withdrew one of its own as
 a false finding. It left nothing open. Its durable result is methodological: **half its
 findings were only reachable by running the code.** P-5, P-6 and P-8 live in the exit
 status or failure path of an operation that otherwise succeeds and says so, which is why
 fourteen prior cycles of reading never found them. Module 14 added no new open items.
 
-**Previously re-verified:** 2026-08-31 against `15c82c9`. The 2026-08-31 recursive pass
+**Before that:** 2026-08-31 against `15c82c9`. The 2026-08-31 recursive pass
 (`13-audit-2026-08-31.md`) found and fixed 14 defects, three of them HIGH, none of which
 any tool reported — `ci-check`, `shellcheck`, `go vet`, `gofmt` and `bash -n` were all
 green beforehand. Two sat in the key-transfer path: `restore-keys` rejected every valid
@@ -39,6 +48,32 @@ None. N-1 is fixed — see Closed below.
 ## Deferred decisions
 
 Items that require a real choice before they can be closed in either direction.
+
+**Module 15's six decisions (2026-09-16).** Each has its evidence and a recommendation in
+`15-audit-2026-09-16.md`.
+- **T-3 — the Software Update keys in `make defaults` are inert.** `defaults.sh:393-412` writes
+  seven keys to the user domain, and `softwareupdated` takes them from `/Library/Preferences`.
+  To write them there with sudo would turn `AutomaticDownload` back on, and that was turned off
+  on 2026-09-15 while macOS 27 was being cancelled.
+  → To close: delete the seven lines and their MRK-1 entries (recommended; the key count falls
+  to 136), or choose the values and write the system domain with sudo.
+- **T-8 — Safari's Develop menu.** `defaults.sh` hides it; `assets/browsers/safari-defaults.sh`
+  shows it. → To close: delete the side that is not wanted, before Phase 3 re-runs with Full
+  Disk Access (T-7).
+- **T-9 — `hide_tm.sh` and Time Machine.** Finder's dictionary gives a disk no `visible`
+  property, and this Mac has no Time Machine destination. → To close: set up Time Machine, then
+  delete `hide_tm.sh` or rewrite it and test it against a mounted TM volume.
+- **T-11 — `make harden` has not run on this Mac.** The firewall is off and Touch ID for sudo is
+  absent. → To close: run `make harden` at a terminal.
+- **T-14 — `DOCK_APPS` is not the Dock in use.** → To close: update the list, or retire
+  `make dock` on this Mac.
+- **T-15 — 7 of the 22 App Store apps in the list are not installed.** → To close: install them
+  or remove them from `docs/app-store-apps.md`.
+
+Two items are fixed in code and still open in the Mac's state: **T-5**, where neither Photos
+agent is disabled (run `trim-services`, then check `launchctl print-disabled` after a restart),
+and **T-7**, where the Safari settings were never applied (give the terminal Full Disk Access,
+then run `make post-install`).
 
 **Tests 1C, 2, 3, and 4 — UNBLOCKED: the plan now exists; the tests have not run.**
 `audit/10-test-plan.md` is written and committed. It specifies Test 1C (combined
@@ -134,6 +169,28 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by module 15, the 2026-09-16 new-Mac audit
+
+Branch `fix/no-major-os-upgrade`. Details, reproductions and verification in
+`15-audit-2026-09-16.md`.
+
+- **T-1 (HIGH)** — `make updates` and `update-full` ran `softwareupdate -ia`, which on macOS
+  26.7 started a macOS 27 download. New `bin/macos-updates` installs only same-major updates
+  and fails closed. `tests/macos-updates.sh` (18 cases under two bashes, and 4 repository
+  guards) is in `ci-check`, and each of six mutations fails it. Closes audit 04 M2 too: the
+  target no longer ends in `|| true`.
+- **T-2 (MEDIUM)** — `link-home-bin` linked from any checkout. It now links only from
+  `$MRK_ROOT` or `~/mrk`, compared as resolved paths.
+- **T-4 (LOW)** — update-full's post-prompt "will be quit" warning was false whenever the tree
+  walk had found the host. It is replaced by a pre-prompt line naming what step 2 keeps.
+- **T-5 (LOW, tool half)** — trim-services now reads `launchctl print-disabled` before and after
+  each disable, and no longer promises that a disable survives a restart.
+- **T-6 (LOW)** — `setup --dry-run` no longer creates or touches `defaults-rollback.sh`.
+- **T-7 (LOW, docs half)** — the Full Disk Access requirement for Safari is in `manual.md`,
+  BIN-1 §2.14 and SMAC-1 §2.2.
+- **T-10 (INFO)** — "macOS 15" in four places, the manual's 14-of-18 table, "four TUI
+  binaries", SMAC-2's stale update-full caution, and BIN-1's misnested entries.
 
 ### Closed by module 14, the 2026-09-09 full sweep
 

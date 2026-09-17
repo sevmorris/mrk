@@ -70,14 +70,40 @@ SERVICES=(
   "com.apple.mediaanalysisd|Media analysis (Visual Look Up)|Same family as photoanalysisd."
 )
 
+# is_disabled LABEL — whether launchd's override database lists LABEL as
+# disabled. This is the record `launchctl disable` writes, and the only
+# evidence that one took. macOS 26 prints `=> disabled`; older releases print
+# `=> true`.
+#
+# Until 2026-09-16 nothing here read it. The dry run said "Would disable" for a
+# job already disabled, and a real run reported success from launchctl's exit
+# status alone, then promised the disable would survive a restart. On
+# 2026-09-16 this Mac (macOS 26.7) listed no override for either Photos agent
+# and photoanalysisd was running, though trim-services had run on 2026-09-15
+# and two restarts had followed. Whether that disable failed or was dropped is
+# not known; the rollback lines below are written before the disable, so their
+# presence proves nothing either way.
+UID_DOMAIN="gui/$(id -u)"
+DISABLED_LIST=$(launchctl print-disabled "$UID_DOMAIN" 2>/dev/null || true)
+is_disabled() {
+  grep -qF -e "\"$1\" => disabled" -e "\"$1\" => true" <<< "$DISABLED_LIST"
+}
+
 section "Trim services"
 (( DRY_RUN )) && dry "Dry run — nothing will change."
 
 disabled=0
 skipped=0
+already=0
 for row in "${SERVICES[@]}"; do
   IFS='|' read -r label what cost <<< "$row"
-  target="gui/$(id -u)/$label"
+  target="$UID_DOMAIN/$label"
+
+  if is_disabled "$label"; then
+    logskip "$what" "already disabled"
+    already=$(( already + 1 ))
+    continue
+  fi
 
   # `launchctl print` is the only reliable presence test: a job can be disabled
   # and still have a plist, or be present with no plist at all.
@@ -104,6 +130,12 @@ for row in "${SERVICES[@]}"; do
     skipped=$(( skipped + 1 ))
     continue
   fi
+  DISABLED_LIST=$(launchctl print-disabled "$UID_DOMAIN" 2>/dev/null || true)
+  if ! is_disabled "$label"; then
+    warn "launchctl accepted the disable, but launchd does not list $label as disabled"
+    skipped=$(( skipped + 1 ))
+    continue
+  fi
 
   # Report what actually happened rather than what was attempted. SIP refuses
   # `bootout` on a running Apple agent — "Operation not permitted while System
@@ -121,10 +153,10 @@ done
 
 echo "" >&2
 if (( DRY_RUN )); then
-  ok "Would disable $disabled service(s); $skipped already absent."
+  ok "Would disable $disabled service(s); $already already disabled; $skipped not loaded."
 else
-  ok "Disabled $disabled service(s); $skipped skipped."
+  ok "Disabled $disabled service(s); $already already disabled; $skipped skipped."
   info "Undo with: bash $ROLL"
-  info "A disabled job stays disabled across a reboot."
-  info "Confirm with: launchctl print-disabled gui/\$(id -u)"
+  info "launchd keeps a disable across a restart. Check that these did, after the next one:"
+  info "  launchctl print-disabled gui/\$(id -u)"
 fi

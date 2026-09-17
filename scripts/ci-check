@@ -25,9 +25,9 @@ Options:
 
 ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
-the cleanempties, defaults-rollback and hardening-rollback tests in tests/,
-shellcheck over the tracked scripts, and `go test` for each directory under
-tools/. It stops at the first gate that fails, so a red gate early on means
+the cleanempties, defaults-rollback, hardening-rollback and macos-updates tests
+in tests/, shellcheck over the tracked scripts, and `go test` for each
+directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
 EOF
 }
@@ -95,6 +95,13 @@ log "defaults rollback"
 # left three settings changed.
 log "hardening rollback"
 "$REPO_ROOT/tests/hardening-rollback.sh"
+
+# macos-updates, against a stubbed softwareupdate, and a guard that nothing
+# else calls softwareupdate with --all: until 2026-09-16 `make updates` and
+# update-full ran `softwareupdate -ia`, which on macOS 26.7 started
+# downloading macOS 27.
+log "macOS updates"
+"$REPO_ROOT/tests/macos-updates.sh"
 
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"

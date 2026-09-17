@@ -503,6 +503,7 @@
   <a href="#trim-services">2.34 trim-services</a>
   <a href="#build-tools">2.35 build-tools</a>
   <a href="#check-defaults-desc">2.36 check-defaults-desc</a>
+  <a href="#macos-updates">2.37 macos-updates</a>
   <a class="section-head">Sect. 3 — Reference</a>
   <a href="#lib">3.1 Shared Libraries</a>
   <a href="#quick-ref">3.2 Quick Reference</a>
@@ -720,6 +721,10 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
             <li>To name more than one volume, give a comma-separated list. Use the argument or the <code>TM_VOLUMES</code> environment variable.</li>
             <li>hide_tm.sh takes one argument, not several. Until 2026-09-10 it read only the first and discarded the rest, so a space-separated attempt hid one volume in silence. It now exits 2.</li>
           </ul>
+          <div class="callout callout-caution">
+            <span class="callout-label">Caution</span>
+            <div class="callout-body">hide_tm.sh probably hides nothing. It tells Finder to set the <code>visible</code> property of a disk, and in the scripting dictionary of the Finder in macOS 26.7 a disk has no such property. For each volume that it finds, it then gives a warning, and it exits 0. For a name that is not mounted, it does nothing and gives no warning. This conclusion comes from the dictionary: the command was not run, because it needs Automation access to Finder. See <code>audit/15-audit-2026-09-16.md</code>.</div>
+          </div>
         </div>
       </div>
 
@@ -867,7 +872,7 @@ mrk-status [--help | -h]</code></pre>
             <li><code>--no-dotfiles</code> — Skip linking the dotfiles.</li>
             <li><code>--no-defaults</code> — Skip the macOS defaults.</li>
             <li><code>--no-link-tools</code> — Skip linking <code>scripts/</code> and <code>bin/</code> into <code>~/bin</code>.</li>
-            <li><code>--dry-run</code> — Preview the changes and apply none of them.</li>
+            <li><code>--dry-run</code> — Preview the changes and apply none of them. A dry run still creates <code>~/.mrk</code> and <code>~/bin</code> if they are absent, and appends to <code>~/.mrk/install.log</code>. Until 2026-09-16 it also created an empty <code>~/.mrk/defaults-rollback.sh</code>, or touched the existing one, which then made mrk-status report "Rollback script present but empty" in place of "Not applied — run: make defaults".</li>
             <li><code>--validate</code> — Validate the configuration before installing.</li>
             <li><code>--continue-on-error</code> — Carry on with the remaining phases when one fails.</li>
             <li><code>--debug</code> — Trace execution with <code>set -x</code>.</li>
@@ -930,6 +935,7 @@ mrk-status [--help | -h]</code></pre>
             <li>Barkeep and KeyVault are installed from their latest GitHub release only when the app in the DMG verifies in full (<code>codesign --verify --deep --strict</code>), is signed by <code>GITHUB_APP_TEAM_ID</code>, and is accepted by Gatekeeper as notarized — checked in the DMG, and again once copied. Until 2026-09-10 nothing looked at a signature: the installer copied whatever the DMG held and stripped every extended attribute from it, and <code>curl</code> sets no quarantine, so Gatekeeper never assessed it either. It also refuses a DMG whose app is not named as the path it checks, and removes a copy that fails part-way — before, a differently named app printed success and was downloaded again on every run, and a half-copied one was skipped as installed from then on.</li>
             <li>mrk-post-install imports a plist only when the app has no preferences yet, so it never overwrites a live configuration. It asks <code>defaults</code> whether the domain holds anything, which covers a sandboxed app's container. Until 2026-09-11 it tested only for <code>~/Library/Preferences/ID.plist</code>, and a sandboxed app's first launch moves that file into its container: on this Mac it found no Keka preferences although Keka was set up, and a second run would have imported over them.</li>
             <li>It restores the preferences of an app, and registers its login item, only if the app is installed when it runs. <code>make all</code> runs it before the App Store apps can be installed, so run it again once they are in: it then restores BetterSnapTool's preferences and registers the BetterSnapTool and Chrono Plus login items, all three skipped the first time. The plists of my own apps are the exception: they are imported whether the app is installed or not.</li>
+            <li>The Safari settings need Full Disk Access for the terminal that runs mrk-post-install, because Safari keeps its preferences in its sandbox container. Without that access, the Safari script writes nothing, logs one skip, and mrk-post-install still reports success. Give the terminal Full Disk Access in System Settings &gt; Privacy &amp; Security, then run mrk-post-install again. Until 2026-09-15 the script tried every write and failed each one. On this Mac the Safari settings were skipped on 2026-09-15 and were still not applied on 2026-09-16.</li>
             <li>Each app-defaults script — Safari, Helium, AlDente, Audio Hijack, Fission and the Rogue Amoeba update settings — tries every write, reports how many failed, and then exits 1 if any did. Until 2026-09-11 each counted a failure with <code>((failed++))</code>, which returns 1 from zero, so under Homebrew's bash the first failed write ended the script and the rest were never tried: the P-1 class — 35 sites in <code>assets/</code> that outlived the 2026-09-09 fix of twelve in <code>scripts/</code>. <code>cmd || ((failed++))</code> looks guarded and is not: under bash 5 the command after the last <code>||</code> still trips <code>set -e</code>.</li>
           </ul>
         </div>
@@ -1121,9 +1127,10 @@ mrk-push -- "-starts with a dash"</code></pre>
             <li>Scan every <strong>tracked</strong> file for secrets. mrk-push and pushall scan only what is being staged, so a file that trips the scanner and is then committed stays tripped and trains you to dismiss the gate.</li>
             <li>Run <code>check-commit-gates</code>, which proves that pushall and mrk-push still refuse a planted secret and an unfinished merge.</li>
             <li>Run <code>tests/cleanempties.zsh</code> under an interactive <code>zsh</code>, which drives the <code>cleanempties</code> (<code>ce</code>) and <code>showempties</code> (<code>se</code>) helpers in <code>dotfiles/.aliases</code> against throwaway folders. Until 2026-09-11 <code>ce</code> moved cruft to the Trash before asking, looped forever on a folder the Trash refused, and broke git repositories by trashing their empty <code>refs/</code> and <code>objects/</code> folders.</li>
-            <li>Run <code>tests/hardening-rollback.sh</code>, which runs a copy of <code>harden</code> with every system path — <code>/etc/pam.d</code>, the firewall tool, each preferences domain — redirected into a temporary directory and <code>sudo</code>, <code>socketfilterfw</code> and <code>sysadminctl</code> stubbed. It covers a stock macOS 15, an older macOS with no <code>sudo_local</code>, an existing <code>sudo_local</code>, Touch ID already enabled, and the screen-lock step at a terminal, and requires the undo to put every setting back. The copy refuses to run if any system reference survives the rewrite.</li>
             <li>Run <code>tests/defaults-rollback.sh</code>, which writes 17 kinds of value to a plist in a temporary directory, runs <code>mrk-defaults</code>' own <code>write_default</code> over them twice, runs the undo script it produced, and requires every value back with its type — under macOS's bash 3.2 as well, which is what runs <code>mrk-defaults</code> on a new machine.</li>
-            <li>Run shellcheck on every bash script in <code>scripts/</code> and <code>bin/</code>.</li>
+            <li>Run <code>tests/hardening-rollback.sh</code>, which runs a copy of <code>harden</code> with every system path — <code>/etc/pam.d</code>, the firewall tool, each preferences domain — redirected into a temporary directory and <code>sudo</code>, <code>socketfilterfw</code> and <code>sysadminctl</code> stubbed. It covers a stock macOS 15, an older macOS with no <code>sudo_local</code>, an existing <code>sudo_local</code>, Touch ID already enabled, and the screen-lock step at a terminal, and requires the undo to put every setting back. The copy refuses to run if any system reference survives the rewrite.</li>
+            <li>Run <code>tests/macos-updates.sh</code>, which runs <a href="#macos-updates">macos-updates</a> against a stub of <code>softwareupdate</code> — including the list this Mac printed on 2026-09-16, where macOS 27 was the only update — and requires that no major upgrade is installed. It also fails if any script in the repository calls <code>softwareupdate</code> with <code>--all</code>, or if topgrade's <code>system</code> step is enabled.</li>
+            <li>Run shellcheck on every bash script in <code>scripts/</code>, <code>bin/</code> and <code>tests/</code>.</li>
             <li>Run <code>go test</code> in the four tool directories: picker, mrk-status, mrk-menu and theme.</li>
           </ol>
           <ul>
@@ -1312,7 +1319,7 @@ mrk-push -- "-starts with a dash"</code></pre>
           <ol>
             <li>Pull the mrk repository.</li>
             <li>Quit every running application. update-full keeps Finder, Dock, SystemUIServer, loginwindow and your terminal.</li>
-            <li>Run the macOS software updates.</li>
+            <li>Install the macOS updates for the installed version, with <a href="#macos-updates">macos-updates</a>. update-full never installs a major upgrade.</li>
             <li>Run topgrade.</li>
             <li>Build the mrk Go tools again.</li>
             <li>Run clean-ds.</li>
@@ -1323,7 +1330,8 @@ mrk-push -- "-starts with a dash"</code></pre>
             <li><code>--yes</code> or <code>-y</code> — Skip the confirmation prompt.</li>
             <li>Step 2 keeps Finder, Dock, SystemUIServer, loginwindow, and every application in this session's process ancestry. Before 2026-09-10 it identified the host from <code>TERM_PROGRAM</code>, which names four terminals and is empty for everything else — including a Claude Code session, where it is unset. With <code>/Applications/Claude.app</code> matching the process <code>Claude</code>, update-full would have quit the session running it at step 2 of 8, after quitting every other application and before any update ran. It now walks the process tree and keeps every bundle it finds there.</li>
             <li><code>--no-reboot</code> — Never offer a restart.</li>
-            <li>update-full reads <code>TERM_PROGRAM</code> to find your terminal. It warns you when it does not recognise the value, because it then quits that terminal too.</li>
+            <li>Before it asks you to confirm, update-full says which applications step 2 keeps when <code>TERM_PROGRAM</code> does not name your terminal. It gives a warning when it cannot identify the host at all, because step 2 then quits the host too. Until 2026-09-16 it also said, after the prompt, that an unrecognised terminal "will be quit" — even when the process tree had identified the host and step 2 kept it. In a Claude Code session, where <code>TERM_PROGRAM</code> is unset, that warning was false on every run.</li>
+            <li>Until 2026-09-16, step 3 ran <code>softwareupdate -ia</code>: through <code>make updates</code>, or with <code>sudo</code> when <code>~/mrk</code> was not a repository. The <code>-a</code> option installs every update that Apple lists, and Apple lists the next major version. On 2026-09-15, on macOS 26.7, the only update in the list was macOS 27, and update-full started to download it. See <a href="#macos-updates">macos-updates</a>.</li>
             <li>update-full continues after a failed step, and it reports the failure.</li>
           </ul>
         </div>
@@ -1396,7 +1404,8 @@ mrk-push -- "-starts with a dash"</code></pre>
             <li><code>-n</code> or <code>--dry-run</code> — List each agent and the cost of turning it off. trim-services changes nothing.</li>
           </ul>
           <ul>
-            <li>trim-services uses <code>launchctl disable</code>, which writes to the launchd override database. The plists of the Apple agents are under <code>/System/Library/LaunchAgents</code>, and SIP does not allow a change to those. The override database is writable, and a disabled job stays disabled after a restart.</li>
+            <li>trim-services uses <code>launchctl disable</code>, which writes to the launchd override database. The plists of the Apple agents are under <code>/System/Library/LaunchAgents</code>, and SIP does not allow a change to those. The override database is writable, and launchd keeps a disable in it across a restart.</li>
+            <li>trim-services reads that database first, and reports a job that it already lists as disabled as "already disabled". After each <code>launchctl disable</code>, it reads the database again, and it reports the job as disabled only when the database lists it. Until 2026-09-16 it did neither: the dry run offered to disable a job that was disabled already, and a real run reported success from the exit status of <code>launchctl</code> alone. On 2026-09-16 this Mac, on macOS 26.7, listed no override for either Photos agent and <code>photoanalysisd</code> was running, though trim-services had run on 2026-09-15 and the Mac had restarted twice since. It is not known whether that disable failed or was dropped. After a restart, check with <code>launchctl print-disabled gui/$(id -u)</code>.</li>
             <li>SIP also refuses <code>launchctl bootout</code> on an Apple agent that runs already. trim-services reports that case as "takes effect at next login" rather than as stopped.</li>
             <li>trim-services writes <code>~/.mrk/services-rollback.sh</code>. Run <code>bash ~/.mrk/services-rollback.sh</code> to turn every agent back on.</li>
             <li>Chrome installs its updater again when it next starts. Run trim-services again after a Chrome update.</li>
@@ -1407,39 +1416,68 @@ mrk-push -- "-starts with a dash"</code></pre>
             <div class="callout-body">The Photos agents are the item with a real cost. Without <code>photoanalysisd</code> and <code>mediaanalysisd</code>, Photos does not build People albums or Memories, and Visual Look Up does not work.</div>
           </div>
         </div>
+      </div>
 
-        <div class="proc" id="build-tools">
-          <div class="proc-header">
-            <span class="proc-num">2.35</span>
-            <h3>build-tools <span class="tag tag-mrk">mrk</span></h3>
-          </div>
-          <div class="proc-body">
-            <p class="desc">build-tools rebuilds the three Go binaries — mrk-picker, mrk-status and mrk-menu — and relinks them into <code>~/bin</code>. It wraps <code>make -C ~/mrk build-tools</code> rather than repeating the build, so there is only one build path to drift.</p>
-            <pre><code>build-tools</code></pre>
-            <ul>
-              <li><code>-h</code>, <code>--help</code> — Show the usage summary and exit.</li>
-            </ul>
-            <ul>
-              <li>build-tools needs Go on the PATH.</li>
-              <li>The binaries are gitignored build artifacts, and nothing warns you on its own that one is older than its source: <code>make maintain</code> reports it, but only when you run it. Run build-tools after changing anything under <code>tools/</code>, or you keep using the previous binary.</li>
-              <li>The Makefile stamps each binary with the version and commit from <code>git describe --tags</code>. That is why the <code>v1.0.0</code> tag is kept even though its GitHub release was deleted — without a tag the binaries report a bare commit SHA.</li>
-            </ul>
-          </div>
+      <div class="proc" id="build-tools">
+        <div class="proc-header">
+          <span class="proc-num">2.35</span>
+          <h3>build-tools <span class="tag tag-mrk">mrk</span></h3>
         </div>
+        <div class="proc-body">
+          <p class="desc">build-tools rebuilds the three Go binaries — mrk-picker, mrk-status and mrk-menu — and relinks them into <code>~/bin</code>. It wraps <code>make -C ~/mrk build-tools</code> rather than repeating the build, so there is only one build path to drift.</p>
+          <pre><code>build-tools</code></pre>
+          <ul>
+            <li><code>-h</code>, <code>--help</code> — Show the usage summary and exit.</li>
+          </ul>
+          <ul>
+            <li>build-tools needs Go on the PATH.</li>
+            <li>The Makefile links the binaries into <code>~/bin</code> only when it runs in the checkout that <code>~/bin</code> serves: <code>$MRK_ROOT</code>, or <code>~/mrk</code> when <code>MRK_ROOT</code> is not set. A build in any other checkout — a clone, a worktree, a scratch copy, a CI runner — makes the binaries and says that it did not link them. Until 2026-09-16 every build linked, so a <code>make build-tools</code> in a scratch copy pointed <code>mrk-status</code>, <code>mrk-picker</code>, <code>mrk-menu</code> and <code>status</code> at that copy.</li>
+            <li>The binaries are gitignored build artifacts, and nothing warns you on its own that one is older than its source: <code>make maintain</code> reports it, but only when you run it. Run build-tools after changing anything under <code>tools/</code>, or you keep using the previous binary.</li>
+            <li>The Makefile stamps each binary with the version and commit from <code>git describe --tags</code>. That is why the <code>v1.0.0</code> tag is kept even though its GitHub release was deleted — without a tag the binaries report a bare commit SHA.</li>
+          </ul>
+        </div>
+      </div>
 
-        <div class="proc" id="check-defaults-desc">
-          <div class="proc-header">
-            <span class="proc-num">2.36</span>
-            <h3>check-defaults-desc <span class="tag tag-mrk">mrk</span></h3>
-          </div>
-          <div class="proc-body">
-            <p class="desc">check-defaults-desc verifies that the defaults reference documents every key <code>scripts/defaults.sh</code> writes. It compares the <code>write_default</code> calls against the <code>DEFAULT_DESCRIPTIONS</code> map in <code>docs/defaults/script.js</code>, in both directions.</p>
-            <pre><code>check-defaults-desc [--help | -h]</code></pre>
-            <ul>
-              <li>check-defaults-desc exits with status 1 when a key has no description, and also when a description has no key — a stale entry is reported as well as a missing one.</li>
-              <li><code>ci-check</code> runs it after check-picker-desc, so <code>make check</code> covers it.</li>
-              <li>It resolves the <code>$domain</code> loop variable in defaults.sh to that loop's first domain, so the trackpad keys are counted once rather than once per mirror domain.</li>
-            </ul>
+      <div class="proc" id="check-defaults-desc">
+        <div class="proc-header">
+          <span class="proc-num">2.36</span>
+          <h3>check-defaults-desc <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">check-defaults-desc verifies that the defaults reference documents every key <code>scripts/defaults.sh</code> writes. It compares the <code>write_default</code> calls against the <code>DEFAULT_DESCRIPTIONS</code> map in <code>docs/defaults/script.js</code>, in both directions.</p>
+          <pre><code>check-defaults-desc [--help | -h]</code></pre>
+          <ul>
+            <li>check-defaults-desc exits with status 1 when a key has no description, and also when a description has no key — a stale entry is reported as well as a missing one.</li>
+            <li><code>ci-check</code> runs it after check-picker-desc, so <code>make check</code> covers it.</li>
+            <li>It resolves the <code>$domain</code> loop variable in defaults.sh to that loop's first domain, so the trackpad keys are counted once rather than once per mirror domain.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="proc" id="macos-updates">
+        <div class="proc-header">
+          <span class="proc-num">2.37</span>
+          <h3>macos-updates <span class="tag tag-mrk">mrk</span></h3>
+        </div>
+        <div class="proc-body">
+          <p class="desc">macos-updates installs the macOS updates for the installed major version. It never installs a major upgrade, such as macOS 26 to macOS 27. <code>make updates</code> and step 3 of <a href="#update-full">update-full</a> run it.</p>
+          <pre><code>macos-updates [-n | --dry-run] [--help | -h]</code></pre>
+          <ul>
+            <li><code>-n</code> or <code>--dry-run</code> — List the updates that macos-updates would install, and the upgrades that it leaves alone. macos-updates installs nothing. Through Make, use <code>make updates ARGS=-n</code>.</li>
+          </ul>
+          <ul>
+            <li>macos-updates runs <code>softwareupdate --list</code>, then gives <code>softwareupdate --install</code> the label of each update to install. It never uses <code>--all</code>.</li>
+            <li>An update is a macOS update when its label or its title contains "macOS". macos-updates installs a macOS update only when the first number of its version is the same as that of the installed version. It names every other macOS update as a major upgrade, and leaves it alone. No option of macos-updates installs a major upgrade: install one yourself, from System Settings &gt; General &gt; Software Update.</li>
+            <li>macos-updates installs every other update in the list, for example Safari and the Command Line Tools. Their version numbers can be ahead of the operating system: on macOS 26, both are at 27.0.</li>
+            <li>When macos-updates cannot read an entry in the list, it installs nothing and exits with status 1. It does the same when <code>softwareupdate --list</code> fails, or prints output that macos-updates does not recognise. If Apple changes the format of the list, the run stops; it does not install an update that it cannot identify.</li>
+            <li>macos-updates exits 0 when it installs the updates that it selected, and when there is nothing to install. It exits 1 when <code>softwareupdate</code> fails, and 2 on a wrong command line.</li>
+            <li>macos-updates does not restart the Mac. <code>softwareupdate</code> says when an update needs a restart, and update-full offers one at the end.</li>
+            <li>macos-updates runs under the bash 3.2 that macOS supplies, so <code>make updates</code> works on a new Mac before Homebrew is installed.</li>
+            <li>Until 2026-09-16, <code>make updates</code> ran <code>softwareupdate -ia</code>. The <code>-a</code> option installs every update that Apple lists, and Apple lists the next major version as a recommended update. On 2026-09-15, on macOS 26.7, macOS 27 was the only update in the list, and <code>softwareupdate</code> started a 26&nbsp;GB download of it without a password prompt. The download belongs to the <code>softwareupdated</code> service, so it continued after the command stopped, until it was cancelled in System Settings. <code>tests/macos-updates.sh</code> now runs macos-updates against that list.</li>
+          </ul>
+          <div class="callout callout-caution">
+            <span class="callout-label">Caution</span>
+            <div class="callout-body">To stop <code>softwareupdate</code> does not stop a download that it started. To cancel the download, use System Settings &gt; General &gt; Software Update.</div>
           </div>
         </div>
       </div>
@@ -1532,6 +1570,7 @@ mrk-push -- "-starts with a dash"</code></pre>
           <tr><td><code>harden</code></td><td>Apply the optional macOS security settings</td></tr>
           <tr><td><code>trim-services</code></td><td>Disable background launchd agents this Mac does not need</td></tr>
           <tr><td><code>build-tools</code></td><td>Rebuild the mrk Go binaries and relink them into ~/bin</td></tr>
+          <tr><td><code>macos-updates</code></td><td>Install the macOS updates for the installed version. Never a major upgrade</td></tr>
           <tr><td><code>make doctor ARGS=--fix</code></td><td>Add ~/bin to the PATH in ~/.zshrc</td></tr>
           <tr><td><code>make check</code></td><td>Run the local validation</td></tr>
           <tr><td><code>make ci</code></td><td>Run the local validation, and build the TUI binaries</td></tr>
