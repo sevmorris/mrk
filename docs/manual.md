@@ -688,7 +688,7 @@ Then install the App Store apps in [docs/app-store-apps.md](app-store-apps.md) f
 | `make picker` | Build the mrk-picker TUI binary |
 | `make mrk-status` | Build the mrk-status TUI binary |
 | `make mrk-menu` | Build the mrk-menu TUI binary |
-| `make build-tools` | Build all four TUI binaries |
+| `make build-tools` | Build the three TUI binaries — mrk-picker, mrk-status and mrk-menu. They are linked into `~/bin` only when you build in `~/mrk` (or `$MRK_ROOT`) |
 
 **General**
 

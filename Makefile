@@ -4,10 +4,26 @@ SCRIPTS   := $(REPO_ROOT)/scripts
 BIN_DIR   := $(REPO_ROOT)/bin
 INSTALL_BIN := $(HOME)/bin
 
-# Symlink a repo-built binary into ~/bin (mkdir -p first — CI runners may lack ~/bin)
+# The checkout ~/bin serves. update-full, mrk-menu and mrk-status read MRK_ROOT
+# the same way.
+MRK_HOME := $(or $(MRK_ROOT),$(HOME)/mrk)
+
+# Symlink a repo-built binary into ~/bin: $(call link-home-bin,<binary>,<link names>)
+#
+# Only from the checkout ~/bin serves, compared as resolved paths so a repo
+# under a symlink still counts. Built anywhere else — a clone, a worktree, a
+# scratch copy, a CI runner — the binary is built and not linked. Until
+# 2026-09-16 every build linked, so a `make build-tools` run to test a scratch
+# copy repointed mrk-status, mrk-picker, mrk-menu and status at that copy, to
+# dangle once it was deleted.
 define link-home-bin
-	@mkdir -p "$(INSTALL_BIN)"
-	@ln -sf "$(BIN_DIR)/$(1)" "$(INSTALL_BIN)/$(1)"
+	@if [ "$$(cd "$(MRK_HOME)" 2>/dev/null && pwd -P)" = "$$(cd "$(REPO_ROOT)" && pwd -P)" ]; then \
+		mkdir -p "$(INSTALL_BIN)" && \
+		for n in $(2); do ln -sf "$(BIN_DIR)/$(1)" "$(INSTALL_BIN)/$$n" || exit 1; done && \
+		printf '  \033[32m✓\033[0m $(1) → $(patsubst %,~/bin/%,$(2))\n'; \
+	else \
+		printf '  \033[33m⚠\033[0m $(1) built, not linked: ~/bin serves $(MRK_HOME), not this checkout\n'; \
+	fi
 endef
 
 .PHONY: trim-services all install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos dock help check ci maintain
@@ -119,19 +135,15 @@ doctor: ## Run diagnostics
 
 picker: ## Build the mrk-picker TUI binary
 	$(call go-build,mrk-picker,picker)
-	$(call link-home-bin,mrk-picker)
-	@printf '  \033[32m✓\033[0m mrk-picker → ~/bin/mrk-picker\n'
+	$(call link-home-bin,mrk-picker,mrk-picker)
 
 mrk-status: ## Build the mrk-status TUI health dashboard binary
 	$(call go-build,mrk-status,mrk-status)
-	$(call link-home-bin,mrk-status)
-	@ln -sf "$(BIN_DIR)/mrk-status" "$(INSTALL_BIN)/status"
-	@printf '  \033[32m✓\033[0m mrk-status → ~/bin/mrk-status, ~/bin/status\n'
+	$(call link-home-bin,mrk-status,mrk-status status)
 
 mrk-menu: ## Build the mrk-menu TUI launcher binary
 	$(call go-build,mrk-menu,mrk-menu)
-	$(call link-home-bin,mrk-menu)
-	@printf '  \033[32m✓\033[0m mrk-menu → ~/bin/mrk-menu\n'
+	$(call link-home-bin,mrk-menu,mrk-menu)
 
 
 # TODO: ARGS is word-split by Make before the shell sees it. For flags with

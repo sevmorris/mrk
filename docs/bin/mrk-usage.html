@@ -1425,6 +1425,7 @@ mrk-push -- "-starts with a dash"</code></pre>
           </ul>
           <ul>
             <li>build-tools needs Go on the PATH.</li>
+            <li>The Makefile links the binaries into <code>~/bin</code> only when it runs in the checkout that <code>~/bin</code> serves: <code>$MRK_ROOT</code>, or <code>~/mrk</code> when <code>MRK_ROOT</code> is not set. A build in any other checkout — a clone, a worktree, a scratch copy, a CI runner — makes the binaries and says that it did not link them. Until 2026-09-16 every build linked, so a <code>make build-tools</code> in a scratch copy pointed <code>mrk-status</code>, <code>mrk-picker</code>, <code>mrk-menu</code> and <code>status</code> at that copy.</li>
             <li>The binaries are gitignored build artifacts, and nothing warns you on its own that one is older than its source: <code>make maintain</code> reports it, but only when you run it. Run build-tools after changing anything under <code>tools/</code>, or you keep using the previous binary.</li>
             <li>The Makefile stamps each binary with the version and commit from <code>git describe --tags</code>. That is why the <code>v1.0.0</code> tag is kept even though its GitHub release was deleted — without a tag the binaries report a bare commit SHA.</li>
           </ul>
