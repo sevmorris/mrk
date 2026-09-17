@@ -2,7 +2,8 @@
 
 # update-full — full system update pass
 #
-# Pulls mrk, quits running applications, runs macOS software updates and
+# Pulls mrk, quits running applications, installs the macOS updates for the
+# installed major version (never a major upgrade — see macos-updates), runs
 # topgrade, rebuilds the mrk Go tools, clears .DS_Store files, runs
 # brew doctor, then offers a reboot.
 #
@@ -55,7 +56,8 @@ Steps, in order:
   1. git pull the mrk repo
   2. Quit every running application except Finder, Dock, SystemUIServer,
      loginwindow, and the terminal you are running in
-  3. macOS software updates
+  3. macOS updates for the installed version (macos-updates) — never a
+     major upgrade such as macOS 26 to 27
   4. topgrade
   5. Rebuild the mrk Go tools
   6. clean-ds
@@ -138,8 +140,9 @@ if [[ -z "$CURRENT_TERM" ]] && (( ${#HOST_APPS[@]} == 0 )); then
   warn "/Applications it will be quit too, ending this run part-way."
 fi
 
-echo "This will pull mrk, quit running applications, run macOS and package"
-echo "updates, rebuild the mrk tools, run cleanup, then offer a reboot."
+echo "This will pull mrk, quit running applications, install the macOS updates"
+echo "for this version (never a major upgrade) and the package updates, rebuild"
+echo "the mrk tools, run cleanup, then offer a reboot."
 
 if (( ! ASSUME_YES )); then
   if [[ ! -t 0 ]]; then
@@ -209,13 +212,12 @@ done
 sleep 2
 
 # ── 3. macOS software updates ─────────────────────────────────────────────────
-if [[ -d "$MRK_ROOT/.git" ]]; then
-  info "Running macOS software updates..."
-  make -C "$MRK_ROOT" updates || warn "macOS software updates failed — continuing."
-elif command -v softwareupdate >/dev/null 2>&1; then
-  info "Running macOS software updates..."
-  sudo softwareupdate -ia || true
-fi
+# Never a major upgrade. This step ran `make updates`, which was
+# `softwareupdate -ia`, or `sudo softwareupdate -ia` without the repo — and -a
+# installs every listed update. On 2026-09-15, on macOS 26.7, that was macOS 27.
+# macos-updates installs only the updates for the installed major version.
+info "Running macOS software updates..."
+"$SCRIPT_DIR/macos-updates" || warn "macOS software updates failed — continuing."
 
 # ── 4. Package updates ────────────────────────────────────────────────────────
 if command -v topgrade >/dev/null 2>&1; then

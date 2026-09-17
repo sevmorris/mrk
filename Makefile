@@ -30,7 +30,7 @@ help: ## Show available make commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-check: ## Run local CI checks (descriptions, secret scan, commit gates, cleanempties, defaults and harden undo, shellcheck, go test)
+check: ## Run local CI checks (descriptions, secret scan, commit gates, cleanempties, defaults and harden undo, macOS updates, shellcheck, go test)
 	@"$(SCRIPTS)/ci-check"
 
 ci: check build-tools ## Full CI pipeline locally (check + build all TUIs)
@@ -99,8 +99,8 @@ pull: ## Fast-forward the mrk repo to origin (git pull --ff-only)
 update: ## Upgrade all packages (topgrade or brew)
 	@if command -v topgrade >/dev/null 2>&1; then topgrade; else brew update && brew upgrade; fi
 
-updates: ## Run macOS software updates
-	@softwareupdate -ia || true
+updates: ## Install macOS updates for the installed version, never a major upgrade  (ARGS=-n for dry run)
+	@"$(BIN_DIR)/macos-updates" $(ARGS)
 
 maintain: ## Housekeeping: prune Pages deployments, fetch --prune, validate, check builds
 	@"$(BIN_DIR)/maintain" $(ARGS)

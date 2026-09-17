@@ -80,7 +80,8 @@ var categories = []category{
 		items: []item{
 			{"make pull", "git pull mrk repo (fast-forward only)", cmdMake, "pull", nil, false},
 			{"make update", "upgrade packages (topgrade or brew upgrade)", cmdMake, "update", nil, false},
-			{"make updates", "run macOS software updates", cmdMake, "updates", nil, false},
+			{"make updates", "install macOS updates, never a major upgrade", cmdMake, "updates", nil, false},
+			{"make updates ARGS=-n", "list macOS updates, install nothing", cmdMake, "updates", []string{"ARGS=-n"}, false},
 			{"make maintain", "prune deployments, fetch --prune, validate, check builds", cmdMake, "maintain", nil, false},
 			{"make tidy", "go mod tidy in all tool directories", cmdMake, "tidy", nil, false},
 			{"make fix-exec", "make all scripts and bin files executable", cmdMake, "fix-exec", nil, false},

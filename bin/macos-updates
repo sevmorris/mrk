@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+
+# macos-updates — install the macOS updates for the installed major version,
+# and never an upgrade to the next one
+#
+# `softwareupdate -ia` installs every update Apple lists, and Apple lists the
+# next major version among them, marked Recommended. On 2026-09-15 update-full
+# ran exactly that on macOS 26.7 through `make updates`. The only update listed
+# was macOS 27, and softwareupdate started a 26 GB download of it without
+# asking for a password. The download belongs to softwareupdated, not to the
+# command: it outlived the command and ran on until it was cancelled in System
+# Settings.
+#
+# This lists the updates first and installs, by label, only those that keep
+# the installed major version. It names each major upgrade and leaves it alone.
+# No option installs one: a major upgrade is done by hand, in System Settings.
+#
+# What it cannot read, it does not install. An update whose entry does not
+# parse, or a macOS update whose version does not, stops the whole run before
+# anything is installed. A change in the format of `softwareupdate --list`
+# therefore installs nothing and says so, rather than guessing.
+#
+# No bash-4 re-exec, unlike the rest of bin/: `make updates` is worth running
+# on a new Mac before Homebrew is there, so this stays bash-3.2-clean.
+# tests/macos-updates.sh runs it under /bin/bash.
+#
+# Usage:
+#   macos-updates [-n | --dry-run]
+
+set -euo pipefail
+
+# Resolve this script's real path (works when invoked via ~/bin symlink)
+_src="${BASH_SOURCE[0]}"
+while [[ -L "$_src" ]]; do
+  _dir="$(cd "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  [[ "$_src" != /* ]] && _src="$_dir/$_src"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+DRY_RUN=0
+
+usage() {
+  cat <<'EOF'
+macos-updates — install the macOS updates for the installed major version
+
+Usage:
+  macos-updates [-n | --dry-run]
+
+Options:
+  -n, --dry-run  List what would be installed and what is left alone;
+                 install nothing
+  -h, --help     Show this help
+
+macos-updates never installs a major upgrade (macOS 26 to macOS 27, for
+example). It names each one it finds and leaves it alone. Install a major
+upgrade by hand, from System Settings > General > Software Update.
+
+Every other listed update is installed: minor and security updates to the
+installed version, Safari, and the Command Line Tools. If any entry in the
+update list cannot be read, nothing is installed.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -n|--dry-run) DRY_RUN=1; shift ;;
+    -h|--help)    usage; exit 0 ;;
+    *)            err "Unknown option: $1"; echo >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+require_cmd softwareupdate sw_vers || exit 1
+
+current=$(sw_vers -productVersion 2>/dev/null) || current=""
+major=${current%%.*}
+if [[ ! "$major" =~ ^[0-9]+$ ]]; then
+  err "Could not read the installed macOS version (sw_vers printed '$current'). Installing nothing."
+  exit 1
+fi
+
+# is_macos LABEL TITLE — whether an update is macOS itself.
+#
+# Matched on either name and anywhere in it, so that a doubtful case leaves the
+# update alone rather than installing it. The version test that follows cannot
+# be applied to everything: Safari and the Command Line Tools carry version
+# numbers ahead of the OS — 27.0 for both on macOS 26 — and are not upgrades.
+is_macos() {
+  local names
+  names=$(printf '%s %s' "$1" "$2" | tr '[:upper:]' '[:lower:]')
+  [[ "$names" == *macos* ]]
+}
+
+info "Checking for macOS updates (macOS $current is installed)..."
+if ! listing=$(softwareupdate --list 2>&1); then
+  err "softwareupdate --list failed. Installing nothing."
+  printf '%s\n' "$listing" >&2
+  exit 1
+fi
+
+# softwareupdate --list prints two lines per update:
+#   * Label: macOS 27-26A428
+#   <tab>Title: macOS 27, Version: 27, Size: 11728377KiB, Recommended: YES, Action: restart,
+install=()      # labels to install
+upgrades=()     # "title (version)" of each major upgrade left alone
+unreadable=()   # labels whose entry could not be read
+seen=0
+label=""
+while IFS= read -r line; do
+  case "$line" in
+    '* Label: '*)
+      seen=$(( seen + 1 ))
+      # A label with no title line before the next label cannot be judged.
+      [[ -n "$label" ]] && unreadable+=("$label")
+      label=${line#'* Label: '}
+      ;;
+    *'Title: '*', Version: '*)
+      [[ -n "$label" ]] || continue
+      rest=${line#*Title: }
+      title=${rest%%, Version: *}
+      version=${rest#*, Version: }
+      version=${version%%,*}
+      if ! is_macos "$label" "$title"; then
+        install+=("$label")
+      elif [[ ! "${version%%.*}" =~ ^[0-9]+$ ]]; then
+        unreadable+=("$label")
+      elif [[ "${version%%.*}" == "$major" ]]; then
+        install+=("$label")
+      else
+        upgrades+=("$title ($version)")
+      fi
+      label=""
+      ;;
+  esac
+done <<< "$listing"
+[[ -n "$label" ]] && unreadable+=("$label")
+
+# No label at all is only an answer when softwareupdate says so. Anything else
+# is output this parser does not understand, and must not read as "up to date".
+if (( seen == 0 )) && [[ "$listing" != *"No new software available"* ]]; then
+  err "Could not read the output of softwareupdate --list. Installing nothing."
+  printf '%s\n' "$listing" >&2
+  exit 1
+fi
+
+for u in ${upgrades[@]+"${upgrades[@]}"}; do
+  warn "Not installing $u: it is a major upgrade, and mrk never installs one."
+done
+if (( ${#upgrades[@]} > 0 )); then
+  warn "When you want it, install it from System Settings > General > Software Update."
+fi
+
+if (( ${#unreadable[@]} > 0 )); then
+  for u in "${unreadable[@]}"; do
+    err "Could not read the entry for '$u' in the update list."
+  done
+  err "Installing nothing: this cannot tell whether those entries are major upgrades."
+  exit 1
+fi
+
+if (( ${#install[@]} == 0 )); then
+  ok "No macOS updates to install for macOS $major."
+  exit 0
+fi
+
+if (( DRY_RUN )); then
+  for l in "${install[@]}"; do
+    info "Would install: $l"
+  done
+  ok "Dry run: installed nothing."
+  exit 0
+fi
+
+for l in "${install[@]}"; do
+  info "Installing: $l"
+done
+if ! softwareupdate --install "${install[@]}"; then
+  err "softwareupdate --install failed."
+  exit 1
+fi
+ok "Installed ${#install[@]} update(s). If one needs a restart, softwareupdate said so above."

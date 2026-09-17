@@ -69,7 +69,7 @@ Run `make all` to execute all three phases at once. On a fresh machine, run them
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
 | `make update` | Update via topgrade (or brew) |
-| `make updates` | Install macOS software updates |
+| `make updates` | Install the macOS updates for the installed version — never a major upgrade (`ARGS=-n` to preview) |
 
 **Diagnostics & tools**
 

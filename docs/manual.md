@@ -371,10 +371,12 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 | `mrk-push` | Commits and pushes `~/mrk`, then deletes the old GitHub Pages deployments. Scans every file the commit carries for secrets first, from whichever directory you run it in. Refuses to run while a merge or rebase in `~/mrk` is unfinished |
 | `prune-deployments` | Deletes the old GitHub Pages deployments and keeps the newest. It finds the repository from the origin remote, or use `--repo OWNER/NAME`. It always protects the deployment that serves the site, so a failed deploy cannot cause it to delete the live one. Use `--dry-run` first |
 | `pushall` | Commits and pushes each repository in `~/Projects`, and then syncs `~/mrk`. Scans the staged files for secrets before each commit. It stages only the tracked files. It leaves a repository alone, and reports it as failed, while a merge, rebase or cherry-pick in it is unfinished. Use `pushall --dry-run` to run the scan and change nothing |
-| `update-full` | Full update pass: pulls mrk, quits the applications, runs the macOS and package updates, builds the Go tools again, runs `clean-ds` and `brew doctor`, and then offers a reboot. It stops with an error when there is no terminal, unless you give `--yes`. The `update --full` command is the same command |
+| `update-full` | Full update pass: pulls mrk, quits the applications, installs the macOS updates for the installed version and the package updates, builds the Go tools again, runs `clean-ds` and `brew doctor`, and then offers a reboot. It never installs a major macOS upgrade. It stops with an error when there is no terminal, unless you give `--yes`. The `update --full` command is the same command |
 | `clean-ds` | Removes the `.DS_Store` files from the local disk. It does not examine `~/Library`, `~/Desktop`, the network volumes, or the external volumes. Use `clean-ds --dry-run` to see the files first |
 | `hide_tm.sh` | Hides the Time Machine volumes from the Finder sidebar. The default name is `TimeMachine`. Give the volume names, or set `TM_VOLUMES` |
 | `nuke-mrk` | Moves `~/mrk` and `~/.mrk` to the Trash, deletes the `~/bin` symlinks, the dotfile symlinks and the `~/Projects/CLAUDE.md` link, and offers the rollbacks. It does NOT change Homebrew. `mrk-menu` lists it under Nuclear options |
+
+> **Caution:** `update-full` quits every running application and can restart the Mac. It does not install a major macOS upgrade, such as macOS 26 to macOS 27 — its macOS step is `macos-updates`, the same command as `make updates`, which names each major upgrade and leaves it alone. Until 2026-09-16 that step ran `softwareupdate -ia`, which installs every update Apple lists, and on macOS 26.7 it started a download of macOS 27. Install a major upgrade from System Settings › General › Software Update, when you choose to. To stop `softwareupdate` does not stop a download it started; cancel it in the same place.
 
 > `nuke-mrk` deletes more than `make uninstall`. Use `make uninstall` to unlink mrk only. Use `nuke-mrk` to get a clean machine for a test installation.
 >
@@ -726,11 +728,11 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | `make sync` | Sync the installed packages into the Brewfile |
 | `make sync-login-items` | Sync the system login items into post-install and the manual |
 | `make update` | Upgrade every package, with topgrade or with brew upgrade |
-| `make updates` | Run the macOS software updates (`softwareupdate -ia`) |
+| `make updates` | Install the macOS updates for the installed version, with `macos-updates`. It never installs a major upgrade: it names each one and leaves it alone. `ARGS=-n` lists the updates and installs nothing |
 | `make uninstall` | Delete the symlinks, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |
 | `make pull` | Fast-forward the mrk repository to origin |
-| `make check` | Run the local validation: picker and defaults descriptions, a secret scan over every tracked file, the commit-gate check, the `cleanempties` test, round trips through the defaults and harden undo scripts, shellcheck and go test |
+| `make check` | Run the local validation: picker and defaults descriptions, a secret scan over every tracked file, the commit-gate check, the `cleanempties` test, round trips through the defaults and harden undo scripts, the macOS updates test, shellcheck and go test |
 | `make ci` | Run the local validation, and build the TUI binaries |
 | `make tidy` | Run `go mod tidy` in every Go tool directory |
 
