@@ -112,7 +112,7 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 **What it does:**
 
 - **Topgrade:** Symlinks `assets/topgrade.toml` to `~/.config/topgrade.toml`.
-- **Browsers:** Applies the Safari defaults and the Helium defaults. It opens the extension URLs when you ask for them. It no longer installs Chrome and Brave managed policies: those were JSON files in `policies/managed/`, which is the Linux policy mechanism, and Chrome on macOS never read them.
+- **Browsers:** Applies the Safari defaults and the Helium defaults. The Safari defaults need Full Disk Access for your terminal, because Safari keeps its preferences in its sandbox container. Without it, Phase 3 skips them with one log line and still reports success. It opens the extension URLs when you ask for them. It no longer installs Chrome and Brave managed policies: those were JSON files in `policies/managed/`, which is the Linux policy mechanism, and Chrome on macOS never read them.
 - **App defaults:** Writes the settings for Audio Hijack, Fission, AlDente, and the Rogue Amoeba update options.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
 - **Plist imports (18 apps):** Imports your preference plists. Phase 3 skips an app that already has preferences — in `~/Library/Preferences`, or in its sandbox container for a sandboxed app such as Keka — so it never overwrites a live configuration. It also skips an app that is not installed yet.
@@ -145,6 +145,10 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 | Keka | ✓ |
 | TimeMachineEditor | ✓ |
 | MacWhisper | ✓ |
+| Helium | ✓ |
+| Descript | ✓ |
+| Waves Central | ✓ |
+| MusicBrainz Picard | ✓ |
 
 ## Full Install
 
@@ -373,7 +377,7 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 | `pushall` | Commits and pushes each repository in `~/Projects`, and then syncs `~/mrk`. Scans the staged files for secrets before each commit. It stages only the tracked files. It leaves a repository alone, and reports it as failed, while a merge, rebase or cherry-pick in it is unfinished. Use `pushall --dry-run` to run the scan and change nothing |
 | `update-full` | Full update pass: pulls mrk, quits the applications, installs the macOS updates for the installed version and the package updates, builds the Go tools again, runs `clean-ds` and `brew doctor`, and then offers a reboot. It never installs a major macOS upgrade. It stops with an error when there is no terminal, unless you give `--yes`. The `update --full` command is the same command |
 | `clean-ds` | Removes the `.DS_Store` files from the local disk. It does not examine `~/Library`, `~/Desktop`, the network volumes, or the external volumes. Use `clean-ds --dry-run` to see the files first |
-| `hide_tm.sh` | Hides the Time Machine volumes from the Finder sidebar. The default name is `TimeMachine`. Give the volume names, or set `TM_VOLUMES` |
+| `hide_tm.sh` | Meant to hide the Time Machine volumes from the Finder sidebar. The default name is `TimeMachine`. Give the volume names, or set `TM_VOLUMES`. On macOS 26 it probably hides nothing — see its caution in BIN-1 |
 | `nuke-mrk` | Moves `~/mrk` and `~/.mrk` to the Trash, deletes the `~/bin` symlinks, the dotfile symlinks and the `~/Projects/CLAUDE.md` link, and offers the rollbacks. It does NOT change Homebrew. `mrk-menu` lists it under Nuclear options |
 
 > **Caution:** `update-full` quits every running application and can restart the Mac. It does not install a major macOS upgrade, such as macOS 26 to macOS 27 — its macOS step is `macos-updates`, the same command as `make updates`, which names each major upgrade and leaves it alone. Until 2026-09-16 that step ran `softwareupdate -ia`, which installs every update Apple lists, and on macOS 26.7 it started a download of macOS 27. Install a major upgrade from System Settings › General › Software Update, when you choose to. To stop `softwareupdate` does not stop a download it started; cancel it in the same place.
@@ -498,7 +502,7 @@ Write down the apps, the license keys and the settings that mrk does not manage:
 
 ## Prerequisites
 
-- macOS. mrk is developed and tested on macOS 15. It can work on macOS 13 and macOS 14.
+- macOS. mrk is developed and tested on macOS 26 (Tahoe), on Apple silicon. Until 2026-09-15 it ran on macOS 15. It can work on macOS 13 and macOS 14.
 - An internet connection.
 - Your GitHub SSH key. You can also create a key and add it later.
 
@@ -555,6 +559,8 @@ It does not install App Store apps. mrk tracked them as Brewfile `mas` entries u
 `post-install` restores the preferences and login item of an app only if the app is installed, and BetterSnapTool and Chrono Plus are App Store apps. If you install them later, run `make post-install` again.
 
 ## Step 5 — Phase 3: the app configuration
+
+First give your terminal Full Disk Access: System Settings › Privacy & Security › Full Disk Access. Phase 3 needs it for the Safari settings. Without it, Phase 3 skips them and still reports success — on 2026-09-15 that is what happened on this Mac. If you grant the access later, run `make post-install` again.
 
 ```bash
 make post-install
