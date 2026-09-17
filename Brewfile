@@ -7,7 +7,8 @@ brew "bash"
 brew "bash-completion@2"
 brew "bat"
 brew "cliclick"
-# GNU coreutils — prepend gnubin so ls/cat/sed use GNU names (see Brewfile comment)
+# GNU coreutils. dotfiles/.zprofile puts its gnubin first on PATH, so ls, cat, date,
+# stat and the rest are the GNU versions; sed is not part of it and stays macOS's.
 brew "coreutils"
 brew "fastfetch"
 brew "flac"
