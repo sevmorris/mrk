@@ -33,7 +33,10 @@ repo_guards() {
   printf '  repository\n'
   local hits
   # Code lines only: a comment may quote the old call to say why it is gone.
-  hits=$(git -C "$REPO_ROOT" ls-files -z -- Makefile bin scripts dotfiles assets tools \
+  # The grep runs inside the repository, because ls-files prints paths relative
+  # to it. Until 2026-09-18 it ran wherever the caller stood, so from any other
+  # directory grep found no file, said nothing, and this check passed.
+  hits=$(cd "$REPO_ROOT" && git ls-files -z -- Makefile bin scripts dotfiles assets tools \
     | xargs -0 grep -HnE 'softwareupdate' -- 2>/dev/null \
     | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(#|//)' \
     | grep -E "softwareupdate.*[[:space:]\"'](-[a-zA-Z]*a[a-zA-Z]*|--all)([^a-zA-Z-]|\$)" || true)
