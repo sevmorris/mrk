@@ -25,8 +25,8 @@ Options:
 
 ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
-the cleanempties, defaults-rollback, hardening-rollback and macos-updates tests
-in tests/, shellcheck over the tracked scripts, and `go test` for each
+the cleanempties, defaults-rollback, hardening-rollback, macos-updates and
+restore-keys tests in tests/, shellcheck over the tracked scripts, and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
 EOF
@@ -102,6 +102,13 @@ log "hardening rollback"
 # downloading macOS 27.
 log "macOS updates"
 "$REPO_ROOT/tests/macos-updates.sh"
+
+# restore-keys, against throwaway HOMEs and a real gpg: until 2026-09-17 gpg ran
+# while ~/.gnupg was moved aside, made a new one holding `use-keyboxd`, and the
+# restored pubring.kbx went unread. On the 2026-09-15 migration that left
+# Homebrew's gpg and GPG Suite's reading two different keyrings.
+log "restore-keys"
+"$REPO_ROOT/tests/restore-keys.sh"
 
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"

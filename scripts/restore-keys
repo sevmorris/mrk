@@ -104,6 +104,27 @@ if [[ ! -f "$ARCHIVE" ]]; then
   exit 1
 fi
 
+# Every gpg call below runs against a scratch home directory, never ~/.gnupg.
+#
+# Decrypting the archive needs no keyring, but gpg opens one anyway, and it
+# creates its home directory when there is none. From GnuPG 2.4.1, a home
+# directory that gpg creates gets a common.conf holding `use-keyboxd`, which
+# moves the public keys out of pubring.kbx and into a keyboxd database. The
+# restore below moves ~/.gnupg aside and then runs gpg, so gpg found no
+# ~/.gnupg, created one with that common.conf, and tar extracted the archive
+# into it. From then on Homebrew's gpg never read the restored pubring.kbx,
+# while GPG Suite's gpg 2.2, which has no keyboxd, read nothing else. The
+# 2026-09-15 migration split this Mac's keyring in two that way; it was found
+# on 2026-09-17, when the two listed different keys. With a scratch home,
+# ~/.gnupg holds exactly what the archive holds. The scratch directory never
+# sees key material: it holds the agent's sockets and an empty keyring.
+GPG_SCRATCH="$(mrk_mktemp_d)"
+cleanup_gpg_scratch() {
+  gpgconf --homedir "$GPG_SCRATCH" --kill all >/dev/null 2>&1 || true
+  rm -rf "$GPG_SCRATCH"
+}
+trap cleanup_gpg_scratch EXIT
+
 # Confirm the file is a symmetrically-encrypted OpenPGP message before moving
 # anything aside.
 #
@@ -121,7 +142,7 @@ fi
 #   Without --pinentry-mode error the agent raises a passphrase dialog here,
 #   before the real decrypt below. That is the second prompt this check was
 #   supposed to avoid.
-packets="$(gpg --list-packets --batch --pinentry-mode error "$ARCHIVE" 2>&1 || true)"
+packets="$(gpg --homedir "$GPG_SCRATCH" --list-packets --batch --pinentry-mode error "$ARCHIVE" 2>&1 || true)"
 if ! printf '%s' "$packets" | grep -q "symkey enc packet"; then
   err "Not a snapshot-keys archive: $ARCHIVE"
   info "Expected a symmetrically-encrypted OpenPGP message."
@@ -133,7 +154,7 @@ fi
 if (( LIST_ONLY )); then
   log "Reading $ARCHIVE..."
   echo "" >&2
-  gpg -d -q "$ARCHIVE" 2>/dev/null | tar -tvf - | sed 's/^/    /' >&2
+  gpg --homedir "$GPG_SCRATCH" -d -q "$ARCHIVE" 2>/dev/null | tar -tvf - | sed 's/^/    /' >&2
   exit 0
 fi
 
@@ -171,16 +192,19 @@ restore_originals() {
   fi
   return $rc
 }
-trap restore_originals EXIT
+# restore_originals returns the failure status, and under set -e that would end
+# the trap before the scratch cleanup. The script still exits with its own
+# status: a trap that finishes normally does not change it.
+trap 'restore_originals || true; cleanup_gpg_scratch' EXIT
 
 # ── Decrypt straight into place ───────────────────────────────────────────────
 
-if ! gpg -d -q "$ARCHIVE" 2>/dev/null | tar -xpf - -C "$HOME"; then
+if ! gpg --homedir "$GPG_SCRATCH" -d -q "$ARCHIVE" 2>/dev/null | tar -xpf - -C "$HOME"; then
   err "Decryption or extraction failed — wrong passphrase, or a damaged archive."
   exit 1
 fi
 
-trap - EXIT
+trap cleanup_gpg_scratch EXIT
 
 # ── Put back anything the archive did not replace ─────────────────────────────
 
