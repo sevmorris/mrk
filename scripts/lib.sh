@@ -150,6 +150,40 @@ sudo_refresh() { sudo -n -v 2>/dev/null || true; }
 mrk_mktemp()   { mktemp    "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
 mrk_mktemp_d() { mktemp -d "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
 
+# git_clone_pinned URL TAG COMMIT DEST — clone URL at TAG into DEST, but only
+# when TAG still names COMMIT.
+#
+# A tag can be moved and a commit id cannot, so the commit is the pin and the
+# tag is only how to fetch it. The clone goes into a temporary directory beside
+# DEST and is moved into place only after the check, so a refused clone leaves
+# nothing where a shell would source it. Used for code every shell loads: nvm
+# and the zsh plugins. Until 2026-09-18 nvm arrived by piping its install script
+# from a tag into bash, with nothing checked. The reason for a refusal goes to
+# stderr; the caller decides what a refusal costs.
+git_clone_pinned() {
+  local url="$1" tag="$2" commit="$3" dest="$4" parent tmp head
+  if [[ -e "$dest" || -L "$dest" ]]; then
+    warn "$dest already exists — not cloning over it"
+    return 1
+  fi
+  parent="$(dirname "$dest")"
+  mkdir -p "$parent" || return 1
+  tmp="$(mktemp -d "$parent/.$(basename "$dest").XXXXXX")" || return 1
+  if ! git -c advice.detachedHead=false clone -q --depth=1 --branch "$tag" "$url" "$tmp" 2>/dev/null; then
+    rm -rf "$tmp"
+    warn "could not clone $url at $tag"
+    return 1
+  fi
+  head="$(git -C "$tmp" rev-parse HEAD 2>/dev/null || true)"
+  if [[ "$head" != "$commit" ]]; then
+    rm -rf "$tmp"
+    warn "$url: $tag is now ${head:-unreadable}, not the pinned $commit — refused"
+    info "A moved tag is a reason to look before installing, not to clone it by hand."
+    return 1
+  fi
+  mv "$tmp" "$dest" || { rm -rf "$tmp"; return 1; }
+}
+
 # macOS-only guard
 check_macos() {
   if [[ "$(uname -s)" != "Darwin" ]]; then

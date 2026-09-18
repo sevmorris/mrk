@@ -300,33 +300,29 @@ fi
 # nvm (Node Version Manager)                                                  #
 ###############################################################################
 
-# Install via official script. PROFILE=/dev/null prevents the installer from
-# appending init lines to .zshrc/.bashrc — those are managed in the dotfile.
+# nvm's documented git install, pinned to a commit. Until 2026-09-18 this piped
+# nvm's install script from a release tag straight into bash, with nothing
+# checked. That script only cloned the same tag, because PROFILE=/dev/null
+# stopped it editing the shell files that dotfiles/.zshrc already covers.
+# git_clone_pinned clones the tag and refuses it unless it still names
+# NVM_COMMIT, and nothing lands in ~/.nvm until it passes. Bump the two
+# together: git ls-remote https://github.com/nvm-sh/nvm.git 'refs/tags/<tag>^{}'
 NVM_VERSION="v0.40.4"
-NVM_INSTALL_URL="https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh"
+NVM_COMMIT="62387b8f92aa012d48202747fd75c40850e5e261"
 
 if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
   logskip "nvm" "already installed at ~/.nvm"
+elif [[ -e "$HOME/.nvm" ]]; then
+  # shellcheck disable=SC2088  # Literal "~/" for the reader, not a path to expand
+  warn "~/.nvm exists but holds no nvm.sh — move it aside and run make post-install again"
+  ((++failed))
 else
   log "Installing nvm ${NVM_VERSION}..."
-  # Filter noisy progress lines for display, but check the installer's own
-  # exit code (PIPESTATUS[0]), not the pipeline's exit code. The `|| true` on
-  # the trailing assignment branches captures PIPESTATUS before it's reset by
-  # any subsequent command, and avoids set -e firing on a failed installer.
-  nvm_installer_rc=0
-  PROFILE=/dev/null bash <(curl -fsSL "$NVM_INSTALL_URL") 2>&1 | \
-    grep -v "^$\|=> Downloading\|=> Installed\|=> Close\|=> Profile\|=> Creating" \
-    && nvm_installer_rc=${PIPESTATUS[0]} \
-    || nvm_installer_rc=${PIPESTATUS[0]}
-  if [[ $nvm_installer_rc -eq 0 ]]; then
-    if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
-      ok "nvm ${NVM_VERSION} → ~/.nvm"
-    else
-      warn "nvm install script ran but ~/.nvm/nvm.sh not found"
-      ((++failed))
-    fi
+  if git_clone_pinned https://github.com/nvm-sh/nvm.git "$NVM_VERSION" "$NVM_COMMIT" "$HOME/.nvm" \
+     && [[ -s "$HOME/.nvm/nvm.sh" ]]; then
+    ok "nvm ${NVM_VERSION} → ~/.nvm (commit ${NVM_COMMIT:0:12})"
   else
-    warn "nvm install failed — run manually: curl -o- ${NVM_INSTALL_URL} | PROFILE=/dev/null bash"
+    warn "nvm not installed — see the reason above"
     ((++failed))
   fi
 fi

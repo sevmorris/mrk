@@ -7,7 +7,7 @@ set -euo pipefail
 #   scripts/install              # Phase 1 only (setup: dotfiles, tools, defaults)
 #   scripts/install --brew       # Phase 2 (Homebrew packages)
 #   scripts/install --post       # Phase 3 (app config, login items)
-#   scripts/install --all        # All phases sequentially
+#   scripts/install --all        # make all: fix-exec, all three phases, the TUIs
 #
 # All other flags are passed through to the relevant phase script.
 
@@ -19,6 +19,7 @@ while [[ -L "$_self" ]]; do
   [[ "$_self" != /* ]] && _self="$_dir/$_self"
 done
 SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Source shared helpers
 # shellcheck source=lib.sh
@@ -45,9 +46,11 @@ Phases:
   (default)     Phase 1: setup (dotfiles, tools, defaults, shell)
   --brew        Phase 2: Homebrew packages
   --post        Phase 3: app config, login items
-  --all         All phases sequentially
+  --all         Everything make all does: fix-exec, the three phases,
+                the TUI tools, and the closing notes
 
-All other flags are passed through to the relevant phase script.
+All other flags are passed through to the relevant phase script, and with
+--all to all three.
 Run scripts/setup --help or scripts/brew --help for phase-specific options.
 USAGE
       exit 0
@@ -67,10 +70,25 @@ case "${PHASE:-setup}" in
     exec "$SCRIPT_DIR/post-install" "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
     ;;
   all)
-    log "Running all phases..."
-    "$SCRIPT_DIR/setup" "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
-    "$SCRIPT_DIR/brew" "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
-    "$SCRIPT_DIR/post-install" "${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}"
-    log "All phases complete."
+    # One route to a full install, not two. This arm used to run setup, brew and
+    # post-install itself, and so did less than `make all`: no fix-exec first, no
+    # TUI build after, and none of the closing notes (exec zsh, the mrk-prefs
+    # hint, the App Store apps). Found on 2026-09-18 by putting the two side by
+    # side. It now runs make all, so a full install has one definition, in the
+    # Makefile.
+    #
+    # make needs the Command Line Tools, and /usr/bin/make is a stub that offers
+    # to install them rather than failing. Phase 1 is what installs them, so
+    # without them this points there instead.
+    if ! xcode-select -p >/dev/null 2>&1; then
+      err "A full install runs make all, and make needs the Xcode Command Line Tools."
+      info "Run mrk-install on its own first: Phase 1 installs them. Then run mrk-install --all."
+      exit 1
+    fi
+    make_args=(--no-print-directory -C "$REPO_ROOT" all)
+    if (( ${#PASSTHROUGH[@]} > 0 )); then
+      make_args+=("ARGS=${PASSTHROUGH[*]}")
+    fi
+    exec make "${make_args[@]}"
     ;;
 esac

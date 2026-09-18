@@ -182,6 +182,19 @@ if [[ -z "${raw_items//[[:space:]]/}" ]]; then
   exit 1
 fi
 
+# Names are compared in Unicode NFC, here and on the tracked side below. System
+# Events and the file system need not spell an accented name the same way —
+# one composed (é), one decomposed (e + combining accent) — and until
+# 2026-09-18 such an app was listed as new and as stale on every run, under
+# what looks like the same name twice. The path is kept exactly as given.
+raw_items=$(printf '%s' "$raw_items" | python3 -c '
+import sys, unicodedata
+for line in sys.stdin.read().splitlines():
+    name, tab, path = line.partition("\t")
+    if tab:
+        print(unicodedata.normalize("NFC", name) + "\t" + path)
+')
+
 while IFS=$'\t' read -r name app_path; do
   [[ -n "$name" && -n "$app_path" ]] && system_items["$name"]="$app_path"
 done <<< "$raw_items"
@@ -190,15 +203,29 @@ done <<< "$raw_items"
 
 declare -A tracked_items=()  # name -> path
 
-while IFS= read -r line; do
-  # Regex matches lines of the form: add_login_item "/path/to/App.app"
-  if [[ "$line" =~ ^add_login_item[[:space:]]+\"(/[^\"]+\.app)\" ]]; then
-    app_path="${BASH_REMATCH[1]}"
-    app_name="${app_path##*/}"
-    app_name="${app_name%.app}"
-    tracked_items["$app_name"]="$app_path"
-  fi
-done < "$POST_INSTALL"
+# Lines of the form: add_login_item "/path/to/App.app". The rewrite in section 7
+# escapes \ " $ and ` inside the quotes, so a reader has to undo exactly that.
+# Until 2026-09-18 this was a bash regex that took the text as it stood: the
+# line for "Cash $App" read back as "Cash \$App", a line with a quote in it
+# never matched at all, and each such app was re-added on every run. Parsed in
+# Python now, with the regex and unescape() kept the same as section 7's.
+tracked_raw=$(python3 - "$POST_INSTALL" <<'TRACKED_PY'
+import re, sys, unicodedata
+LINE_RE = re.compile(r'^add_login_item\s+"(/(?:[^"\\]|\\.)+\.app)"')
+def unescape(s):
+    return re.sub(r'\\([\\"$`])', r'\1', s)
+with open(sys.argv[1]) as f:
+    for line in f:
+        m = LINE_RE.match(line)
+        if m:
+            path = unescape(m.group(1))
+            name = unicodedata.normalize('NFC', path.rsplit('/', 1)[-1][:-len('.app')])
+            print(name + '\t' + path)
+TRACKED_PY
+)
+while IFS=$'\t' read -r app_name app_path; do
+  [[ -n "$app_name" ]] && tracked_items["$app_name"]="$app_path"
+done <<< "$tracked_raw"
 
 # ─── 3. Compute diff ─────────────────────────────────────────────────────────
 
@@ -454,7 +481,7 @@ for name in "${!remove_items[@]}"; do
 done
 
 python3 - "$POST_INSTALL" "$TEMP_ADD" "$TEMP_REMOVE" "$TMP_PI" <<'PYEOF'
-import sys, re
+import sys, re, unicodedata
 
 post_install = sys.argv[1]
 add_file     = sys.argv[2]
@@ -483,7 +510,11 @@ with open(post_install) as f:
 # Must stay in step with make_line() below. `((failed++))` returns 1 when failed
 # is 0, which aborts post-install under `set -e`, so the counter is incremented
 # by assignment instead (audit 12 N-1).
-LOGIN_ITEM_RE = re.compile(r'^add_login_item\s+"(/[^"]+\.app)"\s*\|\|\s*failed=\$\(\(\s*failed\s*\+\s*1\s*\)\)')
+LOGIN_ITEM_RE = re.compile(r'^add_login_item\s+"(/(?:[^"\\]|\\.)+\.app)"\s*\|\|\s*failed=\$\(\(\s*failed\s*\+\s*1\s*\)\)')
+
+# The inverse of sh_dq() below, and the same as the reader in section 2.
+def unescape(s):
+    return re.sub(r'\\([\\"$`])', r'\1', s)
 
 first_idx = None
 last_idx  = None
@@ -495,8 +526,8 @@ for i, line in enumerate(lines):
         if first_idx is None:
             first_idx = i
         last_idx = i
-        path = m.group(1)
-        name = path.rsplit('/', 1)[-1]
+        path = unescape(m.group(1))
+        name = unicodedata.normalize('NFC', path.rsplit('/', 1)[-1])
         if name.endswith('.app'):
             name = name[:-4]
         existing[name] = path

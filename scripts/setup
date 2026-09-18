@@ -668,25 +668,30 @@ phase_shell() {
     return 0  # custom plugins live inside OMZ; nothing more to do here
   fi
 
-  # Pinned to release tags (audit 12 N-9). Unlike oh-my-zsh, both repos tag
-  # releases, and `omz update` does not touch custom plugins — so an unpinned
-  # clone took whatever HEAD happened to be that day and then never moved
-  # again. Note the tag spelling differs: zsh-autosuggestions prefixes with v,
-  # zsh-syntax-highlighting does not. Bump these deliberately.
+  # Pinned to release tags (audit 12 N-9), and since 2026-09-18 to the commit
+  # each tag names. Unlike oh-my-zsh, both repos tag releases, and `omz update`
+  # does not touch custom plugins — so an unpinned clone took whatever HEAD
+  # happened to be that day and then never moved again. A tag can be moved,
+  # though, and every interactive shell sources these, so git_clone_pinned
+  # refuses a tag that no longer names its commit. Note the tag spelling
+  # differs: zsh-autosuggestions prefixes with v, zsh-syntax-highlighting does
+  # not. Bump tag and commit together, deliberately:
+  #   git ls-remote https://github.com/zsh-users/<plugin> 'refs/tags/<tag>*'
   local plugin_dir="${ZSH_CUSTOM:-$omz_dir/custom}/plugins"
-  local plugin_spec plugin plugin_tag
-  for plugin_spec in "zsh-autosuggestions:v0.7.1" "zsh-syntax-highlighting:0.8.0"; do
-    plugin="${plugin_spec%%:*}"
-    plugin_tag="${plugin_spec##*:}"
+  local plugin_spec plugin plugin_tag plugin_commit
+  for plugin_spec in \
+      "zsh-autosuggestions:v0.7.1:e52ee8ca55bcc56a17c828767a3f98f22a68d4eb" \
+      "zsh-syntax-highlighting:0.8.0:db085e4661f6aafd24e5acb5b2e17e4dd5dddf3e"; do
+    IFS=: read -r plugin plugin_tag plugin_commit <<<"$plugin_spec"
     if [[ -d "$plugin_dir/$plugin" ]]; then
       logskip "$plugin" "already installed"
     elif (( DRY_RUN )); then
-      dry "Would clone $plugin $plugin_tag -> $plugin_dir/$plugin"
-    elif git -c advice.detachedHead=false clone -q --depth=1 --branch "$plugin_tag" \
-         "https://github.com/zsh-users/$plugin" "$plugin_dir/$plugin" 2>/dev/null; then
+      dry "Would clone $plugin $plugin_tag (${plugin_commit:0:12}) -> $plugin_dir/$plugin"
+    elif git_clone_pinned "https://github.com/zsh-users/$plugin" "$plugin_tag" \
+         "$plugin_commit" "$plugin_dir/$plugin"; then
       log "Installed $plugin $plugin_tag -> $plugin_dir/$plugin"
     else
-      warn "$plugin clone failed — install manually: git clone --depth=1 --branch $plugin_tag https://github.com/zsh-users/$plugin"
+      warn "$plugin not installed — see the reason above, then run make setup again"
     fi
   done
 }
