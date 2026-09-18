@@ -117,13 +117,14 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
 - **Plist imports (17 apps):** Imports your preference plists. Phase 3 skips an app that already has preferences — in `~/Library/Preferences`, or in its sandbox container for a sandboxed app such as Keka — so it never overwrites a live configuration. It also skips an app that is not installed yet.
 - **My own applications:** Imports every `io.github.sevmorris.*` plist that `snapshot-prefs` captured. This one does not check that the application is installed: several are tools with no bundle in `/Applications`, and on a new machine the preferences usually arrive before the application does, so an early import means the app finds its settings on first launch.
+- **Dev runtimes:** Links Homebrew's openjdk into `/Library/Java/JavaVirtualMachines/`. Installs nvm into `~/.nvm`, then the current Node LTS as nvm's default — only when nvm has no default yet, so an existing Node is never replaced. Installs the Python version in `.python-version` with pyenv, and checks that it can run a subprocess.
 - **My own applications, installed:** Installs Barkeep, ClipHack, DoublEnder, FilmStrip, KeyVault, Magic Backup Machine and WaxOn/WaxOff from the most recent GitHub release of each, and only when the app in that release's DMG verifies, is signed by my Developer ID team, and is accepted by Gatekeeper as notarized; anything else is refused and counted as a failed step. Phase 3 skips an app that is already in `/Applications` — this bootstraps a Mac, it does not manage updates, and each of these apps checks GitHub for its own updates once it is running. To update one, use the app, or delete it and run `make apps`. The list lives in `scripts/install-apps`, which `make apps` also runs on its own. Two apps are deliberately not in it: **Cypher/FL2601**, which is sandboxed with no network entitlement and so cannot check for its own updates — Homebrew is its update path by design, and it stays a cask in the Brewfile — and **WireHack**, superseded by ClipHack. Magic Backup Machine's repository is private, which is why the download prefers `gh` and its token; an unauthenticated request for a private release returns 404, indistinguishable from "no such release".
 - **Application Support restore:** Restores the Loopback and SoundSource configuration files. Phase 3 skips a file that exists.
 - **Fonts:** Restores the fonts captured by `snapshot-prefs` into `~/Library/Fonts`. Phase 3 skips a font that is already installed.
 - **GPG pinentry:** Points `gpg-agent` at `pinentry-mac`, so gpg asks for a passphrase in a window. Phase 3 adds one line to `~/.gnupg/gpg-agent.conf`, and it skips this step when the file already sets `pinentry-program`.
 - **Config directory restore:** Restores the Calibre configuration into `~/Library/Preferences/calibre/`. Phase 3 skips this step when `gui.json` exists.
 - **Claude Code guidance for `~/Projects`:** Links `assets/CLAUDE.md` to `~/Projects/CLAUDE.md` and `assets/projects-skills/` to `~/Projects/.claude/skills`. Neither lives inside a repository on its own, so both are tracked here and linked into place like a dotfile. A file already there and not a symlink is moved aside with a `.bak` suffix rather than overwritten.
-- **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dropbox, Ice, Raycast, SoundSource, Stats
+- **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dropbox, Raycast, SoundSource, Stats, Thaw
 
 > **Note:** Phase 3 continues when a step fails. It counts the failed steps and reports the total at the end.
 
@@ -132,7 +133,7 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 | App | Plist imported |
 |---|---|
 | BetterSnapTool | ✓ |
-| Ice | ✓ |
+| Thaw | ✓ |
 | iTerm2 | ✓ |
 | Raycast | ✓ |
 | Stats | ✓ |
@@ -738,7 +739,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | `make uninstall` | Delete the symlinks, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |
 | `make pull` | Fast-forward the mrk repository to origin |
-| `make check` | Run the local validation: picker and defaults descriptions, a secret scan over every tracked file, the commit-gate check, the `cleanempties` test, round trips through the defaults and harden undo scripts, the macOS updates test, shellcheck and go test |
+| `make check` | Run the local validation: picker and defaults descriptions, a secret scan over every tracked file, the commit-gate check, the `cleanempties` test, round trips through the defaults and harden undo scripts, the macOS updates test, a `restore-keys` round trip, shellcheck and go test |
 | `make ci` | Run the local validation, and build the TUI binaries |
 | `make tidy` | Run `go mod tidy` in every Go tool directory |
 

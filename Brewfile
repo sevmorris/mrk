@@ -102,7 +102,6 @@ cask "handbrake-app", greedy: true
 cask "helium-browser", greedy: true
 cask "ilok-license-manager", greedy: true
 cask "iterm2", greedy: true
-cask "jordanbaird-ice", greedy: true
 cask "keka", greedy: true
 cask "keyboardcleantool", greedy: true
 cask "kid3", greedy: true
@@ -133,6 +132,7 @@ cask "soundsource", greedy: true
 cask "stats", greedy: true
 cask "swift-publisher", greedy: true
 cask "temurin@21", greedy: true
+cask "thaw", greedy: true
 cask "the-unarchiver", greedy: true
 cask "timemachineeditor", greedy: true
 cask "typora", greedy: true

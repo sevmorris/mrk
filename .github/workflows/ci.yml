@@ -22,8 +22,10 @@ jobs:
       # bash: the runner has only macOS's bash 3.2. pushall and mrk-push need 4+
       # and re-exec into Homebrew's, and check-commit-gates runs both — without
       # it that gate dies with "bash 4+ required" before testing anything.
-      - name: Install shellcheck and bash
-        run: brew install shellcheck bash
+      # gnupg: tests/restore-keys.sh builds and restores a real archive, and the
+      # bug it guards against needs GnuPG 2.4.1 or later to show itself.
+      - name: Install shellcheck, bash and gnupg
+        run: brew install shellcheck bash gnupg
 
       - name: CI checks
         run: scripts/ci-check

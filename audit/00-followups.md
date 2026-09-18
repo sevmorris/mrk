@@ -1,7 +1,7 @@
 # Followups
 
 This file indexes every deferred item, known limitation, and explicitly-out-of-scope
-finding from the mrk audit (modules 1–15, six fix sessions, runtime verification).
+finding from the mrk audit (modules 1–16, six fix sessions, runtime verification).
 It is not a punch list of unfixed bugs — most items here were explicitly chosen to defer,
 accept as a known limitation, or scope out. The value of the file is that "what's still
 open?" has a single answer without grepping the whole audit directory.
@@ -9,7 +9,24 @@ open?" has a single answer without grepping the whole audit directory.
 For each item: what it is, where it's documented, why it was deferred, what action
 would close it.
 
-**Last re-verified:** 2026-09-16 against `6a38545` by module 15
+**Last re-verified:** 2026-09-17 against `52458c8` by module 16
+(`16-audit-2026-09-17.md`). It checked the migration end to end on the Mac itself, then
+followed each gap back into mrk. The HIGH finding was in the key-transfer path again, U-1.
+`restore-keys` ran gpg while `~/.gnupg` was moved aside. GnuPG 2.5 made a new home directory,
+set to `use-keyboxd`, and the restored `pubring.kbx` went unread by Homebrew's gpg while GPG
+Suite's read nothing else. The Mac had two keyrings, and they had drifted. Module 16 fixed that
+in the tool and on this Mac. It also found:
+
+- Phase 3 installed nvm and never a Node version (U-2)
+- CI had been red on `main` since PR #10 (U-3)
+- Ice crashes at launch on macOS 26.7 (U-4)
+- this Mac has no Time Machine destination, although the Pi is on the network (U-5)
+
+It found 12 items. It fixed six, and left the decisions below. Its lesson is module 15's again,
+one layer down: the tools ran cleanly, and it took reading the Mac's own state (a file's mtime,
+two keyrings side by side, a crash report) to see what they had done.
+
+**Previously re-verified:** 2026-09-16 against `6a38545` by module 15
 (`15-audit-2026-09-16.md`), on the new Mac: an M5 Pro on macOS 26.7, migrated from a macOS 15
 Mac the day before. It began with a HIGH defect, T-1: `make updates`, and `update-full` through
 it, ran `softwareupdate -ia`, and on this Mac the only update listed was macOS 27, so the
@@ -18,14 +35,14 @@ command started downloading it. Nothing in mrk had changed; Apple's list had. Mo
 as module 14's, from another direction: a claim that held on the old Mac (a disable survives a
 restart; a key is applied; a Finder property exists) must be checked against the new one.
 
-**Previously re-verified:** 2026-09-09 against `605ff9f` by module 14
+**Before that:** 2026-09-09 against `605ff9f` by module 14
 (`14-audit-2026-09-09.md`), which found nine items, fixed eight, and withdrew one of its own as
 a false finding. It left nothing open. Its durable result is methodological: **half its
 findings were only reachable by running the code.** P-5, P-6 and P-8 live in the exit
 status or failure path of an operation that otherwise succeeds and says so, which is why
 fourteen prior cycles of reading never found them. Module 14 added no new open items.
 
-**Before that:** 2026-08-31 against `15c82c9`. The 2026-08-31 recursive pass
+**Earlier:** 2026-08-31 against `15c82c9`. The 2026-08-31 recursive pass
 (`13-audit-2026-08-31.md`) found and fixed 14 defects, three of them HIGH, none of which
 any tool reported — `ci-check`, `shellcheck`, `go vet`, `gofmt` and `bash -n` were all
 green beforehand. Two sat in the key-transfer path: `restore-keys` rejected every valid
@@ -48,6 +65,21 @@ None. N-1 is fixed — see Closed below.
 ## Deferred decisions
 
 Items that require a real choice before they can be closed in either direction.
+
+**Module 16's items (2026-09-17).** Evidence and options for each are in
+`16-audit-2026-09-17.md`.
+
+- **U-5 — no Time Machine destination (HIGH, your action).** This Mac has not been backed up
+  since the migration. `raspi` advertises a Time Machine share on the network. → To close: add
+  it in System Settings › General › Time Machine, and let the first backup finish. That makes
+  T-9's rewrite of `hide_tm.sh` testable too.
+- **U-7 — two GnuPGs, one old agent.** GPG Suite's 2.2.41 agent serves Homebrew's 2.5.22.
+  → To close: drop `gpg-suite-no-mail` (or Homebrew's `gnupg`), or accept the warning.
+- **U-8 — `.gitconfig` requires a git-lfs filter that is not installed.** → To close: delete
+  the `[filter "lfs"]` section, or add `brew "git-lfs"`.
+
+**U-4's state half is the owner's.** Thaw replaced Ice in mrk and on this Mac. Start Thaw,
+grant it Accessibility, and let it start at login.
 
 **Module 15's six decisions (2026-09-16).** Each has its evidence and a recommendation in
 `15-audit-2026-09-16.md`.
@@ -73,7 +105,9 @@ Items that require a real choice before they can be closed in either direction.
 Two items are fixed in code and still open in the Mac's state: **T-5**, where neither Photos
 agent is disabled (run `trim-services`, then check `launchctl print-disabled` after a restart),
 and **T-7**, where the Safari settings were never applied (give the terminal Full Disk Access,
-then run `make post-install`).
+then run `make post-install`). Module 16 re-checked all of these on 2026-09-17. Each still
+stands. T-5 has grown: `com.google.GoogleUpdater.wake` arrived with Chrome after the
+migration-day run, so `trim-services -n` now offers three.
 
 **Tests 1C, 2, 3, and 4 — UNBLOCKED: the plan now exists; the tests have not run.**
 `audit/10-test-plan.md` is written and committed. It specifies Test 1C (combined
@@ -169,6 +203,30 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by module 16, the 2026-09-17 migration check
+
+Branch `fix/new-mac-followups`. Details, reproductions and verification are in
+`16-audit-2026-09-17.md`.
+
+- **U-1 (HIGH)** — `restore-keys` ran gpg while `~/.gnupg` was moved aside. GnuPG 2.5 made a
+  new one holding `use-keyboxd`, and Homebrew's gpg never read the restored `pubring.kbx`
+  again. Every gpg call now uses a scratch home directory. `tests/restore-keys.sh` runs 28
+  checks under two bashes, is in `ci-check`, and each of three mutations fails it. On this Mac,
+  `common.conf` was retired and the one keyboxd-only key was imported into `pubring.kbx`. Both
+  GnuPGs now read one identical keyring.
+- **U-2 (MEDIUM)** — Phase 3 now installs the Node LTS after nvm, a prebuilt binary only,
+  with nvm's default set to its major version. It runs only when nvm has no default. Node
+  v24.21.0 is installed on this Mac.
+- **U-4 (MEDIUM)** — Ice 0.11.12 crashed at every launch on macOS 26.7. Thaw replaces it in
+  the Brewfile, the login items, the plist round trip, the picker and the docs, and on this
+  Mac. Ice's plist stays in mrk-prefs.
+- **U-9 (INFO)** — the migration leftovers were moved to the Trash, including T-16's two
+  `test-*` files.
+- **U-3 (MEDIUM)** — CI was red on `main` since PR #10: SC2016 in `scripts/install-apps`. Its
+  `--help` also named the command `mrk-install-apps`, a name nothing links.
+- **U-6 (INFO)** — `docs/app-store-apps.md` said Spotlight indexing is off "on this Mac". It
+  was off on the old one, and it is on here.
 
 ### Closed by module 15, the 2026-09-16 new-Mac audit
 

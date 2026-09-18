@@ -30,10 +30,10 @@ Options:
   -y, --yes       Answer yes to every prompt and run unattended
   -h, --help      Show this help
 
-post-install writes app defaults, imports the app preferences, installs
-Barkeep and KeyVault from GitHub — only when each is signed by the expected
-Developer ID and accepted by Gatekeeper — registers the login items, and loads
-the mrk LaunchAgents. Every domain it overwrites is exported to
+post-install writes app defaults, installs the Node LTS when nvm has none,
+imports the app preferences, installs this Mac's own apps from their GitHub
+releases — only when each is signed by the expected Developer ID and accepted
+by Gatekeeper — registers the login items, and loads the mrk LaunchAgents. Every domain it overwrites is exported to
 ~/.mrk/plist-backups first, and each change appends to the shared
 ~/.mrk/defaults-rollback.sh. It exits 1 when any step failed. Normally run as
 `make post-install`.
@@ -331,6 +331,45 @@ else
   fi
 fi
 
+# nvm is not Node. Until 2026-09-17 this phase installed nvm and stopped, so a
+# new Mac had no `node` or `npm` until someone ran `nvm install` by hand. The
+# old Mac's Node had been installed that way, which is why nothing noticed; the
+# 2026-09-15 migration left this Mac without either, and doublender-dashboard's
+# `npm ci` could not run.
+#
+# Installs the current LTS and makes its major version the default, but only
+# when nvm has no default yet: an existing Node is left alone, because moving
+# to a new major is a decision, not a bootstrap step. The default is the major
+# (`v24`), not `lts/*`: nvm re-points `lts/*` when a newer LTS line appears, and
+# a default that resolves to an uninstalled version leaves every new shell
+# without node. -b refuses a source build — nvm compiles when no binary
+# matches, and a compile here would meet the Xcode-newer-than-macOS trap that
+# the pyenv section below works around.
+#
+# nvm.sh is not written for set -eu, so each use runs in a subshell with both off.
+if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
+  node_default="$( (set +eu; . "$HOME/.nvm/nvm.sh" --no-use; nvm version default) 2>/dev/null || true)"
+  if [[ "$node_default" == v* ]]; then
+    logskip "Node" "nvm default is ${node_default}"
+  else
+    log "Installing the Node LTS via nvm..."
+    if node_default="$( (set +eu
+          . "$HOME/.nvm/nvm.sh" --no-use
+          nvm install -b --lts --no-progress >/dev/null 2>&1 || exit 1
+          v="$(nvm version 'lts/*')"
+          [[ "$v" == v* ]] || exit 1
+          nvm alias default "${v%%.*}" >/dev/null 2>&1 || exit 1
+          printf '%s' "$v") 2>/dev/null)"; then
+      ok "Node ${node_default} → nvm default ${node_default%%.*}"
+    else
+      warn "Node install failed — run: nvm install -b --lts, then nvm alias default <its major version>"
+      ((++failed))
+    fi
+  fi
+else
+  logskip "Node" "nvm not installed"
+fi
+
 ###############################################################################
 # pyenv (Python)                                                              #
 ###############################################################################
@@ -585,7 +624,7 @@ if [[ ! -d "$LOCAL_PREFS_DIR" ]]; then
   : # preferences will be noted in make all summary
 else
   import_plist "/Applications/BetterSnapTool.app"  "com.hegenberg.BetterSnapTool"              "$LOCAL_PREFS_DIR/BetterSnapTool.plist"    "BetterSnapTool"    || failed=$(( failed + 1 ))
-  import_plist "/Applications/Ice.app"            "com.jordanbaird.Ice"                       "$LOCAL_PREFS_DIR/Ice.plist"               "Ice"               || failed=$(( failed + 1 ))
+  import_plist "/Applications/Thaw.app"           "com.stonerl.Thaw"                          "$LOCAL_PREFS_DIR/Thaw.plist"              "Thaw"              || failed=$(( failed + 1 ))
   import_plist "/Applications/iTerm.app"          "com.googlecode.iterm2"                     "$LOCAL_PREFS_DIR/iTerm2.plist"            "iTerm2"            || failed=$(( failed + 1 ))
   import_plist "/Applications/Raycast.app"        "com.raycast.macos"                         "$LOCAL_PREFS_DIR/Raycast.plist"           "Raycast"           || failed=$(( failed + 1 ))
   import_plist "/Applications/Stats.app"          "eu.exelban.Stats"                          "$LOCAL_PREFS_DIR/Stats.plist"             "Stats"             || failed=$(( failed + 1 ))
@@ -821,10 +860,10 @@ add_login_item "/Applications/AlDente.app"          || failed=$(( failed + 1 ))
 add_login_item "/Applications/BetterSnapTool.app"   || failed=$(( failed + 1 ))
 add_login_item "/Applications/Chrono Plus.app"      || failed=$(( failed + 1 ))
 add_login_item "/Applications/Dropbox.app"          || failed=$(( failed + 1 ))
-add_login_item "/Applications/Ice.app"              || failed=$(( failed + 1 ))
 add_login_item "/Applications/Raycast.app"          || failed=$(( failed + 1 ))
 add_login_item "/Applications/SoundSource.app"      || failed=$(( failed + 1 ))
 add_login_item "/Applications/Stats.app"            || failed=$(( failed + 1 ))
+add_login_item "/Applications/Thaw.app"             || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Launch Agents                                                               #
