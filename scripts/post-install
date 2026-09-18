@@ -624,7 +624,7 @@ if [[ ! -d "$LOCAL_PREFS_DIR" ]]; then
   : # preferences will be noted in make all summary
 else
   import_plist "/Applications/BetterSnapTool.app"  "com.hegenberg.BetterSnapTool"              "$LOCAL_PREFS_DIR/BetterSnapTool.plist"    "BetterSnapTool"    || failed=$(( failed + 1 ))
-  import_plist "/Applications/Ice.app"            "com.jordanbaird.Ice"                       "$LOCAL_PREFS_DIR/Ice.plist"               "Ice"               || failed=$(( failed + 1 ))
+  import_plist "/Applications/Thaw.app"           "com.stonerl.Thaw"                          "$LOCAL_PREFS_DIR/Thaw.plist"              "Thaw"              || failed=$(( failed + 1 ))
   import_plist "/Applications/iTerm.app"          "com.googlecode.iterm2"                     "$LOCAL_PREFS_DIR/iTerm2.plist"            "iTerm2"            || failed=$(( failed + 1 ))
   import_plist "/Applications/Raycast.app"        "com.raycast.macos"                         "$LOCAL_PREFS_DIR/Raycast.plist"           "Raycast"           || failed=$(( failed + 1 ))
   import_plist "/Applications/Stats.app"          "eu.exelban.Stats"                          "$LOCAL_PREFS_DIR/Stats.plist"             "Stats"             || failed=$(( failed + 1 ))
@@ -860,10 +860,10 @@ add_login_item "/Applications/AlDente.app"          || failed=$(( failed + 1 ))
 add_login_item "/Applications/BetterSnapTool.app"   || failed=$(( failed + 1 ))
 add_login_item "/Applications/Chrono Plus.app"      || failed=$(( failed + 1 ))
 add_login_item "/Applications/Dropbox.app"          || failed=$(( failed + 1 ))
-add_login_item "/Applications/Ice.app"              || failed=$(( failed + 1 ))
 add_login_item "/Applications/Raycast.app"          || failed=$(( failed + 1 ))
 add_login_item "/Applications/SoundSource.app"      || failed=$(( failed + 1 ))
 add_login_item "/Applications/Stats.app"            || failed=$(( failed + 1 ))
+add_login_item "/Applications/Thaw.app"             || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Launch Agents                                                               #

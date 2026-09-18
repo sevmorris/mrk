@@ -70,8 +70,8 @@ export_plist() {
 export_plist "/Applications/BetterSnapTool.app" "com.hegenberg.BetterSnapTool" \
   "$PREFS_DIR/BetterSnapTool.plist" "BetterSnapTool"
 
-export_plist "/Applications/Ice.app" "com.jordanbaird.Ice" \
-  "$PREFS_DIR/Ice.plist" "Ice"
+export_plist "/Applications/Thaw.app" "com.stonerl.Thaw" \
+  "$PREFS_DIR/Thaw.plist" "Thaw"
 
 export_plist "/Applications/iTerm.app" "com.googlecode.iterm2" \
   "$PREFS_DIR/iTerm2.plist" "iTerm2"

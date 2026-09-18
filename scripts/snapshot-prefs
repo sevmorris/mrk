@@ -141,7 +141,7 @@ snapshot_plist(){
 
 # Previously captured
 snapshot_plist "com.hegenberg.BetterSnapTool"           "BetterSnapTool.plist"    "/Applications/BetterSnapTool.app"   "BetterSnapTool"
-snapshot_plist "com.jordanbaird.Ice"                    "Ice.plist"               "/Applications/Ice.app"              "Ice"
+snapshot_plist "com.stonerl.Thaw"                       "Thaw.plist"              "/Applications/Thaw.app"             "Thaw"
 snapshot_plist "com.googlecode.iterm2"                  "iTerm2.plist"            "/Applications/iTerm.app"            "iTerm2"
 
 # Newly added

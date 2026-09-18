@@ -99,7 +99,7 @@ data in them is not.
 |---|---|---|
 | Preferences repo | `PREFS_REPO` in `scripts/snapshot-prefs` | Points at `sevmorris/mrk-prefs`, which is private. Nothing else works until you repoint it. |
 | Packages | `Brewfile` | My formulae and casks, with `##` section headers the sync tooling relies on. |
-| Login items | `add_login_item` block in `scripts/post-install` | AlDente, BetterSnapTool, Chrono Plus, Dropbox, Ice, Raycast, SoundSource, Stats. |
+| Login items | `add_login_item` block in `scripts/post-install` | AlDente, BetterSnapTool, Chrono Plus, Dropbox, Raycast, SoundSource, Stats, Thaw. |
 | Snapshotted apps | `scripts/snapshot-prefs` | The 17 plist domains and the Application Support trees I care about. |
 | Dock | `DOCK_APPS` in `scripts/dock-setup` | Wipes the Dock before it rebuilds it. |
 | macOS defaults | `scripts/defaults.sh` | 143 keys, each one a preference of mine. Documented in the [defaults reference](https://sevmorris.github.io/mrk/defaults/). |
