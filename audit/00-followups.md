@@ -1,7 +1,7 @@
 # Followups
 
 This file indexes every deferred item, known limitation, and explicitly-out-of-scope
-finding from the mrk audit (modules 1–16, six fix sessions, runtime verification).
+finding from the mrk audit (modules 1–17, six fix sessions, runtime verification).
 It is not a punch list of unfixed bugs — most items here were explicitly chosen to defer,
 accept as a known limitation, or scope out. The value of the file is that "what's still
 open?" has a single answer without grepping the whole audit directory.
@@ -9,7 +9,21 @@ open?" has a single answer without grepping the whole audit directory.
 For each item: what it is, where it's documented, why it was deferred, what action
 would close it.
 
-**Last re-verified:** 2026-09-17 against `52458c8` by module 16
+**Last re-verified:** 2026-09-18 against `f8687b6` by module 17
+(`17-audit-2026-09-18.md`). It took up three of seven audit ideas that had been saved a week
+earlier: every download in the install path, `mrk-install --all` against `make all`, and
+`sync-login-items` with awkward names. Each finding was two parts that had to agree, with nothing
+comparing them:
+- `--all` did less than `make all`, and now runs it
+- `sync-login-items` wrote an app named with `$`, a backtick, a backslash or a quote correctly,
+  and then could not read it back
+- the idiom the new pipe guard borrowed from `tests/macos-updates.sh` passed vacuously when run
+  from outside the repository
+
+nvm and the zsh plugins are now pinned to commits. Two of the seven ideas were already done by
+modules 15 and 16. Two remain, below.
+
+**Previously re-verified:** 2026-09-17 against `52458c8` by module 16
 (`16-audit-2026-09-17.md`). It checked the migration end to end on the Mac itself, then
 followed each gap back into mrk. The HIGH finding was in the key-transfer path again, U-1.
 `restore-keys` ran gpg while `~/.gnupg` was moved aside. GnuPG 2.5 made a new home directory,
@@ -26,7 +40,7 @@ It found 12 items. It fixed six, and left the decisions below. Its lesson is mod
 one layer down: the tools ran cleanly, and it took reading the Mac's own state (a file's mtime,
 two keyrings side by side, a crash report) to see what they had done.
 
-**Previously re-verified:** 2026-09-16 against `6a38545` by module 15
+**Before that:** 2026-09-16 against `6a38545` by module 15
 (`15-audit-2026-09-16.md`), on the new Mac: an M5 Pro on macOS 26.7, migrated from a macOS 15
 Mac the day before. It began with a HIGH defect, T-1: `make updates`, and `update-full` through
 it, ran `softwareupdate -ia`, and on this Mac the only update listed was macOS 27, so the
@@ -35,14 +49,14 @@ command started downloading it. Nothing in mrk had changed; Apple's list had. Mo
 as module 14's, from another direction: a claim that held on the old Mac (a disable survives a
 restart; a key is applied; a Finder property exists) must be checked against the new one.
 
-**Before that:** 2026-09-09 against `605ff9f` by module 14
+**Earlier:** 2026-09-09 against `605ff9f` by module 14
 (`14-audit-2026-09-09.md`), which found nine items, fixed eight, and withdrew one of its own as
 a false finding. It left nothing open. Its durable result is methodological: **half its
 findings were only reachable by running the code.** P-5, P-6 and P-8 live in the exit
 status or failure path of an operation that otherwise succeeds and says so, which is why
 fourteen prior cycles of reading never found them. Module 14 added no new open items.
 
-**Earlier:** 2026-08-31 against `15c82c9`. The 2026-08-31 recursive pass
+**Earlier still:** 2026-08-31 against `15c82c9`. The 2026-08-31 recursive pass
 (`13-audit-2026-08-31.md`) found and fixed 14 defects, three of them HIGH, none of which
 any tool reported — `ci-check`, `shellcheck`, `go vet`, `gofmt` and `bash -n` were all
 green beforehand. Two sat in the key-transfer path: `restore-keys` rejected every valid
@@ -65,6 +79,21 @@ None. N-1 is fixed — see Closed below.
 ## Deferred decisions
 
 Items that require a real choice before they can be closed in either direction.
+
+**Module 17's open items (2026-09-18).** Details are in `17-audit-2026-09-18.md`.
+
+- **Dotfile backups against things in the way.** setup moves a file it replaces into
+  `~/.mrk/backups/`, the only copy. Audit 14 V-10 verified the timestamped backup and the
+  checked move. Nobody has tried a link pointing elsewhere, a dangling link, or a folder in
+  the way. → To close: run `setup --only dotfiles` against a sandbox HOME holding each case.
+- **`assets/CLAUDE.md` against the sibling repos.** It guides every Claude session in
+  `~/Projects`, other sessions edit it daily, and nobody has checked its claims about release
+  scripts, notarization and shared files against those repos. → To close: check each claim
+  against the repo it names.
+- **Homebrew's installer runs from `HEAD`.** It is the vendor's documented method. The
+  alternative is Homebrew's signed `.pkg`, checked with `pkgutil --check-signature` before
+  `installer`. → To close: adopt it and test it on a fresh Mac, or accept `HEAD` as the vendor's
+  choice.
 
 **Module 16's items (2026-09-17).** Evidence and options for each are in
 `16-audit-2026-09-17.md`.
@@ -140,6 +169,12 @@ it explicitly. Documented in `12-fresh-audit-2026-08.md N-19`.
 
 ## Known limitations (documented, not blocking)
 
+**sync-login-items keys tracked items by bundle file name, and system items by login-item
+name.** If an app's login item is named differently from its `.app` file, sync-login-items
+lists it as new and as stale on every run. No app on this Mac is like that. Found while writing
+`tests/sync-login-items.sh` (module 17).
+→ To close: compare by normalized path instead of by name.
+
 Items the audit identified that are real but classified as acceptable.
 
 **~40 browser and app-preference writes have NO ROLLBACK FOUND.** Safari, Helium, Audio
@@ -203,6 +238,26 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by module 17, the 2026-09-18 saved-ideas pass
+
+Branch `fix/install-routes-and-pins`. Details and mutation results are in
+`17-audit-2026-09-18.md`.
+
+- **V-1 (MEDIUM)** — `mrk-install --all` ran the three phases, and not the `fix-exec`,
+  `build-tools` and closing notes that `make all` adds around them. It now runs `make all`.
+  `tests/install-all.sh` covers it.
+- **V-2 (MEDIUM)** — nvm arrived as its install script piped from a tag into bash, and the zsh
+  plugins by tag alone. Both now go through `git_clone_pinned`, which refuses a tag that no
+  longer names its pinned commit. `tests/pinned-downloads.sh` covers it, and also guards that
+  no other script pipes a download into a shell.
+- **V-2a (LOW)** — the softwareupdate guard in `tests/macos-updates.sh` resolved `ls-files`
+  paths against the caller's directory, so from outside the repository it passed without
+  reading anything. It now greps inside the repository.
+- **V-3 (MEDIUM)** — `sync-login-items` could not read back a line it had written for an app
+  named with `$`, a backtick, a backslash or a double quote, or an accented name spelled
+  differently by System Events and the file system. Each was re-added on every run. One parser
+  and NFC names now. `tests/sync-login-items.sh` covers it.
 
 ### Closed by module 16, the 2026-09-17 migration check
 
@@ -1379,13 +1434,19 @@ exist. Before failing, mas 7 found an App Store app missing from Spotlight and p
 and `mas help install` had already answered the question. Also hit again: GNU `stat -f`, for the
 fourth time today, and zsh expanding a `======` divider as `=command`.
 
-### The one installer that fetches code checked nothing (2026-09-10)
+### The app installer checked nothing (2026-09-10)
 
 Entry point: `install_github_app` in `scripts/post-install`, the only place mrk downloads
 executable code and puts it in `/Applications` — Barkeep and KeyVault, from their latest GitHub
 releases, in Phase 3 of every new machine. Driven by a harness that loads the real function and
 stubs `curl`, `hdiutil` and `cp`, so nothing was downloaded or mounted and `/Applications` was
 never written, under `/bin/bash` 3.2 with `set -euo pipefail` as post-install runs.
+
+*Corrected 2026-09-18 (module 17).* This heading used to call it "the one installer that fetches
+code", and it was not. It is the only one that writes to `/Applications`, but Phase 3 also piped
+nvm's install script from a release tag into bash with nothing checked, Phase 2 runs Homebrew's
+installer from `HEAD`, and Phase 1 clones oh-my-zsh and two zsh plugins from GitHub. Module 17
+lists every download and how each is pinned, and pins nvm and the plugins to commits.
 
 - **No signature was ever checked.** It copied whatever the DMG held, then ran `xattr -cr` on
   it; `curl` sets no quarantine, so Gatekeeper never assessed it either. An unsigned app
