@@ -156,7 +156,10 @@ audit_repo() { # name visibility default_branch -> one TSV line per standard
     if [[ -n $home ]]; then out homepage yes
     else out homepage -- "set it to $(jq -r '.html_url' <<<"$p")"; fi
     n=$(gh api "repos/$OWNER/$r/deployments?per_page=100" --jq 'length' 2>/dev/null || echo 0)
-    if (( n <= 10 )); then out deploys yes "$n"
+    # Every push to a Pages site adds a deployment, so a busy one passes ten
+    # between prunes as a matter of course. Flag only a real pile-up, more than
+    # twenty, and prune back to ten, so a routine push never reads as a gap.
+    if (( n <= 20 )); then out deploys yes "$n"
     else out deploys -- "$n$( (( n >= 100 )) && echo '+') deployments: prune-deployments --repo $OWNER/$r --keep 10"; fi
   fi
 
