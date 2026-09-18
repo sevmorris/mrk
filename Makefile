@@ -26,7 +26,7 @@ define link-home-bin
 	fi
 endef
 
-.PHONY: trim-services all install fix-exec setup setup-dry brew post-install tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos dock help check ci maintain
+.PHONY: trim-services all install fix-exec setup setup-dry brew post-install apps tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos dock help check ci maintain
 
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
 define go-build
@@ -93,6 +93,9 @@ brew: ## Phase 2: install Homebrew packages and casks
 
 post-install: ## Phase 3: configure apps and login items
 	@"$(SCRIPTS)/post-install" $(ARGS)
+
+apps: ## Install this Mac's own apps from their GitHub releases (skips any already installed)
+	@"$(SCRIPTS)/install-apps" $(ARGS)
 
 tools: ## Install CLI tools only (skip dotfiles)
 	@"$(SCRIPTS)/setup" --only tools

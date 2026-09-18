@@ -32,7 +32,7 @@ Keep both repositories current. You can then restore the full setup on a new mac
 > 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 17 named plist domains, plus every `io.github.sevmorris.*` domain as a group.
 > 6. Edit `DOCK_APPS` in `scripts/dock-setup`. The script clears the Dock before it adds the applications.
 > 7. Read `scripts/defaults.sh` before you run it. It writes 143 preference keys, and each key is a personal choice.
-> 8. Remove the `install_github_app` calls in `scripts/post-install` if you do not want Barkeep and KeyVault. To install your own apps that way instead, set `GITHUB_APP_TEAM_ID` to your Developer ID team: it refuses any app not signed by that team.
+> 8. Edit `COMPANION_APPS` in `scripts/install-apps` — it is my own applications, and a fork wants none of them. Empty the list, or replace it with yours and set `GITHUB_APP_TEAM_ID` to your Developer ID team: the installer refuses any app not signed by that team.
 >
 > Use `make setup-dry` and `make sync ARGS=-n` to see the result of a phase before you apply it.
 
@@ -117,12 +117,12 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
 - **Plist imports (17 apps):** Imports your preference plists. Phase 3 skips an app that already has preferences — in `~/Library/Preferences`, or in its sandbox container for a sandboxed app such as Keka — so it never overwrites a live configuration. It also skips an app that is not installed yet.
 - **My own applications:** Imports every `io.github.sevmorris.*` plist that `snapshot-prefs` captured. This one does not check that the application is installed: several are tools with no bundle in `/Applications`, and on a new machine the preferences usually arrive before the application does, so an early import means the app finds its settings on first launch.
-- **Barkeep:** Installs Barkeep from the most recent GitHub release, and only when the app in the release's DMG verifies, is signed by my Developer ID team, and is accepted by Gatekeeper as notarized; anything else is refused and counted as a failed step. Phase 3 skips this step when `/Applications/Barkeep.app` exists. To update Barkeep, use Barkeep, or delete the app first.
-- **KeyVault:** Installs KeyVault from the most recent GitHub release, with the same signature checks as Barkeep. Phase 3 skips this step when `/Applications/KeyVault.app` exists. To update KeyVault, use KeyVault, or delete the app first.
+- **My own applications, installed:** Installs Barkeep, ClipHack, DoublEnder, FilmStrip, KeyVault, Magic Backup Machine and WaxOn/WaxOff from the most recent GitHub release of each, and only when the app in that release's DMG verifies, is signed by my Developer ID team, and is accepted by Gatekeeper as notarized; anything else is refused and counted as a failed step. Phase 3 skips an app that is already in `/Applications` — this bootstraps a Mac, it does not manage updates, and each of these apps checks GitHub for its own updates once it is running. To update one, use the app, or delete it and run `make apps`. The list lives in `scripts/install-apps`, which `make apps` also runs on its own. Two apps are deliberately not in it: **Cypher/FL2601**, which is sandboxed with no network entitlement and so cannot check for its own updates — Homebrew is its update path by design, and it stays a cask in the Brewfile — and **WireHack**, superseded by ClipHack. Magic Backup Machine's repository is private, which is why the download prefers `gh` and its token; an unauthenticated request for a private release returns 404, indistinguishable from "no such release".
 - **Application Support restore:** Restores the Loopback and SoundSource configuration files. Phase 3 skips a file that exists.
 - **Fonts:** Restores the fonts captured by `snapshot-prefs` into `~/Library/Fonts`. Phase 3 skips a font that is already installed.
 - **GPG pinentry:** Points `gpg-agent` at `pinentry-mac`, so gpg asks for a passphrase in a window. Phase 3 adds one line to `~/.gnupg/gpg-agent.conf`, and it skips this step when the file already sets `pinentry-program`.
 - **Config directory restore:** Restores the Calibre configuration into `~/Library/Preferences/calibre/`. Phase 3 skips this step when `gui.json` exists.
+- **Claude Code guidance for `~/Projects`:** Links `assets/CLAUDE.md` to `~/Projects/CLAUDE.md` and `assets/projects-skills/` to `~/Projects/.claude/skills`. Neither lives inside a repository on its own, so both are tracked here and linked into place like a dotfile. A file already there and not a symlink is moved aside with a `.bak` suffix rather than overwritten.
 - **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dropbox, Ice, Raycast, SoundSource, Stats
 
 > **Note:** Phase 3 continues when a step fails. It counts the failed steps and reports the total at the end.
@@ -720,6 +720,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | Command | Description |
 |---|---|
 | `make dotfiles` | Symlink the dotfiles only |
+| `make apps` | Install my own applications from their GitHub releases only, skipping any already in `/Applications` |
 | `make tools` | Symlink `scripts/` and `bin/` into `~/bin` only |
 | `make defaults` | Apply the macOS defaults only |
 | `make trackpad` | Apply the macOS defaults and the trackpad settings |
@@ -777,6 +778,7 @@ mrk writes its state to `~/.mrk/`. gitignore excludes this directory.
 | `~/.mrk/preferences/` | The clone of `sevmorris/mrk-prefs`. Holds the app plists, the Application Support files and the config directories |
 | `~/.mrk/backups/` | The timestamped backups of the dotfiles that setup replaced |
 | `~/Projects/CLAUDE.md` | Symlink to `assets/CLAUDE.md`. Guidance Claude Code reads for the whole `~/Projects` tree; linked by `make post-install` |
+| `~/Projects/.claude/skills` | Symlink to `assets/projects-skills/`. Skills Claude Code loads for work under `~/Projects`, the release-standards one among them; linked by `make post-install`. The whole directory is linked, so a skill added there needs no change to post-install |
 | `~/.mrk/defaults-rollback.sh` | Undoes the macOS system defaults that `make defaults` wrote, and the app plists that post-install imported. It does **not** cover the app-preference scripts that Phase 3 runs for Safari, Helium, AlDente, Audio Hijack, Fission and Rogue Amoeba. Those scripts write their defaults directly |
 | `~/.mrk/hardening-rollback.sh` | Undoes the security hardening |
 | `~/.mrk/sync-ignore` | The formula names and cask names that `sync` does not offer. One name per line. sync creates this file when you accept its offer to ignore a declined package |

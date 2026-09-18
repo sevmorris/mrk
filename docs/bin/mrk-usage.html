@@ -504,6 +504,7 @@
   <a href="#build-tools">2.35 build-tools</a>
   <a href="#check-defaults-desc">2.36 check-defaults-desc</a>
   <a href="#macos-updates">2.37 macos-updates</a>
+     <a href="#install-apps">2.38 install-apps</a>
   <a class="section-head">Sect. 3 — Reference</a>
   <a href="#lib">3.1 Shared Libraries</a>
   <a href="#quick-ref">3.2 Quick Reference</a>
@@ -1483,6 +1484,27 @@ mrk-push -- "-starts with a dash"</code></pre>
           </div>
         </div>
       </div>
+
+        <div class="proc" id="install-apps">
+          <div class="proc-header">
+            <span class="proc-num">2.38</span>
+            <h3>install-apps <span class="tag tag-mrk">mrk</span></h3>
+          </div>
+          <div class="proc-body">
+            <p class="desc">install-apps installs the applications published from their owner&rsquo;s own GitHub repositories. <code>make apps</code> runs it, and <a href="#mrk-post-install">mrk-post-install</a> sources it and runs the same list as part of Phase&nbsp;3. It was extracted from post-install on 2026-09-17 so that both share one copy of the installer and one copy of the list.</p>
+            <pre><code>install-apps [--help | -h]</code></pre>
+            <ul>
+              <li>The list is <code>COMPANION_APPS</code> in <code>scripts/install-apps</code>, one line per app: bundle name, the repository holding the releases, and a display name. As of 2026-09-17 it is Barkeep, ClipHack, DoublEnder, FilmStrip, KeyVault, Magic Backup Machine and WaxOn/WaxOff.</li>
+              <li><strong>It installs, it does not update.</strong> An app already in <code>/Applications</code> is skipped. mrk bootstraps a Mac; each of these apps checks GitHub for its own updates once it is running. To replace one, delete it and run <code>make apps</code>.</li>
+              <li><strong>Nothing reaches <code>/Applications</code> unverified.</strong> The app inside the downloaded DMG must verify with <code>codesign --verify --deep --strict</code>, carry the team identifier in <code>GITHUB_APP_TEAM_ID</code>, and be accepted by <code>spctl --assess</code> — which for a Developer ID app means notarized. It is checked again after the copy, and a copy that fails is removed. <code>curl</code> sets no quarantine attribute, so Gatekeeper never assesses an app installed this way on its own.</li>
+              <li>The bundle inside the DMG must be named exactly as the list says. A DMG holding a differently named app is refused rather than installed under the wrong name.</li>
+              <li>The download prefers <code>gh</code> when it is installed and authenticated, and falls back to <code>curl</code> against the public API. <strong>A private repository needs the <code>gh</code> path:</strong> an unauthenticated request for a release in one returns 404, which is indistinguishable from &ldquo;no such release&rdquo;. <code>sevmorris/magic-backup-machine</code> is private, and before this fallback existed it could not be installed at all.</li>
+              <li>ClipHack&rsquo;s DMGs are published to a separate repository, <code>sevmorris/ClipHack-releases</code>; its source repository carries no release assets.</li>
+              <li>One app failing never stops the rest. install-apps exits 1 when any app was not installed, and 0 when every app in the list is present.</li>
+              <li>Two of the owner&rsquo;s apps are deliberately absent. <strong>Cypher/FL2601</strong> is sandboxed with no network entitlement, so it cannot check for its own updates; Homebrew is its update path by design and it stays a cask in the Brewfile. <strong>WireHack</strong> is superseded by ClipHack.</li>
+            </ul>
+          </div>
+        </div>
     </section>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
