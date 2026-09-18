@@ -27,7 +27,8 @@ ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, pinned-downloads and sync-login-items tests in
-tests/, shellcheck over the tracked scripts, and `go test` for each
+tests/, shellcheck over the tracked scripts (the skills' audit scripts included),
+and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
 EOF
@@ -134,7 +135,7 @@ if command -v shellcheck >/dev/null 2>&1; then
   while IFS= read -r f; do
     [[ -n "$f" ]] && scripts+=("$f")
   done < <(
-    git -C "$REPO_ROOT" ls-files 'scripts/*' 'bin/*' 'tests/*' '.claude/skills/*' \
+    git -C "$REPO_ROOT" ls-files 'scripts/*' 'bin/*' 'tests/*' '.claude/skills/*' 'assets/projects-skills/*' \
       | while IFS= read -r f; do
           [[ -f "$REPO_ROOT/$f" ]] && head -1 "$REPO_ROOT/$f" | grep -qE '^#!.*bash' && printf '%s\n' "$REPO_ROOT/$f"
         done
