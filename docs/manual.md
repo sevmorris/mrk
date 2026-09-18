@@ -200,6 +200,8 @@ sync -p               # Delete the entries for the packages you uninstalled
 
 If `brew list` fails, sync stops. An empty package list would make `-p` mark every Brewfile entry for deletion.
 
+When `-p` deletes a Brewfile entry, sync also deletes the package's description from `tools/picker/main.go`, so `check-picker-desc` still passes. A formula and a cask with the same name share one description, and sync keeps it while either one is still in the Brewfile. With `-c`, sync commits both files together.
+
 > **Note:** The mrk-picker binary is at `bin/mrk-picker`. It is platform-specific, and gitignore excludes it. If the binary is absent, build it with `make picker`.
 
 **The ignore list (`~/.mrk/sync-ignore`)** holds one formula name or cask name per line. Do not add a `brew` or `cask` prefix. A `#` character starts a comment.

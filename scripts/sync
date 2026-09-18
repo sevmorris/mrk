@@ -76,10 +76,13 @@ eval "$($HOMEBREW shellenv)"
 TEMP_BREWFILE=""
 TEMP_INSERTIONS=""
 BREWFILE_TMP=""
+PICKER_TMP=""
+PICKER_CHANGED=0
 cleanup() {
   [[ -n "$TEMP_BREWFILE"   && -f "$TEMP_BREWFILE"   ]] && rm -f "$TEMP_BREWFILE"   || true
   [[ -n "$TEMP_INSERTIONS" && -f "$TEMP_INSERTIONS" ]] && rm -f "$TEMP_INSERTIONS" || true
   [[ -n "$BREWFILE_TMP"    && -f "$BREWFILE_TMP"    ]] && rm -f "$BREWFILE_TMP"    || true
+  [[ -n "$PICKER_TMP"      && -f "$PICKER_TMP"      ]] && rm -f "$PICKER_TMP"      || true
 }
 trap cleanup EXIT INT TERM
 
@@ -350,40 +353,84 @@ if (( PRUNE && n_stale > 0 )); then
     fi
   fi
 
-  # Removing a Brewfile entry orphans its mrk-picker description. Nothing couples
-# the two — sync only ever runs the picker as a UI — so a removal looks complete
-# and check-picker-desc reports the mismatch later, on the next `make check` or
-# push. That turned a routine removal into a red build twice in four days:
-# descript on 2026-09-04, then gemini-cli and google-chrome@canary on
-# 2026-09-05, the second of which was found by reading CI logs rather than by
-# the person who made the change. So say it here, where the removal happens.
+  # Removing a Brewfile entry orphans its mrk-picker description, and
+# check-picker-desc gates the two one-to-one. Nothing coupled them — sync only
+# ever ran the picker as a UI — so a removal looked complete and the mismatch
+# surfaced later as a red build: descript on 2026-09-04, then gemini-cli and
+# google-chrome@canary on 2026-09-05, the second found by reading CI logs
+# rather than by the person who made the change. From 2026-09-08 sync named the
+# leftover lines and asked for a hand edit; since 2026-09-18 the prune takes the
+# description with it, because a step sync can do exactly is not one to hand
+# back. No rebuild follows: the picker looks descriptions up by the names the
+# Brewfile gives it, so an entry still compiled into the binary is never read.
 #
-# awk rather than grep because a package name is not a regex: python@3.12 would
-# otherwise match python@3-12. Splitting on quotes makes field 2 the key, and
-# the comparison is exact.
-_warn_orphaned_descriptions() {
-  local picker_go="$REPO_ROOT/tools/picker/main.go"
-  [[ -f "$picker_go" ]] || return 0
-  local orphans=() pkg
-  for pkg in "$@"; do
-    if awk -F'"' -v want="$pkg" '
-         /^\t"/ { if ($2 == want) { found = 1; exit } }
-         END { exit !found }' "$picker_go"; then
-      orphans+=("$pkg")
-    fi
+# A name leaves the map only when no Brewfile entry still uses it.
+# check-picker-desc matches by name alone, so a formula and a cask that share a
+# name share one description, and pruning one of them must keep it.
+#
+# awk rather than sed because a package name is not a regex: python@3.12 would
+# otherwise match python@3-12. Splitting on quotes makes field 2 the key, the
+# comparison is exact, and only lines inside `var descriptions` are touched.
+PICKER_GO="$REPO_ROOT/tools/picker/main.go"
+
+# Print, one per line and sorted, the pruned names whose description should go.
+_orphaned_descriptions() {
+  [[ -f "$PICKER_GO" ]] || return 0
+  local pkg
+  for pkg in "${!prune_formulae[@]}" "${!prune_casks[@]}"; do
+    [[ -n "${brewfile_formulae[$pkg]+x}" && -z "${prune_formulae[$pkg]+x}" ]] && continue
+    [[ -n "${brewfile_casks[$pkg]+x}"    && -z "${prune_casks[$pkg]+x}"    ]] && continue
+    printf '%s\n' "$pkg"
+  done | sort -u | while IFS= read -r pkg; do
+    awk -F'"' -v want="$pkg" '
+      /^var descriptions = map\[string\]string\{/ { inmap = 1; next }
+      inmap && /^}/                               { exit }
+      inmap && /^\t"/ && $2 == want               { found = 1; exit }
+      END { exit !found }' "$PICKER_GO" && printf '%s\n' "$pkg"
   done
-  (( ${#orphans[@]} == 0 )) && return 0
-  warn "Still described in tools/picker/main.go (${#orphans[@]}) — check-picker-desc will fail:"
-  printf '      %s\n' "${orphans[@]}" >&2
-  warn "Delete those lines and rebuild with 'make picker', then 'make check'."
+  return 0
+}
+
+# Delete the description lines for the names given, writing through a temp file
+# as the Brewfile does. gofmt afterwards, because the map is column-aligned and
+# the longest key in a block sets the padding of every line beside it.
+_remove_descriptions() {
+  PICKER_TMP="$(mktemp "${PICKER_GO%/*}/.main.go.XXXXXX")"
+  DROP_NAMES="$(printf '%s\n' "$@")" awk -F'"' '
+    BEGIN { n = split(ENVIRON["DROP_NAMES"], a, "\n"); for (i = 1; i <= n; i++) drop[a[i]] = 1 }
+    /^var descriptions = map\[string\]string\{/ { inmap = 1 }
+    inmap && /^}/                               { inmap = 0 }
+    inmap && /^\t"/ && ($2 in drop)             { next }
+    { print }' "$PICKER_GO" > "$PICKER_TMP"
+
+  local want=$(( $(wc -l < "$PICKER_GO") - $# )) got
+  got=$(wc -l < "$PICKER_TMP")
+  if (( got != want )); then
+    err "Expected $want lines in tools/picker/main.go after removing $#, got $got — left it unchanged."
+    return 1
+  fi
+  chmod 644 "$PICKER_TMP"
+  mv "$PICKER_TMP" "$PICKER_GO"
+  PICKER_TMP=""
+  if command -v gofmt >/dev/null 2>&1; then
+    gofmt -w "$PICKER_GO"
+  else
+    warn "gofmt not found — tools/picker/main.go may need realigning (gofmt -w)."
+  fi
 }
 
 n_prune=$(( ${#prune_formulae[@]} + ${#prune_casks[@]} ))
+orphaned_descs=()
+if (( n_prune > 0 )); then
+  mapfile -t orphaned_descs < <(_orphaned_descriptions)
+fi
 
   if (( n_prune > 0 )); then
     if (( DRY_RUN )); then
       echo "  [dry run] Would remove $n_prune entr(ies) from Brewfile."
-    _warn_orphaned_descriptions "${!prune_formulae[@]}" "${!prune_casks[@]}"
+      if (( ${#orphaned_descs[@]} > 0 )); then
+        echo "  [dry run] Would remove ${#orphaned_descs[@]} description(s) from tools/picker/main.go: ${orphaned_descs[*]}"
+      fi
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     else
       # Build sed patterns to remove matching lines (atomic write via temp file)
@@ -403,7 +450,16 @@ n_prune=$(( ${#prune_formulae[@]} + ${#prune_casks[@]} ))
       replace_brewfile || exit 1
 
       log "Removed $n_prune stale entr(ies) from Brewfile."
-    _warn_orphaned_descriptions "${!prune_formulae[@]}" "${!prune_casks[@]}"
+      if (( ${#orphaned_descs[@]} > 0 )); then
+        # The Brewfile is already written, so a failure here leaves exactly the
+        # state the old warning described. Say so, with the names, and go on.
+        if _remove_descriptions "${orphaned_descs[@]}"; then
+          PICKER_CHANGED=1
+          log "Removed ${#orphaned_descs[@]} description(s) from tools/picker/main.go: ${orphaned_descs[*]}"
+        else
+          warn "Delete these from tools/picker/main.go by hand, or check-picker-desc will fail: ${orphaned_descs[*]}"
+        fi
+      fi
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     fi
   else
@@ -412,6 +468,12 @@ n_prune=$(( ${#prune_formulae[@]} + ${#prune_casks[@]} ))
 elif (( PRUNE && n_stale == 0 )); then
   log "No stale entries found — Brewfile is clean."
 fi
+
+# Section 9 reads these on every path. Declared inside the add flow, they were
+# unbound on a prune-only run, so `sync -p -c` pruned the Brewfile and then died
+# under set -u before it could commit.
+declare -A selected_casks=()
+declare -A formula_section_map=()
 
 if (( ${#new_formulae_arr[@]} == 0 && ${#new_casks_arr[@]} == 0 )); then
   if git diff --quiet "$BREWFILE" 2>/dev/null; then
@@ -440,7 +502,6 @@ find_picker() {
 }
 
 declare -A selected_formulae=()
-declare -A selected_casks=()
 
 picker_bin=$(find_picker)
 
@@ -618,7 +679,6 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done < "$BREWFILE"
 
 # Per-formula section assignment via gum
-declare -A formula_section_map=()
 
 if (( n_selected_formulae > 0 )); then
   if ! command -v gum >/dev/null 2>&1; then
@@ -851,7 +911,15 @@ fi  # end new-package add flow (prune-only skips sections 4–8)
 
 if (( COMMIT )); then
   cd "$REPO_ROOT"
-  if git diff --quiet Brewfile 2>/dev/null; then
+  # Stage main.go only when this run edited it, so a run that removed no
+  # description never commits someone's unrelated edit to that file.
+  changed_files=()
+  git diff --quiet Brewfile 2>/dev/null || changed_files+=("Brewfile")
+  if (( PICKER_CHANGED )) && ! git diff --quiet tools/picker/main.go 2>/dev/null; then
+    changed_files+=("tools/picker/main.go")
+  fi
+
+  if (( ${#changed_files[@]} == 0 )); then
     log "No changes to commit."
   else
     # Build commit message from adds and removes
@@ -885,7 +953,7 @@ if (( COMMIT )); then
     fi
 
     commit_msg="sync: $(IFS='; '; echo "${commit_parts[*]}")"
-    git add Brewfile
+    git add "${changed_files[@]}"
     git commit -m "$commit_msg"
     log "Committed: $commit_msg"
   fi
