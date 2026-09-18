@@ -853,10 +853,10 @@ mrk-status [--help | -h]</code></pre>
           <ul>
             <li><code>--brew</code> — Run the brew phase.</li>
             <li><code>--post</code> — Run the post-install phase.</li>
-            <li><code>--all</code> — Run all the phases, one after the other.</li>
+            <li><code>--all</code> — Run <code>make all</code>: <code>fix-exec</code>, the three phases, the TUI tools and the closing notes. Until 2026-09-18 it ran the three phases itself and skipped the rest. It stops with exit 1, before running anything, when the Command Line Tools are missing: <code>make</code> needs them, and Phase 1 installs them.</li>
             <li><code>-h</code>, <code>--help</code> — Show the usage summary and exit.</li>
             <li>No flag — Run the setup phase only.</li>
-            <li>mrk-install passes the other options to the phase that you select.</li>
+            <li>mrk-install passes the other options to the phase that you select. With <code>--all</code> they reach all three phases, as <code>make all</code>'s <code>ARGS</code>.</li>
           </ul>
         </div>
       </div>
