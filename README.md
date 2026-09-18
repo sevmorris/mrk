@@ -124,7 +124,7 @@ mrk's bookkeeping (rollback scripts, backups) lives in `~/.mrk`. Configuration c
 Two native macOS apps ship alongside mrk. `make post-install` installs both from their latest GitHub release.
 
 - **[Barkeep](https://github.com/sevmorris/Barkeep)** — visually manage your Homebrew Brewfile, and adopt packages the Brewfile doesn't track yet.
-- **[KeyVault](https://github.com/sevmorris/KeyVault)** — manage SSH keys, GPG keys, API keys, and secure notes. API keys and notes are KeyVault's own: they live in the login Keychain and back up to a passphrase-encrypted OpenPGP archive that plain `gpg` can read. SSH and GPG keys stay in `~/.ssh` and `~/.gnupg` — KeyVault reads and generates them, but never copies the private keys into the Keychain or the archive.
+- **[KeyVault](https://github.com/sevmorris/KeyVault)** — manage SSH keys, GPG keys, API keys, secure notes, and encrypted files. API keys, notes and stored files are KeyVault's own: the API keys and notes live in the login Keychain, the files live encrypted in `~/Library/Application Support/KeyVault/Files`, and all three back up to a passphrase-encrypted OpenPGP archive that plain `gpg` can read. SSH and GPG keys stay in `~/.ssh` and `~/.gnupg` — KeyVault reads and generates them, but never copies the private keys into the Keychain or the archive.
 
 Both installs are one-shot: post-install skips an app that is already in `/Applications`, so it never overwrites a newer copy. To update, use the app itself, or delete it and re-run the phase.
 
@@ -132,7 +132,7 @@ Both installs are one-shot: post-install skips an app that is already in `/Appli
 
 `make snapshot-keys` bundles `~/.ssh`, `~/.gnupg` and your code-signing identities into one passphrase-encrypted OpenPGP archive; `make restore-keys ARGS=<archive>` puts them back, fixes the permissions, and imports the identities. The Developer ID private key is the one item here with no recovery path — Apple reissues a certificate, but never the key. The archive goes to a path you choose (`~/Desktop` by default) and is pushed nowhere — `mrk-prefs` is a git repo and never carries private keys. `snapshot-keys` refuses to write inside `~/mrk` or `~/.mrk`, since `nuke-mrk` deletes both.
 
-That covers the key *files*. KeyVault's own export covers the secrets KeyVault owns — its API keys and notes, which live in the login Keychain. You need both archives for a complete transfer; neither contains the other's contents.
+That covers the key *files*. KeyVault's own export covers the secrets KeyVault owns — its API keys and notes, which live in the login Keychain, and the files stored in it, which it keeps encrypted on disk. You need both archives for a complete transfer; neither contains the other's contents.
 
 ## License
 

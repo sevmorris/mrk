@@ -353,16 +353,17 @@ Two native macOS apps come with mrk. `make post-install` installs both apps. Eac
 
 **[Barkeep](https://github.com/sevmorris/Barkeep)** manages your Homebrew Brewfile in a window.
 
-**[KeyVault](https://github.com/sevmorris/KeyVault)** manages your SSH keys, your GPG keys, your API keys and your secure notes. KeyVault does not hold all four the same way, and the difference decides how each one moves to a new machine.
+**[KeyVault](https://github.com/sevmorris/KeyVault)** manages your SSH keys, your GPG keys, your API keys, your secure notes and your stored files. KeyVault does not hold all five the same way, and the difference decides how each one moves to a new machine.
 
 - **API keys and notes.** KeyVault owns these. It keeps each one in the login Keychain, and nothing else holds a copy.
+- **Stored files.** KeyVault owns these too. It keeps each one encrypted in the directory `~/Library/Application Support/KeyVault/Files`, not in the Keychain. It stores files only after you set a master passphrase. If you delete the original, nothing else holds a copy.
 - **SSH and GPG keys.** KeyVault reads the key material in `~/.ssh` and `~/.gnupg`. It shows the keys and it generates new ones, but it never copies the private keys into the Keychain.
 
 A KeyVault backup goes out as one passphrase-encrypted OpenPGP archive. Any `gpg` reads that archive, so the backup does not need KeyVault.
 
-> **Caution:** The KeyVault archive holds the API keys and the notes only. It does not hold your SSH keys, and it does not hold your GPG keys. Use `make snapshot-keys` for those. See "How to prepare for a new machine".
+> **Caution:** The KeyVault archive holds the API keys, the notes and the stored files only. It does not hold your SSH keys, and it does not hold your GPG keys. Use `make snapshot-keys` for those. See "How to prepare for a new machine".
 
-> **Caution:** `snapshot-prefs` does not export the KeyVault preferences, and it must not. Use the KeyVault export for the API keys and the notes, and `make snapshot-keys` for the key files.
+> **Caution:** `snapshot-prefs` does not export the KeyVault preferences, and it must not. Use the KeyVault export for the API keys, the notes and the stored files. Use `make snapshot-keys` for the key files.
 
 ## Standalone Utilities
 
@@ -426,9 +427,9 @@ The script refuses to write inside `~/mrk` or `~/.mrk`, because `nuke-mrk` delet
 
 `snapshot-keys` covers the key files. It does not cover the secrets KeyVault owns.
 
-Start KeyVault, and export the vault. KeyVault writes its own passphrase-encrypted OpenPGP archive, which holds the API keys and the notes. Put that archive on the transfer disk too.
+Start KeyVault, and export the vault. KeyVault writes its own passphrase-encrypted OpenPGP archive, which holds the API keys, the notes and the stored files. Put that archive on the transfer disk too.
 
-> **Note:** The two archives hold different things, and you need both. `snapshot-keys` holds the files in `~/.ssh` and `~/.gnupg`. The KeyVault export holds the API keys and the notes from the login Keychain. Neither one holds the other's contents.
+> **Note:** The two archives hold different things, and you need both. `snapshot-keys` holds the files in `~/.ssh` and `~/.gnupg`. The KeyVault export holds the API keys and the notes from the login Keychain, and the files that KeyVault stores. Neither one holds the other's contents.
 
 **3. Sync the Brewfile**
 
@@ -593,13 +594,16 @@ make restore-keys ARGS="-l ~/Desktop/mrk-keys-<timestamp>.asc"
 
 `restore-keys` never overwrites in place. It moves an existing `~/.ssh` or `~/.gnupg` aside with a timestamp first, and it puts them back if the restore fails.
 
-**API keys and notes**
+**API keys, notes and stored files**
+
+> **Caution:** Set a master passphrase in KeyVault before you import an archive that holds stored files. Without one, KeyVault stops the import and writes nothing.
 
 1. Copy the KeyVault archive from the transfer disk.
 2. Start KeyVault.
-3. Import the archive, and give it the passphrase.
+3. Set a master passphrase in **Settings**.
+4. Import the archive, and give it the archive passphrase.
 
-KeyVault writes each item back into the login Keychain. KeyVault reads `~/.ssh` and `~/.gnupg` directly, so your SSH and GPG keys show in KeyVault as soon as `restore-keys` puts the files in place.
+KeyVault writes the API keys and the notes back into the login Keychain. It writes the stored files back into its own directory. KeyVault reads `~/.ssh` and `~/.gnupg` directly, so your SSH and GPG keys show in KeyVault as soon as `restore-keys` puts the files in place.
 
 Check the result:
 
