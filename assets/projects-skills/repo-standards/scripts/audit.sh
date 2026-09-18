@@ -47,7 +47,12 @@ gh repo list "$OWNER" --limit 500 --json name,visibility,isArchived,isFork,defau
         | [.name, (.visibility | ascii_downcase), (.defaultBranchRef.name // "")] | @tsv' \
   | sort -f > "$WORK/repos"
 if (( ${#ONLY[@]} )); then
-  $GREP -iwF -f <(printf '%s\n' "${ONLY[@]}") "$WORK/repos" > "$WORK/only" || true
+  # Exact names, ignoring case. A grep -w word match let FL2601 select
+  # FL2601-Windows too, and mrk select mrk-prefs: a hyphen ends a word.
+  want=$(IFS=,; printf '%s' "${ONLY[*],,}")
+  awk -F'\t' -v want="$want" '
+    BEGIN { n = split(want, w, ","); for (i = 1; i <= n; i++) keep[w[i]] = 1 }
+    tolower($1) in keep' "$WORK/repos" > "$WORK/only"
   mv "$WORK/only" "$WORK/repos"
 fi
 [[ -s "$WORK/repos" ]] || { echo "audit.sh: no repositories to audit" >&2; exit 1; }
