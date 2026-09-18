@@ -19,10 +19,11 @@ INSTALL_APPS_DIR="$(cd "$(dirname "$_self")" && pwd)"
 # shellcheck source=lib.sh
 source "$INSTALL_APPS_DIR/lib.sh"
 
-INSTALL_APPS_USAGE='mrk-install-apps — install the apps this Mac runs, from their GitHub releases
+# shellcheck disable=SC2016  # the backticks are literal help text, not an expansion
+INSTALL_APPS_USAGE='install-apps — install the apps this Mac runs, from their GitHub releases
 
 Usage:
-  mrk-install-apps [--help | -h]
+  install-apps [--help | -h]
 
 Downloads the latest release DMG of each app and installs it, but only when the app
 inside is signed by the expected Developer ID team and accepted by Gatekeeper —
