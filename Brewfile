@@ -75,7 +75,6 @@ brew "yt-dlp"
 ## Casks - General Applications & Utilities
 cask "4k-video-downloader+", greedy: true
 cask "a-better-finder-rename", greedy: true
-cask "adapter", greedy: true
 cask "aldente", greedy: true
 cask "antigravity", greedy: true
 cask "appcleaner", greedy: true

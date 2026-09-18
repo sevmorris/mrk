@@ -103,7 +103,6 @@ var descriptions = map[string]string{
 	// Casks
 	"4k-video-downloader+":   "Download videos from YouTube and other platforms",
 	"a-better-finder-rename": "Powerful batch file renaming for Finder",
-	"adapter":                "Convert audio, video, and image files",
 	"aldente":                "Battery charge limiter to extend MacBook battery life",
 	"antigravity":            "Google Antigravity — agent-first AI coding environment",
 	"appcleaner":             "Completely uninstall apps and all their leftover files",
