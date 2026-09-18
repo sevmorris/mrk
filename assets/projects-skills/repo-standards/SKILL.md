@@ -48,7 +48,7 @@ protect there: a repo with no Pages site cannot need `.nojekyll`.
 | `nojekyll` | Jekyll processing a hand-written site: files and folders starting with `_` vanish, and `{{ }}` is read as Liquid. No site here uses Jekyll. | Pages sites | `touch docs/.nojekyll`, commit, push |
 | `pages-https` | The site served over plain HTTP. | Pages sites | `gh api -X PUT repos/sevmorris/R/pages -F https_enforced=true` |
 | `homepage` | A manual no one can find from the repository page. | Pages sites | `gh repo edit sevmorris/R --homepage <Pages URL>` |
-| `deploys` | Pages deployments piling up forever. Every push adds one. | Pages sites | `prune-deployments --repo sevmorris/R --keep 10 --dry-run`, then without `--dry-run` |
+| `deploys` | Pages deployments piling up forever. Every push adds one. Flagged above 20, pruned to 10. | Pages sites | `prune-deployments --repo sevmorris/R --keep 10 --dry-run`, then without `--dry-run` |
 | `licence` | Public code nobody may legally reuse: no licence means all rights reserved. | public repos | the owner's choice; see §3 |
 | `readme` | A repository that does not say what it is. | all, except exemptions | write one |
 | `tests-in-ci` | Tests that exist and never run, so they rot. `release.sh` running them counts. | repos with tests | port WaxOnWaxOff's `build-and-test` job |
@@ -134,10 +134,13 @@ from reopening it.
   `gh api -X PUT repos/sevmorris/R/rulesets/<id> -f enforcement=disabled`.
   `gh api repos/sevmorris/R/rulesets` lists the ids.
 - **`prune-deployments` keeps only the newest deployment unless told
-  otherwise.** The standard allows ten, which is what `maintain` keeps for mrk,
-  so pass `--keep 10`. It always keeps the one serving the site, and `--repo`
-  means no clone is needed. `mrk-push` already prunes mrk's; the other repos
-  grow until someone runs it.
+  otherwise.** The fix keeps ten, which is what `maintain` keeps for mrk, so
+  pass `--keep 10`. The audit flags only more than twenty. Every push to a Pages
+  site adds a deployment, and a threshold at ten made wp-sim-93 read as a gap
+  after the push that added its licence. The gap between the two numbers keeps
+  a routine push from looking like a pile-up. The tool always keeps the
+  deployment serving the site, and with `--repo` it needs no clone. `mrk-push`
+  already prunes mrk's; the other repos grow until someone runs it.
 - **In zsh, `path` is `$PATH`.** A loop that assigns `path=…` empties the
   command search path for the rest of the line. Name it anything else.
 - **The user's gitconfig sets `color.grep = always`**, so anything parsing git

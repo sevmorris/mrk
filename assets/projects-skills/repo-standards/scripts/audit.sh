@@ -47,7 +47,12 @@ gh repo list "$OWNER" --limit 500 --json name,visibility,isArchived,isFork,defau
         | [.name, (.visibility | ascii_downcase), (.defaultBranchRef.name // "")] | @tsv' \
   | sort -f > "$WORK/repos"
 if (( ${#ONLY[@]} )); then
-  $GREP -iwF -f <(printf '%s\n' "${ONLY[@]}") "$WORK/repos" > "$WORK/only" || true
+  # Exact names, ignoring case. A grep -w word match let FL2601 select
+  # FL2601-Windows too, and mrk select mrk-prefs: a hyphen ends a word.
+  want=$(IFS=,; printf '%s' "${ONLY[*],,}")
+  awk -F'\t' -v want="$want" '
+    BEGIN { n = split(want, w, ","); for (i = 1; i <= n; i++) keep[w[i]] = 1 }
+    tolower($1) in keep' "$WORK/repos" > "$WORK/only"
   mv "$WORK/only" "$WORK/repos"
 fi
 [[ -s "$WORK/repos" ]] || { echo "audit.sh: no repositories to audit" >&2; exit 1; }
@@ -156,7 +161,10 @@ audit_repo() { # name visibility default_branch -> one TSV line per standard
     if [[ -n $home ]]; then out homepage yes
     else out homepage -- "set it to $(jq -r '.html_url' <<<"$p")"; fi
     n=$(gh api "repos/$OWNER/$r/deployments?per_page=100" --jq 'length' 2>/dev/null || echo 0)
-    if (( n <= 10 )); then out deploys yes "$n"
+    # Every push to a Pages site adds a deployment, so a busy one passes ten
+    # between prunes as a matter of course. Flag only a real pile-up, more than
+    # twenty, and prune back to ten, so a routine push never reads as a gap.
+    if (( n <= 20 )); then out deploys yes "$n"
     else out deploys -- "$n$( (( n >= 100 )) && echo '+') deployments: prune-deployments --repo $OWNER/$r --keep 10"; fi
   fi
 
