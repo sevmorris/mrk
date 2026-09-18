@@ -40,8 +40,10 @@ mrk could use those entries:
 - `brew bundle` installs a `mas` entry by running `mas install <id>`, and mas 7 requires root
   to install an app. `brew bundle` never runs as root, so every entry failed.
 - `mas list`, which `brew bundle` reads to decide what is already installed, gets its answers
-  from Spotlight. Spotlight indexing is off on this Mac, so `brew bundle check` reported all
-  22 as missing and a run would have downloaded every one again.
+  from Spotlight. Spotlight indexing was off on the Mac this was written on, so `brew bundle
+  check` reported all 22 as missing and a run would have downloaded every one again. (It is
+  on here: the setting is not one mrk carries, and it did not survive the 2026-09-15
+  migration.)
 - `mrk-brew` therefore filtered the entries out of every run and printed a `sudo mas install`
   command instead. That command is what you would type anyway, which left mas as an
   installed formula, three pieces of special-case code, and no work it could do.
