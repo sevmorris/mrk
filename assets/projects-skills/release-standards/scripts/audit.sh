@@ -50,6 +50,7 @@ GUARDS=(
   "ancestry|merge-base --is-ancestor"
   "atomic-push|push --atomic"
   "dmg-verify|DS_Store"
+  "dmg-signed|timestamp --sign"
   "generic-dest|generic/platform=macOS"
   "v-tag-filter|tag --list 'v\[0-9\]"
   "exit-trap|trap cleanup EXIT"
