@@ -41,6 +41,7 @@ missing ones as a list, and the repo state a release would trip over.
 | `atomic-push` | A refused tag leaving the release commit on main with nothing tagging it. | every app |
 | `dmg-verify` | Shipping a disk image with no installer window, undetected. | dmgbuild only |
 | `dmg-signed` | A disk image that spctl reports as `no usable signature` despite a valid stapled ticket, because only the app inside it was ever signed. | every app |
+| `app-stapled` | An app that loses its notarization the moment it is dragged out of the DMG, because only the image was stapled. Gatekeeper then has to ask Apple on first launch, which fails with no network. Also verifies the ticket on the shipped copy, not the build product. | every app |
 | `generic-dest` | xcodebuild silently building one architecture. | every app |
 | `v-tag-filter` | A dependency or checkpoint tag being read as the previous release and truncating the notes. | every app |
 | `exit-trap` / `signal-trap` | A failed *or interrupted* release stranding a version bump in the working tree. zsh does not run an EXIT trap on a signal. | every app |
