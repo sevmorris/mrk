@@ -124,7 +124,7 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 - **GPG pinentry:** Points `gpg-agent` at `pinentry-mac`, so gpg asks for a passphrase in a window. Phase 3 adds one line to `~/.gnupg/gpg-agent.conf`, and it skips this step when the file already sets `pinentry-program`.
 - **Config directory restore:** Restores the Calibre configuration into `~/Library/Preferences/calibre/`. Phase 3 skips this step when `gui.json` exists.
 - **Claude Code guidance for `~/Projects`:** Links `assets/CLAUDE.md` to `~/Projects/CLAUDE.md` and `assets/projects-skills/` to `~/Projects/.claude/skills`. Neither lives inside a repository on its own, so both are tracked here and linked into place like a dotfile. A file already there and not a symlink is moved aside with a `.bak` suffix rather than overwritten.
-- **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dropbox, Raycast, SoundSource, Stats, Thaw
+- **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dropbox, Raycast, Stats, Thaw
 
 > **Note:** Phase 3 continues when a step fails. It counts the failed steps and reports the total at the end.
 
