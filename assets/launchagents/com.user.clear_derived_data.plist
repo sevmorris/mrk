@@ -10,6 +10,8 @@
         <string>-c</string>
         <string>"$HOME/bin/clear-derived-data"</string>
     </array>
+    <key>ProcessType</key>
+    <string>Background</string>
     <key>StartCalendarInterval</key>
     <dict>
         <key>Weekday</key>

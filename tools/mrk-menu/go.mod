@@ -1,6 +1,6 @@
 module mrk-menu
 
-go 1.22
+go 1.24
 
 require (
 	github.com/charmbracelet/bubbletea v1.1.0
