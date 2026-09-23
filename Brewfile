@@ -105,14 +105,11 @@ cask "keka", greedy: true
 cask "keyboardcleantool", greedy: true
 cask "kid3", greedy: true
 cask "kindle-previewer", greedy: true
-cask "kobo", greedy: true
 cask "loopback", greedy: true
 cask "losslesscut", greedy: true
-cask "macfuse", greedy: true
 cask "macwhisper", greedy: true
 cask "mdrp", greedy: true
 cask "mediainfo", greedy: true
-cask "minecraft", greedy: true
 cask "nordpass", greedy: true
 cask "nordvpn", greedy: true
 cask "omnidisksweeper", greedy: true
@@ -123,7 +120,6 @@ cask "piezo", greedy: true
 cask "pulsar", greedy: true
 cask "raspberry-pi-imager", greedy: true
 cask "raycast", greedy: true
-cask "samsung-magician", greedy: true
 cask "shutter-encoder", greedy: true
 cask "signal", greedy: true
 cask "slack", greedy: true
@@ -136,7 +132,6 @@ cask "the-unarchiver", greedy: true
 cask "timemachineeditor", greedy: true
 cask "typora", greedy: true
 cask "utm", greedy: true
-cask "veracrypt", greedy: true
 cask "vlc", greedy: true
 cask "waves-central", greedy: true
 cask "whatsapp", greedy: true
