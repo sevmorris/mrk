@@ -222,6 +222,55 @@ else
 fi
 
 ###############################################################################
+# Claude Code, every session: dependency updates                              #
+###############################################################################
+
+# The one skill loaded in every session, wherever it starts, not only under
+# ~/Projects: its SessionStart hook reports vendored binaries (yt-dlp, FFmpeg,
+# LAME) and Dependabot alerts that have fallen behind, which nothing else
+# watches. ClipHack 1.25.7 shipped a yt-dlp two releases old for want of it.
+# settings.json is Claude Code's own file, so the hook is added once and
+# nothing else in it is touched; invalid JSON is reported, never overwritten.
+DEPS_SKILL_SRC="$PSKILLS_SRC/dependency-updates"
+DEPS_SKILL_DST="$HOME/.claude/skills/dependency-updates"
+CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+# shellcheck disable=SC2016  # $HOME is for the hook's shell to expand, not this one
+DEPS_HOOK='bash "$HOME/.claude/skills/dependency-updates/scripts/check.sh" --session'
+
+if [[ -d "$DEPS_SKILL_SRC" ]]; then
+  if [[ -L "$DEPS_SKILL_DST" ]] && [[ "$(readlink "$DEPS_SKILL_DST")" == "$DEPS_SKILL_SRC" ]]; then
+    logskip "dependency-updates skill" "linked"
+  else
+    mkdir -p "$HOME/.claude/skills"
+    [[ -e "$DEPS_SKILL_DST" && ! -L "$DEPS_SKILL_DST" ]] && mv "$DEPS_SKILL_DST" "${DEPS_SKILL_DST}.bak"
+    if ln -sfn "$DEPS_SKILL_SRC" "$DEPS_SKILL_DST"; then
+      ok "Linked dependency-updates skill → $DEPS_SKILL_DST"
+    else
+      log "Warning: failed to link the dependency-updates skill"
+      ((++failed))
+    fi
+  fi
+
+  [[ -s "$CLAUDE_SETTINGS" ]] || { mkdir -p "$HOME/.claude"; echo '{}' > "$CLAUDE_SETTINGS"; }
+  if jq -e --arg c "$DEPS_HOOK" '[.hooks.SessionStart[]?.hooks[]?.command] | index($c)' "$CLAUDE_SETTINGS" >/dev/null 2>&1; then
+    logskip "dependency-updates session hook" "installed"
+  else
+    tmp=$(mrk_mktemp)
+    # cat into the file rather than mv over it, so a symlinked settings.json
+    # stays a symlink.
+    if jq --arg c "$DEPS_HOOK" \
+         '.hooks.SessionStart = ((.hooks.SessionStart // []) + [{hooks: [{type: "command", command: $c, timeout: 10}]}])' \
+         "$CLAUDE_SETTINGS" > "$tmp" && cat "$tmp" > "$CLAUDE_SETTINGS"; then
+      ok "Added the dependency-updates session hook to $CLAUDE_SETTINGS"
+    else
+      log "Warning: could not add the dependency-updates hook; is $CLAUDE_SETTINGS valid JSON?"
+      ((++failed))
+    fi
+    rm -f "$tmp"
+  fi
+fi
+
+###############################################################################
 # Browser preferences                                                        #
 ###############################################################################
 

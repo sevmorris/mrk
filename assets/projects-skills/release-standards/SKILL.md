@@ -54,6 +54,11 @@ alone unless the owner asks.
 
 ## 3. Cutting a release
 
+0. **Check the vendored pins first**:
+   `bash ~/.claude/skills/dependency-updates/scripts/check.sh`. A release is the
+   only way a new yt-dlp or FFmpeg reaches anyone, and ClipHack 1.25.7 went out
+   with a yt-dlp two releases old because nobody looked. If a pin is behind,
+   update it first, following the `dependency-updates` skill.
 1. **Write the changelog entry first**, then `release-notes/v<version>.md` with
    the same prose. The gate refuses to release without it. Reaching for
    `--generated-notes` should feel like a decision, because it is one.

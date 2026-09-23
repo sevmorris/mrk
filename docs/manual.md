@@ -124,6 +124,7 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 - **GPG pinentry:** Points `gpg-agent` at `pinentry-mac`, so gpg asks for a passphrase in a window. Phase 3 adds one line to `~/.gnupg/gpg-agent.conf`, and it skips this step when the file already sets `pinentry-program`.
 - **Config directory restore:** Restores the Calibre configuration into `~/Library/Preferences/calibre/`. Phase 3 skips this step when `gui.json` exists.
 - **Claude Code guidance for `~/Projects`:** Links `assets/CLAUDE.md` to `~/Projects/CLAUDE.md` and `assets/projects-skills/` to `~/Projects/.claude/skills`. Neither lives inside a repository on its own, so both are tracked here and linked into place like a dotfile. A file already there and not a symlink is moved aside with a `.bak` suffix rather than overwritten.
+- **Claude Code, every session — dependency updates:** Links `assets/projects-skills/dependency-updates` to `~/.claude/skills/dependency-updates`, the one skill loaded wherever a session starts, and adds its SessionStart hook to `~/.claude/settings.json`. At the start of a session the hook reports any vendored binary (yt-dlp, FFmpeg, LAME) that is behind upstream and any open Dependabot alert, from a cache it refreshes in the background every 12 hours. The hook is added once; nothing else in `settings.json` is touched, and a file that is not valid JSON is reported as a failed step rather than rewritten.
 - **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dropbox, Raycast, Stats, Thaw
 
 > **Note:** Phase 3 continues when a step fails. It counts the failed steps and reports the total at the end.
@@ -785,6 +786,7 @@ mrk writes its state to `~/.mrk/`. gitignore excludes this directory.
 | `~/.mrk/preferences/` | The clone of `sevmorris/mrk-prefs`. Holds the app plists, the Application Support files and the config directories |
 | `~/.mrk/backups/` | The timestamped backups of the dotfiles that setup replaced |
 | `~/Projects/CLAUDE.md` | Symlink to `assets/CLAUDE.md`. Guidance Claude Code reads for the whole `~/Projects` tree; linked by `make post-install` |
+| `~/.claude/skills/dependency-updates` | Symlink to `assets/projects-skills/dependency-updates`, so that skill loads in every session, not only under `~/Projects`. post-install also adds its SessionStart hook to `~/.claude/settings.json`. Its cache and acknowledgements live in `~/Library/Caches/dependency-updates`, which nothing needs to carry to a new Mac |
 | `~/Projects/.claude/skills` | Symlink to `assets/projects-skills/`. Skills Claude Code loads for work under `~/Projects`, the release-standards one among them; linked by `make post-install`. The whole directory is linked, so a skill added there needs no change to post-install |
 | `~/.mrk/defaults-rollback.sh` | Undoes the macOS system defaults that `make defaults` wrote, and the app plists that post-install imported. It does **not** cover the app-preference scripts that Phase 3 runs for Safari, Helium, AlDente, Audio Hijack, Fission and Rogue Amoeba. Those scripts write their defaults directly |
 | `~/.mrk/hardening-rollback.sh` | Undoes the security hardening |
