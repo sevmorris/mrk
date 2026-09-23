@@ -7,7 +7,11 @@ on:
 
 jobs:
   test:
-    runs-on: macos-latest
+    # The macOS this Mac runs, on Apple silicon. macos-latest was that on
+    # 2026-09-23, and it moves to macOS 27 when GitHub promotes it, while
+    # macos-updates keeps this Mac on 26 until its owner upgrades by hand. Bump
+    # this in the same change as that upgrade.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
 

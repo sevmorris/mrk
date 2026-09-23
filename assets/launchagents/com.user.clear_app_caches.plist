@@ -10,6 +10,8 @@
         <string>-c</string>
         <string>"$HOME/bin/clear-app-caches"</string>
     </array>
+    <key>ProcessType</key>
+    <string>Background</string>
     <key>StartCalendarInterval</key>
     <dict>
         <key>Hour</key>
