@@ -1,7 +1,7 @@
 # Followups
 
 This file indexes every deferred item, known limitation, and explicitly-out-of-scope
-finding from the mrk audit (modules 1–17, six fix sessions, runtime verification).
+finding from the mrk audit (modules 1–18, six fix sessions, runtime verification).
 It is not a punch list of unfixed bugs — most items here were explicitly chosen to defer,
 accept as a known limitation, or scope out. The value of the file is that "what's still
 open?" has a single answer without grepping the whole audit directory.
@@ -9,7 +9,20 @@ open?" has a single answer without grepping the whole audit directory.
 For each item: what it is, where it's documented, why it was deferred, what action
 would close it.
 
-**Last re-verified:** 2026-09-18 against `f8687b6` by module 17
+**Last re-verified:** 2026-09-23 against `84a6825` by module 18
+(`18-audit-2026-09-23.md`). It asked whether mrk suits the M5 Pro on macOS 26 it now runs on,
+checking every Brewfile package against Homebrew's own definitions, the Go tools as built for
+darwin/arm64, the LaunchAgents, CI and shell startup. Every formula has an Apple silicon bottle
+for macOS 26. Five casks needed Rosetta or a kernel extension, and the owner removed all five.
+Four settings were fixed:
+- topgrade found npm only through an inherited PATH
+- the Go tools had `LC_UUID` only because the installed Go is new enough
+- the LaunchAgents ran at launchd's default priority
+- CI ran on macOS 26 only because that is `macos-latest` today, and it will move first
+
+Four decisions remain, below.
+
+**Previously re-verified:** 2026-09-18 against `f8687b6` by module 17
 (`17-audit-2026-09-18.md`). It took up three of seven audit ideas that had been saved a week
 earlier: every download in the install path, `mrk-install --all` against `make all`, and
 `sync-login-items` with awkward names. Each finding was two parts that had to agree, with nothing
@@ -23,7 +36,7 @@ comparing them:
 nvm and the zsh plugins are now pinned to commits. Two of the seven ideas were already done by
 modules 15 and 16. Two remain, below.
 
-**Previously re-verified:** 2026-09-17 against `52458c8` by module 16
+**Before that:** 2026-09-17 against `52458c8` by module 16
 (`16-audit-2026-09-17.md`). It checked the migration end to end on the Mac itself, then
 followed each gap back into mrk. The HIGH finding was in the key-transfer path again, U-1.
 `restore-keys` ran gpg while `~/.gnupg` was moved aside. GnuPG 2.5 made a new home directory,
@@ -40,7 +53,7 @@ It found 12 items. It fixed six, and left the decisions below. Its lesson is mod
 one layer down: the tools ran cleanly, and it took reading the Mac's own state (a file's mtime,
 two keyrings side by side, a crash report) to see what they had done.
 
-**Before that:** 2026-09-16 against `6a38545` by module 15
+**Earlier:** 2026-09-16 against `6a38545` by module 15
 (`15-audit-2026-09-16.md`), on the new Mac: an M5 Pro on macOS 26.7, migrated from a macOS 15
 Mac the day before. It began with a HIGH defect, T-1: `make updates`, and `update-full` through
 it, ran `softwareupdate -ia`, and on this Mac the only update listed was macOS 27, so the
@@ -49,14 +62,14 @@ command started downloading it. Nothing in mrk had changed; Apple's list had. Mo
 as module 14's, from another direction: a claim that held on the old Mac (a disable survives a
 restart; a key is applied; a Finder property exists) must be checked against the new one.
 
-**Earlier:** 2026-09-09 against `605ff9f` by module 14
+**Earlier still:** 2026-09-09 against `605ff9f` by module 14
 (`14-audit-2026-09-09.md`), which found nine items, fixed eight, and withdrew one of its own as
 a false finding. It left nothing open. Its durable result is methodological: **half its
 findings were only reachable by running the code.** P-5, P-6 and P-8 live in the exit
 status or failure path of an operation that otherwise succeeds and says so, which is why
 fourteen prior cycles of reading never found them. Module 14 added no new open items.
 
-**Earlier still:** 2026-08-31 against `15c82c9`. The 2026-08-31 recursive pass
+**Earliest of these:** 2026-08-31 against `15c82c9`. The 2026-08-31 recursive pass
 (`13-audit-2026-08-31.md`) found and fixed 14 defects, three of them HIGH, none of which
 any tool reported — `ci-check`, `shellcheck`, `go vet`, `gofmt` and `bash -n` were all
 green beforehand. Two sat in the key-transfer path: `restore-keys` rejected every valid
@@ -79,6 +92,22 @@ None. N-1 is fixed — see Closed below.
 ## Deferred decisions
 
 Items that require a real choice before they can be closed in either direction.
+
+**Module 18's open items (2026-09-23).** Details are in `18-audit-2026-09-23.md`.
+
+- **The five casks removed from the Brewfile are still on the Mac.** `sync` offers any
+  installed leaf again. → To close: `brew uninstall --cask kobo minecraft veracrypt macfuse
+  samsung-magician` on the Mac.
+- **Startup Security.** If macFUSE's or Samsung Magician's kext was ever approved, this Mac is
+  at Reduced Security. → To close: after the uninstall, check it in recoveryOS and set it back
+  to Full Security if nothing else needs it.
+- **Intel-only apps that Homebrew does not mark.** App Store apps and casks with a single build
+  are unchecked, and `mdfind` cannot find them with Spotlight indexing off. → To close: run
+  `lipo -archs` over the executables in `/Applications`, and decide per app. A check in
+  `mrk-status` could keep it true.
+- **Browser GPU caches and nvm at shell start.** `clear-app-caches` deletes Helium's compiled
+  Metal pipelines daily. `.zshrc` loads nvm eagerly, which was not measured. Both are the
+  owner's call.
 
 **Module 17's open items (2026-09-18).** Details are in `17-audit-2026-09-18.md`.
 
@@ -238,6 +267,21 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by module 18, the 2026-09-23 Apple silicon pass
+
+Branch `claude/great-curie-fx1a6a`. Details are in `18-audit-2026-09-23.md`.
+
+- **M-1 (LOW)** — both npm steps in `assets/topgrade.toml` loaded nvm from
+  `/opt/homebrew/opt/nvm`, where mrk never installs it, and worked only through an inherited
+  PATH. They load `~/.nvm` now. `tests/topgrade-npm.sh` covers it.
+- **M-2 (LOW)** — the Go modules declared `go 1.22`, and Go 1.23 builds a darwin/arm64 binary
+  with no `LC_UUID`, which dyld on macOS 26.7 refuses. The floor is `go 1.24`.
+- **M-3 (LOW)** — the LaunchAgents set no `ProcessType`. Both are `Background` now.
+- **M-4 (LOW)** — CI ran on `macos-latest`, which moves to macOS 27 before this Mac does. It
+  names `macos-26`.
+- **M-5** — kobo and minecraft (Rosetta), and VeraCrypt, macFUSE and Samsung Magician (kernel
+  extensions), are out of the Brewfile and the picker, at the owner's decision.
 
 ### Closed by module 17, the 2026-09-18 saved-ideas pass
 
