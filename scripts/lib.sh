@@ -414,9 +414,9 @@ commit_paths() {
 #   ROOT/folder/          no repository at either level   → OTHERS "folder"
 #
 # One level down because that is how a folder wraps a project here —
-# FloppyLetters/FloppyLetter2601 and JustIn/JustIn — and until 2026-09-10
-# neither pushall nor the manifest looked, so both repos were invisible to
-# them. Never deeper, and never inside a repository, so a worktree kept in a
+# FloppyLetters/FloppyLetter2601, and JustIn/JustIn until JustIn was retired —
+# and until 2026-09-10 neither pushall nor the manifest looked, so both repos
+# were invisible to them. Never deeper, and never inside a repository, so a worktree kept in a
 # repo is not mistaken for a project. A .git *file* (a linked worktree, whose
 # repository lives elsewhere) is neither listed nor reported.
 #

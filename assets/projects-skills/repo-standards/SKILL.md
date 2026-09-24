@@ -124,7 +124,8 @@ from reopening it.
   (`~/DoublEnder-cloud.git`, `~/.mrk/preferences`, and two in `~/Projects`).
 - **Folder names are not repository names.** PasswordGen is `ppg`, and
   FloppyLetters/FloppyLetter2601 is `wp-sim-93`. Magic Backup Machine and
-  the Pi guide use hyphenated lowercase names, and JustIn sits one folder down.
+  the Pi guide use hyphenated lowercase names, and FloppyLetter2601 sits one
+  folder down.
   The audit matches by `origin`.
 - **Two default branches are `master`:** the Pi guide and
   doublender-dashboard. The ruleset targets `~DEFAULT_BRANCH`, so it follows
