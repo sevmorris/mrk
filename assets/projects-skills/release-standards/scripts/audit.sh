@@ -44,6 +44,7 @@ while IFS= read -r f; do REPOS+=("$(dirname "$f")"); done < <(
 GUARDS=(
   "notes-gate|NOTES_FILE"
   "notary|NOTARY_PROFILE"
+  "notary-lock|screen_locked"
   "py3-subproc|cannot start a subprocess"
   "remote-tags|fetch --tags"
   "ancestry|merge-base --is-ancestor"

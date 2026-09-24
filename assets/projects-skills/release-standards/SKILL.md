@@ -35,6 +35,7 @@ missing ones as a list, and the repo state a release would trip over.
 |---|---|---|
 | `notes-gate` | Publishing a bare commit list where a written changelog entry exists. ClipHack 1.25.5 shipped that way. | every app |
 | `notary` | Discovering a missing keychain profile after a clean build. A profile cannot be exported, so every new Mac hits this. | every app |
+| `notary-lock` | A locked screen reported as a missing profile. notarytool's credentials live in the data-protection keychain, which locks with the screen; on 2026-09-24 a 4 a.m. release went looking for a profile that was there all along. | every app |
 | `py3-subproc` | dmgbuild importing fine and then segfaulting on its first subprocess, shipping an unstyled DMG. | dmgbuild only |
 | `remote-tags` | A clone that never saw a release passing a local-only tag check, then being refused after notarizing. | every app |
 | `ancestry` | A remote branch ahead of HEAD failing the push *after* the build. | every app |
