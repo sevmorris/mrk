@@ -30,8 +30,7 @@ GREP=/usr/bin/grep   # not a shell function or alias, whatever the caller has
 h() { printf '\n== %s\n' "$*"; }
 
 # Repos with a release.sh, found rather than listed, so a new app appears here
-# without editing this script. WireHack is retired and archived, and is not
-# expected to carry the full set; it is still shown, marked.
+# without editing this script.
 REPOS=()
 while IFS= read -r f; do REPOS+=("$(dirname "$f")"); done < <(
   find "$PROJECTS" -maxdepth 2 -name release.sh -not -path '*/node_modules/*' | sort
@@ -68,8 +67,6 @@ printf '%.0s-' $(seq 1 $((24 + 13 * ${#GUARDS[@]}))); printf '\n'
 MISSING_REPORT=""
 for d in "${REPOS[@]}"; do
   name=$(basename "$d")
-  note=""
-  [[ "$name" == "WireHack" ]] && note=" *"
   # Two guards only mean something for a styled DMG. A script that builds a
   # plain image with `hdiutil create` has no dmgbuild to crash and no installer
   # window to verify, so they are n/a rather than missing.
@@ -79,7 +76,7 @@ for d in "${REPOS[@]}"; do
   # which is exactly the set that carries scripts/check-shared.sh.
   sibling=0
   [[ -f "$d/scripts/check-shared.sh" ]] && sibling=1
-  printf '%-24s' "$name$note"
+  printf '%-24s' "$name"
   for g in "${GUARDS[@]}"; do
     label="${g%%|*}"; pat="${g#*|}"
     if [[ $styled -eq 0 && ( "$label" == "dmg-verify" || "$label" == "py3-subproc" ) ]]; then
@@ -95,8 +92,6 @@ for d in "${REPOS[@]}"; do
   done
   printf '\n'
 done
-echo
-echo "  * WireHack is retired and archived (ClipHack supersedes it); it is not expected to carry these."
 
 h "Missing guards, as a list"
 if [[ -n "$MISSING_REPORT" ]]; then printf '%s' "$MISSING_REPORT"; else echo "  (none)"; fi

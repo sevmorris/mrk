@@ -49,8 +49,8 @@ missing ones as a list, and the repo state a release would trip over.
 
 `n/a` in the matrix means the guard has nothing to protect: a script building a
 plain image with `hdiutil create` has no dmgbuild to crash and no installer
-window to check. WireHack is retired (archived 2026-09-23; ClipHack supersedes it) and is marked `*`; leave it
-alone unless the owner asks.
+window to check. WireHack, retired and archived on 2026-09-23 with ClipHack
+superseding it, has no clone here any more and so does not appear.
 
 ## 3. Cutting a release
 
