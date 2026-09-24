@@ -105,7 +105,11 @@ work directory, so repin all three the same day.
 
 1. **Verify the sources.**
    - FFmpeg: check the tarball's `.asc` against FFmpeg's release signing key,
-     not only a SHA-256 copied from the same page.
+     not only a SHA-256 copied from the same page. The key is
+     `FCF986EA15E6E293A5644F10B4322F04D67658D8` (from
+     `https://ffmpeg.org/ffmpeg-devel.asc`; keyserver.ubuntu.com serves the
+     same one), and it also signed the 8.0 tarball the old pin trusts. Verify
+     the old tarball with it too: that continuity is the strongest evidence.
    - LAME: it publishes no signatures. Confirm the SHA-256 from an independent
      source, such as the checksum in Homebrew's `lame` formula.
 2. **Re-read the licences** at the new version: FFmpeg's `LICENSE.md`, and the
@@ -121,16 +125,40 @@ work directory, so repin all three the same day.
    - `LC_UUID` is present (dyld on macOS 26.7 aborts without it);
    - no non-system dylibs.
 
+   Pass an **absolute** output directory: the script `cd`s into its work
+   directory before copying out, so a relative one fails at the very end.
    Build twice and compare SHA-256s. The recipe is reproducible, and a
-   difference means something changed.
+   difference means something changed. The script does not check for weak
+   imports, the failure CLAUDE.md warns about when the SDK is newer than the
+   OS, so check by hand: `nm -m ffmpeg | grep undefined | grep -c weak`
+   must be 0, as it is for every build so far. Build with the same SDK as
+   the binary being replaced (`otool -l` shows `sdk`), so that parity
+   measures FFmpeg's changes and nothing else.
 4. **Run parity, old binary against new.** ClipHack and WaxOnWaxOff each have
    `scripts/parity-corpus-gen.sh` and `scripts/parity-check.sh`. Their
    thresholds are frozen: never edit one after seeing results; take failing
    data to the owner. WaxOnWaxOff encodes MP3, so a LAME change must
-   pre-register its bitstream divergence *before* the run. FilmStrip has no
-   harness; at least run its real pipeline over a sample file.
+   pre-register its bitstream divergence *before* the run. Its harness always
+   skips the MP3 null gate. When LAME is unchanged, compare the decoded MP3s
+   separately: in the 8.0 → 8.0.3 move the audio was identical and the files
+   differed by one byte, the `Lavf` encoder string in the ID3 tag.
+   FilmStrip has no harness. Compile its own `Services/FilterGraphBuilder.swift`
+   and `Models/AudioTrack.swift` with a small `main.swift` that prints
+   `FilterGraphBuilder.build(...)` for a channel count, layout and duration,
+   so the graphs are the app's rather than retyped. Run pass 1, two-pass
+   loudnorm at −18 and AAC 192k through both binaries on stereo, 5.1 and mono
+   videos made with Homebrew's full FFmpeg. Measure with one meter, and first
+   run the old binary against itself and against something known to differ.
+   Also diff every `ffprobe` call the apps make: FilmStrip parses
+   `-show_streams` JSON.
 5. **Publish the binaries** as `ffmpeg-deps-<version>-audio-arm64-r<N>`, in the
-   repo named by `FFMPEG_DEPS_REPO` (ClipHack's is `ClipHack-releases`):
+   repo named by `FFMPEG_DEPS_REPO` (ClipHack's is `ClipHack-releases`).
+   `r<N>` is the **recipe** revision, shared by all three repos: 8.0.3 went
+   out as `-r4` because only its pins changed. Commit and push the repinned
+   `build-ffmpeg.sh` alone first, and tag the deps release at that commit
+   (`gh release create --target <sha> --prerelease --latest=false`). Only then
+   push the manifest, because CI fetches whatever the manifest names. Publish
+   the release:
    - as a **prerelease**. A normal release becomes `/releases/latest` and
      breaks the README download links;
    - with assets named `ffmpeg` and `ffprobe`, and the source directions in the
