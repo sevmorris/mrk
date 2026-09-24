@@ -30,7 +30,7 @@ GREP=/usr/bin/grep   # not a shell function or alias, whatever the caller has
 h() { printf '\n== %s\n' "$*"; }
 
 # Repos with a release.sh, found rather than listed, so a new app appears here
-# without editing this script. WireHack is superseded by ClipHack and is not
+# without editing this script. WireHack is retired and archived, and is not
 # expected to carry the full set; it is still shown, marked.
 REPOS=()
 while IFS= read -r f; do REPOS+=("$(dirname "$f")"); done < <(
@@ -96,7 +96,7 @@ for d in "${REPOS[@]}"; do
   printf '\n'
 done
 echo
-echo "  * WireHack is superseded by ClipHack; it is not expected to carry these."
+echo "  * WireHack is retired and archived (ClipHack supersedes it); it is not expected to carry these."
 
 h "Missing guards, as a list"
 if [[ -n "$MISSING_REPORT" ]]; then printf '%s' "$MISSING_REPORT"; else echo "  (none)"; fi

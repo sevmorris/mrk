@@ -54,7 +54,7 @@ GITHUB_APP_TEAM_ID="T9RLNAXPWU"
 #     update path by design — it stays a cask in the Brewfile.
 #
 # JustLoop, WireHack and Perfect Passwords Grabber are absent because they are
-# not installed on this Mac. WireHack is superseded by ClipHack.
+# not installed on this Mac. WireHack is retired; ClipHack supersedes it.
 COMPANION_APPS=(
   "Barkeep.app|sevmorris/Barkeep|Barkeep"
   "ClipHack.app|sevmorris/ClipHack-releases|ClipHack"

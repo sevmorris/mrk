@@ -1513,7 +1513,7 @@ mrk-push -- "-starts with a dash"</code></pre>
               <li>The download prefers <code>gh</code> when it is installed and authenticated, and falls back to <code>curl</code> against the public API. <strong>A private repository needs the <code>gh</code> path:</strong> an unauthenticated request for a release in one returns 404, which is indistinguishable from &ldquo;no such release&rdquo;. <code>sevmorris/magic-backup-machine</code> is private, and before this fallback existed it could not be installed at all.</li>
               <li>ClipHack&rsquo;s DMGs are published to a separate repository, <code>sevmorris/ClipHack-releases</code>; its source repository carries no release assets.</li>
               <li>One app failing never stops the rest. install-apps exits 1 when any app was not installed, and 0 when every app in the list is present.</li>
-              <li>Two of the owner&rsquo;s apps are deliberately absent. <strong>Cypher/FL2601</strong> is sandboxed with no network entitlement, so it cannot check for its own updates; Homebrew is its update path by design and it stays a cask in the Brewfile. <strong>WireHack</strong> is superseded by ClipHack.</li>
+              <li>Two of the owner&rsquo;s apps are deliberately absent. <strong>Cypher/FL2601</strong> is sandboxed with no network entitlement, so it cannot check for its own updates; Homebrew is its update path by design and it stays a cask in the Brewfile. <strong>WireHack</strong> is retired, superseded by ClipHack.</li>
             </ul>
           </div>
         </div>
