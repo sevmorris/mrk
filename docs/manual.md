@@ -231,9 +231,10 @@ snapshot-prefs
 
 1. snapshot-prefs exports the preference plist for each managed app with `defaults export`. It reads the copy the app uses: `~/Library/Preferences/<id>.plist` when that file exists, and the app's sandbox container otherwise. It skips an app with no preferences yet and keeps the copy it saved before. It does not quit any app, because `defaults export` already sees an open app's changes.
 2. snapshot-prefs copies the config directories that are not defaults domains into `config/`. Calibre is one example: its settings and conversion presets live in `~/Library/Preferences/calibre/`. It does not copy the plugin code, which reinstalls from Calibre's plugin manager. It copies only `plugins/*.json` (the per-plugin settings) and `plugins/*/account` (the DeACSM Adobe activation, which cannot be recreated without a re-authorization).
-3. snapshot-prefs converts each binary plist to xml1, and then scans every file for secrets.
-4. snapshot-prefs commits the changes in `~/.mrk/preferences/` with a timestamped message.
-5. snapshot-prefs pushes to `sevmorris/mrk-prefs` on GitHub.
+3. snapshot-prefs keeps MusicBrainz Picard's settings in `config/picard/settings.ini`. Picard writes its OAuth tokens into the same file as its settings, `~/.config/MusicBrainz/Picard.ini`, so snapshot-prefs keeps the settings sections only and replaces each credential with `<redacted>`. The copy is history to compare, not a backup: post-install never restores it, and Magic Backup Machine keeps the real file.
+4. snapshot-prefs converts each binary plist to xml1, and then scans every file for secrets.
+5. snapshot-prefs commits the changes in `~/.mrk/preferences/` with a timestamped message.
+6. snapshot-prefs pushes to `sevmorris/mrk-prefs` on GitHub.
 
 You can run snapshot-prefs more than once. When nothing changed, it reports "No changes to push."
 

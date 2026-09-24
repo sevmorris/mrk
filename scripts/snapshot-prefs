@@ -341,17 +341,48 @@ snapshot_pref_dir(){
 snapshot_pref_dir "$HOME/Library/Preferences/calibre" "calibre" "Calibre" \
   "*.json" "*.plist" "conversion" "plugins/*.json" "plugins/*/account"
 
-# ~/.config/MusicBrainz is deliberately NOT captured, though it looks like an
-# obvious candidate — an INI under ~/.config, which is a dotfile in everything
-# but location. Picard writes oauth_access_token and oauth_refresh_token into
-# the same file as the settings, and the secret scan caught all three INIs on
-# the first run after this was added. Splitting settings from credentials would
-# mean rewriting the file, and a rewritten INI does not restore cleanly.
+# MusicBrainz Picard keeps its settings in ~/.config/MusicBrainz/Picard.ini and
+# writes oauth_access_token and oauth_refresh_token into the same file. The
+# secret scan caught all three INIs the first time the directory was copied, so
+# it was left to Magic Backup Machine, whose mirror keeps no history. On
+# 2026-09-24 that cost something: the Cover Art Archive had been switched off
+# somewhere between Picard 3.0.0b1 and 3.0.0b7, and nothing could say when.
 #
-# Unlike the Calibre DeACSM activation below, these tokens are worth nothing to
-# carry: re-authorising Picard is a login. The org.musicbrainz.Picard plist
-# above holds the UI preferences and is clean, so that half is captured.
-# Magic Backup Machine keeps the config directory.
+# So the settings are kept, and the credentials are not. picard_settings
+# (lib.sh) keeps the settings sections and replaces each credential with
+# <redacted>; tests/picard-settings.sh holds it to that. The copy is history to
+# diff, not a restore — a rewritten INI does not restore cleanly, and the
+# tokens are worth nothing to carry, since re-authorising Picard is a login —
+# so post-install never reads config/picard. Magic Backup Machine still keeps
+# the real file.
+#
+# The org.musicbrainz.Picard plist above holds none of this. It is three keys
+# of macOS file-panel state: the panel's size, its last folder, its frame.
+snapshot_picard(){
+  local src="$HOME/.config/MusicBrainz/Picard.ini"
+  local dest_dir="$LOCAL_PREFS_DIR/config/picard" tmp
+  if [[ ! -f "$src" ]]; then
+    log "Skipping MusicBrainz Picard settings (not found: $src)"
+    return 0
+  fi
+  mkdir -p "$dest_dir"
+  # Written aside and moved into place, so a failed read keeps the saved copy
+  # rather than committing an empty one.
+  tmp="$(mrk_mktemp)"
+  if ! picard_settings "$src" > "$tmp"; then
+    rm -f "$tmp"
+    warn "failed to read MusicBrainz Picard settings — skipped"
+    SNAPSHOT_SKIPPED+=("MusicBrainz Picard settings")
+    return 0
+  fi
+  mv "$tmp" "$dest_dir/settings.ini"
+  if ! scan_for_secrets "$dest_dir/settings.ini"; then
+    warn "MusicBrainz Picard settings may contain secrets — review before pushing"
+  fi
+  log "Saved MusicBrainz Picard settings → $dest_dir/settings.ini"
+}
+
+snapshot_picard
 
 # ── Fonts ─────────────────────────────────────────────────────────────────────
 
