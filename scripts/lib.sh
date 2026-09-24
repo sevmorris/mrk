@@ -503,3 +503,37 @@ prefs_source() {
     printf '%s\n' "$1"
   fi
 }
+
+# picard_settings INI — print Picard's settings from INI with its credentials
+# taken out, for snapshot-prefs to keep as history. The output is a record to
+# diff, not a file to restore: post-install never reads it.
+#
+# Kept: [application] (the version that wrote the file), [setting], [profiles]
+# and each Picard 3 [plugin.<uuid>]. Dropped: [persist], which holds the OAuth
+# tokens beside window geometry and changes every session, and [General] and
+# [com], which are macOS's global defaults that Qt copies into the file.
+#
+# A kept key whose name says it holds a credential has a non-empty value
+# replaced with <redacted>, so the diff still shows whether one is set. This
+# cannot lean on scan_for_secrets: none of its patterns names fanart.tv's
+# client_key, which would have been committed in full.
+picard_settings() {
+  awk '
+    BEGIN { printed = 0 }
+    /^\[/ {
+      keep = ($0 == "[application]" || $0 == "[setting]" || $0 == "[profiles]" || $0 ~ /^\[plugin\./)
+      if (keep) { if (printed) print ""; print; printed = 1 }
+      next
+    }
+    !keep || /^[[:space:]]*$/ { next }
+    {
+      eq = index($0, "=")
+      key = tolower(substr($0, 1, eq - 1))
+      if (eq > 1 && substr($0, eq + 1) != "" &&
+          key ~ /token|password|passwd|passphrase|secret|apikey|api_key|client_key|oauth|username|email|(^|_)key$/) {
+        print substr($0, 1, eq) "<redacted>"
+        next
+      }
+      print
+    }' "$1"
+}

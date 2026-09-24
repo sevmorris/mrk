@@ -26,8 +26,8 @@ Options:
 ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
-restore-keys, install-all, pinned-downloads, sync-login-items and topgrade-npm
-tests in tests/, shellcheck over the tracked scripts (the skills' audit scripts included),
+restore-keys, install-all, pinned-downloads, sync-login-items, topgrade-npm
+and picard-settings tests in tests/, shellcheck over the tracked scripts (the skills' audit scripts included),
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
@@ -134,6 +134,13 @@ log "sync-login-items"
 # found npm only when the shell that started topgrade had loaded nvm already.
 log "topgrade npm steps"
 "$REPO_ROOT/tests/topgrade-npm.sh"
+
+# picard_settings, on an INI holding fake credentials: from 2026-09-24
+# snapshot-prefs keeps Picard's settings, which share a file with its OAuth
+# tokens. The secret scan cannot stand behind the filter — none of its patterns
+# names fanart.tv's client_key — so this test does.
+log "Picard settings"
+"$REPO_ROOT/tests/picard-settings.sh"
 
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"
