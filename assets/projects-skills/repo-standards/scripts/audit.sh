@@ -58,7 +58,7 @@ fi
 [[ -s "$WORK/repos" ]] || { echo "audit.sh: no repositories to audit" >&2; exit 1; }
 
 # Local clones, matched to repositories by their origin URL rather than by
-# folder name: Cypher is FL2601, PasswordGen is ppg, and some sit one folder down.
+# folder name: PasswordGen is ppg, and some sit one folder down.
 declare -A CLONE=()
 while IFS= read -r -d '' g; do
   d=$(dirname "$g")

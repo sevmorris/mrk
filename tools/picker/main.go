@@ -119,7 +119,6 @@ var descriptions = map[string]string{
 	"farrago":                "Robust, rapid-fire soundboard for Mac",
 	"firefox":                "Free and open-source web browser by Mozilla",
 	"fission":                "Fast, lossless audio editor for Mac",
-	"fl2601":                 "FL2601 Cipher Tool — passphrase text encryption (PBKDF2, AES-256-GCM)",
 	"gcloud-cli":             "Google Cloud SDK and gcloud command-line tools",
 	"github":                 "GitHub Desktop — visual Git client",
 	"google-chrome":          "Google Chrome web browser",

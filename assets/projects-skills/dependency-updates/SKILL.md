@@ -1,6 +1,6 @@
 ---
 name: dependency-updates
-description: Keep the third-party code the apps ship current. That means the binaries vendored through <repo>/Vendor/*-manifest.env — yt-dlp in ClipHack; FFmpeg and LAME in WaxOnWaxOff, ClipHack and FilmStrip — and the npm dependencies Dependabot flags in doublender-dashboard and Cypher's web app. A SessionStart hook runs the check in every session and reports what is behind. Use this when that notice appears, when asked whether yt-dlp, FFmpeg, LAME or any dependency is up to date, when updating one, and before cutting an app release, so the release does not ship a stale tool.
+description: Keep the third-party code the apps ship current. That means the binaries vendored through <repo>/Vendor/*-manifest.env — yt-dlp in ClipHack; FFmpeg and LAME in WaxOnWaxOff, ClipHack and FilmStrip — and the npm dependencies Dependabot flags in doublender-dashboard. A SessionStart hook runs the check in every session and reports what is behind. Use this when that notice appears, when asked whether yt-dlp, FFmpeg, LAME or any dependency is up to date, when updating one, and before cutting an app release, so the release does not ship a stale tool.
 ---
 
 # Dependency updates
@@ -178,10 +178,6 @@ work directory, so repin all three the same day.
   `npm ci`, then `npm audit fix`. Never pass `--force` without reading what it
   would change. Run `npx vitest run` and commit the lockfile. Redeploy
   (`npm run deploy`) only if a runtime dependency changed.
-- **Cypher's web app (`FL2601`, `web/`).** Its runtime dependencies are React
-  and lucide-react; the alerts have so far been in build tooling. Run
-  `npm audit fix`, `npm run build` and `npm run lint`, then commit the
-  lockfile. Republish only if what ships changed.
 - Dependabot closes fixed alerts once the lockfile is pushed. Re-run `check.sh`
   afterwards; that also clears the session notice.
 
