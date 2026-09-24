@@ -1,11 +1,10 @@
 ## Taps
-# Required for fl2601 below. doublender and waxonwaxoff were dropped on
-# 2026-09-17: both apps check GitHub for their own updates, so the cask was a
-# second update path whose records went stale the moment an in-app update was
-# installed. Their casks are deprecated in the tap rather than deleted. fl2601
-# stays because it is sandboxed with no network entitlement and cannot check
-# for itself — Homebrew is its update path by design, not by omission.
-tap "sevmorris/tap"
+# None. sevmorris/tap was here for its three casks, and all three are gone:
+# doublender and waxonwaxoff on 2026-09-17, because both apps check GitHub for
+# their own updates, so the cask was a second update path whose records went
+# stale the moment an in-app update was installed; fl2601 on 2026-09-23, when
+# FL2601 was retired. The casks are deprecated in the tap rather than deleted,
+# so a Mac that installed one is told where it went.
 
 ## CLI Tools - General Utilities & Power User Tools
 brew "bash"
@@ -91,7 +90,6 @@ cask "etrecheckpro", greedy: true
 cask "farrago", greedy: true
 cask "firefox", greedy: true
 cask "fission", greedy: true
-cask "fl2601", greedy: true
 cask "gcloud-cli", greedy: true
 cask "github", greedy: true
 cask "google-chrome", greedy: true

@@ -122,11 +122,11 @@ from reopening it.
   protection.** GitHub answers "Upgrade to GitHub Pro". `n/a` there is the
   plan, not a gap. Each private repo has a full-history clone here
   (`~/DoublEnder-cloud.git`, `~/.mrk/preferences`, and two in `~/Projects`).
-- **Folder names are not repository names.** Cypher is `FL2601`, PasswordGen is
-  `ppg`, FloppyLetters/FloppyLetter2601 is `wp-sim-93`. Magic Backup Machine and
+- **Folder names are not repository names.** PasswordGen is `ppg`, and
+  FloppyLetters/FloppyLetter2601 is `wp-sim-93`. Magic Backup Machine and
   the Pi guide use hyphenated lowercase names, and JustIn sits one folder down.
   The audit matches by `origin`.
-- **Three default branches are `master`:** FL2601-Windows, the Pi guide and
+- **Two default branches are `master`:** the Pi guide and
   doublender-dashboard. The ruleset targets `~DEFAULT_BRANCH`, so it follows
   whichever it is.
 - **The ruleset stops the owner too.** To rewrite a branch on purpose (there is

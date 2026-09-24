@@ -187,7 +187,7 @@ snapshot_plist "org.musicbrainz.Picard"                 "Picard.plist"          
 # version history is for, and an rsync mirror cannot answer "what changed".
 #
 # Listed by `defaults domains`, not by a glob of ~/Library/Preferences: a
-# sandboxed app's domain exists only inside its container (FL2601's does), and
+# sandboxed app's domain exists only inside its container, and
 # defaults lists it without this script reaching into another app's container
 # itself. prefs_source then decides which copy to read, which matters for the
 # five apps that kept a container from a sandboxed build. Empty domains are not
@@ -398,9 +398,10 @@ snapshot_fonts
 #
 # pushall pushes ~/Projects, but nothing recorded what is *in* it, so a wipe
 # left you reconstructing the list from memory. Two details make a manifest
-# worth more than `ls`: a directory name is not always the repo name (Cypher's
-# origin is sevmorris/FL2601), and DoublEnder's private Cloud overlay lives in
-# a bare repo at ~/DoublEnder-cloud.git that nothing else on disk points to.
+# worth more than `ls`: a directory name is not always the repo name
+# (PasswordGen's origin is sevmorris/ppg), and DoublEnder's private Cloud
+# overlay lives in a bare repo at ~/DoublEnder-cloud.git that nothing else on
+# disk points to.
 #
 # Remotes only. No credentials, and no repository contents.
 snapshot_repos(){

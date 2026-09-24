@@ -41,7 +41,7 @@ GITHUB_APP_TEAM_ID="T9RLNAXPWU"
 # The apps this Mac runs that are published from its owner's own repos, as
 #   <bundle name>|<repo holding the releases>|<display name>
 #
-# Kept as data so adding an app is one line. Three things this list encodes
+# Kept as data so adding an app is one line. Two things this list encodes
 # that are easy to get wrong:
 #
 #   - ClipHack's DMGs are published to a SEPARATE repo, ClipHack-releases. Its
@@ -49,12 +49,12 @@ GITHUB_APP_TEAM_ID="T9RLNAXPWU"
 #   - Magic Backup Machine's bundle is "Magic Backup Machine.app" while its DMG
 #     is MagicBackupMachine-*.dmg. install_github_app compares bundle names, so
 #     the spacing here is load-bearing.
-#   - Cypher/FL2601 is deliberately absent. It is sandboxed with no network
-#     entitlement, so it cannot check for its own updates, and Homebrew is its
-#     update path by design — it stays a cask in the Brewfile.
 #
 # JustLoop, WireHack and Perfect Passwords Grabber are absent because they are
 # not installed on this Mac. WireHack is retired; ClipHack supersedes it.
+# Cypher/FL2601 is retired too (2026-09-23), and never came from here: being
+# sandboxed with no network entitlement, it could not check for its own
+# updates, so it was a Homebrew cask.
 COMPANION_APPS=(
   "Barkeep.app|sevmorris/Barkeep|Barkeep"
   "ClipHack.app|sevmorris/ClipHack-releases|ClipHack"

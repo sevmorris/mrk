@@ -576,7 +576,7 @@ import_own_apps(){
     base="$(basename "$f")"
     bundle_id="${base%.plist}"
 
-    # The domain, not the file — see import_plist below. FL2601 is sandboxed.
+    # The domain, not the file — see import_plist below.
     if defaults read "$bundle_id" >/dev/null 2>&1; then
       skipped=$(( skipped + 1 ))
       continue

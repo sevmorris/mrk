@@ -101,10 +101,10 @@ before it reaches this skill.
   uncolored.
 - **release.sh prunes release pages, never git tags.** A page is a convenience;
   a tag is the record.
-- **Homebrew is not a distribution channel for these apps any more**, with one
-  exception. The `doublender` and `waxonwaxoff` casks were deprecated on
-  2026-09-17 because each app checks GitHub for its own updates and the cask's
-  records went stale the moment an in-app update was installed. `fl2601`
-  (Cypher) keeps its cask: it is sandboxed with no network entitlement and
-  cannot check for itself, so `distribute.sh --bump-cask` still bumps it. Do
-  not add a cask-bump step back to any other release script.
+- **Homebrew is not a distribution channel for these apps any more.** The
+  `doublender` and `waxonwaxoff` casks were deprecated on 2026-09-17 because
+  each app checks GitHub for its own updates and the cask's records went stale
+  the moment an in-app update was installed. `fl2601` was the one exception, as
+  a sandboxed app that cannot check for itself, until Cypher was retired on
+  2026-09-23 and its cask deprecated too. Do not add a cask-bump step back to
+  any release script.
