@@ -120,7 +120,7 @@ fi
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/dependency-updates.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
-: > "$WORK/pins"      # dep  repo  pinned  newest-on-branch  newest
+: > "$WORK/pins"      # dep  repo  pinned  newest-on-branch  newer (space-separated, or -)
 : > "$WORK/findings"
 : > "$WORK/notes"
 
@@ -141,8 +141,20 @@ upstream() {
       v=$(gh api 'repos/FFmpeg/FFmpeg/git/matching-refs/tags/n' --jq '.[].ref' 2>/dev/null \
           | sed 's#^refs/tags/n##' | grep -E '^[0-9]+\.[0-9]+(\.[0-9]+)?$' | sort -V | tr '\n' ' ') ;;
     lame)
-      v=$(curl -fsS --max-time 15 https://sourceforge.net/projects/lame/best_release.json 2>/dev/null \
-          | jq -r '.release.filename // empty' | sed -nE 's#.*/lame-([0-9][0-9.]*)\.tar\.gz$#\1#p') ;;
+      # Every release in the RSS feed, oldest first, not only the one
+      # best_release.json names: on 2026-09-23 that was 4.0, and 3.101, the
+      # maintenance release two days before it, went unreported. Versions
+      # without a dot go: 3.98 was published as lame-398.tar.gz, which sorts
+      # above 4.0.
+      v=$(curl -fsS --max-time 15 'https://sourceforge.net/projects/lame/rss?path=/lame' 2>/dev/null \
+          | grep -oE '/lame/[0-9][0-9.]*/lame-[0-9][0-9.]*\.tar\.gz' \
+          | sed -E 's#.*/lame-([0-9][0-9.]*)\.tar\.gz$#\1#' | grep -E '^[0-9]+\.[0-9]' | sort -uV | tr '\n' ' ')
+      if [[ -z ${v// /} ]]; then
+        v=$(curl -fsS --max-time 15 https://sourceforge.net/projects/lame/best_release.json 2>/dev/null \
+            | jq -r '.release.filename // empty' | sed -nE 's#.*/lame-([0-9][0-9.]*)\.tar\.gz$#\1#p')
+      fi ;;
+    ffmpeg-date:*)
+      v=$(gh api "repos/FFmpeg/FFmpeg/commits/n${1#ffmpeg-date:}" --jq .commit.committer.date 2>/dev/null | cut -c1-10) ;;
   esac
   UP[$1]=$v; UPV=$v
 }
@@ -152,7 +164,8 @@ while IFS= read -r m; do
   if tag=$(val YTDLP_TAG "$m"); [[ -n $tag ]]; then
     src=$(val YTDLP_REPO "$m"); upstream "yt-dlp:${src:-yt-dlp/yt-dlp}"; latest=$UPV
     if [[ -z $latest ]]; then echo "yt-dlp ($repo): could not read the latest release" >> "$WORK/notes"
-    else printf 'yt-dlp\t%s\t%s\t%s\t%s\n' "$repo" "$tag" "$latest" "$latest" >> "$WORK/pins"; fi
+    else nl=-; newer "$tag" "$latest" && nl=$latest
+         printf 'yt-dlp\t%s\t%s\t%s\t%s\n' "$repo" "$tag" "$latest" "$nl" >> "$WORK/pins"; fi
   fi
   if ff=$(val FFMPEG_SOURCE_RELEASE "$m"); [[ -n $ff ]]; then
     upstream ffmpeg-tags; tags=$UPV
@@ -160,15 +173,29 @@ while IFS= read -r m; do
     else
       branch=$(cut -d. -f1-2 <<<"$ff")
       on_branch=$(tr ' ' '\n' <<<"$tags" | grep -E "^${branch//./\\.}(\.|$)" | tail -1)
-      printf 'FFmpeg\t%s\t%s\t%s\t%s\n' "$repo" "$ff" "${on_branch:-$ff}" "$(tr ' ' '\n' <<<"$tags" | grep . | tail -1)" >> "$WORK/pins"
+      # The newest release of every line above the pinned one, oldest line
+      # first. Reporting only the newest line offered 9.0.2 on 2026-09-23 and
+      # hid 8.1.3, the smaller step, which steered the update toward the
+      # biggest jump.
+      newer_lines=$(tr ' ' '\n' <<<"$tags" | grep . | awk -F. -v b="$branch" '
+        BEGIN { split(b, p, "."); bm = p[1] + 0; bn = p[2] + 0 }
+        { m = $1 + 0; n = $2 + 0
+          if (m > bm || (m == bm && n > bn)) { k = m "." n; if (!(k in last)) order[++c] = k; last[k] = $0 } }
+        END { for (i = 1; i <= c; i++) printf "%s%s", (i > 1 ? " " : ""), last[order[i]] }')
+      printf 'FFmpeg\t%s\t%s\t%s\t%s\n' "$repo" "$ff" "${on_branch:-$ff}" "${newer_lines:--}" >> "$WORK/pins"
     fi
   fi
   lame=$(val LAME_VERSION "$m")
   [[ -z $lame ]] && lame=$(val LAME_SOURCE_URL "$m" | sed -nE 's#.*/lame-([0-9][0-9.]*)\.tar\.gz$#\1#p')
   if [[ -n $lame ]]; then
-    upstream lame; latest=$UPV
-    if [[ -z $latest ]]; then echo "LAME ($repo): could not read the latest release from SourceForge" >> "$WORK/notes"
-    else printf 'LAME\t%s\t%s\t%s\t%s\n' "$repo" "$lame" "$latest" "$latest" >> "$WORK/pins"; fi
+    upstream lame; releases=$UPV
+    if [[ -z ${releases// /} ]]; then echo "LAME ($repo): could not read its releases from SourceForge" >> "$WORK/notes"
+    else
+      latest=$(tr ' ' '\n' <<<"$releases" | grep . | tail -1)
+      nl=$(tr ' ' '\n' <<<"$releases" | grep . | while read -r r; do newer "$lame" "$r" && printf '%s ' "$r"; done)
+      nl=${nl% }
+      printf 'LAME\t%s\t%s\t%s\t%s\n' "$repo" "$lame" "$latest" "${nl:--}" >> "$WORK/pins"
+    fi
   fi
   # A pin this script has no upstream check for is a finding, not a footnote: a
   # new vendored tool must not go unwatched just because nobody taught this file.
@@ -186,15 +213,36 @@ done < <(find "$PROJECTS" -maxdepth 4 -path '*/Vendor/*-manifest.env' -not -path
 sort -t$'\t' -k1,1 -k3,3V -k2,2f "$WORK/pins" | awk -F'\t' '
   { key = $1 FS $3 FS $4 FS $5; repos[key] = (key in repos ? repos[key] ", " : "") $2; if (!(key in seen)) { seen[key] = 1; order[++n] = key } }
   END { for (i = 1; i <= n; i++) print order[i] FS repos[order[i]] }' > "$WORK/grouped"
-while IFS=$'\t' read -r dep pinned branch_new newest repos; do
+days_between() {  # YYYY-MM-DD YYYY-MM-DD -> whole days from the first to the second, or nothing
+  # /bin/date, the BSD one: GNU coreutils' date, first on a Homebrew PATH, has no -j.
+  local a b
+  a=$(/bin/date -j -f %Y-%m-%d "$1" +%s 2>/dev/null) && b=$(/bin/date -j -f %Y-%m-%d "$2" +%s 2>/dev/null) || return 0
+  echo $(( (b - a) / 86400 ))
+}
+while IFS=$'\t' read -r dep pinned branch_new newer repos; do
+  [[ $newer == - ]] && newer=""
   line=""; id=""
-  if newer "$pinned" "$branch_new"; then
-    line="$dep in $repos: $pinned → $branch_new"; id="$dep:$pinned:$branch_new"
-    [[ $dep == FFmpeg ]] && line+=" (point release on its branch)"
-  fi
-  if [[ $dep == FFmpeg ]] && newer "$branch_new" "$newest" && [[ $(cut -d. -f1-2 <<<"$newest") != $(cut -d. -f1-2 <<<"$pinned") ]]; then
-    if [[ -n $line ]]; then line+="; newest line is $newest"; else line="$dep in $repos: $pinned is current on its branch; newest line is $newest"; fi
-    id="${id:-$dep:$pinned}:$newest"
+  if [[ $dep == FFmpeg ]]; then
+    if newer "$pinned" "$branch_new"; then
+      line="FFmpeg in $repos: $pinned → $branch_new (point release on its branch)"; id="ffmpeg:$pinned:$branch_new"
+    fi
+    if [[ -n $newer ]]; then
+      if [[ -n $line ]]; then line+="; newer lines: ${newer// /, }"
+      else line="FFmpeg in $repos: $pinned is current on its branch; newer lines: ${newer// /, }"; fi
+      id="${id:-ffmpeg:$pinned}:${newer// /,}"
+      # A branch gone quiet: every newer line has had a release at least 60 days
+      # after this branch's last. FFmpeg ships its maintained branches together
+      # (7.1.5, 8.0.3 and 8.1.2 within three days in June 2026), so a branch
+      # left out of later rounds is the first sign it is being wound down.
+      upstream "ffmpeg-date:$branch_new"; d0=$UPV; quiet=1
+      for v in $newer; do
+        upstream "ffmpeg-date:$v"; gap=$(days_between "$d0" "$UPV")
+        if [[ -z $gap ]] || (( gap < 60 )); then quiet=0; fi
+      done
+      (( quiet )) && line+="; $(cut -d. -f1-2 <<<"$branch_new") looks quiet: nothing since $branch_new ($d0), while every newer line has released 60 or more days later"
+    fi
+  elif [[ -n $newer ]]; then
+    line="$dep in $repos: $pinned → ${newer// /, }"; id="$dep:$pinned:${newer// /,}"
   fi
   [[ -n $line ]] && printf '%s\t%s\n' "${id,,}" "$line" >> "$WORK/findings"
 done < "$WORK/grouped"
@@ -217,7 +265,7 @@ fi
 {
   echo "== Vendored pins (<repo>/Vendor/*-manifest.env)"
   if [[ -s $WORK/pins ]]; then
-    { printf 'DEPENDENCY\tREPO\tPINNED\tNEWEST ON BRANCH\tNEWEST\n'; sort -t$'\t' -k1,1 -k2,2f "$WORK/pins"; } | column -t -s$'\t' | sed 's/^/  /'
+    { printf 'DEPENDENCY\tREPO\tPINNED\tNEWEST ON BRANCH\tNEWER LINES OR RELEASES\n'; sort -t$'\t' -k1,1 -k2,2f "$WORK/pins"; } | column -t -s$'\t' | sed 's/^/  /'
   else
     echo "  none found under $PROJECTS"
   fi

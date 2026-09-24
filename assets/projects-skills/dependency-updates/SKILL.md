@@ -29,8 +29,8 @@ bash $S/check.sh --ack ID|all  # stop the session notice repeating these
 | What | Pinned in | Compared with |
 |---|---|---|
 | yt-dlp | `ClipHack/Vendor/ytdlp-manifest.env` | yt-dlp's latest GitHub release |
-| FFmpeg | `Vendor/ffmpeg-manifest.env` (`FFMPEG_SOURCE_RELEASE`) in the three FFmpeg repos | FFmpeg's release tags: the newest point release on the pinned branch, and the newest line |
-| LAME | the same manifest (`LAME_VERSION`, or the version in `LAME_SOURCE_URL`) | SourceForge's current release |
+| FFmpeg | `Vendor/ffmpeg-manifest.env` (`FFMPEG_SOURCE_RELEASE`) in the three FFmpeg repos | FFmpeg's release tags: the newest point release on the pinned branch, and the newest release of every newer line. It also flags a pinned branch as quiet when every newer line has released 60 or more days after its last release |
+| LAME | the same manifest (`LAME_VERSION`, or the version in `LAME_SOURCE_URL`) | every release in SourceForge's RSS feed newer than the pin, not only the latest: 3.101, the last 3.x, came out two days before 4.0 |
 | npm and other manifests GitHub reads | `package-lock.json` and the like | open Dependabot alerts, on every non-archived repository the account owns |
 | any other `*_VERSION` in a Vendor manifest | wherever it is | nothing yet: it is reported as unchecked, so a new vendored tool is not silently ignored. Teach `check.sh` about it. |
 
@@ -174,10 +174,17 @@ work directory, so repin all three the same day.
 ## 4. Update npm dependencies (Dependabot)
 
 - **doublender-dashboard.** Every dependency is a devDependency (wrangler,
-  vitest, TypeScript), so its alerts never reach the deployed Worker. Run
-  `npm ci`, then `npm audit fix`. Never pass `--force` without reading what it
-  would change. Run `npx vitest run` and commit the lockfile. Redeploy
-  (`npm run deploy`) only if a runtime dependency changed.
+  vitest, TypeScript), so its alerts never reach the deployed Worker, though
+  wrangler bundles it. Most of its alerts come through the Workers test
+  tooling, `@cloudflare/vitest-plugin` (renamed from
+  `@cloudflare/vitest-pool-workers` at 1.0), which pins exact versions of
+  miniflare, wrangler and esbuild. `npm audit fix` cannot move those: on
+  2026-09-23 it cleared 2 of 25 alerts, while moving the plugin to its latest
+  release with the Vitest it requires cleared all of them. So update the plugin
+  first, then `npm dedupe` and `npm audit fix`. Never pass `--force` without
+  reading what it would change. Run `npx vitest run`, and compare
+  `npx wrangler deploy --dry-run --outdir` before and after; redeploy
+  (`npm run deploy`) only if the Worker itself changed.
 - Dependabot closes fixed alerts once the lockfile is pushed. Re-run `check.sh`
   afterwards; that also clears the session notice.
 
