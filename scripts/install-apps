@@ -50,11 +50,11 @@ GITHUB_APP_TEAM_ID="T9RLNAXPWU"
 #     is MagicBackupMachine-*.dmg. install_github_app compares bundle names, so
 #     the spacing here is load-bearing.
 #
-# JustLoop, WireHack and Perfect Passwords Grabber are absent because they are
-# not installed on this Mac. WireHack is retired; ClipHack supersedes it.
-# Cypher/FL2601 is retired too (2026-09-23), and never came from here: being
-# sandboxed with no network entitlement, it could not check for its own
-# updates, so it was a Homebrew cask.
+# Perfect Passwords Grabber is absent because it is not installed on this Mac.
+# WireHack, JustLoop and JustIn are retired: ClipHack supersedes WireHack, and
+# WaxOn/WaxOff covers JustIn. Cypher/FL2601 is retired too (2026-09-23), and
+# never came from here: being sandboxed with no network entitlement, it could
+# not check for its own updates, so it was a Homebrew cask.
 COMPANION_APPS=(
   "Barkeep.app|sevmorris/Barkeep|Barkeep"
   "ClipHack.app|sevmorris/ClipHack-releases|ClipHack"
