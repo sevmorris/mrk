@@ -1277,7 +1277,7 @@ mrk-push -- "-starts with a dash"</code></pre>
           <pre><code>prune-deployments [--repo OWNER/NAME] [--keep N] [--environment ENV] [--dry-run] [--help | -h]</code></pre>
           <ul>
             <li><code>--repo OWNER/NAME</code> — Name the target repository. The default is the origin remote of the current repository.</li>
-            <li><code>--keep N</code> — Keep the N most recent deployments. The default is 1. The minimum is 1.</li>
+            <li><code>--keep N</code> — Keep the N most recent deployments. The default is 10, which is what maintain keeps. The minimum is 1. Until 2026-09-23 the default was 1, so a run without <code>--keep</code> left only the live deployment.</li>
             <li><code>--environment ENV</code> — Name the deployment environment. The default is <code>github-pages</code>.</li>
             <li><code>--dry-run</code> — List the deployments to delete. prune-deployments deletes nothing.</li>
           </ul>

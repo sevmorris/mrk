@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# prune-deployments — delete old GitHub Pages deployments, keep the newest
+# prune-deployments — delete old GitHub Pages deployments, keep the newest ten
 #
 # Every push to a Pages branch creates a deployment, and they accumulate
 # forever. bin/mrk-push already prunes them, but only for the mrk repo and
@@ -43,20 +43,23 @@ SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
 REPO=""
-KEEP=1
+# Ten, as maintain keeps and the repo-standards skill asks. Until 2026-09-23
+# the default was 1, and twice that day a run without --keep deleted the
+# history those keep, once from a session whose instructions predated them.
+KEEP=10
 DRY_RUN=0
 ENVIRONMENT="github-pages"
 
 usage() {
   cat <<'EOF'
-prune-deployments — delete old GitHub Pages deployments, keep the newest
+prune-deployments — delete old GitHub Pages deployments, keep the newest ten
 
 Usage:
   prune-deployments [--repo OWNER/NAME] [--keep N] [--environment ENV] [--dry-run]
 
 Options:
   --repo OWNER/NAME   Target repository (default: the origin remote here)
-  --keep N            Keep the N most recent deployments (default: 1)
+  --keep N            Keep the N most recent deployments (default: 10)
   --environment ENV   Deployment environment (default: github-pages)
   --dry-run           List what would be deleted; delete nothing
   -h, --help          Show this help

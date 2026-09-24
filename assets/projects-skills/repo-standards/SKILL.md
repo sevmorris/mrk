@@ -133,9 +133,9 @@ from reopening it.
   `git-filter-repo` in the Brewfile), turn it off first and back on after:
   `gh api -X PUT repos/sevmorris/R/rulesets/<id> -f enforcement=disabled`.
   `gh api repos/sevmorris/R/rulesets` lists the ids.
-- **`prune-deployments` keeps only the newest deployment unless told
-  otherwise.** The fix keeps ten, which is what `maintain` keeps for mrk, so
-  pass `--keep 10`. The audit flags only more than twenty. Every push to a Pages
+- **`prune-deployments` keeps ten deployments.** That is its default, and
+  what `maintain` and `mrk-push` keep for mrk; until 2026-09-23 the default was
+  one, which is why older notes pass `--keep 10`. The audit flags only more than twenty. Every push to a Pages
   site adds a deployment, and a threshold at ten made wp-sim-93 read as a gap
   after the push that added its licence. The gap between the two numbers keeps
   a routine push from looking like a pile-up. The tool always keeps the
