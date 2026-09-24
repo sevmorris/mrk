@@ -134,23 +134,25 @@ work directory, so repin all three the same day.
    must be 0, as it is for every build so far. Build with the same SDK as
    the binary being replaced (`otool -l` shows `sdk`), so that parity
    measures FFmpeg's changes and nothing else.
-4. **Run parity, old binary against new.** ClipHack and WaxOnWaxOff each have
+4. **Run parity, old binary against new.** All three repos have
    `scripts/parity-corpus-gen.sh` and `scripts/parity-check.sh`. Their
    thresholds are frozen: never edit one after seeing results; take failing
-   data to the owner. WaxOnWaxOff encodes MP3, so a LAME change must
-   pre-register its bitstream divergence *before* the run. Its harness always
-   skips the MP3 null gate. When LAME is unchanged, compare the decoded MP3s
-   separately: in the 8.0 → 8.0.3 move the audio was identical and the files
-   differed by one byte, the `Lavf` encoder string in the ID3 tag.
-   FilmStrip has no harness. Compile its own `Services/FilterGraphBuilder.swift`
-   and `Models/AudioTrack.swift` with a small `main.swift` that prints
-   `FilterGraphBuilder.build(...)` for a channel count, layout and duration,
-   so the graphs are the app's rather than retyped. Run pass 1, two-pass
-   loudnorm at −18 and AAC 192k through both binaries on stereo, 5.1 and mono
-   videos made with Homebrew's full FFmpeg. Measure with one meter, and first
-   run the old binary against itself and against something known to differ.
-   Also diff every `ffprobe` call the apps make: FilmStrip parses
-   `-show_streams` JSON.
+   data to the owner. Validate a harness before trusting it: the old binary
+   against itself must pass everything, and against Homebrew's FFmpeg it must
+   fail. WaxOnWaxOff encodes MP3, so a LAME change must pre-register its
+   bitstream divergence *before* the run. Its harness always skips the MP3 null
+   gate. When LAME is unchanged, compare the decoded MP3s separately: in the
+   8.0 → 8.0.3 move the audio was identical and the files differed by one byte,
+   the `Lavf` encoder string in the ID3 tag.
+   FilmStrip's harness was added after its 8.0.3 move, which an ad-hoc script
+   checked. It compiles the app's own `FilterGraphBuilder.swift`, so the
+   graphs are not retyped. It gates every stage at a −inf null, and also gates
+   the loudnorm JSON and the `ffprobe` fields TrackInspector reads. It needs
+   video fixtures, so its corpus comes from Homebrew's full FFmpeg.
+   `FilmStrip/Vendor/README.md` ("Parity") has the commands and the 2026-09-23
+   results: 8.0 → 8.0.3 changed only a `vendor_id` tag the app does not read,
+   and 9.0.2 fails on every fixture. Also diff every `ffprobe` call the other
+   apps make.
 5. **Publish the binaries** as `ffmpeg-deps-<version>-audio-arm64-r<N>`, in the
    repo named by `FFMPEG_DEPS_REPO` (ClipHack's is `ClipHack-releases`).
    `r<N>` is the **recipe** revision, shared by all three repos: 8.0.3 went
