@@ -46,7 +46,7 @@ missing ones as a list, and the repo state a release would trip over.
 | `generic-dest` | xcodebuild silently building one architecture. | every app |
 | `v-tag-filter` | A dependency or checkpoint tag being read as the previous release and truncating the notes. | every app |
 | `exit-trap` / `signal-trap` | A failed *or interrupted* release stranding a version bump in the working tree. zsh does not run an EXIT trap on a signal. | every app |
-| `shared-files` | Byte-identical files drifting between repos. | repos with siblings |
+| `shared-files` | Byte-identical files drifting between repos. The siblings are looked for beside the repo's main checkout, so a release from a worktree compares too: on 2026-09-24 one looked beside the worktree, compared nothing, and still reported the files in sync. Comparing nothing now fails when siblings are checked out, and only warns in a lone clone. | repos with siblings |
 
 `n/a` in the matrix means the guard has nothing to protect: a script building a
 plain image with `hdiutil create` has no dmgbuild to crash and no installer
