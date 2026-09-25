@@ -115,6 +115,7 @@ cask "onyx", greedy: true
 cask "openaudible", greedy: true
 cask "openmtp", greedy: true
 cask "piezo", greedy: true
+cask "prismlauncher", greedy: true
 cask "pulsar", greedy: true
 cask "raspberry-pi-imager", greedy: true
 cask "raycast", greedy: true
