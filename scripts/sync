@@ -54,15 +54,20 @@ done
 
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 readonly BREWFILE="$REPO_ROOT/Brewfile"
+# The one description table: an add writes to it and a prune deletes from it.
+readonly PICKER_GO="$REPO_ROOT/tools/picker/main.go"
 
 if [[ ! -f "$BREWFILE" ]]; then
   err "Brewfile not found: $BREWFILE"
   exit 1
 fi
 
-# Resolve Homebrew
-HOMEBREW=""
-if [[ -x /opt/homebrew/bin/brew ]]; then
+# Resolve Homebrew. MRK_BREW names another brew, so tests/sync.sh can run sync
+# against a stub, as SHELLS_FILE lets a test run scripts/setup.
+HOMEBREW="${MRK_BREW:-}"
+if [[ -n "$HOMEBREW" ]]; then
+  [[ -x "$HOMEBREW" ]] || { err "MRK_BREW is not executable: $HOMEBREW"; exit 1; }
+elif [[ -x /opt/homebrew/bin/brew ]]; then
   HOMEBREW=/opt/homebrew/bin/brew
 elif [[ -x /usr/local/bin/brew ]]; then
   HOMEBREW=/usr/local/bin/brew
@@ -77,12 +82,16 @@ TEMP_BREWFILE=""
 TEMP_INSERTIONS=""
 BREWFILE_TMP=""
 PICKER_TMP=""
+TEMP_META=""
+TEMP_DESCS=""
 PICKER_CHANGED=0
 cleanup() {
   [[ -n "$TEMP_BREWFILE"   && -f "$TEMP_BREWFILE"   ]] && rm -f "$TEMP_BREWFILE"   || true
   [[ -n "$TEMP_INSERTIONS" && -f "$TEMP_INSERTIONS" ]] && rm -f "$TEMP_INSERTIONS" || true
   [[ -n "$BREWFILE_TMP"    && -f "$BREWFILE_TMP"    ]] && rm -f "$BREWFILE_TMP"    || true
   [[ -n "$PICKER_TMP"      && -f "$PICKER_TMP"      ]] && rm -f "$PICKER_TMP"      || true
+  [[ -n "$TEMP_META"       && -f "$TEMP_META"       ]] && rm -f "$TEMP_META"       || true
+  [[ -n "$TEMP_DESCS"      && -f "$TEMP_DESCS"      ]] && rm -f "$TEMP_DESCS"      || true
 }
 trap cleanup EXIT INT TERM
 
@@ -371,7 +380,6 @@ if (( PRUNE && n_stale > 0 )); then
 # awk rather than sed because a package name is not a regex: python@3.12 would
 # otherwise match python@3-12. Splitting on quotes makes field 2 the key, the
 # comparison is exact, and only lines inside `var descriptions` are touched.
-PICKER_GO="$REPO_ROOT/tools/picker/main.go"
 
 # Print, one per line and sorted, the pruned names whose description should go.
 _orphaned_descriptions() {
@@ -469,14 +477,17 @@ elif (( PRUNE && n_stale == 0 )); then
   log "No stale entries found — Brewfile is clean."
 fi
 
-# Section 9 reads these on every path. Declared inside the add flow, they were
+# Section 11 reads these on every path. Declared inside the add flow, they were
 # unbound on a prune-only run, so `sync -p -c` pruned the Brewfile and then died
 # under set -u before it could commit.
 declare -A selected_casks=()
 declare -A formula_section_map=()
 
 if (( ${#new_formulae_arr[@]} == 0 && ${#new_casks_arr[@]} == 0 )); then
-  if git diff --quiet "$BREWFILE" 2>/dev/null; then
+  # -C, because sync runs from wherever you are: from outside the repository
+  # this diff used to fail, and a sync with nothing to do fell through to the
+  # prune-only path, never saying the Brewfile was up to date.
+  if git -C "$REPO_ROOT" diff --quiet -- Brewfile 2>/dev/null; then
     log "Brewfile is up to date. No new packages found."
     exit 0
   fi
@@ -654,7 +665,202 @@ if (( n_selected_formulae == 0 && n_selected_casks == 0 )); then
   exit 0
 fi
 
-# ─── 5. Section assignment for formulae ──────────────────────────────────────
+# ─── 5. Look up each selected package in Homebrew ───────────────────────────
+#
+# Every entry needs two things besides its line, and until 2026-09-27 sync
+# supplied neither: a description in tools/picker/main.go, which
+# check-picker-desc requires of every package, and, for a cask, a section that
+# says what kind of app it is. So each add left the gate red until someone wrote
+# the description by hand: `sync: add prismlauncher` on 2026-09-24, then
+# `picker: describe prismlauncher` to turn main green again.
+#
+# Both now come from what Homebrew and the app already say about themselves.
+#
+#   - The description is Homebrew's own `desc`. A cask whose token does not
+#     name the product gets its display name in front ("GitHub Desktop — …"),
+#     as the hand-written entries do. sync writes a description only where
+#     there is none, so rewording one in main.go sticks.
+#   - A cask's section is the category its app declares: LSApplicationCategoryType
+#     in the Info.plist, the vocabulary the App Store uses, mapped below onto the
+#     Brewfile's `## Casks - X` names. An app that declares none, or a cask with
+#     no app bundle to read, goes to Utilities. sync never moves an entry that is
+#     already in the Brewfile, so a line moved by hand stays where it was put.
+#
+# A formula's section is still asked for (section 6). Matching each formula's
+# description against the other sections' descriptions placed 37 of the
+# Brewfile's 53 formulae correctly, which is exactly what "always the first
+# section" scores: the formula sections say why a tool is here (Repo essentials,
+# Languages / runtimes), not what it does. The prompt shows Homebrew's
+# description instead of a guess.
+
+if ! command -v python3 >/dev/null 2>&1; then
+  err "python3 not found — cannot modify Brewfile"
+  exit 1
+fi
+
+sorted_selected_formulae=()
+sorted_selected_casks=()
+if (( n_selected_formulae > 0 )); then
+  mapfile -t sorted_selected_formulae < <(
+    for pkg in "${!selected_formulae[@]}"; do
+      (( selected_formulae["$pkg"] == 1 )) && printf '%s\n' "$pkg"
+    done | sort
+  )
+fi
+if (( n_selected_casks > 0 )); then
+  mapfile -t sorted_selected_casks < <(
+    for pkg in "${!selected_casks[@]}"; do
+      (( selected_casks["$pkg"] == 1 )) && printf '%s\n' "$pkg"
+    done | sort
+  )
+fi
+
+meta_args=()
+for pkg in "${sorted_selected_formulae[@]}"; do meta_args+=("formula:$pkg"); done
+for pkg in "${sorted_selected_casks[@]}";    do meta_args+=("cask:$pkg");    done
+
+log "Reading Homebrew's descriptions for ${#meta_args[@]} package(s)..."
+TEMP_META=$(mktemp "${TMPDIR:-/tmp}/mrk-meta.XXXXXX")
+
+# One record per package, fields split by the unit separator rather than a tab:
+# bash's `read` folds a run of tabs into one, so an empty field would shift the
+# rest. Fields: kind, name, section (casks only), why that section, description,
+# and 1 when main.go already describes the name.
+python3 - "$HOMEBREW" "$PICKER_GO" "${meta_args[@]}" > "$TEMP_META" <<'PYEOF'
+import json, os, plistlib, re, subprocess, sys
+
+brew, picker_go = sys.argv[1], sys.argv[2]
+pkgs = [a.split(':', 1) for a in sys.argv[3:]]
+
+# LSApplicationCategoryType, without its public.app-category. prefix, to the
+# Brewfile section a cask declaring it goes to. Names stay short enough for
+# mrk-picker's category pane, and free of " & " and " / ", which its
+# categoryName() reads as qualifiers to cut. Two merges: music is Audio,
+# because the apps here record and route sound rather than play songs, and
+# business joins social-networking as Communication, because the business apps
+# here are Slack and Zoom.
+SECTIONS = {
+    'business': 'Communication',
+    'developer-tools': 'Developer Tools',
+    'education': 'Education',
+    'entertainment': 'Entertainment',
+    'finance': 'Finance',
+    'games': 'Games',
+    'graphics-design': 'Graphics',
+    'healthcare-fitness': 'Health',
+    'lifestyle': 'Lifestyle',
+    'medical': 'Medical',
+    'music': 'Audio',
+    'news': 'News',
+    'photography': 'Photography',
+    'productivity': 'Productivity',
+    'reference': 'Reference',
+    'social-networking': 'Communication',
+    'sports': 'Sports',
+    'travel': 'Travel',
+    'utilities': 'Utilities',
+    'video': 'Video',
+    'weather': 'Weather',
+}
+FALLBACK = 'Utilities'
+# Homebrew's default appdir, and the one HOMEBREW_CASK_OPTS most often names.
+APP_DIRS = ['/Applications', os.path.expanduser('~/Applications')]
+PREFIX = 'public.app-category.'
+
+described = set(re.findall(r'^\t"([^"]+)":', open(picker_go, encoding='utf-8').read(), re.M)) \
+    if os.path.isfile(picker_go) else set()
+
+def norm(s):
+    return re.sub(r'[^a-z0-9]', '', s.lower())
+
+def info(kind, name):
+    try:
+        r = subprocess.run([brew, 'info', '--json=v2', '--' + kind, name],
+                           stdin=subprocess.DEVNULL, capture_output=True, text=True)
+        data = json.loads(r.stdout) if r.returncode == 0 else {}
+    except (OSError, ValueError):
+        data = {}
+    items = data.get('formulae' if kind == 'formula' else 'casks') or []
+    return items[0] if items and isinstance(items[0], dict) else None
+
+def app_bundles(item):
+    """The .app names a cask installs: each app artifact's target, or its
+    source when it has none; then each display name, which finds the app a
+    pkg installer puts in /Applications without declaring it."""
+    names = []
+    for art in item.get('artifacts') or []:
+        args = art.get('app') if isinstance(art, dict) else None
+        if not args or not isinstance(args[0], str):
+            continue
+        opts = args[1] if len(args) > 1 and isinstance(args[1], dict) else {}
+        names.append(os.path.basename(str(opts.get('target') or args[0]).rstrip('/')))
+    names += [n + '.app' for n in item.get('name') or [] if isinstance(n, str)]
+    return list(dict.fromkeys(names))
+
+def section_for(item):
+    for app in app_bundles(item):
+        for d in APP_DIRS:
+            plist = os.path.join(d, app, 'Contents', 'Info.plist')
+            if not os.path.isfile(plist):
+                continue
+            try:
+                with open(plist, 'rb') as f:
+                    declared = plistlib.load(f).get('LSApplicationCategoryType')
+            except Exception:
+                return FALLBACK, f'{app} has an Info.plist that cannot be read'
+            if not isinstance(declared, str) or not declared.strip():
+                return FALLBACK, f'{app} declares no category'
+            declared = declared.strip()
+            key = declared.lower()
+            key = key[len(PREFIX):] if key.startswith(PREFIX) else key
+            if key.endswith('-games'):
+                key = 'games'
+            if key in SECTIONS:
+                return SECTIONS[key], f'{app} declares {declared}'
+            return FALLBACK, f'{app} declares {declared}, which maps to no section'
+    return FALLBACK, 'no installed app bundle to read'
+
+def describe(kind, name, item):
+    desc = ' '.join(str(item.get('desc') or '').split())
+    if not desc:
+        return ''
+    if kind == 'cask':
+        display = next((n for n in item.get('name') or [] if isinstance(n, str) and n.strip()), '')
+        token = name.rsplit('/', 1)[-1]
+        if display and norm(display) != norm(token) and norm(display) not in norm(desc):
+            desc = f'{display.strip()} — {desc}'
+    return desc
+
+for kind, name in pkgs:
+    item = info(kind, name)
+    section = reason = desc = ''
+    if item is None:
+        reason = 'Homebrew has no record of it'
+        if kind == 'cask':
+            section = FALLBACK
+    else:
+        desc = describe(kind, name, item)
+        if kind == 'cask':
+            section, reason = section_for(item)
+    fields = [kind, name, section, reason, desc, '1' if name in described else '0']
+    print('\x1f'.join(f.replace('\x1f', ' ').replace('\n', ' ') for f in fields))
+PYEOF
+
+declare -A pkg_desc=()
+declare -A pkg_described=()
+declare -A cask_section_map=()
+declare -A cask_reason=()
+while IFS=$'\x1f' read -r kind name section reason desc have; do
+  [[ -n "$name" ]] || continue
+  pkg_desc["$name"]="$desc"
+  pkg_described["$name"]="$have"
+  if [[ "$kind" == cask ]]; then
+    cask_section_map["$name"]="Casks - $section"
+    cask_reason["$name"]="$reason"
+  fi
+done < "$TEMP_META"
+
+# ─── 6. Section assignment for formulae ──────────────────────────────────────
 
 # Extract formula section headers (skip Taps and Casks)
 declare -a formula_sections=()
@@ -669,37 +875,23 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   fi
 done < "$BREWFILE"
 
-# Find the cask section header
-cask_section_header="Casks - General Applications & Utilities"
-while IFS= read -r line || [[ -n "$line" ]]; do
-  if [[ "$line" =~ ^##[[:space:]](Casks.*) ]]; then
-    cask_section_header="${BASH_REMATCH[1]}"
-    break
-  fi
-done < "$BREWFILE"
-
 # Per-formula section assignment via gum
 
 if (( n_selected_formulae > 0 )); then
   if ! command -v gum >/dev/null 2>&1; then
     warn "gum not available — assigning formulae to '${formula_sections[0]:-CLI Tools}'"
-    for pkg in "${!selected_formulae[@]}"; do
-      (( selected_formulae["$pkg"] == 1 )) || continue
+    for pkg in "${sorted_selected_formulae[@]}"; do
       formula_section_map["$pkg"]="${formula_sections[0]:-CLI Tools}"
     done
   else
-    # Sort formulae for consistent prompt order
-    mapfile -t sorted_selected_formulae < <(
-      for pkg in "${!selected_formulae[@]}"; do
-        (( selected_formulae["$pkg"] == 1 )) && printf '%s\n' "$pkg"
-      done | sort
-    )
     for pkg in "${sorted_selected_formulae[@]}"; do
+      header="Add formula '$pkg' to which section?"
+      [[ -n "${pkg_desc[$pkg]:-}" ]] && header+=$'\n'"${pkg_desc[$pkg]}"
       echo "" > /dev/tty
       section_choice=$(gum choose \
         --cursor.foreground=212 \
         --selected.foreground=212 \
-        --header="Add formula '$pkg' to which section?" \
+        --header="$header" \
         "${formula_sections[@]}" "New section…" \
         < /dev/tty 2>/dev/tty) || section_choice=""
 
@@ -730,7 +922,7 @@ if (( n_formula_insertions == 0 && n_selected_casks == 0 )); then
   exit 0
 fi
 
-# ─── 6. Build insertions list ────────────────────────────────────────────────
+# ─── 7. Build insertions list ────────────────────────────────────────────────
 
 insertions_data=""
 
@@ -739,26 +931,52 @@ for pkg in "${!formula_section_map[@]}"; do
   insertions_data+="${section}"$'\t'"brew \"${pkg}\""$'\n'
 done
 
-if (( ${#selected_casks[@]} > 0 )); then
-  for pkg in "${!selected_casks[@]}"; do
-    (( selected_casks["$pkg"] == 1 )) || continue
-      # `greedy: true`, because this Brewfile carries it on every cask but one.
-      #
-      # It is not Homebrew's default — `brew bundle dump` emits a bare
-      # `cask "name"`, and so did this line, so neither of the two ways a cask
-      # can enter the Brewfile maintained the convention. Both casks sync has
-      # ever added went in bare, between neighbours that had it (`sync: add
-      # softraid`, `sync: add nordpass`), and `onyx` had to be repaired by a
-      # later bulk snapshot.
-      #
-      # Without it `brew bundle` skips the cask when upgrading anything that
-      # sets auto_updates or version :latest, so it quietly stops being
-      # upgraded by `make update` — the opposite of why it was synced.
-    insertions_data+="${cask_section_header}"$'\t'"cask \"${pkg}\", greedy: true"$'\n'
-  done
-fi
+for pkg in "${sorted_selected_casks[@]}"; do
+  # `greedy: true`, because this Brewfile carries it on every cask but one.
+  #
+  # It is not Homebrew's default — `brew bundle dump` emits a bare
+  # `cask "name"`, and so did this line, so neither of the two ways a cask
+  # can enter the Brewfile maintained the convention. Both casks sync has
+  # ever added went in bare, between neighbours that had it (`sync: add
+  # softraid`, `sync: add nordpass`), and `onyx` had to be repaired by a
+  # later bulk snapshot.
+  #
+  # Without it `brew bundle` skips the cask when upgrading anything that
+  # sets auto_updates or version :latest, so it quietly stops being
+  # upgraded by `make update` — the opposite of why it was synced.
+  insertions_data+="${cask_section_map[$pkg]}"$'\t'"cask \"${pkg}\", greedy: true"$'\n'
+done
 
-# ─── 7. Show summary ─────────────────────────────────────────────────────────
+# The packages whose description sync will write: added, and not yet described.
+# Ordered formulae first, as the map in main.go is. A formula and a cask with
+# the same name share one description, as check-picker-desc matches by name.
+describe_pkgs=()
+undescribable=()
+declare -A _listed=()
+while IFS= read -r pkg; do
+  [[ -n "$pkg" && -z "${_listed[$pkg]+x}" ]] || continue
+  _listed["$pkg"]=1
+  [[ "${pkg_described[$pkg]:-0}" == 1 ]] && continue
+  if [[ -n "${pkg_desc[$pkg]:-}" ]]; then
+    describe_pkgs+=("$pkg")
+  else
+    undescribable+=("$pkg")
+  fi
+done < <(printf '%s\n' "${!formula_section_map[@]}" | sort; printf '%s\n' "${sorted_selected_casks[@]}")
+
+# ─── 8. Show summary ─────────────────────────────────────────────────────────
+
+# The description sync will write for a package, or why it writes none.
+_desc_note() {
+  local pkg="$1"
+  if [[ "${pkg_described[$pkg]:-0}" == 1 ]]; then
+    printf '(already described in tools/picker/main.go)'
+  elif [[ -n "${pkg_desc[$pkg]:-}" ]]; then
+    printf '"%s"' "${pkg_desc[$pkg]}"
+  else
+    printf '(Homebrew has no description — write one in tools/picker/main.go)'
+  fi
+}
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -770,34 +988,31 @@ if (( ${#formula_section_map[@]} > 0 )); then
   echo "  Formulae:"
   while IFS= read -r pkg; do
     printf "    + brew \"%s\"  →  %s\n" "$pkg" "${formula_section_map[$pkg]}"
+    printf "        %s\n" "$(_desc_note "$pkg")"
   done < <(printf '%s\n' "${!formula_section_map[@]}" | sort)
 fi
 
 if (( n_selected_casks > 0 )); then
   echo ""
   echo "  Casks:"
-  while IFS= read -r pkg; do
-    (( selected_casks["$pkg"] == 1 )) || continue
+  for pkg in "${sorted_selected_casks[@]}"; do
     # Show exactly what will be written, greedy modifier included.
-      printf "    + cask \"%s\", greedy: true  →  %s\n" "$pkg" "$cask_section_header"
-  done < <(printf '%s\n' "${!selected_casks[@]}" | sort)
+    printf "    + cask \"%s\", greedy: true  →  %s  (%s)\n" \
+      "$pkg" "${cask_section_map[$pkg]}" "${cask_reason[$pkg]}"
+    printf "        %s\n" "$(_desc_note "$pkg")"
+  done
 fi
 
 echo ""
 
 if (( DRY_RUN )); then
-  echo "  [dry run] Brewfile not modified."
+  echo "  [dry run] Brewfile and tools/picker/main.go not modified."
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
   exit 0
 fi
 
-# ─── 8. Apply insertions with Python3 ────────────────────────────────────────
-
-if ! command -v python3 >/dev/null 2>&1; then
-  err "python3 not found — cannot modify Brewfile"
-  exit 1
-fi
+# ─── 9. Apply insertions with Python3 ────────────────────────────────────────
 
 TEMP_INSERTIONS=$(mktemp "${TMPDIR:-/tmp}/mrk-insertions.XXXXXX")
 printf '%s' "$insertions_data" > "$TEMP_INSERTIONS"
@@ -861,11 +1076,17 @@ def find_insert_idx(lines, start, end, entry):
         n = pkg_name(lines[i])
         if n and n > entry_name:
             return i
-    # Insert after the last non-blank line in the section
+    # Otherwise after the section's last entry, not its last non-blank line: the
+    # comment that introduces the cask sections closes the section before them,
+    # and a formula sorting last there would land below it.
+    for i in range(end - 1, start - 1, -1):
+        if pkg_name(lines[i]):
+            return i + 1
+    # A section with no entries yet: after whatever it holds
     for i in range(end - 1, start - 1, -1):
         if lines[i].strip():
             return i + 1
-    return end
+    return start
 
 # Split into existing-section and new-section insertions
 to_insert   = []  # (line_idx, entry)
@@ -880,17 +1101,30 @@ for section, entry in insertions:
         idx = find_insert_idx(lines, start, end, entry)
         to_insert.append((idx, entry))
 
-# Apply existing-section insertions from bottom to top (avoid index shifting)
-to_insert.sort(key=lambda x: x[0], reverse=True)
+# Apply existing-section insertions from bottom to top (avoid index shifting).
+# Entries bound for the same line go in last name first, so each pushes the one
+# after it down and they read alphabetically; by line alone their order was the
+# order bash listed an associative array in.
+to_insert.sort(key=lambda x: (x[0], pkg_name(x[1]) or x[1]), reverse=True)
 for idx, entry in to_insert:
     lines.insert(idx, entry + '\n')
 
-# Append new sections at end of file
+# A new cask section goes in alphabetical order among the others, directly
+# before the first that sorts after it, so the comment introducing them stays
+# on top. Any other new section, and a cask section sorting last, is appended.
+CASKS = '## Casks - '
 for section in sorted(new_sections):
-    entries = sorted(new_sections[section])
-    lines.append(f'\n## {section}\n')
-    for entry in entries:
-        lines.append(entry + '\n')
+    entries = sorted(new_sections[section], key=lambda e: pkg_name(e) or e)
+    block = [f'## {section}\n'] + [entry + '\n' for entry in entries]
+    before = None
+    if ('## ' + section).startswith(CASKS):
+        before = next((i for i, l in enumerate(lines)
+                       if l.startswith(CASKS) and l.rstrip('\n') > '## ' + section), None)
+    if before is None:
+        lines.append('\n')
+        lines.extend(block)
+    else:
+        lines[before:before] = block + ['\n']
 
 with open(out_path, 'w') as f:
     f.writelines(lines)
@@ -905,13 +1139,99 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 log "Brewfile updated."
 
-fi  # end new-package add flow (prune-only skips sections 4–8)
+# ─── 10. Describe the new packages in tools/picker/main.go ──────────────────
+#
+# The descriptions section 5 read from Homebrew. A formula goes at the end of
+# the map's formulae block, which is in no order, and a cask in alphabetical
+# order among the casks. gofmt runs on the new file before it replaces main.go,
+# so a file gofmt cannot parse never lands, and the columns are realigned as
+# the prune realigns them. The Brewfile is written by now, so a failure names
+# what is left to describe and goes on, as the prune does.
 
-# ─── 9. Optional commit ──────────────────────────────────────────────────────
+# _add_descriptions FILE — FILE holds kind, name and description per line,
+# split by the unit separator.
+_add_descriptions() {
+  PICKER_TMP="$(mktemp "${PICKER_GO%/*}/.main.go.XXXXXX")"
+  if ! python3 - "$PICKER_GO" "$1" "$PICKER_TMP" <<'PYEOF'
+import re, sys
+
+go_path, adds_path, out_path = sys.argv[1:4]
+with open(go_path, encoding='utf-8') as f:
+    lines = f.read().split('\n')
+try:
+    start = next(i for i, l in enumerate(lines) if l.startswith('var descriptions = map[string]string{'))
+    end = next(i for i in range(start + 1, len(lines)) if lines[i] == '}')
+except StopIteration:
+    sys.exit('sync: the descriptions map was not found in tools/picker/main.go')
+
+key_re = re.compile(r'^\t"([^"]+)":')
+have = {m.group(1) for m in map(key_re.match, lines[start:end]) if m}
+casks_at = next((i for i in range(start, end) if lines[i].strip() == '// Casks'), end)
+
+def literal(s):
+    s = ''.join(c for c in s if c >= ' ')
+    return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
+
+with open(adds_path, encoding='utf-8') as f:
+    for record in f:
+        kind, name, desc = record.rstrip('\n').split('\x1f', 2)
+        if name in have or not desc:
+            continue
+        if kind == 'formula':
+            idx = casks_at
+            casks_at += 1
+        else:
+            idx = next((i for i in range(casks_at + 1, end)
+                        if (m := key_re.match(lines[i])) and m.group(1) > name), end)
+        lines.insert(idx, f'\t{literal(name)}: {literal(desc)},')
+        end += 1
+        have.add(name)
+
+with open(out_path, 'w', encoding='utf-8') as f:
+    f.write('\n'.join(lines))
+PYEOF
+  then
+    return 1
+  fi
+  if command -v gofmt >/dev/null 2>&1; then
+    if ! gofmt -w "$PICKER_TMP"; then
+      err "gofmt rejected the new tools/picker/main.go — left it unchanged."
+      return 1
+    fi
+  else
+    warn "gofmt not found — tools/picker/main.go may need realigning (gofmt -w)."
+  fi
+  chmod 644 "$PICKER_TMP"
+  mv "$PICKER_TMP" "$PICKER_GO"
+  PICKER_TMP=""
+}
+
+if (( ${#describe_pkgs[@]} > 0 )); then
+  TEMP_DESCS=$(mktemp "${TMPDIR:-/tmp}/mrk-descs.XXXXXX")
+  for pkg in "${describe_pkgs[@]}"; do
+    kind=cask
+    [[ -n "${formula_section_map[$pkg]+x}" ]] && kind=formula
+    printf '%s\x1f%s\x1f%s\n' "$kind" "$pkg" "${pkg_desc[$pkg]}" >> "$TEMP_DESCS"
+  done
+  if _add_descriptions "$TEMP_DESCS"; then
+    PICKER_CHANGED=1
+    log "Described ${#describe_pkgs[@]} package(s) in tools/picker/main.go: ${describe_pkgs[*]}"
+  else
+    warn "Describe these in tools/picker/main.go by hand, or check-picker-desc will fail: ${describe_pkgs[*]}"
+  fi
+fi
+if (( ${#undescribable[@]} > 0 )); then
+  warn "Homebrew has no description for: ${undescribable[*]}"
+  warn "Write one in tools/picker/main.go, or check-picker-desc will fail."
+fi
+
+fi  # end new-package add flow (prune-only skips sections 4–10)
+
+# ─── 11. Optional commit ─────────────────────────────────────────────────────
 
 if (( COMMIT )); then
   cd "$REPO_ROOT"
-  # Stage main.go only when this run edited it, so a run that removed no
+  # Stage main.go only when this run edited it, so a run that wrote no
   # description never commits someone's unrelated edit to that file.
   changed_files=()
   git diff --quiet Brewfile 2>/dev/null || changed_files+=("Brewfile")
