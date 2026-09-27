@@ -83,6 +83,10 @@ folders that are not git repositories. Before a migration, deal with each.
 A repository named *.git directly in your home folder, such as DoublEnder's
 Cloud overlay, is never committed or pushed, but its unpushed commits,
 stashes and uncommitted changes are named too (not under --projects).
+
+When the mrk Brewfile has changed, pushall runs check-picker-desc --fix
+before it commits mrk, so a package added or removed in Barkeep or by hand
+takes its mrk-picker description with it.
 EOF
 }
 
@@ -217,6 +221,16 @@ process_repo() {
   fi
 
   if (( dirty )); then
+    # mrk only: a Brewfile that Barkeep or a hand edit changed gets its picker
+    # descriptions written before `git add -u`, so they go in the same commit.
+    if [[ "$repo" == "$MRK_DIR" ]]; then
+      if (( DRY_RUN )); then
+        picker_desc_fix "$repo" --dry-run
+      else
+        picker_desc_fix "$repo"
+      fi
+    fi
+
     # HEAD against the working tree is what `git add -u` is about to stage,
     # so the dry run scans the same files the real run does.
     local target=HEAD

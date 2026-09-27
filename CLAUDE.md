@@ -30,7 +30,8 @@ Check sevmac in the same session as any of these:
 | A Make target added or removed | Table 2.7-1 in SMAC-1 |
 | A change to the install phases, or their order | SMAC-1 §2.2 New Machine Setup |
 | Anything affecting what moves between machines | SMAC-1 §2.6 Migration Checklist |
-| A change to a daily-driver command (`sync`, `snapshot-prefs`, `pushall`, `update-full`, `status`, `mrk-menu`) | SMAC-2 |
+| A change to a daily-driver command (`sync`, `snapshot-prefs`, `pushall`, `mrk-push`, `update-full`, `status`, `mrk-menu`) | SMAC-2 |
+| A change to what mrk does with Barkeep's Brewfile edits (picker descriptions, the line shape mrk accepts) | SMAC-1 §3.3 Barkeep — Interface & Usage |
 | A LaunchAgent schedule change | SMAC-2 Table B-1 |
 | A change to what `mrk-status` checks | SMAC-2 §E, and SMAC-1 §2.8 |
 
@@ -57,6 +58,7 @@ in BIN-1 or SMAC-1 the same afternoon.
 | A change to what a phase does | §How It Works — The Three Phases |
 | Anything affecting what moves between machines | §How to prepare for a new machine |
 | A destructive command gaining or losing a safeguard | its section, and the Caution beside it |
+| A change to how Brewfile edits get their picker descriptions (`sync`, `check-picker-desc --fix`, `mrk-push`, `pushall`) | §How to keep the Brewfile current |
 
 **Do not re-document flags in sevmac.** Flags, exit codes and per-command behaviour live
 in BIN-1 (`docs/bin/mrk-usage.html`), which ships from this repo and is updated in the

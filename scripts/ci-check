@@ -26,8 +26,8 @@ Options:
 ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
-restore-keys, install-all, pinned-downloads, sync-login-items, sync, topgrade-npm
-and picard-settings tests in tests/, shellcheck over the tracked scripts (the skills' audit scripts included),
+restore-keys, install-all, pinned-downloads, sync-login-items, sync,
+check-picker-desc, topgrade-npm and picard-settings tests in tests/, shellcheck over the tracked scripts (the skills' audit scripts included),
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
@@ -135,6 +135,12 @@ log "sync-login-items"
 # red until the package was described by hand.
 log "sync"
 "$REPO_ROOT/tests/sync.sh"
+
+# check-picker-desc --fix, and mrk-push and pushall running it, on copies of the
+# repository edited as Barkeep edits the Brewfile: until 2026-09-27 a package
+# added in Barkeep got no description, and turned check-picker-desc red.
+log "check-picker-desc --fix"
+"$REPO_ROOT/tests/check-picker-desc.sh"
 
 # topgrade's npm steps, with a stub nvm in a throwaway HOME: until 2026-09-23
 # they sourced nvm from Homebrew's prefix, where mrk never installs it, and

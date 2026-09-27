@@ -20,17 +20,39 @@ usage() {
 check-picker-desc — verify mrk-picker has a description for every package
 
 Usage:
-  check-picker-desc
+  check-picker-desc [--fix]
 
 Options:
+      --fix       Describe each package that has no description, in Homebrew's
+                  words, and delete each description no Brewfile entry uses.
+                  A description already in the map is never changed.
   -h, --help      Show this help
 
-check-picker-desc takes no options other than --help. It compares the packages
-in the Brewfile against the descriptions in tools/picker/main.go and fails
-when either side has an entry the other does not. ci-check runs it first.
+check-picker-desc compares the packages in the Brewfile against the
+descriptions in tools/picker/main.go and fails when either side has an entry
+the other does not. ci-check runs it first. mrk-push and pushall run it with
+--fix before they commit a changed Brewfile, which covers the packages Barkeep
+and hand edits add and remove.
 EOF
 }
-mrk_help_guard "$(usage)" "$@"
+
+# --fix exists for the Brewfile's other writers. sync describes each package it
+# adds and deletes the description of each one it prunes; Barkeep adds and
+# removes lines and writes no description, so every Barkeep add turned this
+# gate red until someone described the package by hand. From 2026-09-27 --fix
+# does what sync does, with the same functions from scripts/lib.sh, for
+# whatever the Brewfile holds. It refuses the same Brewfiles the check refuses:
+# a line it cannot parse, or a mas entry, is a hand edit to undo rather than a
+# package to describe.
+FIX=0
+while (( $# )); do
+  case "$1" in
+    --fix)     FIX=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *)         usage >&2; printf '\nunknown argument: %s\n' "$1" >&2; exit 2 ;;
+  esac
+  shift
+done
 
 BREWFILE="$REPO_ROOT/Brewfile"
 PICKER_GO="$REPO_ROOT/tools/picker/main.go"
@@ -85,18 +107,6 @@ if (( ${#unparsable[@]} > 0 )); then
   exit 1
 fi
 
-brew_pkgs=()
-while IFS= read -r pkg; do
-  [[ -n "$pkg" ]] && brew_pkgs+=("$pkg")
-done < <(grep -E '^(brew|cask) "' "$BREWFILE" | sed 's/^[^"]*"\([^"]*\)".*/\1/' | sort -u)
-
-picker_keys=()
-while IFS= read -r key; do
-  [[ -n "$key" ]] && picker_keys+=("$key")
-done < <(grep -E '^\t"[^"]+":' "$PICKER_GO" | sed 's/^\t"\([^"]*\)".*/\1/' | sort -u)
-
-missing=()
-orphan=()
 # Bash-3.2-safe membership test. The previous `printf | grep -Fxq` pattern
 # races against `set -o pipefail` on macOS bash 3.2: when grep -q matches
 # early, printf gets SIGPIPE, pipefail makes the pipeline non-zero, and the
@@ -106,12 +116,98 @@ in_array() {
   for item in "$@"; do [[ $item == "$target" ]] && return 0; done
   return 1
 }
-for pkg in "${brew_pkgs[@]}"; do
-  in_array "$pkg" "${picker_keys[@]}" || missing+=("$pkg")
-done
-for key in "${picker_keys[@]}"; do
-  in_array "$key" "${brew_pkgs[@]}" || orphan+=("$key")
-done
+
+# compare — fill brew_pkgs, picker_keys, missing and orphan. A function, so
+# that --fix can ask again after it writes.
+compare() {
+  brew_pkgs=()
+  while IFS= read -r pkg; do
+    [[ -n "$pkg" ]] && brew_pkgs+=("$pkg")
+  done < <(grep -E '^(brew|cask) "' "$BREWFILE" | sed 's/^[^"]*"\([^"]*\)".*/\1/' | sort -u)
+
+  picker_keys=()
+  while IFS= read -r key; do
+    [[ -n "$key" ]] && picker_keys+=("$key")
+  done < <(grep -E '^\t"[^"]+":' "$PICKER_GO" | sed 's/^\t"\([^"]*\)".*/\1/' | sort -u)
+
+  # ${a[@]+"${a[@]}"}: bash 3.2 calls an empty array unbound under set -u.
+  missing=()
+  orphan=()
+  for pkg in ${brew_pkgs[@]+"${brew_pkgs[@]}"}; do
+    in_array "$pkg" ${picker_keys[@]+"${picker_keys[@]}"} || missing+=("$pkg")
+  done
+  for key in ${picker_keys[@]+"${picker_keys[@]}"}; do
+    in_array "$key" ${brew_pkgs[@]+"${brew_pkgs[@]}"} || orphan+=("$key")
+  done
+}
+
+# fix — describe the missing packages and delete the orphaned descriptions,
+# and say what it wrote. compare, run again afterwards, says what is left.
+fix() {
+  local brew="${MRK_BREW:-}" b
+  if [[ -z "$brew" ]]; then
+    for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+      [[ -x "$b" ]] && { brew=$b; break; }
+    done
+  fi
+  if [[ -z "$brew" || ! -x "$brew" ]]; then
+    echo "check-picker-desc: --fix needs Homebrew, and found none at /opt/homebrew/bin/brew or /usr/local/bin/brew." >&2
+    return 1
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "check-picker-desc: --fix needs python3, and found none on PATH." >&2
+    return 1
+  fi
+
+  if (( ${#missing[@]} > 0 )); then
+    # A formula and a cask that share a name share one description. The first
+    # Brewfile line with the name says which of the two to ask Homebrew about.
+    local lookups=() described=() undescribed=() pkg kind name desc _section _reason _have
+    for pkg in "${missing[@]}"; do
+      kind=$(awk -F'"' -v want="$pkg" '$2 == want { print ($1 == "cask " ? "cask" : "formula"); exit }' "$BREWFILE")
+      lookups+=("$kind:$pkg")
+    done
+    ADDS=$(mktemp "${TMPDIR:-/tmp}/mrk-descs.XXXXXX")
+    while IFS=$'\x1f' read -r kind name _section _reason desc _have; do
+      [[ -n "$name" ]] || continue
+      if [[ -n "$desc" ]]; then
+        printf '%s\x1f%s\x1f%s\n' "$kind" "$name" "$desc" >> "$ADDS"
+        described+=("$name")
+      else
+        undescribed+=("$name")
+      fi
+    done < <(brew_describe "$brew" "$PICKER_GO" "${lookups[@]}")
+
+    if (( ${#described[@]} > 0 )); then
+      if picker_add_descriptions "$PICKER_GO" "$ADDS"; then
+        echo "check-picker-desc: described ${#described[@]} package(s) in Homebrew's words: ${described[*]}"
+      else
+        echo "check-picker-desc: could not write the descriptions of: ${described[*]}" >&2
+      fi
+    fi
+    if (( ${#undescribed[@]} > 0 )); then
+      echo "check-picker-desc: Homebrew has no description for: ${undescribed[*]}" >&2
+      echo "Write one for each in tools/picker/main.go." >&2
+    fi
+  fi
+
+  if (( ${#orphan[@]} > 0 )); then
+    if picker_remove_descriptions "$PICKER_GO" "${orphan[@]}"; then
+      echo "check-picker-desc: deleted ${#orphan[@]} description(s) no Brewfile entry uses: ${orphan[*]}"
+    else
+      echo "check-picker-desc: could not delete the descriptions of: ${orphan[*]}" >&2
+    fi
+  fi
+}
+
+compare
+if (( FIX && ${#missing[@]} + ${#orphan[@]} > 0 )); then
+  PICKER_TMP=""
+  ADDS=""
+  trap 'rm -f ${PICKER_TMP:+"$PICKER_TMP"} ${ADDS:+"$ADDS"}' EXIT
+  fix || exit 1
+  compare
+fi
 
 if (( ${#missing[@]} == 0 && ${#orphan[@]} == 0 )); then
   echo "check-picker-desc: OK (${#brew_pkgs[@]} packages, descriptions in sync)"
@@ -125,5 +221,8 @@ fi
 if (( ${#orphan[@]} > 0 )); then
   echo "check-picker-desc: orphaned in picker, not in Brewfile (${#orphan[@]}):" >&2
   printf '  %s\n' "${orphan[@]}" >&2
+fi
+if (( ! FIX )); then
+  echo "check-picker-desc --fix describes the missing in Homebrew's words and deletes the orphans." >&2
 fi
 exit 1
