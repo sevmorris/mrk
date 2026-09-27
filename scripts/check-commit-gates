@@ -136,11 +136,13 @@ if [[ "$got_head_s" == "$got_cached_s" ]]; then pass "the dry-run view (HEAD) ma
 # ── project_repos ────────────────────────────────────────────────────────────
 # What pushall sweeps and the manifest records. A repo one level down in a
 # folder that is not one counts; a repo inside a repo, or two levels down,
-# does not; a linked worktree is neither listed nor reported.
+# does not; a linked worktree, and a bare repository like DoublEnder's
+# overlay, are neither listed nor reported.
 log "project_repos"
 Q="$T/tree"
 mkdir -p "$Q/wrap/loose sub" "$Q/plain/deeper"
 git init -q "$Q/top repo"
+git init -q --bare "$Q/overlay.git"
 git init -q "$Q/wrap/inner repo"
 git init -q "$Q/plain/deeper/too deep"
 git init -q "$Q/outer" && git init -q "$Q/outer/inside"
@@ -324,9 +326,9 @@ else
   fail "wrapper/inner was not swept — pushall is back to looking only at the top level"
 fi
 
-# ── pushall: bare repositories in $HOME ──────────────────────────────────────
-# DoublEnder's Cloud overlay is a bare repository in $HOME that versions files
-# inside a ~/Projects working tree. pushall never pushes it, and until
+# ── pushall: bare repositories in ~/Projects ─────────────────────────────────
+# DoublEnder's Cloud overlay is a bare repository in ~/Projects that versions
+# files inside the working tree beside it. pushall never pushes it, and until
 # 2026-09-11 never mentioned it: its unpushed commits and uncommitted edits
 # passed a whole migration in silence while pushall said the public repo beside
 # it was up to date. The first version of the report then killed pushall on any
@@ -334,7 +336,7 @@ fi
 # pipefail that ended the run before its summary. Both are planted here. These
 # runs cannot use --projects, which switches the report off, so they get a HOME
 # of their own.
-log "pushall: bare repositories in \$HOME"
+log "pushall: bare repositories in ~/Projects"
 BH="$T/barehome"
 mkdir -p "$BH/Projects"
 git init -q --bare "$R/bh-public.git"
@@ -342,7 +344,7 @@ git clone -q "$R/bh-public.git" "$BH/Projects/public" 2>/dev/null
 printf 'overlay/\n' > "$BH/Projects/public/.gitignore"
 git -C "$BH/Projects/public" add .gitignore && git -C "$BH/Projects/public" commit -qm init
 git -C "$BH/Projects/public" push -q -u origin main 2>/dev/null
-OV="$BH/Overlay.git" OVW="$BH/Projects/public"
+OV="$BH/Projects/Overlay.git" OVW="$BH/Projects/public"
 git init -q --bare "$R/bh-overlay.git"
 git init -q --bare "$OV"
 git --git-dir="$OV" config core.worktree "$OVW"      # the real overlay's shape:
@@ -355,15 +357,15 @@ git --git-dir="$OV" push -q -u origin main 2>/dev/null
 printf 'v2\n' > "$OVW/overlay/release.sh"
 git --git-dir="$OV" --work-tree="$OVW" commit -qam "v2, never pushed" 2>/dev/null
 printf 'v3\n' > "$OVW/overlay/release.sh"
-git init -q --bare "$BH/Lonely.git"                   # no working tree, no remote
-git --git-dir="$BH/Lonely.git" --work-tree="$T" commit -q --allow-empty -m lonely 2>/dev/null
+git init -q --bare "$BH/Projects/Lonely.git"          # no working tree, no remote
+git --git-dir="$BH/Projects/Lonely.git" --work-tree="$T" commit -q --allow-empty -m lonely 2>/dev/null
 ov_remote_before="$(rev "$R/bh-overlay.git")"
 
 bh_rc=0; HOME="$BH" "$REPO_ROOT/bin/pushall" --dry-run --no-mrk >"$T/bh-dry.log" 2>&1 || bh_rc=$?
 if (( bh_rc == 0 )) && grep -q '✓ Done' "$T/bh-dry.log"; then
   pass "a bare repository with no working tree does not end pushall before its summary"
 else
-  fail "pushall exited $bh_rc, or stopped before Done, with a bare repository in \$HOME"
+  fail "pushall exited $bh_rc, or stopped before Done, with a bare repository in ~/Projects"
 fi
 if grep -q '/Overlay.git is not pushed by pushall' "$T/bh-dry.log" && grep -q '1 commit(s) on no remote' "$T/bh-dry.log" \
    && grep -q "1 uncommitted change(s) in $OVW" "$T/bh-dry.log"; then
@@ -374,7 +376,12 @@ fi
 if grep -q '/Lonely.git is not pushed by pushall' "$T/bh-dry.log" && grep -q 'It has no remote at all' "$T/bh-dry.log"; then
   pass "names a bare repository with no remote, and does not suggest pushing it"
 else
-  fail "did not name ~/Lonely.git as having no remote"
+  fail "did not name ~/Projects/Lonely.git as having no remote"
+fi
+if grep -q 'Not git repositories.*\(Overlay\|Lonely\)\.git' "$T/bh-dry.log"; then
+  fail "named a bare repository in ~/Projects as a folder that is not a repository"
+else
+  pass "does not mistake a bare repository in ~/Projects for a folder that is not one"
 fi
 if grep -q '2 repo(s) hold work that exists only on this machine' "$T/bh-dry.log"; then
   pass "counts both in the closing warning"
@@ -399,9 +406,9 @@ else
 fi
 HOME="$BH" "$REPO_ROOT/bin/pushall" --dry-run --projects "$BH/Projects" >"$T/bh-proj.log" 2>&1 || true
 if grep -q 'Overlay.git\|Lonely.git' "$T/bh-proj.log"; then
-  fail "--projects reported the bare repositories in \$HOME, outside the directory it was given"
+  fail "--projects reported the bare repositories, which it leaves to a plain run"
 else
-  pass "--projects leaves the bare repositories in \$HOME out"
+  pass "--projects leaves the bare repositories out"
 fi
 
 # ── mrk-push ─────────────────────────────────────────────────────────────────

@@ -412,13 +412,16 @@ commit_paths() {
 #                         that is not one itself          → REPOS "folder/repo"
 #   ROOT/folder/other/    beside such a repo, not one     → OTHERS "folder/other"
 #   ROOT/folder/          no repository at either level   → OTHERS "folder"
+#   ROOT/name.git/        a bare repository               → neither
 #
 # One level down because that is how a folder wraps a project here —
 # FloppyLetters/FloppyLetter2601, and JustIn/JustIn until JustIn was retired —
 # and until 2026-09-10 neither pushall nor the manifest looked, so both repos
 # were invisible to them. Never deeper, and never inside a repository, so a worktree kept in a
 # repo is not mistaken for a project. A .git *file* (a linked worktree, whose
-# repository lives elsewhere) is neither listed nor reported.
+# repository lives elsewhere) is neither listed nor reported. Nor is a bare
+# repository named *.git, such as DoublEnder's Cloud overlay: it has no working
+# tree of its own to sweep, and pushall and snapshot-prefs look for it apart.
 #
 # eval on validated names, as commit_paths does: this library stays
 # bash-3.2-clean, and the paths are expanded as variables, never as code.
@@ -431,6 +434,7 @@ project_repos() {
     _pr_top=${_pr_top%/}
     [[ -d "$_pr_top" ]] || continue        # the unexpanded glob of an empty ROOT
     _pr_t=${_pr_top##*/}
+    [[ "$_pr_t" == *.git && -f "$_pr_top/HEAD" && -d "$_pr_top/objects" ]] && continue
     if [[ -d "$_pr_top/.git" ]]; then
       eval "$_pr_repos+=(\"\$_pr_t\")"
       continue

@@ -14,7 +14,7 @@
 #   decloud push
 set -euo pipefail
 
-GIT_DIR_PATH="${DECLOUD_GIT_DIR:-$HOME/DoublEnder-cloud.git}"
+GIT_DIR_PATH="${DECLOUD_GIT_DIR:-$HOME/Projects/DoublEnder-cloud.git}"
 WORK_TREE="${DECLOUD_WORK_TREE:-$HOME/Projects/DoublEnder}"
 
 if [[ ! -d "$GIT_DIR_PATH" ]]; then

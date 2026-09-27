@@ -491,7 +491,7 @@ mrk brings `~/Projects` back to the new machine only from GitHub: `restore-repos
 
 Files a repository ignores are not pushed either. Copy any you need by hand, such as a credential file that `.gitignore` keeps out of the repository.
 
-`pushall` does not push DoublEnder's Cloud overlay, `~/DoublEnder-cloud.git`: its files are versioned beside the public repository, which ignores them. `pushall` names the overlay's unpushed commits and uncommitted changes with the rest of what it leaves behind. Commit and push them with `decloud commit` and `decloud push`.
+`pushall` does not push DoublEnder's Cloud overlay, `~/Projects/DoublEnder-cloud.git`: its files are versioned beside the public repository, which ignores them. `pushall` names the overlay's unpushed commits and uncommitted changes with the rest of what it leaves behind. Commit and push them with `decloud commit` and `decloud push`.
 
 **8. Run a Magic Backup Machine backup**
 
