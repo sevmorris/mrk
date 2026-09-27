@@ -61,6 +61,10 @@ Options:
 Only tracked changes are staged; untracked files are never committed. The
 commit is gated behind the mrk secret scan, and old Pages deployments are
 pruned afterwards, always protecting the one currently serving the site.
+
+When check-picker-desc fails, mrk-push runs it with --fix before it stages,
+so a package added or removed in Barkeep or by hand takes its mrk-picker
+description with it. A dry run only reports what the check finds.
 EOF
 }
 
@@ -136,6 +140,14 @@ echo ""
 if busy=$(git_in_progress "$REPO_ROOT"); then
   err "$busy in $REPO_ROOT — resolve it first. Nothing was staged, committed or pushed."
   exit 1
+fi
+
+# Before staging, so the descriptions check-picker-desc --fix writes for
+# packages Barkeep or a hand edit added or removed go into this commit.
+if (( DRY_RUN )); then
+  picker_desc_fix "$REPO_ROOT" --dry-run
+else
+  picker_desc_fix "$REPO_ROOT"
 fi
 
 push_log "Staging changes..."

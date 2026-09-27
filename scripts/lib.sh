@@ -537,3 +537,286 @@ picard_settings() {
       print
     }' "$1"
 }
+
+# ─── mrk-picker descriptions ─────────────────────────────────────────────────
+#
+# tools/picker/main.go holds the one description table, `var descriptions`, and
+# check-picker-desc holds it to the Brewfile in both directions. Two things
+# write it: sync, as it adds and prunes, and check-picker-desc --fix, for every
+# other way a Brewfile line comes and goes — Barkeep and a hand edit. They share
+# these functions, so a description is worded, placed and formatted one way.
+#
+# The two writers go through a temp file beside main.go, named in PICKER_TMP so
+# that the caller's EXIT trap can remove it after an interrupt, and run gofmt on
+# it before it replaces main.go. The map is column-aligned, and the longest key
+# in a block sets the padding of every line beside it; and a file gofmt cannot
+# parse never lands.
+
+# brew_describe BREW PICKER_GO KIND:NAME... — look each package up in Homebrew
+# and print one record for it: kind, name, section (casks only), why that
+# section, description, and 1 when PICKER_GO already describes the name.
+#
+# Fields are split by the unit separator rather than a tab: bash's `read` folds
+# a run of tabs into one, so an empty field would shift the rest.
+#
+#   - The description is Homebrew's own `desc`. A cask whose token does not
+#     name the product gets its display name in front ("GitHub Desktop — …"),
+#     as the hand-written entries do.
+#   - A cask's section is the category its app declares, LSApplicationCategoryType
+#     in the Info.plist, mapped onto the Brewfile's `## Casks - X` names. An app
+#     that declares none, or a cask with no app bundle to read, gets Utilities.
+#     Only sync files entries; check-picker-desc --fix reads the description.
+brew_describe() {
+  python3 - "$@" <<'PYEOF'
+import json, os, plistlib, re, subprocess, sys
+
+brew, picker_go = sys.argv[1], sys.argv[2]
+pkgs = [a.split(':', 1) for a in sys.argv[3:]]
+
+# LSApplicationCategoryType, without its public.app-category. prefix, to the
+# Brewfile section a cask declaring it goes to. Names stay short enough for
+# mrk-picker's category pane, and free of " & " and " / ", which its
+# categoryName() reads as qualifiers to cut. Two merges: music is Audio,
+# because the apps here record and route sound rather than play songs, and
+# business joins social-networking as Communication, because the business apps
+# here are Slack and Zoom.
+SECTIONS = {
+    'business': 'Communication',
+    'developer-tools': 'Developer Tools',
+    'education': 'Education',
+    'entertainment': 'Entertainment',
+    'finance': 'Finance',
+    'games': 'Games',
+    'graphics-design': 'Graphics',
+    'healthcare-fitness': 'Health',
+    'lifestyle': 'Lifestyle',
+    'medical': 'Medical',
+    'music': 'Audio',
+    'news': 'News',
+    'photography': 'Photography',
+    'productivity': 'Productivity',
+    'reference': 'Reference',
+    'social-networking': 'Communication',
+    'sports': 'Sports',
+    'travel': 'Travel',
+    'utilities': 'Utilities',
+    'video': 'Video',
+    'weather': 'Weather',
+}
+FALLBACK = 'Utilities'
+# Homebrew's default appdir, and the one HOMEBREW_CASK_OPTS most often names.
+APP_DIRS = ['/Applications', os.path.expanduser('~/Applications')]
+PREFIX = 'public.app-category.'
+
+described = set(re.findall(r'^\t"([^"]+)":', open(picker_go, encoding='utf-8').read(), re.M)) \
+    if os.path.isfile(picker_go) else set()
+
+def norm(s):
+    return re.sub(r'[^a-z0-9]', '', s.lower())
+
+def info(kind, name):
+    try:
+        r = subprocess.run([brew, 'info', '--json=v2', '--' + kind, name],
+                           stdin=subprocess.DEVNULL, capture_output=True, text=True)
+        data = json.loads(r.stdout) if r.returncode == 0 else {}
+    except (OSError, ValueError):
+        data = {}
+    items = data.get('formulae' if kind == 'formula' else 'casks') or []
+    return items[0] if items and isinstance(items[0], dict) else None
+
+def app_bundles(item):
+    """The .app names a cask installs: each app artifact's target, or its
+    source when it has none; then each display name, which finds the app a
+    pkg installer puts in /Applications without declaring it."""
+    names = []
+    for art in item.get('artifacts') or []:
+        args = art.get('app') if isinstance(art, dict) else None
+        if not args or not isinstance(args[0], str):
+            continue
+        opts = args[1] if len(args) > 1 and isinstance(args[1], dict) else {}
+        names.append(os.path.basename(str(opts.get('target') or args[0]).rstrip('/')))
+    names += [n + '.app' for n in item.get('name') or [] if isinstance(n, str)]
+    return list(dict.fromkeys(names))
+
+def section_for(item):
+    for app in app_bundles(item):
+        for d in APP_DIRS:
+            plist = os.path.join(d, app, 'Contents', 'Info.plist')
+            if not os.path.isfile(plist):
+                continue
+            try:
+                with open(plist, 'rb') as f:
+                    declared = plistlib.load(f).get('LSApplicationCategoryType')
+            except Exception:
+                return FALLBACK, f'{app} has an Info.plist that cannot be read'
+            if not isinstance(declared, str) or not declared.strip():
+                return FALLBACK, f'{app} declares no category'
+            declared = declared.strip()
+            key = declared.lower()
+            key = key[len(PREFIX):] if key.startswith(PREFIX) else key
+            if key.endswith('-games'):
+                key = 'games'
+            if key in SECTIONS:
+                return SECTIONS[key], f'{app} declares {declared}'
+            return FALLBACK, f'{app} declares {declared}, which maps to no section'
+    return FALLBACK, 'no installed app bundle to read'
+
+def describe(kind, name, item):
+    desc = ' '.join(str(item.get('desc') or '').split())
+    if not desc:
+        return ''
+    if kind == 'cask':
+        display = next((n for n in item.get('name') or [] if isinstance(n, str) and n.strip()), '')
+        token = name.rsplit('/', 1)[-1]
+        if display and norm(display) != norm(token) and norm(display) not in norm(desc):
+            desc = f'{display.strip()} — {desc}'
+    return desc
+
+for kind, name in pkgs:
+    item = info(kind, name)
+    section = reason = desc = ''
+    if item is None:
+        reason = 'Homebrew has no record of it'
+        if kind == 'cask':
+            section = FALLBACK
+    else:
+        desc = describe(kind, name, item)
+        if kind == 'cask':
+            section, reason = section_for(item)
+    fields = [kind, name, section, reason, desc, '1' if name in described else '0']
+    print('\x1f'.join(f.replace('\x1f', ' ').replace('\n', ' ') for f in fields))
+PYEOF
+}
+
+# picker_add_descriptions PICKER_GO FILE — add the descriptions FILE holds, one
+# per line as kind, name and description split by the unit separator. A name
+# the map already has is left as it is, so a description reworded by hand
+# sticks, and a record with no description is skipped. A formula goes at the end
+# of the map's formulae block, which is in no order, and a cask in alphabetical
+# order among the casks.
+picker_add_descriptions() {
+  local go=$1 adds=$2
+  PICKER_TMP="$(mktemp "${go%/*}/.main.go.XXXXXX")"
+  if ! python3 - "$go" "$adds" "$PICKER_TMP" <<'PYEOF'
+import re, sys
+
+go_path, adds_path, out_path = sys.argv[1:4]
+with open(go_path, encoding='utf-8') as f:
+    lines = f.read().split('\n')
+try:
+    start = next(i for i, l in enumerate(lines) if l.startswith('var descriptions = map[string]string{'))
+    end = next(i for i in range(start + 1, len(lines)) if lines[i] == '}')
+except StopIteration:
+    sys.exit('the descriptions map was not found in tools/picker/main.go')
+
+key_re = re.compile(r'^\t"([^"]+)":')
+have = {m.group(1) for m in map(key_re.match, lines[start:end]) if m}
+casks_at = next((i for i in range(start, end) if lines[i].strip() == '// Casks'), end)
+
+def literal(s):
+    s = ''.join(c for c in s if c >= ' ')
+    return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
+
+with open(adds_path, encoding='utf-8') as f:
+    for record in f:
+        kind, name, desc = record.rstrip('\n').split('\x1f', 2)
+        if name in have or not desc:
+            continue
+        if kind == 'formula':
+            idx = casks_at
+            casks_at += 1
+        else:
+            idx = next((i for i in range(casks_at + 1, end)
+                        if (m := key_re.match(lines[i])) and m.group(1) > name), end)
+        lines.insert(idx, f'\t{literal(name)}: {literal(desc)},')
+        end += 1
+        have.add(name)
+
+with open(out_path, 'w', encoding='utf-8') as f:
+    f.write('\n'.join(lines))
+PYEOF
+  then
+    rm -f "$PICKER_TMP"; PICKER_TMP=""
+    return 1
+  fi
+  _picker_replace "$go"
+}
+
+# picker_remove_descriptions PICKER_GO NAME... — delete the description lines
+# for the names given.
+#
+# awk rather than sed because a package name is not a regex: python@3.12 would
+# otherwise match python@3-12. Splitting on quotes makes field 2 the key, the
+# comparison is exact, and only lines inside `var descriptions` are touched.
+picker_remove_descriptions() {
+  local go=$1; shift
+  PICKER_TMP="$(mktemp "${go%/*}/.main.go.XXXXXX")"
+  DROP_NAMES="$(printf '%s\n' "$@")" awk -F'"' '
+    BEGIN { n = split(ENVIRON["DROP_NAMES"], a, "\n"); for (i = 1; i <= n; i++) drop[a[i]] = 1 }
+    /^var descriptions = map\[string\]string\{/ { inmap = 1 }
+    inmap && /^}/                               { inmap = 0 }
+    inmap && /^\t"/ && ($2 in drop)             { next }
+    { print }' "$go" > "$PICKER_TMP"
+
+  local want got
+  want=$(( $(wc -l < "$go") - $# ))
+  got=$(wc -l < "$PICKER_TMP")
+  if (( got != want )); then
+    err "Expected $want lines in tools/picker/main.go after removing $#, got $got — left it unchanged."
+    rm -f "$PICKER_TMP"; PICKER_TMP=""
+    return 1
+  fi
+  _picker_replace "$go"
+}
+
+# _picker_replace PICKER_GO — gofmt PICKER_TMP and move it over PICKER_GO.
+_picker_replace() {
+  if command -v gofmt >/dev/null 2>&1; then
+    if ! gofmt -w "$PICKER_TMP"; then
+      err "gofmt rejected the new tools/picker/main.go — left it unchanged."
+      rm -f "$PICKER_TMP"; PICKER_TMP=""
+      return 1
+    fi
+  else
+    warn "gofmt not found — tools/picker/main.go may need realigning (gofmt -w)."
+  fi
+  chmod 644 "$PICKER_TMP"
+  mv "$PICKER_TMP" "$1"
+  PICKER_TMP=""
+}
+
+# picker_desc_fix REPO [--dry-run] — for mrk-push and pushall, before they stage:
+# when REPO's check-picker-desc fails, run it again with --fix, so the
+# descriptions go into the commit that is about to be made. Silent when the
+# check passes.
+#
+# sync describes each package it adds and deletes the description of each one
+# it prunes. Barkeep adds and removes Brewfile lines and writes no description,
+# and neither does a hand edit, so each of those turned CI red until someone
+# wrote the description by hand. Every change to ~/mrk reaches GitHub through
+# mrk-push or pushall, so the push is where all three can be caught.
+#
+# The trigger is the check failing, not the Brewfile having changed. The first
+# version ran --fix only when the Brewfile differed from HEAD, so a Brewfile
+# committed some other way — a plain `git commit` after a Barkeep session —
+# reached GitHub undescribed, and nothing at push time looked. The check reads
+# two files and calls nothing, about 50 ms, so it runs on every push; Homebrew
+# is asked only when there is something to describe.
+#
+# A dry run shows what the check finds and changes nothing. What --fix cannot
+# settle — a package Homebrew has no description for — is warned about and the
+# commit goes ahead: holding back every other change would not make CI green.
+picker_desc_fix() {
+  local repo=$1 dry=${2:-}
+  local check="$repo/scripts/check-picker-desc"
+  [[ -x "$check" ]] || return 0
+  "$check" >/dev/null 2>&1 && return 0
+  if [[ "$dry" == --dry-run ]]; then
+    "$check" || true
+    info "A real run runs check-picker-desc --fix before it stages."
+    return 0
+  fi
+  "$check" --fix && return 0
+  warn "check-picker-desc still fails, for the reason above. The commit goes ahead, and CI will fail until that is fixed."
+  return 0
+}

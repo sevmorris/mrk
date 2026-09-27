@@ -7,8 +7,8 @@ import (
 )
 
 // The Brewfile's apps are filed under `## Casks - X` sections, and scripts/sync
-// names X from the category an app declares, through the SECTIONS table in its
-// embedded Python. categoryName shortens a section header for the left pane,
+// names X from the category an app declares, through the SECTIONS table in the
+// Python of brew_describe in scripts/lib.sh. categoryName shortens a section header for the left pane,
 // and it cuts at " & " and " / " and keeps the part after " - " only when that
 // part is two words or fewer. A cask section named "Graphics & Design" would
 // come out as "Applications", the name of no section at all. So every name sync
@@ -17,13 +17,13 @@ import (
 
 func syncSectionNames(t *testing.T) []string {
 	t.Helper()
-	src, err := os.ReadFile("../../scripts/sync")
+	src, err := os.ReadFile("../../scripts/lib.sh")
 	if err != nil {
-		t.Fatalf("read scripts/sync: %v", err)
+		t.Fatalf("read scripts/lib.sh: %v", err)
 	}
 	table := regexp.MustCompile(`(?s)SECTIONS = \{(.*?)\n\}`).FindSubmatch(src)
 	if table == nil {
-		t.Fatal("no SECTIONS table in scripts/sync")
+		t.Fatal("no SECTIONS table in scripts/lib.sh")
 	}
 	var names []string
 	for _, m := range regexp.MustCompile(`'[a-z-]+': '([^']+)',`).FindAllSubmatch(table[1], -1) {
@@ -31,11 +31,11 @@ func syncSectionNames(t *testing.T) []string {
 	}
 	fallback := regexp.MustCompile(`FALLBACK = '([^']+)'`).FindSubmatch(src)
 	if fallback == nil {
-		t.Fatal("no FALLBACK in scripts/sync")
+		t.Fatal("no FALLBACK in scripts/lib.sh")
 	}
 	names = append(names, string(fallback[1]))
 	if len(names) < 10 {
-		t.Fatalf("read only %d section names from scripts/sync", len(names))
+		t.Fatalf("read only %d section names from scripts/lib.sh", len(names))
 	}
 	return names
 }

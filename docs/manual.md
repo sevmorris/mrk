@@ -209,6 +209,14 @@ If `brew list` fails, sync stops. An empty package list would make `-p` mark eve
 
 When `-p` deletes a Brewfile entry, sync also deletes the package's description from `tools/picker/main.go`, so `check-picker-desc` still passes. A formula and a cask with the same name share one description, and sync keeps it while either one is still in the Brewfile. With `-c`, sync commits both files together.
 
+**Barkeep and hand edits.** Barkeep adds and removes Brewfile lines — Add to Brewfile, Adopt, Remove from Brewfile — and writes no picker description, and neither does an edit by hand. `mrk-push` and `pushall` settle that before they commit: they run `check-picker-desc`, and when it fails they run `check-picker-desc --fix`, which writes Homebrew's description for each package that has none, in the words and places sync would use, and deletes each description no Brewfile entry uses. It never changes a description that is already there. This also catches a Barkeep edit you committed with a plain `git commit`. When Homebrew has no description for a package, the commit goes ahead with a warning that names it, and you write that one yourself. To do it before you push, run:
+
+```bash
+check-picker-desc --fix
+```
+
+Until 2026-09-27 each Barkeep add failed CI until the package was described by hand.
+
 > **Note:** The mrk-picker binary is at `bin/mrk-picker`. It is platform-specific, and gitignore excludes it. If the binary is absent, build it with `make picker`.
 
 **The ignore list (`~/.mrk/sync-ignore`)** holds one formula name or cask name per line. Do not add a `brew` or `cask` prefix. A `#` character starts a comment.
@@ -383,9 +391,9 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 |---|---|
 | `clear-app-caches` | Clears the cache directories of Helium, Slack and Chrome — every Chrome profile. It never touches profile data |
 | `clear-derived-data` | Clears the Xcode DerivedData directory |
-| `mrk-push` | Commits and pushes `~/mrk`, then deletes the old GitHub Pages deployments. Scans every file the commit carries for secrets first, from whichever directory you run it in. Refuses to run while a merge or rebase in `~/mrk` is unfinished |
+| `mrk-push` | Commits and pushes `~/mrk`, then deletes the old GitHub Pages deployments. Scans every file the commit carries for secrets first, from whichever directory you run it in. Refuses to run while a merge or rebase in `~/mrk` is unfinished. When `check-picker-desc` fails, runs it with `--fix` first, so a package added in Barkeep goes in with its description |
 | `prune-deployments` | Deletes the old GitHub Pages deployments and keeps the ten newest. It finds the repository from the origin remote, or use `--repo OWNER/NAME`. It always protects the deployment that serves the site, so a failed deploy cannot cause it to delete the live one. Use `--dry-run` first |
-| `pushall` | Commits and pushes each repository in `~/Projects`, and then syncs `~/mrk`. Scans the staged files for secrets before each commit. It stages only the tracked files. It leaves a repository alone, and reports it as failed, while a merge, rebase or cherry-pick in it is unfinished. Use `pushall --dry-run` to run the scan and change nothing |
+| `pushall` | Commits and pushes each repository in `~/Projects`, and then syncs `~/mrk`. Scans the staged files for secrets before each commit. It stages only the tracked files. It leaves a repository alone, and reports it as failed, while a merge, rebase or cherry-pick in it is unfinished. When `check-picker-desc` fails in mrk, runs it with `--fix` before it commits mrk. Use `pushall --dry-run` to run the scan and change nothing |
 | `update-full` | Full update pass: pulls mrk, quits the applications, installs the macOS updates for the installed version and the package updates, builds the Go tools again, runs `clean-ds` and `brew doctor`, and then offers a reboot. It never installs a major macOS upgrade. It stops with an error when there is no terminal, unless you give `--yes`. The `update --full` command is the same command |
 | `clean-ds` | Removes the `.DS_Store` files from the local disk. It does not examine `~/Library`, `~/Desktop`, the network volumes, or the external volumes. Use `clean-ds --dry-run` to see the files first |
 | `hide_tm.sh` | Meant to hide the Time Machine volumes from the Finder sidebar. The default name is `TimeMachine`. Give the volume names, or set `TM_VOLUMES`. On macOS 26 it probably hides nothing — see its caution in BIN-1 |

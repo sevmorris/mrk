@@ -399,34 +399,6 @@ _orphaned_descriptions() {
   return 0
 }
 
-# Delete the description lines for the names given, writing through a temp file
-# as the Brewfile does. gofmt afterwards, because the map is column-aligned and
-# the longest key in a block sets the padding of every line beside it.
-_remove_descriptions() {
-  PICKER_TMP="$(mktemp "${PICKER_GO%/*}/.main.go.XXXXXX")"
-  DROP_NAMES="$(printf '%s\n' "$@")" awk -F'"' '
-    BEGIN { n = split(ENVIRON["DROP_NAMES"], a, "\n"); for (i = 1; i <= n; i++) drop[a[i]] = 1 }
-    /^var descriptions = map\[string\]string\{/ { inmap = 1 }
-    inmap && /^}/                               { inmap = 0 }
-    inmap && /^\t"/ && ($2 in drop)             { next }
-    { print }' "$PICKER_GO" > "$PICKER_TMP"
-
-  local want=$(( $(wc -l < "$PICKER_GO") - $# )) got
-  got=$(wc -l < "$PICKER_TMP")
-  if (( got != want )); then
-    err "Expected $want lines in tools/picker/main.go after removing $#, got $got — left it unchanged."
-    return 1
-  fi
-  chmod 644 "$PICKER_TMP"
-  mv "$PICKER_TMP" "$PICKER_GO"
-  PICKER_TMP=""
-  if command -v gofmt >/dev/null 2>&1; then
-    gofmt -w "$PICKER_GO"
-  else
-    warn "gofmt not found — tools/picker/main.go may need realigning (gofmt -w)."
-  fi
-}
-
 n_prune=$(( ${#prune_formulae[@]} + ${#prune_casks[@]} ))
 orphaned_descs=()
 if (( n_prune > 0 )); then
@@ -461,7 +433,7 @@ fi
       if (( ${#orphaned_descs[@]} > 0 )); then
         # The Brewfile is already written, so a failure here leaves exactly the
         # state the old warning described. Say so, with the names, and go on.
-        if _remove_descriptions "${orphaned_descs[@]}"; then
+        if picker_remove_descriptions "$PICKER_GO" "${orphaned_descs[@]}"; then
           PICKER_CHANGED=1
           log "Removed ${#orphaned_descs[@]} description(s) from tools/picker/main.go: ${orphaned_descs[*]}"
         else
@@ -681,10 +653,15 @@ fi
 #     as the hand-written entries do. sync writes a description only where
 #     there is none, so rewording one in main.go sticks.
 #   - A cask's section is the category its app declares: LSApplicationCategoryType
-#     in the Info.plist, the vocabulary the App Store uses, mapped below onto the
-#     Brewfile's `## Casks - X` names. An app that declares none, or a cask with
-#     no app bundle to read, goes to Utilities. sync never moves an entry that is
-#     already in the Brewfile, so a line moved by hand stays where it was put.
+#     in the Info.plist, the vocabulary the App Store uses, mapped onto the
+#     Brewfile's `## Casks - X` names by brew_describe in scripts/lib.sh. An app
+#     that declares none, or a cask with no app bundle to read, goes to
+#     Utilities. sync never moves an entry that is already in the Brewfile, so a
+#     line moved by hand stays where it was put.
+#
+# The lookup and the writing live in scripts/lib.sh since 2026-09-27, when
+# check-picker-desc gained --fix for the adds sync does not see: Barkeep's, and
+# hand edits. One copy, so a description is worded and placed one way.
 #
 # A formula's section is still asked for (section 6). Matching each formula's
 # description against the other sections' descriptions placed 37 of the
@@ -722,129 +699,10 @@ for pkg in "${sorted_selected_casks[@]}";    do meta_args+=("cask:$pkg");    don
 log "Reading Homebrew's descriptions for ${#meta_args[@]} package(s)..."
 TEMP_META=$(mktemp "${TMPDIR:-/tmp}/mrk-meta.XXXXXX")
 
-# One record per package, fields split by the unit separator rather than a tab:
-# bash's `read` folds a run of tabs into one, so an empty field would shift the
-# rest. Fields: kind, name, section (casks only), why that section, description,
-# and 1 when main.go already describes the name.
-python3 - "$HOMEBREW" "$PICKER_GO" "${meta_args[@]}" > "$TEMP_META" <<'PYEOF'
-import json, os, plistlib, re, subprocess, sys
-
-brew, picker_go = sys.argv[1], sys.argv[2]
-pkgs = [a.split(':', 1) for a in sys.argv[3:]]
-
-# LSApplicationCategoryType, without its public.app-category. prefix, to the
-# Brewfile section a cask declaring it goes to. Names stay short enough for
-# mrk-picker's category pane, and free of " & " and " / ", which its
-# categoryName() reads as qualifiers to cut. Two merges: music is Audio,
-# because the apps here record and route sound rather than play songs, and
-# business joins social-networking as Communication, because the business apps
-# here are Slack and Zoom.
-SECTIONS = {
-    'business': 'Communication',
-    'developer-tools': 'Developer Tools',
-    'education': 'Education',
-    'entertainment': 'Entertainment',
-    'finance': 'Finance',
-    'games': 'Games',
-    'graphics-design': 'Graphics',
-    'healthcare-fitness': 'Health',
-    'lifestyle': 'Lifestyle',
-    'medical': 'Medical',
-    'music': 'Audio',
-    'news': 'News',
-    'photography': 'Photography',
-    'productivity': 'Productivity',
-    'reference': 'Reference',
-    'social-networking': 'Communication',
-    'sports': 'Sports',
-    'travel': 'Travel',
-    'utilities': 'Utilities',
-    'video': 'Video',
-    'weather': 'Weather',
-}
-FALLBACK = 'Utilities'
-# Homebrew's default appdir, and the one HOMEBREW_CASK_OPTS most often names.
-APP_DIRS = ['/Applications', os.path.expanduser('~/Applications')]
-PREFIX = 'public.app-category.'
-
-described = set(re.findall(r'^\t"([^"]+)":', open(picker_go, encoding='utf-8').read(), re.M)) \
-    if os.path.isfile(picker_go) else set()
-
-def norm(s):
-    return re.sub(r'[^a-z0-9]', '', s.lower())
-
-def info(kind, name):
-    try:
-        r = subprocess.run([brew, 'info', '--json=v2', '--' + kind, name],
-                           stdin=subprocess.DEVNULL, capture_output=True, text=True)
-        data = json.loads(r.stdout) if r.returncode == 0 else {}
-    except (OSError, ValueError):
-        data = {}
-    items = data.get('formulae' if kind == 'formula' else 'casks') or []
-    return items[0] if items and isinstance(items[0], dict) else None
-
-def app_bundles(item):
-    """The .app names a cask installs: each app artifact's target, or its
-    source when it has none; then each display name, which finds the app a
-    pkg installer puts in /Applications without declaring it."""
-    names = []
-    for art in item.get('artifacts') or []:
-        args = art.get('app') if isinstance(art, dict) else None
-        if not args or not isinstance(args[0], str):
-            continue
-        opts = args[1] if len(args) > 1 and isinstance(args[1], dict) else {}
-        names.append(os.path.basename(str(opts.get('target') or args[0]).rstrip('/')))
-    names += [n + '.app' for n in item.get('name') or [] if isinstance(n, str)]
-    return list(dict.fromkeys(names))
-
-def section_for(item):
-    for app in app_bundles(item):
-        for d in APP_DIRS:
-            plist = os.path.join(d, app, 'Contents', 'Info.plist')
-            if not os.path.isfile(plist):
-                continue
-            try:
-                with open(plist, 'rb') as f:
-                    declared = plistlib.load(f).get('LSApplicationCategoryType')
-            except Exception:
-                return FALLBACK, f'{app} has an Info.plist that cannot be read'
-            if not isinstance(declared, str) or not declared.strip():
-                return FALLBACK, f'{app} declares no category'
-            declared = declared.strip()
-            key = declared.lower()
-            key = key[len(PREFIX):] if key.startswith(PREFIX) else key
-            if key.endswith('-games'):
-                key = 'games'
-            if key in SECTIONS:
-                return SECTIONS[key], f'{app} declares {declared}'
-            return FALLBACK, f'{app} declares {declared}, which maps to no section'
-    return FALLBACK, 'no installed app bundle to read'
-
-def describe(kind, name, item):
-    desc = ' '.join(str(item.get('desc') or '').split())
-    if not desc:
-        return ''
-    if kind == 'cask':
-        display = next((n for n in item.get('name') or [] if isinstance(n, str) and n.strip()), '')
-        token = name.rsplit('/', 1)[-1]
-        if display and norm(display) != norm(token) and norm(display) not in norm(desc):
-            desc = f'{display.strip()} — {desc}'
-    return desc
-
-for kind, name in pkgs:
-    item = info(kind, name)
-    section = reason = desc = ''
-    if item is None:
-        reason = 'Homebrew has no record of it'
-        if kind == 'cask':
-            section = FALLBACK
-    else:
-        desc = describe(kind, name, item)
-        if kind == 'cask':
-            section, reason = section_for(item)
-    fields = [kind, name, section, reason, desc, '1' if name in described else '0']
-    print('\x1f'.join(f.replace('\x1f', ' ').replace('\n', ' ') for f in fields))
-PYEOF
+# brew_describe (scripts/lib.sh) prints one record per package: kind, name,
+# section (casks only), why that section, description, and 1 when main.go
+# already describes the name. check-picker-desc --fix reads the same records.
+brew_describe "$HOMEBREW" "$PICKER_GO" "${meta_args[@]}" > "$TEMP_META"
 
 declare -A pkg_desc=()
 declare -A pkg_described=()
@@ -1141,70 +999,13 @@ log "Brewfile updated."
 
 # ─── 10. Describe the new packages in tools/picker/main.go ──────────────────
 #
-# The descriptions section 5 read from Homebrew. A formula goes at the end of
+# The descriptions section 5 read from Homebrew, written by
+# picker_add_descriptions in scripts/lib.sh. A formula goes at the end of
 # the map's formulae block, which is in no order, and a cask in alphabetical
 # order among the casks. gofmt runs on the new file before it replaces main.go,
 # so a file gofmt cannot parse never lands, and the columns are realigned as
 # the prune realigns them. The Brewfile is written by now, so a failure names
 # what is left to describe and goes on, as the prune does.
-
-# _add_descriptions FILE — FILE holds kind, name and description per line,
-# split by the unit separator.
-_add_descriptions() {
-  PICKER_TMP="$(mktemp "${PICKER_GO%/*}/.main.go.XXXXXX")"
-  if ! python3 - "$PICKER_GO" "$1" "$PICKER_TMP" <<'PYEOF'
-import re, sys
-
-go_path, adds_path, out_path = sys.argv[1:4]
-with open(go_path, encoding='utf-8') as f:
-    lines = f.read().split('\n')
-try:
-    start = next(i for i, l in enumerate(lines) if l.startswith('var descriptions = map[string]string{'))
-    end = next(i for i in range(start + 1, len(lines)) if lines[i] == '}')
-except StopIteration:
-    sys.exit('sync: the descriptions map was not found in tools/picker/main.go')
-
-key_re = re.compile(r'^\t"([^"]+)":')
-have = {m.group(1) for m in map(key_re.match, lines[start:end]) if m}
-casks_at = next((i for i in range(start, end) if lines[i].strip() == '// Casks'), end)
-
-def literal(s):
-    s = ''.join(c for c in s if c >= ' ')
-    return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
-
-with open(adds_path, encoding='utf-8') as f:
-    for record in f:
-        kind, name, desc = record.rstrip('\n').split('\x1f', 2)
-        if name in have or not desc:
-            continue
-        if kind == 'formula':
-            idx = casks_at
-            casks_at += 1
-        else:
-            idx = next((i for i in range(casks_at + 1, end)
-                        if (m := key_re.match(lines[i])) and m.group(1) > name), end)
-        lines.insert(idx, f'\t{literal(name)}: {literal(desc)},')
-        end += 1
-        have.add(name)
-
-with open(out_path, 'w', encoding='utf-8') as f:
-    f.write('\n'.join(lines))
-PYEOF
-  then
-    return 1
-  fi
-  if command -v gofmt >/dev/null 2>&1; then
-    if ! gofmt -w "$PICKER_TMP"; then
-      err "gofmt rejected the new tools/picker/main.go — left it unchanged."
-      return 1
-    fi
-  else
-    warn "gofmt not found — tools/picker/main.go may need realigning (gofmt -w)."
-  fi
-  chmod 644 "$PICKER_TMP"
-  mv "$PICKER_TMP" "$PICKER_GO"
-  PICKER_TMP=""
-}
 
 if (( ${#describe_pkgs[@]} > 0 )); then
   TEMP_DESCS=$(mktemp "${TMPDIR:-/tmp}/mrk-descs.XXXXXX")
@@ -1213,7 +1014,7 @@ if (( ${#describe_pkgs[@]} > 0 )); then
     [[ -n "${formula_section_map[$pkg]+x}" ]] && kind=formula
     printf '%s\x1f%s\x1f%s\n' "$kind" "$pkg" "${pkg_desc[$pkg]}" >> "$TEMP_DESCS"
   done
-  if _add_descriptions "$TEMP_DESCS"; then
+  if picker_add_descriptions "$PICKER_GO" "$TEMP_DESCS"; then
     PICKER_CHANGED=1
     log "Described ${#describe_pkgs[@]} package(s) in tools/picker/main.go: ${describe_pkgs[*]}"
   else

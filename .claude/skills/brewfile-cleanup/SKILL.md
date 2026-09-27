@@ -35,8 +35,8 @@ what the list should hold, then follow every change to what depends on it.
 
 | Report section | Usual action | Owner's call? |
 |---|---|---|
-| check-picker-desc: missing | Write a description in `tools/picker/main.go` | no |
-| check-picker-desc: orphaned | Delete the description | no |
+| check-picker-desc: missing | `check-picker-desc --fix`; write by hand only what Homebrew cannot describe | no |
+| check-picker-desc: orphaned | `check-picker-desc --fix` deletes it | no |
 | `--descriptions` | Fix a description that describes a different product | no |
 | Installed, not in the Brewfile | Add it, ignore it (`~/.mrk/sync-ignore`), or uninstall it | yes |
 | In the Brewfile, not installed | Fix a name Homebrew lists differently; otherwise ask | if not a name |
@@ -104,7 +104,10 @@ single questions.
 ## 3. Follow each change to what depends on it
 
 - `tools/picker/main.go` holds the descriptions, and `check-picker-desc` holds
-  them to the Brewfile in both directions. `scripts/brew` reads them.
+  them to the Brewfile in both directions. `scripts/brew` reads them. sync and
+  `check-picker-desc --fix` write them, through the functions in
+  `scripts/lib.sh`; mrk-push and pushall run the check before they commit,
+  and `--fix` when it fails.
 - `scripts/sync`, `scripts/brew`, `scripts/status`, `tools/picker` and
   `tools/mrk-status` all parse the Brewfile, each in its own way. Keep every
   line in the strict shape: `brew "name"` or
@@ -114,13 +117,17 @@ single questions.
   Homebrew python@ pins.
 - Casks sit under `## Casks - <Category>`, filed by the category the app
   declares in its Info.plist (`LSApplicationCategoryType`), through the
-  `SECTIONS` table in `scripts/sync`. Read it from the installed app with
+  `SECTIONS` table in `brew_describe`, `scripts/lib.sh`. Read it from the installed app with
   `plutil -extract LSApplicationCategoryType raw "/Applications/<App>.app/Contents/Info.plist"`
   and file a cask added by hand the same way, or under Utilities when the app
   declares none. A cask the owner has moved stays where it is. Drop a section
   whose last cask leaves, and keep the comment above the first cask section.
   A new section name must survive mrk-picker's `categoryName`: no " & " or
   " / ", and two words at most. `tools/picker/category_test.go` checks this.
+- Barkeep adds a bare `cask "name"` or `brew "name"` after the last entry of
+  the section you pick, or under a new `# Section` comment it makes (Adopt uses
+  `# Adopted`). Refile each into its `##` section, with `greedy: true` on a
+  cask, and drop the comment Barkeep made.
 - `scripts/snapshot-prefs`, `scripts/post-install` (`import_plist`,
   `add_login_item`) and `bin/snapshot` hold the per-app lists.
 - `bin/clear-app-caches`, `scripts/trim-services` (launchd labels such as
