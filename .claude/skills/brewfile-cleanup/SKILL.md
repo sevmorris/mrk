@@ -52,7 +52,10 @@ The reasoning behind the rows:
 - **Descriptions.** `tools/picker/main.go` holds the only description table.
   `scripts/brew`'s gum fallback reads it too, and on a new Mac that fallback is
   the picker, because Phase 2 runs before `make build-tools`. Never add a
-  second copy. Write a short noun phrase, starting from Homebrew's `desc`. When
+  second copy. Since 2026-09-27 `sync` writes Homebrew's `desc` for every
+  package it adds, so a missing description means the line was added by hand,
+  or Homebrew had none. Write it the way sync would: Homebrew's `desc`, with the
+  cask's display name in front when the token does not name the product. When
   mrk is the reason a package is there, say so: `dockutil` is "used by make
   dock". Run `gofmt -w tools/picker/main.go` afterwards. With `--descriptions`,
   fix only real mismatches, not wording: on 2026-09-17 `helium-browser`
@@ -109,6 +112,15 @@ single questions.
   entries alphabetical within their `##` section, as `sync` inserts them, and
   keep the section comments true: the Languages section says there are no
   Homebrew python@ pins.
+- Casks sit under `## Casks - <Category>`, filed by the category the app
+  declares in its Info.plist (`LSApplicationCategoryType`), through the
+  `SECTIONS` table in `scripts/sync`. Read it from the installed app with
+  `plutil -extract LSApplicationCategoryType raw "/Applications/<App>.app/Contents/Info.plist"`
+  and file a cask added by hand the same way, or under Utilities when the app
+  declares none. A cask the owner has moved stays where it is. Drop a section
+  whose last cask leaves, and keep the comment above the first cask section.
+  A new section name must survive mrk-picker's `categoryName`: no " & " or
+  " / ", and two words at most. `tools/picker/category_test.go` checks this.
 - `scripts/snapshot-prefs`, `scripts/post-install` (`import_plist`,
   `add_login_item`) and `bin/snapshot` hold the per-app lists.
 - `bin/clear-app-caches`, `scripts/trim-services` (launchd labels such as

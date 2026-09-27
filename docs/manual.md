@@ -175,7 +175,7 @@ Two tools manage the Brewfile: `sync` on the command line, and Barkeep in a wind
 ```bash
 sync                  # Start the mrk-picker TUI, and select the packages
 sync -n               # Show the additions, but change nothing
-sync -c               # Commit the Brewfile after sync updates it
+sync -c               # Commit the Brewfile and main.go after sync updates them
 sync -p               # Delete the entries for the packages you uninstalled
 ```
 
@@ -195,9 +195,15 @@ sync -p               # Delete the entries for the packages you uninstalled
 
    Press `a` to select every package in the category, `enter` to confirm and `q` to quit. The header counts both answers.
 6. sync offers to add the packages you declined to `~/.mrk/sync-ignore`.
-7. sync asks you, through `gum`, which Brewfile section each formula belongs to.
-8. sync puts every cask in the existing cask section.
-9. sync adds each entry to its section in alphabetical order.
+7. sync reads each package you selected in Homebrew: its description, and for a cask, the app it installs.
+8. sync asks you, through `gum`, which Brewfile section each formula belongs to. The question shows Homebrew's description of the formula.
+9. sync files each cask by the category its app declares for itself, `LSApplicationCategoryType` in the app's `Info.plist`, under `## Casks - <Category>`: Audio, Communication, Developer Tools, Games, Productivity, Utilities, Video, and the other App Store categories. An app that declares no category goes to Utilities. A category with no section yet gets one, among the other cask sections in alphabetical order.
+10. sync adds each entry to its section in alphabetical order.
+11. sync writes each new package's description to `tools/picker/main.go`, so `check-picker-desc` still passes.
+
+The description is Homebrew's own. A cask whose name does not say what the product is gets the product's name in front: `github` is described as "GitHub Desktop — Desktop client for GitHub repositories". sync writes a description only for a package that has none, so you can reword one in `main.go` and sync keeps your words. When Homebrew has no description, sync adds the package and names it, and you write the description yourself. With `-n`, sync shows each section and description, and writes nothing.
+
+sync never moves an entry that is already in the Brewfile. To refile an app, move its line to another `## Casks -` section by hand, and it stays there.
 
 If `brew list` fails, sync stops. An empty package list would make `-p` mark every Brewfile entry for deletion.
 

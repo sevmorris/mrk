@@ -71,67 +71,84 @@ brew "ffmpeg"
 brew "whisper.cpp"
 brew "yt-dlp"
 
-## Casks - General Applications & Utilities
-cask "4k-video-downloader+", greedy: true
-cask "a-better-finder-rename", greedy: true
-cask "aldente", greedy: true
-cask "antigravity", greedy: true
-cask "appcleaner", greedy: true
-cask "arctic", greedy: true
+# Casks are filed by the category each app declares for itself: the
+# LSApplicationCategoryType in its Info.plist, the list the App Store uses.
+# sync files a new cask the same way, and into Utilities when its app declares
+# none. These were filed by hand on 2026-09-27 into the names sync uses. Move a
+# line to refile it: sync never moves an entry that is already here.
+## Casks - Audio
 cask "audio-hijack", greedy: true
-cask "balenaetcher", greedy: true
+cask "farrago", greedy: true
+cask "fission", greedy: true
+cask "ilok-license-manager", greedy: true
+cask "kid3", greedy: true
+cask "loopback", greedy: true
+cask "macwhisper", greedy: true
+cask "openaudible", greedy: true
+cask "piezo", greedy: true
+cask "soundsource", greedy: true
+cask "waves-central", greedy: true
+
+## Casks - Communication
+cask "signal", greedy: true
+cask "slack", greedy: true
+cask "whatsapp", greedy: true
+cask "zoom", greedy: true
+
+## Casks - Developer Tools
+cask "antigravity", greedy: true
+cask "gcloud-cli", greedy: true
+cask "github", greedy: true
+cask "iterm2", greedy: true
+cask "pulsar", greedy: true
+cask "temurin@21", greedy: true
+cask "utm", greedy: true
+
+## Casks - Games
+cask "prismlauncher", greedy: true
+
+## Casks - Productivity
 cask "brave-browser", greedy: true
 cask "calibre", greedy: true
 cask "claude", greedy: true
-cask "cryptomator", greedy: true
-cask "disk-drill", greedy: true
 cask "dropbox", greedy: true
-cask "etrecheckpro", greedy: true
-cask "farrago", greedy: true
 cask "firefox", greedy: true
-cask "fission", greedy: true
-cask "gcloud-cli", greedy: true
-cask "github", greedy: true
 cask "google-chrome", greedy: true
 cask "google-drive", greedy: true
-cask "gpg-suite-no-mail", greedy: true
-cask "handbrake-app", greedy: true
 cask "helium-browser", greedy: true
-cask "ilok-license-manager", greedy: true
-cask "iterm2", greedy: true
+cask "kindle-previewer", greedy: true
+cask "raycast", greedy: true
+cask "swift-publisher", greedy: true
+cask "typora", greedy: true
+
+## Casks - Utilities
+cask "a-better-finder-rename", greedy: true
+cask "aldente", greedy: true
+cask "appcleaner", greedy: true
+cask "balenaetcher", greedy: true
+cask "cryptomator", greedy: true
+cask "disk-drill", greedy: true
+cask "etrecheckpro", greedy: true
+cask "gpg-suite-no-mail", greedy: true
 cask "keka", greedy: true
 cask "keyboardcleantool", greedy: true
-cask "kid3", greedy: true
-cask "kindle-previewer", greedy: true
-cask "loopback", greedy: true
-cask "losslesscut", greedy: true
-cask "macwhisper", greedy: true
-cask "mdrp", greedy: true
-cask "mediainfo", greedy: true
 cask "nordpass", greedy: true
 cask "nordvpn", greedy: true
 cask "omnidisksweeper", greedy: true
 cask "onyx", greedy: true
-cask "openaudible", greedy: true
 cask "openmtp", greedy: true
-cask "piezo", greedy: true
-cask "prismlauncher", greedy: true
-cask "pulsar", greedy: true
 cask "raspberry-pi-imager", greedy: true
-cask "raycast", greedy: true
-cask "shutter-encoder", greedy: true
-cask "signal", greedy: true
-cask "slack", greedy: true
-cask "soundsource", greedy: true
 cask "stats", greedy: true
-cask "swift-publisher", greedy: true
-cask "temurin@21", greedy: true
 cask "thaw", greedy: true
 cask "the-unarchiver", greedy: true
 cask "timemachineeditor", greedy: true
-cask "typora", greedy: true
-cask "utm", greedy: true
+
+## Casks - Video
+cask "4k-video-downloader+", greedy: true
+cask "arctic", greedy: true
+cask "handbrake-app", greedy: true
+cask "losslesscut", greedy: true
+cask "mdrp", greedy: true
+cask "mediainfo", greedy: true
+cask "shutter-encoder", greedy: true
 cask "vlc", greedy: true
-cask "waves-central", greedy: true
-cask "whatsapp", greedy: true
-cask "zoom", greedy: true
