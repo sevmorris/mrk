@@ -124,10 +124,12 @@ single questions.
   whose last cask leaves, and keep the comment above the first cask section.
   A new section name must survive mrk-picker's `categoryName`: no " & " or
   " / ", and two words at most. `tools/picker/category_test.go` checks this.
-- Barkeep adds a bare `cask "name"` or `brew "name"` after the last entry of
-  the section you pick, or under a new `# Section` comment it makes (Adopt uses
-  `# Adopted`). Refile each into its `##` section, with `greedy: true` on a
-  cask, and drop the comment Barkeep made.
+- Barkeep adds `brew "name"`, or `cask "name", greedy: true` — from 1.13.0,
+  because most casks here carry it; 1.12.5 wrote a bare `cask "name"` — after
+  the last entry of the section you pick, or under a new `# Section` comment
+  it makes (Adopt uses `# Adopted`). Refile a line under a comment Barkeep made
+  into its `##` section, add `greedy: true` to a bare cask, and drop the
+  comment.
 - `scripts/snapshot-prefs`, `scripts/post-install` (`import_plist`,
   `add_login_item`) and `bin/snapshot` hold the per-app lists.
 - `bin/clear-app-caches`, `scripts/trim-services` (launchd labels such as

@@ -87,25 +87,33 @@ mkrepo() {
   git -C "$d" push -q -u origin main 2>/dev/null
 }
 
-# barkeep_add DIR KIND NAME SECTION — what BrewfileViewModel.add() writes: the
-# bare canonical line after the last entry of SECTION, or at the end under a
-# new `# SECTION` when no entry is in it. "Adopt" adds through the same path,
-# under Adopted.
+# barkeep_add DIR KIND NAME SECTION [bare] — what BrewfileViewModel.add()
+# writes: the canonical line after the last entry of SECTION, or at the end
+# under a new `# SECTION` when no entry is in it. "Adopt" adds through the same
+# path, under Adopted. A section is named as Barkeep names it: a comment line
+# with one `#` dropped, so mrk's `## Casks - Audio` is `# Casks - Audio`. From
+# Barkeep 1.13.0 a cask gets `, greedy: true` when most of the Brewfile's casks
+# carry it, as every cask in mrk's does; `bare` writes the line 1.12.5 wrote.
 barkeep_add() {
-  python3 - "$1/Brewfile" "$2" "$3" "$4" <<'PY'
+  python3 - "$1/Brewfile" "$2" "$3" "$4" "${5:-}" <<'PY'
 import re, sys
-path, kind, name, section = sys.argv[1:5]
+path, kind, name, section, bare = sys.argv[1:6]
 lines = open(path).read().split('\n')
 if lines and lines[-1] == '':
     lines.pop()
+casks = [l for l in lines if l.strip().startswith('cask "')]
+greedy = sum(bool(re.search(r',\s*greedy:\s*true\b', l)) for l in casks)
 entry = f'{kind} "{name}"'
+if kind == 'cask' and not bare and greedy * 2 > len(casks):
+    entry += ', greedy: true'
 current, last = None, None
 for i, l in enumerate(lines):
-    if l.startswith('#'):
-        body = l.lstrip('#').strip()
-        if body:
+    t = l.strip()
+    if t.startswith('#'):
+        body = t[1:].strip()
+        if body and not re.match(r'^(brew|cask|tap|mas)\s+"', body):
             current = body
-    elif re.match(r'^(brew|cask|tap) "', l) and current == section:
+    elif re.match(r'^(brew|cask|tap)\s+"', t) and current == section:
         last = i
 if last is None:
     lines += ['', f'# {section}', entry]
@@ -115,7 +123,8 @@ open(path, 'w').write('\n'.join(lines) + '\n')
 PY
 }
 
-# barkeep_remove DIR KIND NAME — what "Remove from Brewfile" does.
+# barkeep_remove DIR KIND NAME — what "Remove from Brewfile" does, and from
+# Barkeep 1.13.0 "Uninstall and Remove from Brewfile" once brew has uninstalled.
 barkeep_remove() {
   python3 - "$1/Brewfile" "$2" "$3" <<'PY'
 import sys
@@ -152,11 +161,12 @@ PY
 
 # barkeep_session DIR — the edits one sitting in Barkeep makes: adopt a cask,
 # add a formula and a cask into the sections the Brewfile already has, and
-# remove a cask.
+# remove a cask. zq-studio is added as Barkeep 1.12.5 added it, with no
+# greedy: true, since that version is still installed on some Macs.
 barkeep_session() {
   barkeep_add "$1" cask zq-adopted Adopted
-  barkeep_add "$1" brew zqtool "CLI Tools - Media"
-  barkeep_add "$1" cask zq-studio "Casks - Audio"
+  barkeep_add "$1" brew zqtool "# CLI Tools - Media"
+  barkeep_add "$1" cask zq-studio "# Casks - Audio" bare
   barkeep_remove "$1" cask "$GONE"
 }
 
@@ -167,6 +177,18 @@ R="$W/repo"
 mkrepo "$R"
 descs "$R/tools/picker/main.go" > "$W/before"
 barkeep_session "$R"
+
+# The copy of Barkeep's add() is only as good as its likeness: each line in the
+# shape and the place Barkeep puts it.
+section_of() { awk -v want="$1" '/^## /{ s = $0 } $0 == want { print s; exit }' "$R/Brewfile"; }
+if grep -qx 'cask "zq-adopted", greedy: true' "$R/Brewfile" && grep -qx 'cask "zq-studio"' "$R/Brewfile" \
+   && [[ "$(grep -A1 -x '# Adopted' "$R/Brewfile" | tail -1)" == 'cask "zq-adopted", greedy: true' ]] \
+   && [[ "$(section_of 'brew "zqtool"')" == '## CLI Tools - Media' ]] \
+   && [[ "$(section_of 'cask "zq-studio"')" == '## Casks - Audio' ]]; then
+  pass "the Barkeep edits land as Barkeep writes them: greedy casks, in the sections picked"
+else
+  fail "the copy of Barkeep's add() wrote:"; grep -nE 'zq-|zqtool|# Adopted' "$R/Brewfile" | sed 's/^/      /' >&2
+fi
 
 rc=0; "$R/scripts/check-picker-desc" >"$W/check.log" 2>&1 || rc=$?
 if (( rc == 1 )) && grep -qx '  zq-adopted' "$W/check.log" && grep -qx '  zqtool' "$W/check.log" \
