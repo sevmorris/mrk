@@ -431,8 +431,8 @@ snapshot_fonts
 # left you reconstructing the list from memory. Two details make a manifest
 # worth more than `ls`: a directory name is not always the repo name
 # (PasswordGen's origin is sevmorris/ppg), and DoublEnder's private Cloud
-# overlay lives in a bare repo at ~/DoublEnder-cloud.git that nothing else on
-# disk points to.
+# overlay lives in a bare repo at ~/Projects/DoublEnder-cloud.git that nothing
+# else on disk points to.
 #
 # Remotes only. No credentials, and no repository contents.
 snapshot_repos(){
@@ -461,15 +461,16 @@ snapshot_repos(){
     count=$(( count + 1 ))
   done
 
-  # Bare repos sitting directly in $HOME. DoublEnder's overlay is the reason
-  # this loop exists; it is recorded, but restore-repos deliberately will not
-  # clone it, because its working tree is interleaved with the public repo.
-  for d in "$HOME"/*.git; do
+  # Bare repos sitting directly in ~/Projects, which project_repos passes
+  # over. DoublEnder's overlay is the reason this loop exists; it is recorded,
+  # but restore-repos deliberately will not clone it, because its working tree
+  # is interleaved with the public repo.
+  for d in "$HOME"/Projects/*.git; do
     [[ -d "$d" ]] || continue
     name="$(basename "$d")"
     remote="$(git -C "$d" remote get-url origin 2>/dev/null || true)"
     [[ -n "$remote" ]] || continue
-    printf '%s\t%s\t%s\tbare\n' "${name%.git}" "$remote" "$name" >> "$out"
+    printf '%s\t%s\tProjects/%s\tbare\n' "${name%.git}" "$remote" "$name" >> "$out"
     count=$(( count + 1 ))
   done
 

@@ -121,7 +121,8 @@ from reopening it.
 - **A private repository on this plan cannot have rulesets or push
   protection.** GitHub answers "Upgrade to GitHub Pro". `n/a` there is the
   plan, not a gap. Each private repo has a full-history clone here
-  (`~/DoublEnder-cloud.git`, `~/.mrk/preferences`, and two in `~/Projects`).
+  (`~/.mrk/preferences`, and three in `~/Projects`, one of them the bare
+  `DoublEnder-cloud.git`).
 - **Folder names are not repository names.** PasswordGen is `ppg`, and
   FloppyLetters/FloppyLetter2601 is `wp-sim-93`. Magic Backup Machine and
   the Pi guide use hyphenated lowercase names, and FloppyLetter2601 sits one
