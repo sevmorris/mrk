@@ -1,7 +1,7 @@
 # Followups
 
 This file indexes every deferred item, known limitation, and explicitly-out-of-scope
-finding from the mrk audit (modules 1–18, six fix sessions, runtime verification).
+finding from the mrk audit (modules 1–19, six fix sessions, runtime verification).
 It is not a punch list of unfixed bugs — most items here were explicitly chosen to defer,
 accept as a known limitation, or scope out. The value of the file is that "what's still
 open?" has a single answer without grepping the whole audit directory.
@@ -9,7 +9,19 @@ open?" has a single answer without grepping the whole audit directory.
 For each item: what it is, where it's documented, why it was deferred, what action
 would close it.
 
-**Last re-verified:** 2026-09-23 against `84a6825` by module 18
+**Last re-verified:** 2026-09-27 against `d8a0f5a` by module 19
+(`19-audit-2026-09-27.md`), a full sweep of every module for shell correctness, idempotency,
+rollback fidelity, the Go code, documentation drift and cruft. It is a findings pass: it fixed
+nothing, and its 30 items wait for fix sessions, listed below. `ci-check`, `go vet`, `gofmt`,
+shellcheck and staticcheck were all green beforehand, and govulncheck found nothing reachable. Two findings lead:
+- **W-1 (CRITICAL).** On a Mac without Homebrew, `make setup` and `make brew` both exit 1 at a
+  bash-4 guard. That is the README's quick start and the manual's new-machine walkthrough.
+  Nothing sees it, because test installs keep Homebrew and CI installs bash first.
+- **W-2 (HIGH).** post-install writes Sparkle keys into six apps' domains before it imports
+  their saved plists, so the imports are skipped. The migration-day rollback file shows it on
+  this Mac.
+
+**Previously re-verified:** 2026-09-23 against `84a6825` by module 18
 (`18-audit-2026-09-23.md`). It asked whether mrk suits the M5 Pro on macOS 26 it now runs on,
 checking every Brewfile package against Homebrew's own definitions, the Go tools as built for
 darwin/arm64, the LaunchAgents, CI and shell startup. Every formula has an Apple silicon bottle
@@ -22,7 +34,7 @@ Four settings were fixed:
 
 Four decisions remain, below.
 
-**Previously re-verified:** 2026-09-18 against `f8687b6` by module 17
+**Before that:** 2026-09-18 against `f8687b6` by module 17
 (`17-audit-2026-09-18.md`). It took up three of seven audit ideas that had been saved a week
 earlier: every download in the install path, `mrk-install --all` against `make all`, and
 `sync-login-items` with awkward names. Each finding was two parts that had to agree, with nothing
@@ -36,7 +48,7 @@ comparing them:
 nvm and the zsh plugins are now pinned to commits. Two of the seven ideas were already done by
 modules 15 and 16. Two remain, below.
 
-**Before that:** 2026-09-17 against `52458c8` by module 16
+**Earlier:** 2026-09-17 against `52458c8` by module 16
 (`16-audit-2026-09-17.md`). It checked the migration end to end on the Mac itself, then
 followed each gap back into mrk. The HIGH finding was in the key-transfer path again, U-1.
 `restore-keys` ran gpg while `~/.gnupg` was moved aside. GnuPG 2.5 made a new home directory,
@@ -53,7 +65,7 @@ It found 12 items. It fixed six, and left the decisions below. Its lesson is mod
 one layer down: the tools ran cleanly, and it took reading the Mac's own state (a file's mtime,
 two keyrings side by side, a crash report) to see what they had done.
 
-**Earlier:** 2026-09-16 against `6a38545` by module 15
+**Earlier still:** 2026-09-16 against `6a38545` by module 15
 (`15-audit-2026-09-16.md`), on the new Mac: an M5 Pro on macOS 26.7, migrated from a macOS 15
 Mac the day before. It began with a HIGH defect, T-1: `make updates`, and `update-full` through
 it, ran `softwareupdate -ia`, and on this Mac the only update listed was macOS 27, so the
@@ -62,7 +74,7 @@ command started downloading it. Nothing in mrk had changed; Apple's list had. Mo
 as module 14's, from another direction: a claim that held on the old Mac (a disable survives a
 restart; a key is applied; a Finder property exists) must be checked against the new one.
 
-**Earlier still:** 2026-09-09 against `605ff9f` by module 14
+**Before those:** 2026-09-09 against `605ff9f` by module 14
 (`14-audit-2026-09-09.md`), which found nine items, fixed eight, and withdrew one of its own as
 a false finding. It left nothing open. Its durable result is methodological: **half its
 findings were only reachable by running the code.** P-5, P-6 and P-8 live in the exit
@@ -85,13 +97,44 @@ below.
 
 ## Blocking
 
-None. N-1 is fixed — see Closed below.
+- **W-1 (module 19, CRITICAL): a Mac without Homebrew cannot run Phase 1 or Phase 2.**
+  `scripts/setup:4-10` and `scripts/brew:4-10` exit 1 unless Homebrew's bash is present. setup
+  needs no bash 4; brew does, and is what installs Homebrew. Details and the reproduction are in
+  `19-audit-2026-09-27.md`.
+
+N-1 is fixed — see Closed below.
 
 ---
 
 ## Deferred decisions
 
 Items that require a real choice before they can be closed in either direction.
+
+**Module 19's findings (2026-09-27), awaiting fix sessions.** Unlike the modules before it,
+module 19 fixed nothing, so every item is open. Details, evidence and line numbers are in
+`19-audit-2026-09-27.md`. W-1 is under Blocking above.
+
+- **HIGH.** W-2: post-install never imports Loopback, SoundSource, Audio Hijack, Farrago, Piezo
+  or Helium on a new Mac.
+- **MEDIUM.**
+  - W-3: hardening.sh and trim-services keep the rollback check that can empty an undo file.
+  - W-4: setup links git-ignored files in `dotfiles/`, and can displace `~/.claude`.
+  - W-5: setup and post-install run from any checkout repoint `~` at it.
+  - W-6: brew ignores `--no-casks`, `--no-formulae` and `--only-formulae` without a TTY.
+  - W-7: `make setup-dry` can run `sudo xcodebuild -license accept`.
+  - W-8: `services-rollback.sh` is never offered, and nuke-mrk trashes it, which it did here on
+    2026-09-24.
+- **LOW.**
+  - W-9 to W-10: setup.
+  - W-11 to W-13: post-install and uninstall.
+  - W-14 to W-17: brew.
+  - W-18: sync.
+  - W-19: defaults.sh.
+  - W-20: Claude Code artifacts that outlive both uninstall paths.
+  - W-21: `bin/snapshot`.
+  - W-22 to W-25: Go and the Makefile.
+  - W-26 to W-28: documentation.
+  - W-29 to W-30: cruft and shellcheck scope.
 
 **Module 18's open items (2026-09-23).** Details are in `18-audit-2026-09-23.md`.
 
