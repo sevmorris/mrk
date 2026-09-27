@@ -12,8 +12,8 @@ would close it.
 **Last re-verified:** 2026-09-27 against `d8a0f5a` by module 19
 (`19-audit-2026-09-27.md`), a full sweep of every module for shell correctness, idempotency,
 rollback fidelity, the Go code, documentation drift and cruft. It is a findings pass: it fixed
-nothing, and its 30 items wait for fix sessions, listed below. `ci-check`, `go vet`, `gofmt`
-and shellcheck were all green beforehand. Two findings lead:
+nothing, and its 30 items wait for fix sessions, listed below. `ci-check`, `go vet`, `gofmt`,
+shellcheck and staticcheck were all green beforehand, and govulncheck found nothing reachable. Two findings lead:
 - **W-1 (CRITICAL).** On a Mac without Homebrew, `make setup` and `make brew` both exit 1 at a
   bash-4 guard. That is the README's quick start and the manual's new-machine walkthrough.
   Nothing sees it, because test installs keep Homebrew and CI installs bash first.
