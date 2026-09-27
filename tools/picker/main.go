@@ -144,6 +144,7 @@ var descriptions = map[string]string{
 	"openaudible":            "Audible audiobook manager and converter",
 	"openmtp":                "Android file transfer for macOS",
 	"piezo":                  "Effortless audio recording from any application",
+	"prismlauncher":          "Open-source Minecraft launcher with multiple instances",
 	"pulsar":                 "Community-driven Atom editor fork",
 	"raspberry-pi-imager":    "Official Raspberry Pi OS imaging tool",
 	"raycast":                "Extensible macOS launcher and productivity platform",
