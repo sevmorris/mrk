@@ -7,7 +7,7 @@
 # description, so until 2026-09-27 every Barkeep add turned CI red until someone
 # described the package by hand. check-picker-desc --fix now describes it in
 # Homebrew's words and deletes the orphans, and mrk-push and pushall run it
-# before they commit a changed Brewfile.
+# whenever the check fails, before they commit.
 #
 # Everything runs against copies of this repository's Brewfile and main.go, in
 # throwaway repositories whose pushes go to local bares. brew is a stub named by
@@ -283,15 +283,25 @@ pushed() {
   git clone -q "$1.git" "$W/clone" 2>/dev/null && "$W/clone/scripts/check-picker-desc" >/dev/null 2>&1
 }
 
-# mrk-push parses origin as a GitHub remote, so origin names one and pushes to
-# the bare. Nothing here fetches.
+# mrk_push_repo DIR — mkrepo, with origin named as the GitHub remote mrk-push
+# parses and pushing to the bare. Nothing here fetches.
+mrk_push_repo() {
+  mkrepo "$1"
+  git -C "$1" remote set-url origin https://github.com/example/mrk.git
+  git -C "$1" remote set-url --push origin "$1.git"
+}
+# mrk_push DIR LOG ARGS... — run DIR's mrk-push from DIR/tools; echo the status.
+mrk_push() {
+  local d=$1 log=$2 rc=0; shift 2
+  ( cd "$d/tools" && PATH="$W/stubs:$PATH" HOME="$W/home" "$d/bin/mrk-push" "$@" ) >"$log" 2>&1 || rc=$?
+  echo "$rc"
+}
+
 M="$W/mp"
-mkrepo "$M"
-git -C "$M" remote set-url origin https://github.com/example/mrk.git
-git -C "$M" remote set-url --push origin "$M.git"
+mrk_push_repo "$M"
 barkeep_session "$M"
 b="$(git -C "$M.git" rev-parse main)"
-rc=0; ( cd "$M" && PATH="$W/stubs:$PATH" HOME="$W/home" bin/mrk-push --dry-run ) >"$W/mp-dry.log" 2>&1 || rc=$?
+rc="$(mrk_push "$M" "$W/mp-dry.log" --dry-run)"
 if (( rc == 0 )) && git -C "$M" diff --quiet -- tools/picker/main.go && [[ "$(git -C "$M.git" rev-parse main)" == "$b" ]] \
    && grep -q 'A real run runs check-picker-desc --fix' "$W/mp-dry.log"; then
   pass "mrk-push --dry-run reports the missing descriptions and writes nothing"
@@ -299,7 +309,7 @@ else
   fail "mrk-push --dry-run exited $rc:"; sed 's/^/      /' "$W/mp-dry.log" >&2
 fi
 
-rc=0; ( cd "$M/tools" && PATH="$W/stubs:$PATH" HOME="$W/home" "$M/bin/mrk-push" "Barkeep edits" ) >"$W/mp.log" 2>&1 || rc=$?
+rc="$(mrk_push "$M" "$W/mp.log" "Barkeep edits")"
 files="$(git -C "$M.git" show --name-only --format= main | sort | tr '\n' ' ')"
 if (( rc == 0 )) && [[ "$files" == "Brewfile tools/picker/main.go " ]]; then
   pass "mrk-push commits the descriptions with the Brewfile"
@@ -310,6 +320,34 @@ if pushed "$M"; then
   pass "check-picker-desc passes on what mrk-push pushed"
 else
   fail "check-picker-desc fails on what mrk-push pushed"
+fi
+
+# The Barkeep session committed with a plain `git commit` before the push. The
+# Brewfile no longer differs from HEAD, which is the trigger the first version
+# had, so it pushed the gap to GitHub.
+M="$W/mp-committed"
+mrk_push_repo "$M"
+barkeep_session "$M"
+git -C "$M" commit -qam "Barkeep edits, committed by hand"
+rc="$(mrk_push "$M" "$W/mp-committed.log" "describe")"
+files="$(git -C "$M.git" show --name-only --format= main | sort | tr '\n' ' ')"
+if (( rc == 0 )) && [[ "$files" == "tools/picker/main.go " ]] && pushed "$M"; then
+  pass "a Brewfile committed without its descriptions gets them on the next mrk-push"
+else
+  fail "mrk-push after a hand commit exited $rc, committed: $files"; sed 's/^/      /' "$W/mp-committed.log" >&2
+fi
+
+# Descriptions already in step: the check runs, says nothing, and main.go stays
+# out of the commit.
+M="$W/mp-quiet"
+mrk_push_repo "$M"
+printf '# a comment\n' >> "$M/Brewfile"
+rc="$(mrk_push "$M" "$W/mp-quiet.log" "comment")"
+files="$(git -C "$M.git" show --name-only --format= main | sort | tr '\n' ' ')"
+if (( rc == 0 )) && [[ "$files" == "Brewfile " ]] && ! grep -qE 'check-picker-desc:|--fix' "$W/mp-quiet.log"; then
+  pass "a push with the descriptions in step says nothing about them and leaves main.go alone"
+else
+  fail "mrk-push with descriptions in step exited $rc, committed: $files"; sed 's/^/      /' "$W/mp-quiet.log" >&2
 fi
 
 # ── 4. pushall ───────────────────────────────────────────────────────────────
@@ -332,6 +370,20 @@ if pushed "$P"; then
   pass "check-picker-desc passes on what pushall pushed"
 else
   fail "check-picker-desc fails on what pushall pushed"
+fi
+
+# Committed by hand, so the tree is clean: pushall used to test for changes
+# before anything else and would have pushed the commit as it stood.
+P="$W/pa-committed"
+mkrepo "$P"
+barkeep_session "$P"
+git -C "$P" commit -qam "Barkeep edits, committed by hand"
+rc=0; PATH="$W/stubs:$PATH" HOME="$W/pa-home" "$P/bin/pushall" >"$W/pa-committed.log" 2>&1 || rc=$?
+files="$(git -C "$P.git" show --name-only --format= main | sort | tr '\n' ' ')"
+if (( rc == 0 )) && [[ "$files" == "tools/picker/main.go " ]] && pushed "$P"; then
+  pass "a clean mrk whose Brewfile was committed without descriptions gets them from pushall"
+else
+  fail "pushall after a hand commit exited $rc, committed: $files"; sed 's/^/      /' "$W/pa-committed.log" >&2
 fi
 
 if grep -q 'gh must not be called' "$W"/*.log; then

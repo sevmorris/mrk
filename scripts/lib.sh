@@ -786,25 +786,33 @@ _picker_replace() {
 }
 
 # picker_desc_fix REPO [--dry-run] — for mrk-push and pushall, before they stage:
-# when REPO's Brewfile differs from HEAD, run REPO's check-picker-desc --fix, so
-# the descriptions go into the same commit as the lines they describe.
+# when REPO's check-picker-desc fails, run it again with --fix, so the
+# descriptions go into the commit that is about to be made. Silent when the
+# check passes.
 #
 # sync describes each package it adds and deletes the description of each one
 # it prunes. Barkeep adds and removes Brewfile lines and writes no description,
 # and neither does a hand edit, so each of those turned CI red until someone
 # wrote the description by hand. Every change to ~/mrk reaches GitHub through
-# mrk-push or pushall, so the commit is where all three can be caught.
+# mrk-push or pushall, so the push is where all three can be caught.
 #
-# A dry run runs the check without --fix and changes nothing. What --fix cannot
+# The trigger is the check failing, not the Brewfile having changed. The first
+# version ran --fix only when the Brewfile differed from HEAD, so a Brewfile
+# committed some other way — a plain `git commit` after a Barkeep session —
+# reached GitHub undescribed, and nothing at push time looked. The check reads
+# two files and calls nothing, about 50 ms, so it runs on every push; Homebrew
+# is asked only when there is something to describe.
+#
+# A dry run shows what the check finds and changes nothing. What --fix cannot
 # settle — a package Homebrew has no description for — is warned about and the
 # commit goes ahead: holding back every other change would not make CI green.
 picker_desc_fix() {
   local repo=$1 dry=${2:-}
   local check="$repo/scripts/check-picker-desc"
   [[ -x "$check" ]] || return 0
-  git -C "$repo" diff --quiet HEAD -- Brewfile 2>/dev/null && return 0
+  "$check" >/dev/null 2>&1 && return 0
   if [[ "$dry" == --dry-run ]]; then
-    "$check" && return 0
+    "$check" || true
     info "A real run runs check-picker-desc --fix before it stages."
     return 0
   fi

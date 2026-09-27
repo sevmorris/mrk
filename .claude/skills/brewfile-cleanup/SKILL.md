@@ -106,8 +106,8 @@ single questions.
 - `tools/picker/main.go` holds the descriptions, and `check-picker-desc` holds
   them to the Brewfile in both directions. `scripts/brew` reads them. sync and
   `check-picker-desc --fix` write them, through the functions in
-  `scripts/lib.sh`; mrk-push and pushall run `--fix` before they commit a
-  changed Brewfile.
+  `scripts/lib.sh`; mrk-push and pushall run the check before they commit,
+  and `--fix` when it fails.
 - `scripts/sync`, `scripts/brew`, `scripts/status`, `tools/picker` and
   `tools/mrk-status` all parse the Brewfile, each in its own way. Keep every
   line in the strict shape: `brew "name"` or

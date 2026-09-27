@@ -31,8 +31,8 @@ Options:
 check-picker-desc compares the packages in the Brewfile against the
 descriptions in tools/picker/main.go and fails when either side has an entry
 the other does not. ci-check runs it first. mrk-push and pushall run it with
---fix before they commit a changed Brewfile, which covers the packages Barkeep
-and hand edits add and remove.
+--fix when it fails, before they commit, which covers the packages Barkeep and
+hand edits add and remove.
 EOF
 }
 
