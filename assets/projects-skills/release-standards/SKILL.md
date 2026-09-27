@@ -50,7 +50,9 @@ missing ones as a list, and the repo state a release would trip over.
 
 `n/a` in the matrix means the guard has nothing to protect: a script building a
 plain image with `hdiutil create` has no dmgbuild to crash and no installer
-window to check. WireHack, retired and archived on 2026-09-23 with ClipHack
+window to check. No app does that now. Barkeep was the last, and moved to the
+shared dmgbuild settings on 2026-09-27; a new app should start there, not with
+`hdiutil create`. WireHack, retired and archived on 2026-09-23 with ClipHack
 superseding it, has no clone here any more and so does not appear.
 
 ## 3. Cutting a release
