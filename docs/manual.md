@@ -404,7 +404,7 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 
 | Command | Purpose |
 |---|---|
-| `clear-app-caches` | Clears the cache directories of Helium, Slack and Chrome — every Chrome profile. It never touches profile data |
+| `clear-app-caches` | Clears the cache directories of Helium, Slack and Chrome — every browser profile. It never touches profile data, and it leaves the browsers' GPU caches alone |
 | `clear-derived-data` | Clears the Xcode DerivedData directory |
 | `mrk-push` | Commits and pushes `~/mrk`, then deletes the old GitHub Pages deployments. Scans every file the commit carries for secrets first, from whichever directory you run it in. Refuses to run while a merge or rebase in `~/mrk` is unfinished. When `check-picker-desc` fails, runs it with `--fix` first, so a package added in Barkeep goes in with its description |
 | `prune-deployments` | Deletes the old GitHub Pages deployments and keeps the ten newest. It finds the repository from the origin remote, or use `--repo OWNER/NAME`. It always protects the deployment that serves the site, so a failed deploy cannot cause it to delete the live one. Use `--dry-run` first |

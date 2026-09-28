@@ -133,9 +133,9 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
 
   Rosetta is installed. → To close: decide per component, in Waves Central and iZotope's
   installer. mrk manages none of them. The list is in `18-audit-2026-09-23.md`.
-- **Browser GPU caches and nvm at shell start.** `clear-app-caches` deletes Helium's compiled
-  Metal pipelines daily. `.zshrc` loads nvm eagerly, which was not measured. Both are the
-  owner's call.
+- **nvm at shell start.** `.zshrc` loads nvm eagerly, which was not measured. → Owner's call:
+  time `zsh -i -c exit`, and lazy-load nvm if it dominates. Helium's GPU caches, the other half
+  of this entry, were settled on 2026-09-28 (see Closed).
 
 **Module 17's open items (2026-09-18).** Details are in `17-audit-2026-09-18.md`.
 
@@ -285,6 +285,23 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by keeping Helium's GPU caches, branch `claude/helium-keep-gpu-cache`, 2026-09-28
+
+Module 18's browser GPU caches, as the owner chose. `clear-app-caches` cleared Helium's three
+per-profile GPU caches daily and at login. Each was back to 548 KB within an hour, while Helium
+recompiled its Metal pipelines, and the browser-level one it never cleared was 13 MB. It now
+clears only the HTTP and code caches, as it always did for Chrome.
+
+- **New test:** `tests/clear-app-caches.sh`. Under a scratch HOME, every cache folder it names
+  must go, and the GPU caches and profile data must stay. `--help`, an unknown argument and a
+  missing HOME must remove nothing. ci-check runs it, and BIN-1 and the manual say what it
+  clears.
+- **Mutations**, each killed:
+  - the old script (the GPU caches deleted);
+  - Helium's HTTP cache line dropped;
+  - Chrome's `Default` profile only;
+  - no guard on a missing HOME.
 
 ### Closed by testing dotfile backups against things in the way, branch `claude/dotfile-backup-cases`, 2026-09-28
 

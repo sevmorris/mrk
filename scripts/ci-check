@@ -28,7 +28,7 @@ check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
 check-picker-desc, topgrade-npm, picard-settings, plist-import-order, setup-safety, undo-files,
-dock-setup and docs-drift tests in tests/, shellcheck over every tracked bash script,
+dock-setup, clear-app-caches and docs-drift tests in tests/, shellcheck over every tracked bash script,
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
@@ -194,6 +194,13 @@ log "undo files"
 # was not the Dock in use, and make dock would have replaced it. Audit 15, T-14.
 log "dock setup"
 "$REPO_ROOT/tests/dock-setup.sh"
+
+# clear-app-caches under a scratch HOME: every HTTP, code and Slack cache it
+# names cleared, the browsers' GPU caches and profile data left. Until
+# 2026-09-28 it cleared Helium's GPU caches daily and at login, which only made
+# Helium recompile them. Audit 18.
+log "clear app caches"
+"$REPO_ROOT/tests/clear-app-caches.sh"
 
 # The hand-written lists of commands, targets and tests, against the repository:
 # until 2026-09-28 the manual listed three ~/Makefile targets that did not

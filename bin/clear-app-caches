@@ -27,7 +27,7 @@ Options:
 clear-app-caches takes no options other than --help. It removes the cache
 directories of Helium, Slack and Chrome, for every browser profile. Nothing is
 prompted and nothing is kept — the caches rebuild on next launch. Profile data
-is not a cache and is left alone. The com.user.clear_app_caches LaunchAgent runs it on a
+is not a cache and is left alone, and so are the browsers' GPU caches. The com.user.clear_app_caches LaunchAgent runs it on a
 schedule.
 EOF
 }
@@ -43,16 +43,19 @@ if [[ -z "${HOME:-}" || ! -d "$HOME" ]]; then
 fi
 
 # Helium. Chromium on macOS keeps each profile's HTTP cache and code cache under
-# ~/Library/Caches — the one line below takes every profile's — and its GPU
-# caches inside each profile folder. Measured 2026-09-10: seven of the eight
-# paths this used to name (a Default/Cache and Code Cache under Application
-# Support, four browser-level shader caches, Crashpad) did not exist, so only
-# the Library/Caches line had ever removed anything, and the per-profile GPU
-# caches never went.
+# ~/Library/Caches, and the one line below takes every profile's. Measured
+# 2026-09-10: seven of the eight paths this used to name did not exist, so only
+# this line had ever removed anything.
+#
+# Helium's GPU caches are left alone: GPUCache, DawnGraphiteCache and
+# DawnWebGPUCache in each profile, and GraphiteDawnCache beside the profiles.
+# They hold compiled Metal pipelines. From 2026-09-10 to 2026-09-28 this cleared
+# the per-profile ones daily and at login. Within an hour of the clear on
+# 2026-09-28 each was back to 548 KB, and Helium had recompiled them. The
+# browser-level one, which this never cleared, was 13 MB: Chromium keeps them
+# small itself. Chrome's GPU caches were never cleared here either. If Helium
+# ever draws pages wrongly, quit it and delete them once by hand. Audit 18.
 rm -rf "$HOME/Library/Caches/net.imput.helium"
-for _profile in "$HOME/Library/Application Support/net.imput.helium/"*/; do
-  rm -rf "${_profile}GPUCache" "${_profile}DawnGraphiteCache" "${_profile}DawnWebGPUCache"
-done
 
 # Slack
 rm -rf "$HOME/Library/Application Support/Slack/Cache"
