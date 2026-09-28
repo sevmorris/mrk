@@ -125,7 +125,6 @@ var descriptions = map[string]string{
 	"github":                 "GitHub Desktop — visual Git client",
 	"google-chrome":          "Google Chrome web browser",
 	"google-drive":           "Google Drive desktop cloud storage client",
-	"gpg-suite-no-mail":      "GPG tools for macOS (without the Mail plugin)",
 	"handbrake-app":          "Open-source video transcoder",
 	"helium-browser":         "Helium — privacy-focused Chromium-based web browser",
 	"ilok-license-manager":   "iLok USB hardware license manager",

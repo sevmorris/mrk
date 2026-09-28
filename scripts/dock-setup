@@ -30,8 +30,9 @@ Options:
   -h, --help      Show this help
 
 dock-setup takes no options other than --help. It installs dockutil if that is
-missing, then replaces the current Dock with the DOCK_APPS list defined in the
-script; edit that list to change the layout. Normally run as `make dock`.
+missing, then replaces the current Dock with the DOCK_APPS list and the
+DOCK_FOLDER folder defined in the script; edit those to change the layout.
+Normally run as `make dock`.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"
@@ -43,21 +44,26 @@ if ! command -v dockutil >/dev/null 2>&1; then
   brew install dockutil || { err "Failed to install dockutil"; exit 1; }
 fi
 
+# The Dock in use on 2026-09-28, left to right (audit 15, T-14). Until then this
+# list was an older layout, and `make dock` would have replaced the live Dock
+# with it. Finder is always first and needs no entry.
 DOCK_APPS=(
+  "/Applications/Helium.app"
+  "/Applications/Google Chrome.app"
   "/Applications/Safari.app"
-  "/Applications/iTerm.app"
-  "/Applications/Typora.app"
-  "/Applications/Barkeep.app"
-  "/Applications/KeyVault.app"
-  "/Applications/Audio Hijack.app"
-  "/Applications/Loopback.app"
-  "/Applications/SoundSource.app"
+  "/Applications/iZotope RX 12 Audio Editor.app"
   "/Applications/WaxOnWaxOff.app"
   "/Applications/ClipHack.app"
-  "/Applications/FilmStrip.app"
-  "/System/Applications/System Settings.app"
-  "/System/Library/CoreServices/Finder.app"
+  "/Applications/Logic Pro.app"
+  "/Applications/iTerm.app"
+  "/Applications/Claude.app"
+  "/Applications/Antigravity.app"
+  "/Applications/WhatsApp.app"
 )
+
+# The folder beside the Trash: a stack, shown as a list, sorted by name. Until
+# 2026-09-28 this was /Applications as a grid, which was not the Dock in use.
+DOCK_FOLDER="$HOME/Work Apps"
 
 # Snapshot the Dock before wiping it.
 #
@@ -123,11 +129,13 @@ for app in "${DOCK_APPS[@]}"; do
   fi
 done
 
-# Applications folder
-if dockutil --add /Applications --view grid --display folder --no-restart; then
-  ok "Added: Applications folder"
+folder_name=$(basename "$DOCK_FOLDER")
+if [[ ! -d "$DOCK_FOLDER" ]]; then
+  warn "Skipped: $folder_name folder (no $DOCK_FOLDER)"
+elif dockutil --add "$DOCK_FOLDER" --view list --display stack --sort name --no-restart; then
+  ok "Added: $folder_name folder"
 else
-  warn "Failed to add: Applications folder"
+  warn "Failed to add: $folder_name folder"
 fi
 
 killall Dock

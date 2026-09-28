@@ -129,7 +129,6 @@ cask "balenaetcher", greedy: true
 cask "cryptomator", greedy: true
 cask "disk-drill", greedy: true
 cask "etrecheckpro", greedy: true
-cask "gpg-suite-no-mail", greedy: true
 cask "keka", greedy: true
 cask "keyboardcleantool", greedy: true
 cask "nordpass", greedy: true
