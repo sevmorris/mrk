@@ -112,24 +112,8 @@ Items that require a real choice before they can be closed in either direction.
 
 **Module 19's findings (2026-09-27), awaiting fix sessions.** Unlike the modules before it,
 module 19 fixed nothing, so every item was open. Details, evidence and line numbers are in
-`19-audit-2026-09-27.md`. W-1 is under Blocking above. W-2 is fixed (see Closed), and leaves one
-decision about this Mac.
+`19-audit-2026-09-27.md`. W-1 is under Blocking above. W-2 is fixed; see Closed.
 
-- **W-2, on this Mac.** The 2026-09-15 migration never imported the saved plists of Loopback,
-  SoundSource, Audio Hijack, Farrago, Piezo and Helium. The fix changes what a new Mac does; it
-  does not change this one. Each app has been set up by use since then.
-
-  The copies at mrk-prefs' HEAD are no longer the old Mac's. `snapshot-prefs` ran here on
-  2026-09-18 and 2026-09-24 and exported this Mac's six domains over them. The old Mac's last
-  snapshot is `953bb08` (2026-09-15 11:20, per module 16), so its settings are
-  `git -C ~/.mrk/preferences show 953bb08:<File>.plist`. `make post-install` will not bring them
-  back: the six domains are configured, and it skips them.
-
-  Recover them only if they hold something you still want. If you do, quit the app, export its
-  domain first, then `defaults import <id> <file>`. `defaults import` merges: every saved key
-  replaces the current value, and keys that only the current domain has are kept. Then run
-  `make post-install` so that mrk's own keys are written on top again. Leaving it as it is is
-  also a valid choice.
 - **MEDIUM.**
   - W-3: hardening.sh and trim-services keep the rollback check that can empty an undo file.
   - W-4: setup links git-ignored files in `dotfiles/`, and can displace `~/.claude`.
@@ -362,8 +346,24 @@ Details, the design reasoning and the rollback analysis are in `19-audit-2026-09
   | `import_own_apps` gated on an installed app | 2 |
 
   Documented in the manual's Phase 3, BIN-1 §2.14 and §2.22, and SMAC-1 §2.2 (sevmac, branch
-  `claude/w2-plist-import-order`). Nothing on this Mac was changed. Its six domains are the open
-  item under Deferred decisions.
+  `claude/w2-plist-import-order`). Nothing on this Mac was changed.
+
+  **This Mac's six domains: left as they are, by the owner's decision (2026-09-27).** The owner
+  moved the settings over at the migration. A read-only comparison with the old Mac's last
+  snapshot, `953bb08` in mrk-prefs, bears that out for the configuration that matters. It did
+  not come through the preference domains, which were not copied: their keys differ widely.
+  - SoundSource's per-app sources and presets live in Application Support. All four files are
+    identical to the old Mac's, restored on migration day.
+  - Loopback has the same virtual devices: Hacks Safety Mix, Hacks Zoom Input, Farrago, zoom.us.
+  - Helium, Piezo and Loopback's domains lost only window positions, dialog state and welcome
+    flags. Helium's `NSUserKeyEquivalents` was an empty dict.
+  - Farrago lost its dark theme, its bring-forward hotkey and its output device (an AudioQuest
+    DragonFly Red). Audio Hijack lost `hideGlobalMenu` and `supressSessionDeleteMsg`, both true on
+    the old Mac.
+
+  The lost settings are still in `953bb08`. `snapshot-prefs` has since exported this Mac's domains
+  over the saved copies (2026-09-18, 2026-09-24). `defaults import` merges, so export the
+  current domain before importing one.
 
 ### Closed by module 18, the 2026-09-23 Apple silicon pass
 
