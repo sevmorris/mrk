@@ -111,12 +111,8 @@ Items that require a real choice before they can be closed in either direction.
 **Module 19's findings (2026-09-27): all fixed.** Module 19 fixed nothing itself, and its 30
 findings went to seven fix sessions on 2026-09-27 and 2026-09-28. The W-1 session found a
 31st, W-31. All 31 are fixed; see Closed, and `19-audit-2026-09-27.md` for each one's evidence,
-fix, test and mutation table. One decision remains:
-
-- **Whether to keep `snapshot`.** Without `--brewfile` it exports plists into
-  `assets/preferences/`, which `.gitignore` excludes and nothing reads; `snapshot-prefs` is the
-  export that restores. W-21 fixed its `--brewfile` path, and left this to the owner. → To close:
-  keep it as a local export, or retire it with its BIN-1 entry and `make snapshot`.
+fix, test and mutation table. The one decision they left, whether to keep `snapshot`, was
+settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is open.
 
 **Module 18's open items (2026-09-23).** Details are in `18-audit-2026-09-23.md`.
 
@@ -292,6 +288,24 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by retiring `snapshot`, branch `claude/retire-snapshot`, 2026-09-28
+
+The decision W-21 left to the owner. `snapshot` exported eight apps' plists into
+`assets/preferences/` in the public repository, which `.gitignore` excludes and nothing read;
+`snapshot-prefs` is the export that is pushed and restored. Its `--brewfile` overwrote the
+Brewfile with a raw dump, which `sync` does without the damage. The owner chose to retire it.
+
+- **Removed:** `bin/snapshot`, `make snapshot`, the `mrk-menu` item, BIN-1's entry, its
+  quick-reference row and the manual's note, and `tests/snapshot-brewfile.sh`, the W-21 test that
+  had only this command to test.
+- **Renumbered:** BIN-1 has 40 command entries, and `decloud` is 1.2. `tests/docs-drift.sh`
+  holds the count, and every command on the PATH to an entry.
+- **Kept:** `.gitignore`'s `assets/preferences/*.plist` rule, with a comment saying why. No plist
+  is there on this Mac, checked read-only, but a leftover on an older clone would hold personal
+  settings in a public repository.
+- **This Mac:** after `~/mrk` is updated, `~/bin/snapshot` points at a file that is gone. `make
+  fix-exec`, which `make all` runs first, prunes it.
 
 ### Closed by the Go fix, branch `claude/fix-go-batch7`, 2026-09-28
 

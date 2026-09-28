@@ -26,7 +26,7 @@ define link-home-bin
 	fi
 endef
 
-.PHONY: trim-services all install fix-exec setup setup-dry brew post-install apps tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos dock help check ci maintain
+.PHONY: trim-services all install fix-exec setup setup-dry brew post-install apps tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos dock help check ci maintain
 
 # Put Homebrew on PATH for one recipe line, when it is installed and not on PATH
 # already: homebrew_on_path in scripts/lib.sh. make all runs every step with the
@@ -175,9 +175,6 @@ sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to co
 
 sync-login-items: ## Sync system login items into post-install and docs  (pass ARGS=-c to commit, ARGS=-n for dry run)
 	@"$(SCRIPTS)/sync-login-items" $(ARGS)
-
-snapshot: ## Export selected app prefs to assets/preferences/ in repo (distinct from snapshot-prefs)
-	@"$(BIN_DIR)/snapshot" $(ARGS)
 
 snapshot-prefs: ## Export app preferences to ~/.mrk/preferences/ and push to mrk-prefs
 	@"$(SCRIPTS)/snapshot-prefs"

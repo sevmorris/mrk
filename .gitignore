@@ -58,5 +58,7 @@ tools/*/mrk-status
 tools/*/mrk-picker
 tools/*/mrk-menu
 
-# Personal app preferences (captured via `make snapshot-prefs`, stored in ~/.mrk/preferences/)
+# Plists the retired `snapshot` exported here, into the public repository. None
+# should remain, and nothing writes them now; the rule stays so that one left on
+# an older clone is never committed. Saved preferences live in mrk-prefs.
 assets/preferences/*.plist
