@@ -470,40 +470,39 @@
   <a href="#doctor">2.2 doctor</a>
   <a href="#fix-exec">2.3 fix-exec</a>
   <a href="#hardening">2.4 harden</a>
-  <a href="#hide-tm">2.5 hide_tm.sh</a>
-  <a href="#pull-prefs">2.6 pull-prefs</a>
-  <a href="#snapshot-prefs">2.7 snapshot-prefs</a>
-  <a href="#status">2.8 status</a>
-  <a href="#sync">2.9 sync</a>
-  <a href="#sync-login-items">2.10 sync-login-items</a>
-  <a href="#mrk-install">2.11 mrk-install</a>
-  <a href="#mrk-setup">2.12 mrk-setup</a>
-  <a href="#mrk-brew">2.13 mrk-brew</a>
-  <a href="#mrk-post-install">2.14 mrk-post-install</a>
-  <a href="#mrk-defaults">2.15 mrk-defaults</a>
-  <a href="#mrk-uninstall">2.16 mrk-uninstall</a>
-  <a href="#mrk-menu">2.17 mrk-menu</a>
-  <a href="#mrk-picker">2.18 mrk-picker</a>
-  <a href="#mrk-push">2.19 mrk-push</a>
-  <a href="#maintain">2.20 maintain</a>
-  <a href="#dock-setup">2.21 dock-setup</a>
-  <a href="#ci-check">2.22 ci-check</a>
-  <a href="#check-picker-desc">2.23 check-picker-desc</a>
-  <a href="#check-commit-gates">2.24 check-commit-gates</a>
-  <a href="#snapshot-keys">2.25 snapshot-keys</a>
-  <a href="#restore-keys">2.26 restore-keys</a>
-  <a href="#restore-repos">2.27 restore-repos</a>
-  <a href="#prune-deployments">2.28 prune-deployments</a>
-  <a href="#pushall">2.29 pushall</a>
-  <a href="#update-full">2.30 update-full</a>
-  <a href="#clean-ds">2.31 clean-ds</a>
-  <a href="#clear-app-caches">2.32 clear-app-caches</a>
-  <a href="#clear-derived-data">2.33 clear-derived-data</a>
-  <a href="#trim-services">2.34 trim-services</a>
-  <a href="#build-tools">2.35 build-tools</a>
-  <a href="#check-defaults-desc">2.36 check-defaults-desc</a>
-  <a href="#macos-updates">2.37 macos-updates</a>
-     <a href="#install-apps">2.38 install-apps</a>
+  <a href="#pull-prefs">2.5 pull-prefs</a>
+  <a href="#snapshot-prefs">2.6 snapshot-prefs</a>
+  <a href="#status">2.7 status</a>
+  <a href="#sync">2.8 sync</a>
+  <a href="#sync-login-items">2.9 sync-login-items</a>
+  <a href="#mrk-install">2.10 mrk-install</a>
+  <a href="#mrk-setup">2.11 mrk-setup</a>
+  <a href="#mrk-brew">2.12 mrk-brew</a>
+  <a href="#mrk-post-install">2.13 mrk-post-install</a>
+  <a href="#mrk-defaults">2.14 mrk-defaults</a>
+  <a href="#mrk-uninstall">2.15 mrk-uninstall</a>
+  <a href="#mrk-menu">2.16 mrk-menu</a>
+  <a href="#mrk-picker">2.17 mrk-picker</a>
+  <a href="#mrk-push">2.18 mrk-push</a>
+  <a href="#maintain">2.19 maintain</a>
+  <a href="#dock-setup">2.20 dock-setup</a>
+  <a href="#ci-check">2.21 ci-check</a>
+  <a href="#check-picker-desc">2.22 check-picker-desc</a>
+  <a href="#check-commit-gates">2.23 check-commit-gates</a>
+  <a href="#snapshot-keys">2.24 snapshot-keys</a>
+  <a href="#restore-keys">2.25 restore-keys</a>
+  <a href="#restore-repos">2.26 restore-repos</a>
+  <a href="#prune-deployments">2.27 prune-deployments</a>
+  <a href="#pushall">2.28 pushall</a>
+  <a href="#update-full">2.29 update-full</a>
+  <a href="#clean-ds">2.30 clean-ds</a>
+  <a href="#clear-app-caches">2.31 clear-app-caches</a>
+  <a href="#clear-derived-data">2.32 clear-derived-data</a>
+  <a href="#trim-services">2.33 trim-services</a>
+  <a href="#build-tools">2.34 build-tools</a>
+  <a href="#check-defaults-desc">2.35 check-defaults-desc</a>
+  <a href="#macos-updates">2.36 macos-updates</a>
+     <a href="#install-apps">2.37 install-apps</a>
   <a class="section-head">Sect. 3 — Reference</a>
   <a href="#lib">3.1 Shared Libraries</a>
   <a href="#quick-ref">3.2 Quick Reference</a>
@@ -525,7 +524,7 @@
 
       <div class="callout">
         <span class="callout-label">Asking a Command What It Does</span>
-        <div class="callout-body">Every command in this manual answers <code>-h</code> and <code>--help</code> by printing a usage summary and exiting 0, and refuses any argument it does not recognise with exit 2. Both halves are deliberate. A script with no option parser does not ignore an unrecognised flag — it runs, with the flag discarded. Twelve commands here behaved that way until 2026-09-10, so <code>mrk-uninstall --help</code> unlinked <code>~/bin</code> and <code>mrk-post-install --help</code> installed applications. This manual has 40 command entries, one for each executable mrk puts on the PATH — <code>status</code> and <code>mrk-status</code> are two names for the same binary, and <code>bin/lib/</code> is a directory rather than a command. Thirty-nine of the 40 answer <code>--help</code> and refuse an unknown argument with exit 2; <code>mrk-install</code> does so by handing an argument it does not know to the phase script, which refuses it. An option given without its value, or with a value it cannot use, is a wrong command line too and also exits 2 — <code>pushall --projects</code> with no directory, <code>snapshot-keys -o ""</code>, <code>prune-deployments --keep abc</code>. Until 2026-09-10 five options exited 1 when their value was missing, four of them with bash's own message and no usage. <code>decloud</code> is the single exception and forwards every argument to git by design. The usage summary goes to stdout, so <code>restore-repos --help | less</code> shows it; five commands sent it to stderr until 2026-09-10, where a pipe saw nothing. <code>mrk-picker</code> keeps its help on stderr by design: its stdout is the selection it hands back to <code>mrk-brew</code>. Where a command takes no options of its own, the contract comes from <code>mrk_help_guard</code> in <code>scripts/lib.sh</code>; the two LaunchAgent scripts spell it out inline so that an unattended job depends on nothing but itself. Exit 2 always means the command line was wrong and nothing was attempted. A command that ran and then failed exits 1, so the two are worth telling apart: <code>restore-keys nope.gpg</code> exits 1 because the archive is missing, while <code>restore-keys a.gpg b.gpg</code> exits 2 because it never started.</div>
+        <div class="callout-body">Every command in this manual answers <code>-h</code> and <code>--help</code> by printing a usage summary and exiting 0, and refuses any argument it does not recognise with exit 2. Both halves are deliberate. A script with no option parser does not ignore an unrecognised flag — it runs, with the flag discarded. Twelve commands here behaved that way until 2026-09-10, so <code>mrk-uninstall --help</code> unlinked <code>~/bin</code> and <code>mrk-post-install --help</code> installed applications. This manual has 39 command entries, one for each executable mrk puts on the PATH — <code>status</code> and <code>mrk-status</code> are two names for the same binary, and <code>bin/lib/</code> is a directory rather than a command. Thirty-eight of the 39 answer <code>--help</code> and refuse an unknown argument with exit 2; <code>mrk-install</code> does so by handing an argument it does not know to the phase script, which refuses it. An option given without its value, or with a value it cannot use, is a wrong command line too and also exits 2 — <code>pushall --projects</code> with no directory, <code>snapshot-keys -o ""</code>, <code>prune-deployments --keep abc</code>. Until 2026-09-10 five options exited 1 when their value was missing, four of them with bash's own message and no usage. <code>decloud</code> is the single exception and forwards every argument to git by design. The usage summary goes to stdout, so <code>restore-repos --help | less</code> shows it; five commands sent it to stderr until 2026-09-10, where a pipe saw nothing. <code>mrk-picker</code> keeps its help on stderr by design: its stdout is the selection it hands back to <code>mrk-brew</code>. Where a command takes no options of its own, the contract comes from <code>mrk_help_guard</code> in <code>scripts/lib.sh</code>; the two LaunchAgent scripts spell it out inline so that an unattended job depends on nothing but itself. Exit 2 always means the command line was wrong and nothing was attempted. A command that ran and then failed exits 1, so the two are worth telling apart: <code>restore-keys nope.gpg</code> exits 1 because the archive is missing, while <code>restore-keys a.gpg b.gpg</code> exits 2 because it never started.</div>
       </div>
 
       <div class="callout callout-caution">
@@ -691,30 +690,9 @@
         </div>
       </div>
 
-      <div class="proc" id="hide-tm">
-        <div class="proc-header">
-          <span class="proc-num">2.5</span>
-          <h3>hide_tm.sh <span class="tag tag-mrk">mrk</span></h3>
-        </div>
-        <div class="proc-body">
-          <p class="desc">hide_tm.sh hides the Time Machine backup volumes from the Finder sidebar.</p>
-          <pre><code>hide_tm.sh [volume_name] [--help | -h]
-TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
-          <ul>
-            <li>The default volume name is <code>TimeMachine</code>.</li>
-            <li>To name more than one volume, give a comma-separated list. Use the argument or the <code>TM_VOLUMES</code> environment variable.</li>
-            <li>hide_tm.sh takes one argument, not several. Until 2026-09-10 it read only the first and discarded the rest, so a space-separated attempt hid one volume in silence. It now exits 2.</li>
-          </ul>
-          <div class="callout callout-caution">
-            <span class="callout-label">Caution</span>
-            <div class="callout-body">hide_tm.sh probably hides nothing. It tells Finder to set the <code>visible</code> property of a disk, and in the scripting dictionary of the Finder in macOS 26.7 a disk has no such property. For each volume that it finds, it then gives a warning, and it exits 0. For a name that is not mounted, it does nothing and gives no warning. This conclusion comes from the dictionary: the command was not run, because it needs Automation access to Finder. See <code>audit/15-audit-2026-09-16.md</code>.</div>
-          </div>
-        </div>
-      </div>
-
       <div class="proc" id="pull-prefs">
         <div class="proc-header">
-          <span class="proc-num">2.6</span>
+          <span class="proc-num">2.5</span>
           <h3>pull-prefs <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -725,7 +703,7 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
 
       <div class="proc" id="snapshot-prefs">
         <div class="proc-header">
-          <span class="proc-num">2.7</span>
+          <span class="proc-num">2.6</span>
           <h3>snapshot-prefs <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -756,7 +734,7 @@ TM_VOLUMES="Vol1,Vol2" hide_tm.sh</code></pre>
 
       <div class="proc" id="status">
         <div class="proc-header">
-          <span class="proc-num">2.8</span>
+          <span class="proc-num">2.7</span>
           <h3>status <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -784,7 +762,7 @@ mrk-status [--help | -h]</code></pre>
 
       <div class="proc" id="sync">
         <div class="proc-header">
-          <span class="proc-num">2.9</span>
+          <span class="proc-num">2.8</span>
           <h3>sync <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -811,7 +789,7 @@ mrk-status [--help | -h]</code></pre>
 
       <div class="proc" id="sync-login-items">
         <div class="proc-header">
-          <span class="proc-num">2.10</span>
+          <span class="proc-num">2.9</span>
           <h3>sync-login-items <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -837,7 +815,7 @@ mrk-status [--help | -h]</code></pre>
 
       <div class="proc" id="mrk-install">
         <div class="proc-header">
-          <span class="proc-num">2.11</span>
+          <span class="proc-num">2.10</span>
           <h3>mrk-install <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -856,7 +834,7 @@ mrk-status [--help | -h]</code></pre>
 
       <div class="proc" id="mrk-setup">
         <div class="proc-header">
-          <span class="proc-num">2.12</span>
+          <span class="proc-num">2.11</span>
           <h3>mrk-setup <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -888,7 +866,7 @@ mrk-status [--help | -h]</code></pre>
 
       <div class="proc" id="mrk-brew">
         <div class="proc-header">
-          <span class="proc-num">2.13</span>
+          <span class="proc-num">2.12</span>
           <h3>mrk-brew <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -928,7 +906,7 @@ mrk-status [--help | -h]</code></pre>
 
       <div class="proc" id="mrk-post-install">
         <div class="proc-header">
-          <span class="proc-num">2.14</span>
+          <span class="proc-num">2.13</span>
           <h3>mrk-post-install <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -957,7 +935,7 @@ mrk-status [--help | -h]</code></pre>
 
       <div class="proc" id="mrk-defaults">
         <div class="proc-header">
-          <span class="proc-num">2.15</span>
+          <span class="proc-num">2.14</span>
           <h3>mrk-defaults <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -980,7 +958,7 @@ mrk-status [--help | -h]</code></pre>
 
       <div class="proc" id="mrk-uninstall">
         <div class="proc-header">
-          <span class="proc-num">2.16</span>
+          <span class="proc-num">2.15</span>
           <h3>mrk-uninstall <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -999,7 +977,7 @@ mrk-status [--help | -h]</code></pre>
 
       <div class="proc" id="mrk-menu">
         <div class="proc-header">
-          <span class="proc-num">2.17</span>
+          <span class="proc-num">2.16</span>
           <h3>mrk-menu <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1025,7 +1003,7 @@ mrk-status [--help | -h]</code></pre>
 
       <div class="proc" id="mrk-picker">
         <div class="proc-header">
-          <span class="proc-num">2.18</span>
+          <span class="proc-num">2.17</span>
           <h3>mrk-picker <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1046,7 +1024,7 @@ mrk-status [--help | -h]</code></pre>
 
       <div class="proc" id="mrk-push">
         <div class="proc-header">
-          <span class="proc-num">2.19</span>
+          <span class="proc-num">2.18</span>
           <h3>mrk-push <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1084,7 +1062,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="maintain">
         <div class="proc-header">
-          <span class="proc-num">2.20</span>
+          <span class="proc-num">2.19</span>
           <h3>maintain <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1116,7 +1094,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="dock-setup">
         <div class="proc-header">
-          <span class="proc-num">2.21</span>
+          <span class="proc-num">2.20</span>
           <h3>dock-setup <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1124,12 +1102,13 @@ mrk-push -- "-starts with a dash"</code></pre>
             <span class="callout-label">Caution</span>
             <div class="callout-body">dock-setup deletes every item from the Dock before it adds the new items, and it does not ask you to confirm. As of 2026-09-10 it does save the layout first: it exports <code>com.apple.dock</code> to <code>~/.mrk/plist-backups/com.apple.dock.plist</code> and appends a <code>defaults import</code> line to <code>~/.mrk/defaults-rollback.sh</code>, so the arrangement can be put back. The snapshot is written once and never refreshed — a second run would otherwise capture the layout dock-setup had just applied and overwrite the original with it.</div>
           </div>
-          <p class="desc">dock-setup fills the Dock with the apps that the <code>DOCK_APPS</code> list names. It then adds the Applications directory and restarts the Dock.</p>
+          <p class="desc">dock-setup fills the Dock with the apps that the <code>DOCK_APPS</code> list names. It then adds the <code>DOCK_FOLDER</code> folder, <code>~/Work Apps</code>, as a stack shown as a list and sorted by name, and restarts the Dock.</p>
           <pre><code>dock-setup [--help | -h]</code></pre>
           <ul>
             <li>dock-setup needs <code>dockutil</code>. It installs dockutil with Homebrew when dockutil is absent.</li>
-            <li>dock-setup skips an app that is not installed, and it reports the total at the end.</li>
-            <li>To change the layout, edit the <code>DOCK_APPS</code> list in <code>scripts/dock-setup</code>.</li>
+            <li>dock-setup skips an app that is not installed, and it reports the total at the end. It skips the folder, and says so, when it does not exist.</li>
+            <li>To change the layout, edit the <code>DOCK_APPS</code> list and <code>DOCK_FOLDER</code> in <code>scripts/dock-setup</code>.</li>
+            <li>Until 2026-09-28 <code>DOCK_APPS</code> was an older layout, not the Dock in use, and the folder was <code>/Applications</code> as a grid. On this Mac <code>make dock</code> would have replaced the Dock with it. The list is now the Dock as it was on 2026-09-28. <code>tests/dock-setup.sh</code> covers the order, the folder and the skips; see <a href="#ci-check">ci-check</a>.</li>
             <li>Run dock-setup through Make with <code>make dock</code>.</li>
           </ul>
         </div>
@@ -1137,7 +1116,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="ci-check">
         <div class="proc-header">
-          <span class="proc-num">2.22</span>
+          <span class="proc-num">2.21</span>
           <h3>ci-check <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1164,6 +1143,7 @@ mrk-push -- "-starts with a dash"</code></pre>
             <li>Run <code>tests/plist-import-order.sh</code>, which runs the whole of <a href="#mrk-post-install">mrk-post-install</a> on a copy of the repository under both bashes. It uses a throwaway home, an empty environment and fake apps in a scratch <code>/Applications</code>. <code>defaults</code> is a stub that keeps every domain as a file in the scratch directory, because cfprefsd writes the real user's preferences whatever <code>$HOME</code> says. <code>ssh</code>, <code>sudo</code>, <code>osascript</code>, <code>launchctl</code> and <code>open</code> are stubs that run nothing. It requires that on a fresh Mac every saved plist is imported, the six apps of audit 19 W-2 among them, with mrk's keys over them. A second run must import nothing, and an app already configured must be left alone. An app installed after the first run must be imported on the next. A fifth machine has Homebrew installed in a scratch prefix and not on the PATH, as after Phase&nbsp;2 in <code>make all</code>. On it, topgrade's config must be linked, pinentry-mac configured and the Python in <code>.python-version</code> installed, each through a stub in that prefix.</li>
             <li>Run <code>tests/setup-safety.sh</code>, which runs <a href="#mrk-setup">mrk-setup</a> and <a href="#mrk-post-install">mrk-post-install</a> on a copy of the repository under both bashes. It uses a throwaway home, an empty environment and stubs of <code>sudo</code>, <code>chsh</code>, <code>git</code>, <code>dscl</code>, <code>xcode-select</code> and every other command that would act. It requires that neither links anything into <code>~</code> from a checkout <code>~</code> is not linked to, and that both link from one it is, <code>MRK_ROOT</code> or a symlinked <code>~/mrk</code>. A <code>dotfiles/.claude/</code> and a <code>.DS_Store</code> must be left unlinked, with the real <code>~/.claude</code> untouched, and <code>make status</code> must agree. A dry run on a new Mac must leave the home empty and run nothing. A dangling or real <code>topgrade.toml</code> must be replaced, the real one kept as <code>.bak</code>. And the <code>tee</code> that writes mrk-setup's log, which a stub starts late on purpose, must have finished every time mrk-setup exits.</li>
             <li>Run <code>tests/undo-files.sh</code>, which runs <a href="#mrk-uninstall">mrk-uninstall</a>, <a href="#nuke-mrk">nuke-mrk</a>, <a href="#trim-services">trim-services</a> and mrk-setup's login message under both bashes, on a copy of the repository and a throwaway home. The undo scripts it plants run through stubs of <code>defaults</code>, <code>launchctl</code>, <code>killall</code> and <code>sudo</code>. mrk-uninstall runs in a pseudo-terminal that answers each prompt. It requires that both commands offer the services rollback, that nuke-mrk keeps all three undo scripts when declined, and that the whole-app deletes run only when asked for. The pattern must be the same in <code>lib.sh</code> and nuke-mrk. trim-services must keep an undo file that begins <code>#!/bin/bash</code>, and its dry run must create nothing. Two runs with <code>MRK_LOGIN_MSG</code> must leave one undo line, which restores the original message.</li>
+            <li>Run <code>tests/dock-setup.sh</code>, which runs <a href="#dock-setup">dock-setup</a> from a copy of the repository under both bashes, with <code>dockutil</code>, <code>defaults</code> and <code>killall</code> stubbed. With every app installed, it must add each one in <code>DOCK_APPS</code> order and then <code>~/Work Apps</code> as a list, and write the undo line. With one app and the folder missing, it must skip both and say so. Until 2026-09-28 the list was not the Dock in use.</li>
             <li>Run <code>tests/docs-drift.sh</code>, which holds seven hand-written lists and counts to the repository. Every test in <code>tests/</code> must be run by ci-check, named in its <code>--help</code> and described here. Every target the manual lists under <code>~/Makefile</code> must exist in <code>dotfiles/Makefile</code>. This manual's count of its command entries must be right. Every command mrk puts on the PATH must have an entry: the names come from a dry run of mrk-setup's tools phase on a copy of the repository, and from the Makefile. The two tables of Section 3.1 must name every function <code>scripts/lib.sh</code> and <code>bin/lib/common.sh</code> define, and none they do not. <code>make tidy</code> must cover every Go module under <code>tools/</code>. And README and the manual must give the number of keys <code>defaults.sh</code> writes as the number <a href="#check-defaults-desc">check-defaults-desc</a> counts; that check came in on 2026-09-28, when seven keys left <code>defaults.sh</code> and the count fell from 143 to 136. Until 2026-09-28 the manual listed three <code>~/Makefile</code> targets that did not exist, <code>make check</code>'s help missed half the tests, this manual said it had 39 entries where it had 41, and its <code>lib.sh</code> table lacked seven functions.</li>
             <li>Run shellcheck on every bash script in <code>scripts/</code>, <code>bin/</code>, <code>tests/</code>, <code>.claude/skills/</code> and <code>assets/projects-skills/</code>, where the <code>release-standards</code> and <code>repo-standards</code> skills keep their audit scripts and <code>dependency-updates</code> its check.</li>
             <li>Run <code>go test</code> in every Go module under <code>tools/</code>, found from their <code>go.mod</code> files: today picker, mrk-status, mrk-menu and theme. <code>make tidy</code> reads the same list. Until 2026-09-28 both lists were written out, and <code>make tidy</code>'s had missed theme.</li>
@@ -1178,7 +1158,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="check-picker-desc">
         <div class="proc-header">
-          <span class="proc-num">2.23</span>
+          <span class="proc-num">2.22</span>
           <h3>check-picker-desc <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1199,7 +1179,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="check-commit-gates">
         <div class="proc-header">
-          <span class="proc-num">2.24</span>
+          <span class="proc-num">2.23</span>
           <h3>check-commit-gates <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1220,7 +1200,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="snapshot-keys">
         <div class="proc-header">
-          <span class="proc-num">2.25</span>
+          <span class="proc-num">2.24</span>
           <h3>snapshot-keys <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1248,7 +1228,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="restore-keys">
         <div class="proc-header">
-          <span class="proc-num">2.26</span>
+          <span class="proc-num">2.25</span>
           <h3>restore-keys <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1277,7 +1257,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="restore-repos">
         <div class="proc-header">
-          <span class="proc-num">2.27</span>
+          <span class="proc-num">2.26</span>
           <h3>restore-repos <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1301,7 +1281,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="prune-deployments">
         <div class="proc-header">
-          <span class="proc-num">2.28</span>
+          <span class="proc-num">2.27</span>
           <h3>prune-deployments <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1324,7 +1304,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="pushall">
         <div class="proc-header">
-          <span class="proc-num">2.29</span>
+          <span class="proc-num">2.28</span>
           <h3>pushall <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1351,7 +1331,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="update-full">
         <div class="proc-header">
-          <span class="proc-num">2.30</span>
+          <span class="proc-num">2.29</span>
           <h3>update-full <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1385,7 +1365,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="clean-ds">
         <div class="proc-header">
-          <span class="proc-num">2.31</span>
+          <span class="proc-num">2.30</span>
           <h3>clean-ds <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1404,7 +1384,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="clear-app-caches">
         <div class="proc-header">
-          <span class="proc-num">2.32</span>
+          <span class="proc-num">2.31</span>
           <h3>clear-app-caches <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1425,7 +1405,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="clear-derived-data">
         <div class="proc-header">
-          <span class="proc-num">2.33</span>
+          <span class="proc-num">2.32</span>
           <h3>clear-derived-data <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1442,7 +1422,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="trim-services">
         <div class="proc-header">
-          <span class="proc-num">2.34</span>
+          <span class="proc-num">2.33</span>
           <h3>trim-services <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1468,7 +1448,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="build-tools">
         <div class="proc-header">
-          <span class="proc-num">2.35</span>
+          <span class="proc-num">2.34</span>
           <h3>build-tools <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1488,7 +1468,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="check-defaults-desc">
         <div class="proc-header">
-          <span class="proc-num">2.36</span>
+          <span class="proc-num">2.35</span>
           <h3>check-defaults-desc <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1504,7 +1484,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="proc" id="macos-updates">
         <div class="proc-header">
-          <span class="proc-num">2.37</span>
+          <span class="proc-num">2.36</span>
           <h3>macos-updates <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
@@ -1532,7 +1512,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
         <div class="proc" id="install-apps">
           <div class="proc-header">
-            <span class="proc-num">2.38</span>
+            <span class="proc-num">2.37</span>
             <h3>install-apps <span class="tag tag-mrk">mrk</span></h3>
           </div>
           <div class="proc-body">

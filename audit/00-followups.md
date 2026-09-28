@@ -149,34 +149,28 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
 `16-audit-2026-09-17.md`.
 
 - **U-5 — no Time Machine destination (HIGH, your action).** This Mac has not been backed up
-  since the migration. `raspi` advertises a Time Machine share on the network. → To close: add
-  it in System Settings › General › Time Machine, and let the first backup finish. That makes
-  T-9's rewrite of `hide_tm.sh` testable too.
-- **U-7 — two GnuPGs, one old agent.** GPG Suite's 2.2.41 agent serves Homebrew's 2.5.22.
-  → To close: drop `gpg-suite-no-mail` (or Homebrew's `gnupg`), or accept the warning.
+  since the migration. `tmutil destinationinfo` still said "No destinations configured" on
+  2026-09-28. `raspi` advertises a Time Machine share on the network. → To close: add it in
+  System Settings › General › Time Machine (it asks for the share's password), let the first
+  backup finish, and check `tmutil destinationinfo`. mrk cannot do this for you. T-9 no longer
+  waits on it: `hide_tm.sh` was deleted.
+- **U-7's uninstall (your action).** GPG Suite is out of the Brewfile. → To close: `brew
+  uninstall --cask gpg-suite-no-mail`, which asks for the login password.
 
-U-8 was decided on 2026-09-28; see Closed.
+U-7 and U-8 were decided on 2026-09-28; see Closed.
 
 **U-4's state half is the owner's.** Thaw replaced Ice in mrk and on this Mac. Start Thaw,
 grant it Accessibility, and let it start at login.
 
-**Module 15's open decisions (2026-09-16).** Each has its evidence and a recommendation in
-`15-audit-2026-09-16.md`. Three of the six, T-3, T-8 and T-15, were decided on 2026-09-28; see
-Closed.
-- **T-9 — `hide_tm.sh` and Time Machine.** Finder's dictionary gives a disk no `visible`
-  property, and this Mac has no Time Machine destination. → To close: set up Time Machine, then
-  delete `hide_tm.sh` or rewrite it and test it against a mounted TM volume.
-- **T-11 — `make harden` has not run on this Mac.** The firewall is off and Touch ID for sudo is
-  absent. → To close: run `make harden` at a terminal.
-- **T-14 — `DOCK_APPS` is not the Dock in use.** → To close: update the list, or retire
-  `make dock` on this Mac.
+**Module 15's decisions (2026-09-16): all settled.** All six were settled on 2026-09-28: T-3,
+T-8, T-9, T-14 and T-15 were decided, and T-11 turned out to have been done on 2026-09-18. See
+Closed, and `15-audit-2026-09-16.md` under each item.
 
-Two items are fixed in code and still open in the Mac's state: **T-5**, where neither Photos
-agent is disabled (run `trim-services`, then check `launchctl print-disabled` after a restart),
-and **T-7**, where the Safari settings were never applied (give the terminal Full Disk Access,
-then run `make post-install`; T-8 is decided, so nothing now waits on it). Module 16 re-checked all of these on 2026-09-17. Each still
-stands. T-5 has grown: `com.google.GoogleUpdater.wake` arrived with Chrome after the
-migration-day run, so `trim-services -n` now offers three.
+One item is fixed in code and still open in the Mac's state: **T-5**, where neither Photos agent
+is disabled (run `trim-services`, then check `launchctl print-disabled` after a restart). Module
+16 re-checked it on 2026-09-17, and it still stands. It has grown: `com.google.GoogleUpdater.wake`
+arrived with Chrome after the migration-day run, so `trim-services -n` now offers three. **T-7**'s
+state half, the Safari settings, was done by the owner on 2026-09-28 (see Closed).
 
 **Tests 1C, 2, 3, and 4 — UNBLOCKED: the plan now exists; the tests have not run.**
 `audit/10-test-plan.md` is written and committed. It specifies Test 1C (combined
@@ -278,6 +272,38 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the second audit decisions, branch `claude/audit-decisions-2`, 2026-09-28
+
+The rest of module 15's decisions, U-7 from module 16, and two items that turned out to be done
+already. Evidence is in `15-audit-2026-09-16.md` and `16-audit-2026-09-17.md`, under each item.
+Nothing on this Mac was changed.
+
+- **T-7, the Safari settings (state):** done by the owner. All nine keys `safari-defaults.sh`
+  writes hold its values, checked read-only.
+- **T-11, `make harden`:** done on 2026-09-18. The firewall and stealth mode are on,
+  `sudo_local` is in place, and `make status` says hardening is applied. Only the record was
+  out of date.
+- **T-9, `hide_tm.sh`:** deleted, as the owner chose. It could not work, and nothing called it.
+  Its BIN-1 entry, its manual row and its SMAC-1 row are gone. BIN-1 has 39 entries, and 2.6 to
+  2.38 are now 2.5 to 2.37; the section numbers the manual and sevmac cite moved with them.
+  `make fix-exec` prunes the dangling `~/bin/hide_tm.sh`.
+- **T-14, the Dock:** `DOCK_APPS` is the Dock in use on 2026-09-28, and `DOCK_FOLDER` is `~/Work
+  Apps` as a list, added only when it exists. `tests/dock-setup.sh` is new, and ci-check runs it.
+  `make dock` was not run.
+- **U-7, two GnuPGs:** GPG Suite is out of the Brewfile and the picker, as the owner chose, and
+  Homebrew's gnupg stays. The package count is 115. The uninstall is the owner's (see Module 16's
+  items above).
+
+Mutation checks of `tests/dock-setup.sh`, each on a copy of the repository:
+
+| Mutation | Result |
+|---|---|
+| The folder back to `/Applications` as a grid | killed |
+| The folder shown as a grid | killed |
+| The folder added even when it does not exist | killed |
+| An app added when it is not installed | killed |
+| No undo line for the Dock | killed |
 
 ### Closed by the audit decisions, branch `claude/audit-decisions`, 2026-09-28
 

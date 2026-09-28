@@ -30,7 +30,7 @@ Keep both repositories current. You can then restore the full setup on a new mac
 > 3. Edit the `Brewfile`. Keep the `##` section headers, because the sync tools read them.
 > 4. Edit the `add_login_item` list in `scripts/post-install`. It adds eight applications.
 > 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 17 named plist domains, plus every `io.github.sevmorris.*` domain as a group.
-> 6. Edit `DOCK_APPS` in `scripts/dock-setup`. The script clears the Dock before it adds the applications.
+> 6. Edit `DOCK_APPS` and `DOCK_FOLDER` in `scripts/dock-setup`. The script clears the Dock before it adds the applications.
 > 7. Read `scripts/defaults.sh` before you run it. It writes 136 preference keys, and each key is a personal choice.
 > 8. Edit `COMPANION_APPS` in `scripts/install-apps` — it is my own applications, and a fork wants none of them. Empty the list, or replace it with yours and set `GITHUB_APP_TEAM_ID` to your Developer ID team: the installer refuses any app not signed by that team.
 >
@@ -291,7 +291,7 @@ pull-prefs
 
 > **Caution:** `dock-setup` deletes every item from the Dock before it adds the new items, and it does not ask you to confirm. It does save the layout first: it exports `com.apple.dock` to `~/.mrk/plist-backups/com.apple.dock.plist` and appends a `defaults import` line to `~/.mrk/defaults-rollback.sh`. The snapshot is written once and never refreshed, so a second `make dock` cannot overwrite the original with the layout it just applied.
 
-**`dock-setup`** fills the Dock from a fixed app list.
+**`dock-setup`** fills the Dock from a fixed app list, then adds the `~/Work Apps` folder when it exists. The list is the Dock this Mac had on 2026-09-28.
 
 ```bash
 make dock
@@ -411,7 +411,6 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 | `pushall` | Commits and pushes each repository in `~/Projects`, and then syncs `~/mrk`. Scans the staged files for secrets before each commit. It stages only the tracked files. It leaves a repository alone, and reports it as failed, while a merge, rebase or cherry-pick in it is unfinished. When `check-picker-desc` fails in mrk, runs it with `--fix` before it commits mrk. Use `pushall --dry-run` to run the scan and change nothing |
 | `update-full` | Full update pass: pulls mrk, quits the applications, installs the macOS updates for the installed version and the package updates, builds the Go tools again, runs `clean-ds` and `brew doctor`, and then offers a reboot. It never installs a major macOS upgrade. It stops with an error when there is no terminal, unless you give `--yes`. The `update --full` command is the same command |
 | `clean-ds` | Removes the `.DS_Store` files from the local disk. It does not examine `~/Library`, `~/Desktop`, the network volumes, or the external volumes. Use `clean-ds --dry-run` to see the files first |
-| `hide_tm.sh` | Meant to hide the Time Machine volumes from the Finder sidebar. The default name is `TimeMachine`. Give the volume names, or set `TM_VOLUMES`. On macOS 26 it probably hides nothing — see its caution in BIN-1 |
 | `nuke-mrk` | Moves `~/mrk` and `~/.mrk` to the Trash, deletes the `~/bin` symlinks, the dotfile symlinks, the `~/Projects/CLAUDE.md` link, the two Claude Code skill links and the SessionStart hook post-install added to `~/.claude/settings.json`, and offers the rollbacks. It does NOT change Homebrew. `mrk-menu` lists it under Nuclear options |
 
 > **Caution:** `update-full` quits every running application and can restart the Mac. It does not install a major macOS upgrade, such as macOS 26 to macOS 27 — its macOS step is `macos-updates`, the same command as `make updates`, which names each major upgrade and leaves it alone. Until 2026-09-16 that step ran `softwareupdate -ia`, which installs every update Apple lists, and on macOS 26.7 it started a download of macOS 27. Install a major upgrade from System Settings › General › Software Update, when you choose to. To stop `softwareupdate` does not stop a download it started; cancel it in the same place.
@@ -784,7 +783,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | `make uninstall` | Delete the symlinks, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |
 | `make pull` | Fast-forward the mrk repository to origin |
-| `make check` | Run every gate in `scripts/ci-check`: the picker and defaults descriptions, a secret scan over every tracked file, the commit gates, each test in `tests/`, shellcheck over every tracked bash script, and go test. BIN-1 §2.22 names each test and what it guards |
+| `make check` | Run every gate in `scripts/ci-check`: the picker and defaults descriptions, a secret scan over every tracked file, the commit gates, each test in `tests/`, shellcheck over every tracked bash script, and go test. BIN-1 §2.21 names each test and what it guards |
 | `make ci` | Run the local validation, and build the TUI binaries |
 | `make tidy` | Run `go mod tidy` in every Go tool directory |
 
