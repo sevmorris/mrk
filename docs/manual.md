@@ -138,7 +138,7 @@ It can run in the same shell as Phase 2, whether that is `make all`'s or one ope
 - **Config directory restore:** Restores the Calibre configuration into `~/Library/Preferences/calibre/`. Phase 3 skips this step when `gui.json` exists.
 - **Claude Code guidance for `~/Projects`:** Links `assets/CLAUDE.md` to `~/Projects/CLAUDE.md` and `assets/projects-skills/` to `~/Projects/.claude/skills`. Neither lives inside a repository on its own, so both are tracked here and linked into place like a dotfile. A file already there and not a symlink is moved aside with a `.bak` suffix rather than overwritten.
 - **Claude Code, every session — dependency updates:** Links `assets/projects-skills/dependency-updates` to `~/.claude/skills/dependency-updates`, the one skill loaded wherever a session starts, and adds its SessionStart hook to `~/.claude/settings.json`. At the start of a session the hook reports any vendored binary (yt-dlp, FFmpeg, LAME) that is behind upstream and any open Dependabot alert, from a cache it refreshes in the background every 12 hours. The hook is added once; nothing else in `settings.json` is touched, and a file that is not valid JSON is reported as a failed step rather than rewritten.
-- **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dropbox, Raycast, Stats, Thaw
+- **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dropbox, Raycast, Thaw
 
 > **Note:** Phase 3 continues when a step fails. It counts the failed steps and reports the total at the end.
 
