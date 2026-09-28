@@ -348,12 +348,22 @@ Details, the design reasoning and the rollback analysis are in `19-audit-2026-09
   Documented in the manual's Phase 3, BIN-1 §2.14 and §2.22, and SMAC-1 §2.2 (sevmac, branch
   `claude/w2-plist-import-order`). Nothing on this Mac was changed.
 
-  **This Mac's six domains: left as they are, by the owner's decision (2026-09-27).** The
-  migration never imported the saved plists, but the owner believes the settings were moved over
-  at the migration itself. That was not checked. `snapshot-prefs` has since exported this Mac's domains over the saved copies
-  (2026-09-18, 2026-09-24). The old Mac's are still in mrk-prefs' history at `953bb08`, should
-  anything turn out to be missing. `defaults import` merges, so export the current domain
-  before importing one.
+  **This Mac's six domains: left as they are, by the owner's decision (2026-09-27).** The owner
+  moved the settings over at the migration. A read-only comparison with the old Mac's last
+  snapshot, `953bb08` in mrk-prefs, bears that out for the configuration that matters. It did
+  not come through the preference domains, which were not copied: their keys differ widely.
+  - SoundSource's per-app sources and presets live in Application Support. All four files are
+    identical to the old Mac's, restored on migration day.
+  - Loopback has the same virtual devices: Hacks Safety Mix, Hacks Zoom Input, Farrago, zoom.us.
+  - Helium, Piezo and Loopback's domains lost only window positions, dialog state and welcome
+    flags. Helium's `NSUserKeyEquivalents` was an empty dict.
+  - Farrago lost its dark theme, its bring-forward hotkey and its output device (an AudioQuest
+    DragonFly Red). Audio Hijack lost `hideGlobalMenu` and `supressSessionDeleteMsg`, both true on
+    the old Mac.
+
+  The lost settings are still in `953bb08`. `snapshot-prefs` has since exported this Mac's domains
+  over the saved copies (2026-09-18, 2026-09-24). `defaults import` merges, so export the
+  current domain before importing one.
 
 ### Closed by module 18, the 2026-09-23 Apple silicon pass
 
