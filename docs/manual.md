@@ -31,7 +31,7 @@ Keep both repositories current. You can then restore the full setup on a new mac
 > 4. Edit the `add_login_item` list in `scripts/post-install`. It adds eight applications.
 > 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 17 named plist domains, plus every `io.github.sevmorris.*` domain as a group.
 > 6. Edit `DOCK_APPS` in `scripts/dock-setup`. The script clears the Dock before it adds the applications.
-> 7. Read `scripts/defaults.sh` before you run it. It writes 143 preference keys, and each key is a personal choice.
+> 7. Read `scripts/defaults.sh` before you run it. It writes 136 preference keys, and each key is a personal choice.
 > 8. Edit `COMPANION_APPS` in `scripts/install-apps` — it is my own applications, and a fork wants none of them. Empty the list, or replace it with yours and set `GITHUB_APP_TEAM_ID` to your Developer ID team: the installer refuses any app not signed by that team.
 >
 > Use `make setup-dry` and `make sync ARGS=-n` to see the result of a phase before you apply it.
@@ -175,7 +175,7 @@ exec zsh        # Reload shell after setup
 
 To skip every confirmation prompt, pass `--yes` or set `NONINTERACTIVE=1`.
 
-`make all` does not install the App Store apps. mrk does not install them at all; [docs/app-store-apps.md](app-store-apps.md) lists the 22 that belong on this Mac. Install them from App Store.app, then run `make post-install` again — it restores preferences and login items only for apps that are installed.
+`make all` does not install the App Store apps. mrk does not install them at all; [docs/app-store-apps.md](app-store-apps.md) lists the ones that belong on this Mac. Install them from App Store.app, then run `make post-install` again — it restores preferences and login items only for apps that are installed.
 
 ---
 
@@ -590,7 +590,7 @@ make brew
 
 This step installs Homebrew and every formula and cask in the Brewfile. It is the slowest step, and its duration depends on the number of packages.
 
-It does not install App Store apps. mrk tracked them as Brewfile `mas` entries until 2026-09-11, and nothing could install one: `mas install` needs root, `brew bundle` never runs as root, and `mas list` — which `brew bundle` reads to see what is already installed — gets its answers from Spotlight, whose indexing is off on this Mac. [docs/app-store-apps.md](app-store-apps.md) lists the 22 apps instead. Install them from App Store.app before Step 5.
+It does not install App Store apps. mrk tracked them as Brewfile `mas` entries until 2026-09-11, and nothing could install one: `mas install` needs root, `brew bundle` never runs as root, and `mas list` — which `brew bundle` reads to see what is already installed — gets its answers from Spotlight, whose indexing is off on this Mac. [docs/app-store-apps.md](app-store-apps.md) lists the apps instead. Install them from App Store.app before Step 5.
 
 `post-install` restores the preferences and login item of an app only if the app is installed, and BetterSnapTool and Chrono Plus are App Store apps. If you install them later, run `make post-install` again.
 

@@ -83,6 +83,7 @@ fi
 # Track current phase for error reporting on unexpected exit
 CURRENT_STEP=""
 MRK_SUCCESS=""
+LOG_TEE_PID=""
 cleanup() {
   local rc=$?
   if [[ -z "$MRK_SUCCESS" ]]; then
@@ -95,7 +96,24 @@ cleanup() {
       rc=1
     fi
   fi
+  wait_for_log_tee
   exit "$rc"
+}
+# wait_for_log_tee — let the tee that writes the log (below) finish before
+# setup exits. Bash does not wait for a process substitution, so until
+# 2026-09-28 setup could exit with its last lines still in the pipe: they
+# reached the terminal after the prompt, or after make all had started Phase 2,
+# and a test reading setup's output could miss them. Bash 3.2 cannot `wait` for
+# a process substitution either, so closing the pipe sends tee end-of-file and
+# the loop watches for it to go, for at most five seconds.
+wait_for_log_tee() {
+  [[ -n "$LOG_TEE_PID" ]] || return 0
+  exec >&- 2>&-
+  local i
+  for (( i = 0; i < 50; i++ )); do
+    kill -0 "$LOG_TEE_PID" 2>/dev/null || return 0
+    sleep 0.1
+  done
 }
 trap "cleanup" EXIT
 
@@ -151,6 +169,7 @@ fi
 if (( ! DRY_RUN )); then
   setup_logging
   exec > >(tee -a "$LOGFILE") 2>&1
+  LOG_TEE_PID=$!
 fi
 section "Phase 1 of 3: Setup"
 (( DRY_RUN )) || log "Log: $LOGFILE"

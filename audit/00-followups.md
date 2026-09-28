@@ -154,23 +154,15 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
   T-9's rewrite of `hide_tm.sh` testable too.
 - **U-7 — two GnuPGs, one old agent.** GPG Suite's 2.2.41 agent serves Homebrew's 2.5.22.
   → To close: drop `gpg-suite-no-mail` (or Homebrew's `gnupg`), or accept the warning.
-- **U-8 — `.gitconfig` requires a git-lfs filter that is not installed.** → To close: delete
-  the `[filter "lfs"]` section, or add `brew "git-lfs"`.
+
+U-8 was decided on 2026-09-28; see Closed.
 
 **U-4's state half is the owner's.** Thaw replaced Ice in mrk and on this Mac. Start Thaw,
 grant it Accessibility, and let it start at login.
 
-**Module 15's six decisions (2026-09-16).** Each has its evidence and a recommendation in
-`15-audit-2026-09-16.md`.
-- **T-3 — the Software Update keys in `make defaults` are inert.** `defaults.sh:393-412` writes
-  seven keys to the user domain, and `softwareupdated` takes them from `/Library/Preferences`.
-  To write them there with sudo would turn `AutomaticDownload` back on, and that was turned off
-  on 2026-09-15 while macOS 27 was being cancelled.
-  → To close: delete the seven lines and their MRK-1 entries (recommended; the key count falls
-  to 136), or choose the values and write the system domain with sudo.
-- **T-8 — Safari's Develop menu.** `defaults.sh` hides it; `assets/browsers/safari-defaults.sh`
-  shows it. → To close: delete the side that is not wanted, before Phase 3 re-runs with Full
-  Disk Access (T-7).
+**Module 15's open decisions (2026-09-16).** Each has its evidence and a recommendation in
+`15-audit-2026-09-16.md`. Three of the six, T-3, T-8 and T-15, were decided on 2026-09-28; see
+Closed.
 - **T-9 — `hide_tm.sh` and Time Machine.** Finder's dictionary gives a disk no `visible`
   property, and this Mac has no Time Machine destination. → To close: set up Time Machine, then
   delete `hide_tm.sh` or rewrite it and test it against a mounted TM volume.
@@ -178,13 +170,11 @@ grant it Accessibility, and let it start at login.
   absent. → To close: run `make harden` at a terminal.
 - **T-14 — `DOCK_APPS` is not the Dock in use.** → To close: update the list, or retire
   `make dock` on this Mac.
-- **T-15 — 7 of the 22 App Store apps in the list are not installed.** → To close: install them
-  or remove them from `docs/app-store-apps.md`.
 
 Two items are fixed in code and still open in the Mac's state: **T-5**, where neither Photos
 agent is disabled (run `trim-services`, then check `launchctl print-disabled` after a restart),
 and **T-7**, where the Safari settings were never applied (give the terminal Full Disk Access,
-then run `make post-install`). Module 16 re-checked all of these on 2026-09-17. Each still
+then run `make post-install`; T-8 is decided, so nothing now waits on it). Module 16 re-checked all of these on 2026-09-17. Each still
 stands. T-5 has grown: `com.google.GoogleUpdater.wake` arrived with Chrome after the
 migration-day run, so `trim-services -n` now offers three.
 
@@ -288,6 +278,53 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the audit decisions, branch `claude/audit-decisions`, 2026-09-28
+
+Four owner decisions from modules 15 and 16, each taken as recorded below. Evidence is in
+`15-audit-2026-09-16.md` and `16-audit-2026-09-17.md`, under each item. Nothing on this Mac was
+changed. Every change is in the repository.
+
+- **T-3, the inert Software Update keys:** the recommendation. The seven keys and their MRK-1
+  entries are gone, and Software Update is left to System Settings. A comment in `defaults.sh` says
+  why. The key count is 136 in README and the manual, and `tests/docs-drift.sh` check 7 now holds
+  both to `check-defaults-desc`'s count.
+- **T-8, Safari's Develop menu:** the recommendation. `safari-defaults.sh` no longer turns it
+  on. `defaults.sh`'s `ShowDevelopMenu false`, taken from the old Mac, is the only Develop-menu
+  write left.
+- **U-8, the git-lfs filter:** deleted from `dotfiles/.gitconfig`. No repository here uses LFS,
+  and git-lfs is not installed.
+- **T-15, the App Store list:** the seven apps not installed are off the list, and are named in
+  a closing paragraph. The list has 15 entries. The manual, BIN-1 and SMAC-1 no longer repeat the
+  count. Keynote, Numbers and Pages note their installed "Creator Studio" names. sevmac's change is
+  its own PR.
+
+Mutation checks of docs-drift check 7, each on a copy of the repository:
+
+| Mutation | Result |
+|---|---|
+| README still says 143 | killed: "README says 143, the manual 136" |
+| The manual still says 143 | killed |
+| README's row loses its number | killed: "README says nothing" |
+
+**Found on the way: setup did not wait for its log.** This PR's first CI run failed
+`tests/setup-safety.sh` under bash 3.2. The case was W-5's "setup from another checkout". `setup`
+sends its output through `exec > >(tee -a "$LOGFILE")`, and bash does not wait for a process
+substitution. So `setup` could exit while its last lines were still in the pipe, and the test
+read `$W/out` before the warning reached it. A `tee` left running also wrote into the next case's
+output. The failure had nothing to do with this PR, and it did not happen locally in five runs.
+It showed only on the slower runner. A `tee` stub that starts 0.3 s late reproduced it every time.
+`setup` now records the `tee`'s PID. On exit it closes its output and watches the `tee` go, for at
+most five seconds, because bash 3.2 cannot `wait` for a process substitution (exit 127). The test
+keeps the late stub and requires that no `tee` outlives `setup` (six runs under each bash).
+
+| Mutation | Result |
+|---|---|
+| The PID not recorded | killed: 6 `tee`s still running when `setup` exited |
+| `cleanup` does not call the wait | killed |
+| The output left open, so `tee` never sees end-of-file (only the five-second cap ends the wait) | killed |
+| A `write_default` with no MRK-1 entry | killed: `check-defaults-desc` fails, so there is no count |
+| One key and its MRK-1 entry removed together (135) | killed: "defaults.sh writes 135 keys" |
 
 ### Closed by retiring `snapshot`, branch `claude/retire-snapshot`, 2026-09-28
 

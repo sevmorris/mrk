@@ -56,16 +56,11 @@ defaults write com.apple.Safari AutoOpenSafeDownloads -bool false || failed=$(( 
 # Why: reduces exposure if the browser is accessed without authorization or on a shared machine
 defaults write com.apple.Safari AutoFillCreditCardData -bool false || failed=$(( failed + 1 ))
 
-###############################################################################
-# Developer                                                                   #
-###############################################################################
-
-# Enable Develop menu
-defaults write com.apple.Safari IncludeDevelopMenu -bool true || failed=$(( failed + 1 ))
-
-# Enable developer extras (Web Inspector in contextual menu)
-defaults write com.apple.Safari WebKitDeveloperExtrasEnabledPreferenceKey -bool true || failed=$(( failed + 1 ))
-defaults write com.apple.Safari "com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled" -bool true || failed=$(( failed + 1 ))
+# The Develop menu is left hidden: defaults.sh writes
+# com.apple.Safari.SandboxBroker ShowDevelopMenu false, the value on the old Mac
+# on 2026-09-02. Until 2026-09-28 this script wrote IncludeDevelopMenu and the
+# two WebKit developer-extras keys true, so Phase 1 and Phase 3 disagreed.
+# Audit 15, T-8.
 
 ###############################################################################
 # Extensions                                                                  #
