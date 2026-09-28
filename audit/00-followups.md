@@ -133,20 +133,34 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
 
   Rosetta is installed. → To close: decide per component, in Waves Central and iZotope's
   installer. mrk manages none of them. The list is in `18-audit-2026-09-23.md`.
-- **nvm at shell start.** `.zshrc` loads nvm eagerly, which was not measured. → Owner's call:
-  time `zsh -i -c exit`, and lazy-load nvm if it dominates. Helium's GPU caches, the other half
-  of this entry, were settled on 2026-09-28 (see Closed).
+- **nvm at shell start.** `.zshrc` loads nvm eagerly. Measured 2026-09-28, five runs each, in a
+  bare zsh:
+  - **As `.zshrc` does it:** sourcing `nvm.sh` takes about 250 ms, almost all of it the default
+    `nvm use`.
+  - **With `--no-use`:** 29 ms.
+  - **With `--no-use`, then Node's `bin` put on PATH by globbing the default alias (`v24`):**
+    still 29 ms, and the same Node, v24.21.0.
+  - **Asking nvm itself** (`nvm version default`) costs 165 ms of its own.
+
+  A full `zsh -i -c exit` was not timed. oh-my-zsh auto-updates and `check-updates` runs in it,
+  so the timing run would have changed the Mac. Lazy-loading was advised against: it takes
+  `node` off the PATH for anything a shell starts. → Owner's call: switch to `--no-use` and the
+  glob (advised), or leave it. Helium's GPU caches, the other half of this entry, were settled
+  on 2026-09-28 (see Closed).
 
 **Module 17's open items (2026-09-18).** Details are in `17-audit-2026-09-18.md`.
 
-- **`assets/CLAUDE.md` against the sibling repos.** It guides every Claude session in
-  `~/Projects`, other sessions edit it daily, and nobody has checked its claims about release
-  scripts, notarization and shared files against those repos. → To close: check each claim
-  against the repo it names.
 - **Homebrew's installer runs from `HEAD`.** It is the vendor's documented method. The
   alternative is Homebrew's signed `.pkg`, checked with `pkgutil --check-signature` before
-  `installer`. → To close: adopt it and test it on a fresh Mac, or accept `HEAD` as the vendor's
-  choice.
+  `installer`. On 2026-09-28 the latest release, 7.0.7, published a single `Homebrew.pkg` of
+  150 MB. The advice given that day was to keep `HEAD`:
+  - it runs once per Mac, over TLS, from Homebrew's own repository;
+  - every `brew update` afterwards trusts the same GitHub repositories without a signature
+    check;
+  - a new install path would run for the first time on the next new Mac, untested.
+
+  → To close: accept `HEAD` as the vendor's choice (advised), or adopt the `.pkg` and test it on
+  a fresh Mac.
 
 **Module 16's items (2026-09-17).** Evidence and options for each are in
 `16-audit-2026-09-17.md`.
@@ -286,7 +300,36 @@ still describes code that no longer exists.
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
 
-### Closed by keeping Helium's GPU caches, branch `claude/helium-keep-gpu-cache`, 2026-09-28
+### Closed by checking assets/CLAUDE.md against the sibling repos, branch `claude/projects-claudemd-check`, 2026-09-28
+
+Module 17's item 7. Every checkable claim was read against each repository's default branch
+on GitHub, and against GitHub's own records for Pages, archive state and the tap. Nothing was
+changed in any sibling repository. Correct:
+- **Shared files.** `check-shared.sh` and both `tools/dmg` files are identical in all seven
+  repos, and `SIBLINGS` names the seven. `FFmpegProcess.swift` is identical in ClipHack and
+  WaxOnWaxOff.
+- **Release scripts.** All seven are zsh and run `check-shared.sh`. The release-standards audit
+  finds all 15 guards in every one. Each carries the `notarytool` profile default, the team ID
+  and `--generated-notes`. None falls back to `hdiutil create`. None deletes a pushed tag: the
+  one `git tag -d` removes the local tag after a failed push.
+- **Build settings.** The FFmpeg manifests, fetch and build scripts, the `LC_UUID` assertion,
+  `ZERO_AR_DATE` and the "Vendored Binaries" group with its exception set, in the three FFmpeg
+  apps. Actor isolation, ARCHS, sandbox settings and entitlements, bundle IDs, and KeyVault's
+  missing test target.
+- **Repositories.** DoublEnder's overlay and its pre-commit hook (through `core.hooksPath`), the
+  archived retired apps, and the three deprecated casks and their dates.
+- **Commands.** `prune-deployments` and `maintain` keep 10.
+
+Corrected in `assets/CLAUDE.md`:
+- The Pages list for `prune-deployments` lacked WaxOnWaxOff and DoublEnder, which both serve
+  `/docs` on `main`.
+- Magic Backup Machine was missing from the synced-folder list and from the 15.0 deployment
+  target.
+- The test-isolation fix pointed at `test-isolated-defaults` branches that are merged and
+  deleted.
+- ClipHack's own isolation, `ScratchDefaults` with a path-named suite, was not mentioned.
+
+, branch `claude/helium-keep-gpu-cache`, 2026-09-28
 
 Module 18's browser GPU caches, as the owner chose. `clear-app-caches` cleared Helium's three
 per-profile GPU caches daily and at login. Each was back to 548 KB within an hour, while Helium
