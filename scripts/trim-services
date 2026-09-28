@@ -51,9 +51,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 ROLL="$STATE_DIR/services-rollback.sh"
-mkdir -p "$STATE_DIR"
-if [[ ! -f "$ROLL" ]] || ! grep -q '^#!/usr/bin/env bash$' "$ROLL" 2>/dev/null; then
-  (( DRY_RUN )) || { printf '#!/usr/bin/env bash\n' > "$ROLL"; chmod +x "$ROLL"; }
+# The shared helper, as in hardening.sh. Until 2026-09-27 this was a copy of the
+# older check, which emptied an undo file whose first line was any shebang but
+# `#!/usr/bin/env bash` (audit 19, W-3). A dry run makes nothing, not even
+# ~/.mrk, which this used to create.
+if (( ! DRY_RUN )); then
+  init_rollback "$ROLL" || exit 1
 fi
 rollback() {
   (( DRY_RUN )) && return 0

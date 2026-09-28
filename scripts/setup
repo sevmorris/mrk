@@ -611,7 +611,14 @@ phase_defaults() {
       local _prev_login_msg
       _prev_login_msg=$(defaults read /Library/Preferences/com.apple.loginwindow LoginwindowText 2>/dev/null || true)
       if sudo defaults write /Library/Preferences/com.apple.loginwindow LoginwindowText "$MRK_LOGIN_MSG"; then
-        if [[ -n "$_prev_login_msg" ]]; then
+        # The first run's line wins, as recorded() does in hardening.sh: on a
+        # later run the "previous" message is mrk's own. Until 2026-09-27 each
+        # run appended a line, so the undo ran them in order and ended by
+        # writing mrk's message back (audit 19, W-9).
+        if grep -qF "defaults write /Library/Preferences/com.apple.loginwindow LoginwindowText " "$ROLLBACK" 2>/dev/null ||
+           grep -qF "defaults delete /Library/Preferences/com.apple.loginwindow LoginwindowText " "$ROLLBACK" 2>/dev/null; then
+          :
+        elif [[ -n "$_prev_login_msg" ]]; then
           echo "sudo defaults write /Library/Preferences/com.apple.loginwindow LoginwindowText -string $(printf '%q' "$_prev_login_msg")" >> "$ROLLBACK"
         else
           echo "sudo defaults delete /Library/Preferences/com.apple.loginwindow LoginwindowText 2>/dev/null || true" >> "$ROLLBACK"

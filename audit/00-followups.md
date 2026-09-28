@@ -110,16 +110,12 @@ Items that require a real choice before they can be closed in either direction.
 **Module 19's findings (2026-09-27), awaiting fix sessions.** Unlike the modules before it,
 module 19 fixed nothing, so every item was open. Details, evidence and line numbers are in
 `19-audit-2026-09-27.md`. W-1 is fixed (see Closed), and its fix session added W-31, fixed
-too. W-2, W-4, W-5, W-7 and W-11 are fixed; see Closed.
+too. W-2, W-3, W-4, W-5, W-7, W-8, W-9, W-11, W-12 and W-13 are fixed; see Closed.
 
 - **MEDIUM.**
-  - W-3: hardening.sh and trim-services keep the rollback check that can empty an undo file.
   - W-6: brew ignores `--no-casks`, `--no-formulae` and `--only-formulae` without a TTY.
-  - W-8: `services-rollback.sh` is never offered, and nuke-mrk trashes it, which it did here on
-    2026-09-24.
 - **LOW.**
-  - W-9 to W-10: setup.
-  - W-12 to W-13: post-install and uninstall.
+  - W-10: setup.
   - W-14 to W-17: brew.
   - W-18: sync.
   - W-19: defaults.sh.
@@ -303,6 +299,34 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the undo-files fix, branch `claude/fix-undo-files`, 2026-09-28
+
+Batch 3 of module 19's fixes. Details and the mutation table are in `19-audit-2026-09-27.md`,
+after W-8.
+
+- **W-8 (MEDIUM)** — `services-rollback.sh` was offered by neither `uninstall` nor `nuke-mrk`,
+  and `nuke-mrk` sent it to the Trash while launchd kept the disables. It did so here on
+  2026-09-24. Both now offer it, and `nuke-mrk` keeps it when declined.
+- **W-3 (MEDIUM)** — `hardening.sh` and `trim-services` kept a copy of the old rollback check,
+  which emptied an undo file whose first line was any other shebang. Both call `init_rollback`
+  now.
+- **W-13 (LOW)** — "Run macOS defaults rollback now?" also deleted the whole preferences of every
+  app post-install imported: 33 on this Mac, with every setting made in them since. `uninstall`
+  and `nuke-mrk` now name those apps and ask about them separately. The manual's undo command
+  leaves them out.
+- **W-9 (LOW)** — two runs with `MRK_LOGIN_MSG` left an undo that restored mrk's own message. The
+  first run's line now wins.
+- **W-12 (LOW)** — `post-install --help` promised a backup and an undo for every domain it
+  overwrote. It now says what happens.
+
+**Test.** `tests/undo-files.sh`, in `ci-check`: `uninstall`, `nuke-mrk`, `trim-services` and
+setup's login message, with the undo scripts run through stubs, under both bashes. Ten checks per
+bash. `tests/hardening-rollback.sh` gains a case for W-3. Each of eleven mutations fails them.
+Documented in the manual's State Files, `nuke-mrk` Caution and undo command, and in BIN-1's
+mrk-uninstall, nuke-mrk, trim-services, harden, mrk-setup and ci-check entries, and in SMAC-1's
+State Files, nuke-mrk row and undo command and SMAC-2's undo Caution (sevmac, branch
+`claude/undo-files`). Nothing on this Mac was changed.
 
 ### Closed by the setup-safety fix, branch `claude/fix-setup-safety`, 2026-09-27
 

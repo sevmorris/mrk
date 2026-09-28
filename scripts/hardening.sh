@@ -40,21 +40,13 @@ done
 ROLL_DIR="$HOME/.mrk"
 ROLL="$ROLL_DIR/hardening-rollback.sh"
 
-# Create rollback directory and script with error checking
-if ! mkdir -p "$ROLL_DIR"; then
-  echo "Error: Failed to create rollback directory: $ROLL_DIR" >&2
-  exit 1
-fi
-
-if [[ -f "$ROLL" ]] && grep -q '^#!/usr/bin/env bash$' "$ROLL" 2>/dev/null; then
-  # Rollback file already exists and has a valid shebang — preserve prior entries
-  chmod +x "$ROLL" 2>/dev/null || true
-else
-  if ! printf '#!/usr/bin/env bash\n' > "$ROLL" || ! chmod +x "$ROLL"; then
-    echo "Error: Failed to initialize rollback script: $ROLL" >&2
-    exit 1
-  fi
-fi
+# Create the rollback script, or keep the one there, with the shared helper that
+# defaults.sh, post-install and dock-setup use. Until 2026-09-27 this was a copy
+# of the older check, which rewrote the file whenever it held no line reading
+# exactly `#!/usr/bin/env bash`: an undo file that began `#!/bin/bash`, or had a
+# trailing space on that line, was emptied to a bare shebang (audit 19, W-3).
+# init_rollback tests line 1 for any shebang and moves anything else aside.
+init_rollback "$ROLL" || exit 1
 
 log(){ printf "[hardening] %s\n" "$*"; }
 warn(){ printf "[hardening] warning: %s\n" "$*" >&2; }
