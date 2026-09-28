@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 
-# Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2)
-if (( BASH_VERSINFO[0] < 4 )); then
-  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
-    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
-  done
-  echo "error: bash 4+ required (system bash is ${BASH_VERSION}; install via 'brew install bash')" >&2
-  exit 1
-fi
+# mrk brew — Phase 2: Homebrew packages and applications installation
+#
+# No bash-4 re-exec, and none of bash 4's syntax. This is the phase that
+# installs Homebrew, so on a new Mac it runs under the only bash there is: the
+# 3.2 that macOS ships. From 2026-03-20 until 2026-09-27 it re-executed itself
+# with Homebrew's bash and, finding none, exited 1 with "install via 'brew
+# install bash'", so a Mac without Homebrew could not run Phase 2 at all
+# (audit 19, W-1). Lists of names stand in for associative arrays below, and
+# SELECTION for a nameref. tests/new-mac.sh runs this under /bin/bash.
 
 set -euo pipefail
-
-# mrk brew — Phase 2: Homebrew packages and applications installation
 
 # Resolve symlinks so this works when called via ~/bin
 _self="${BASH_SOURCE[0]}"
@@ -96,7 +95,22 @@ cleanup() {
   # failure — `make brew ARGS=-n` exited 2.
   [[ -n "$TEMP_BREWFILE" && -f "$TEMP_BREWFILE" ]] && rm -f "$TEMP_BREWFILE" || true
 }
-trap cleanup EXIT INT TERM
+
+# Set on the last line. Under bash 3.2 a `set -u` abort runs the EXIT trap with
+# $? at 0, and the script then exits 0, so an abort would report success and
+# make all would go on to Phase 3. A run that exits 0 without getting here has
+# aborted. Bash 5 exits 1 there itself.
+BREW_FINISHED=""
+on_exit() {
+  local rc=$?
+  cleanup
+  if (( rc == 0 )) && [[ -z "$BREW_FINISHED" ]]; then
+    rc=1
+  fi
+  exit "$rc"
+}
+trap on_exit EXIT
+trap cleanup INT TERM
 
 # Setup logging — use explicit tee calls instead of exec redirect
 # (exec > >(tee ...) breaks brew command output capture in subshells)
@@ -123,12 +137,25 @@ CASKS_INSTALLED=0
 CASKS_SKIPPED=0
 ERRORS=0
 
+# Where Homebrew's brew is, or will be once installed: /opt/homebrew on Apple
+# silicon, /usr/local on Intel. MRK_BREW names one other path instead, so
+# tests/new-mac.sh can run this phase on a Mac that has Homebrew as though it
+# had none. scripts/sync takes MRK_BREW the same way.
+if [[ -n "${MRK_BREW:-}" ]]; then
+  BREW_PATHS=("$MRK_BREW")
+else
+  BREW_PATHS=(/opt/homebrew/bin/brew /usr/local/bin/brew)
+fi
+
 # Check if Homebrew is installed
 check_homebrew() {
-  if [[ -x /opt/homebrew/bin/brew ]] || [[ -x /usr/local/bin/brew ]]; then
-    log "Homebrew is already installed"
-    return 0
-  fi
+  local b
+  for b in "${BREW_PATHS[@]}"; do
+    if [[ -x "$b" ]]; then
+      log "Homebrew is already installed"
+      return 0
+    fi
+  done
   return 1
 }
 
@@ -155,12 +182,14 @@ install_homebrew() {
   fi
 
   if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
-    # Add Homebrew to PATH for Apple Silicon Macs
-    if [[ -f /opt/homebrew/bin/brew ]]; then
-      eval "$(/opt/homebrew/bin/brew shellenv)"
-    elif [[ -f /usr/local/bin/brew ]]; then
-      eval "$(/usr/local/bin/brew shellenv)"
-    fi
+    # Add Homebrew to PATH
+    local b
+    for b in "${BREW_PATHS[@]}"; do
+      if [[ -f "$b" ]]; then
+        eval "$("$b" shellenv)"
+        break
+      fi
+    done
     log "Homebrew installed successfully"
     BREW_INSTALLED=1
     return 0
@@ -173,12 +202,16 @@ install_homebrew() {
 # Resolve the real Homebrew binary (not ~/bin/brew which is this script!)
 HOMEBREW=""
 resolve_homebrew() {
-  if [[ -x /opt/homebrew/bin/brew ]]; then
-    HOMEBREW=/opt/homebrew/bin/brew
-  elif [[ -x /usr/local/bin/brew ]]; then
-    HOMEBREW=/usr/local/bin/brew
-  else
-    err "Homebrew not found at /opt/homebrew/bin/brew or /usr/local/bin/brew"
+  local b
+  HOMEBREW=""
+  for b in "${BREW_PATHS[@]}"; do
+    if [[ -x "$b" ]]; then
+      HOMEBREW=$b
+      break
+    fi
+  done
+  if [[ -z "$HOMEBREW" ]]; then
+    err "Homebrew not found at ${BREW_PATHS[0]}${BREW_PATHS[1]:+ or ${BREW_PATHS[1]}}"
     return 1
   fi
   # Also ensure brew shellenv is loaded for dependencies
@@ -193,22 +226,41 @@ resolve_homebrew() {
 # check, so it lacked 15 of the Brewfile's 57 formulae and every cask. It
 # mattered more than it looks, because on a new Mac the gum fallback is the
 # picker: Phase 2 runs before build-tools makes mrk-picker.
-declare -A PKG_DESCRIPTIONS=()
+#
+# Two lists kept in step, names and texts, where bash 4 would have one
+# associative array.
+PKG_DESC_NAMES=()
+PKG_DESC_TEXTS=()
 load_descriptions() {
   local picker_go="$REPO_ROOT/tools/picker/main.go" line
   local re=$'^\t"([^"]+)":[[:space:]]*"(.*)",$'
   [[ -f "$picker_go" ]] || return 0
   while IFS= read -r line; do
-    [[ "$line" =~ $re ]] && PKG_DESCRIPTIONS["${BASH_REMATCH[1]}"]="${BASH_REMATCH[2]}"
+    if [[ "$line" =~ $re ]]; then
+      PKG_DESC_NAMES+=("${BASH_REMATCH[1]}")
+      PKG_DESC_TEXTS+=("${BASH_REMATCH[2]}")
+    fi
   done < "$picker_go"
   return 0
 }
 
 # Get the description for a formula or cask
 get_description() {
-  echo "${PKG_DESCRIPTIONS[$1]:-}"
+  local i
+  for (( i = 0; i < ${#PKG_DESC_NAMES[@]}; i++ )); do
+    if [[ "${PKG_DESC_NAMES[$i]}" == "$1" ]]; then
+      echo "${PKG_DESC_TEXTS[$i]}"
+      return 0
+    fi
+  done
+  echo ""
 }
 load_descriptions
+
+# in_list LIST NAME — true when NAME is one of LIST's lines. A list holds one
+# name per line, each ending in a newline, and stands in for an associative
+# array used as a set: the installed packages, and the ones selected.
+in_list() { [[ $'\n'"$1" == *$'\n'"$2"$'\n'* ]]; }
 
 # Ensure gum is available (auto-install if missing)
 ensure_gum() {
@@ -230,47 +282,44 @@ ensure_gum() {
 }
 
 # Interactive selection using gum choose (TUI checklist)
-# Usage: interactive_selection "cask"|"formula" items_array_name selected_array_name
-# items_array format: "name|line|status" for each item
-# Sets selected items in selected_array (associative array): selected[name]=1 if selected
+# Usage: interactive_selection "cask"|"formula" ITEM...
+# Each ITEM is "name|line|status". Sets SELECTION to the names chosen, one per
+# line: a global rather than a nameref, which needs bash 4.3.
+SELECTION=""
 interactive_selection() {
   local type="$1"  # "cask" or "formula"
-  local items_var="$2"  # name of array variable containing items
-  local selected_var="$3"  # name of associative array to store selections
-  
+  shift
+  SELECTION=""
+
   # Only show selection if we have a TTY
   if [[ ! -t 0 ]]; then
     return 0
   fi
-  
-  # Get item count via nameref
-  declare -n _items_ref="$items_var"
-  local eval_total=${#_items_ref[@]}
-  if (( eval_total == 0 )); then
+
+  if (( $# == 0 )); then
     return 0
   fi
-  
-  local type_label=""
+
+  # The plural twice, rather than lowercased with ${type_label,,}, which is a
+  # "bad substitution" under bash 3.2
+  local type_label="" type_plural=""
   if [[ "$type" == "cask" ]]; then
     type_label="Casks"
+    type_plural="casks"
   elif [[ "$type" == "formula" ]]; then
     type_label="Formulae"
+    type_plural="formulae"
   fi
-  
+
   # Separate installed from not-installed
-  local i item_data name
+  local item_data name
   local -a not_installed_names=()
   local -a not_installed_labels=()
   local skipped=0
-  declare -n _selected_ref="$selected_var"
 
-  for (( i=0; i<eval_total; i++ )); do
-    item_data="${_items_ref[$i]}"
+  for item_data in "$@"; do
     name="${item_data%%|*}"
 
-    # Default to unselected
-    _selected_ref["$name"]=0
-    
     if [[ "$item_data" == *"|installed" ]]; then
       ((skipped++)) || true
     else
@@ -289,13 +338,13 @@ interactive_selection() {
   # Show already-installed summary
   if (( skipped > 0 )); then
     echo "" > /dev/tty
-    printf "\033[32m✓ %d %s already installed (skipped)\033[0m\n" "$skipped" "${type_label,,}" > /dev/tty
+    printf "\033[32m✓ %d %s already installed (skipped)\033[0m\n" "$skipped" "$type_plural" > /dev/tty
   fi
 
   # Nothing to install
   if (( ${#not_installed_names[@]} == 0 )); then
     echo "" > /dev/tty
-    printf "\033[32mAll %s already installed. Nothing to do.\033[0m\n" "${type_label,,}" > /dev/tty
+    printf "\033[32mAll %s already installed. Nothing to do.\033[0m\n" "$type_plural" > /dev/tty
     echo "" > /dev/tty
     return 0
   fi
@@ -326,12 +375,12 @@ interactive_selection() {
 
   # Parse selections — extract package name (before " — ")
   if [[ -n "$gum_output" ]]; then
+    local selected_line
     while IFS= read -r selected_line; do
-      local selected_name="${selected_line%% — *}"
-      _selected_ref["$selected_name"]=1
+      SELECTION+="${selected_line%% — *}"$'\n'
     done <<< "$gum_output"
   fi
-  
+
   return 0
 }
 
@@ -349,19 +398,21 @@ find_picker() {
   echo ""
 }
 
-# Call mrk-picker TUI and populate selected_formulae / selected_casks maps.
-# Expects those maps to already be declared by the caller.
+# Call mrk-picker TUI and add to the selected_formulae / selected_casks lists.
+# Expects those lists, and installed_formulae / installed_casks, to already be
+# declared by the caller.
 _run_mrk_picker() {
   local picker_bin="$1"
   local picker_args=("--brewfile" "$BREWFILE")
   (( NO_FORMULAE )) && picker_args+=("--skip-formulae")
   (( NO_CASKS ))    && picker_args+=("--skip-casks")
 
-  local installed_f="" installed_c=""
-  [[ ${#_installed_formulae[@]} -gt 0 ]] && installed_f=$(IFS=','; printf '%s' "${!_installed_formulae[*]}")
-  [[ ${#_installed_casks[@]} -gt 0 ]]    && installed_c=$(IFS=','; printf '%s' "${!_installed_casks[*]}")
+  # The installed lists, comma-separated as mrk-picker takes them
+  local installed_f installed_c
+  installed_f=$(printf '%s' "$installed_formulae" | tr '\n' ',')
+  installed_c=$(printf '%s' "$installed_casks" | tr '\n' ',')
 
-  picker_args+=("--installed-formulae" "$installed_f" "--installed-casks" "$installed_c")
+  picker_args+=("--installed-formulae" "${installed_f%,}" "--installed-casks" "${installed_c%,}")
 
   local picker_out
   if ! picker_out=$("$picker_bin" "${picker_args[@]}"); then
@@ -372,8 +423,8 @@ _run_mrk_picker() {
   while IFS=: read -r pkg_type pkg_name; do
     [[ -z "$pkg_name" ]] && continue
     case "$pkg_type" in
-      formula) selected_formulae["$pkg_name"]=1 ;;
-      cask)    selected_casks["$pkg_name"]=1 ;;
+      formula) selected_formulae+="$pkg_name"$'\n' ;;
+      cask)    selected_casks+="$pkg_name"$'\n' ;;
     esac
   done <<< "$picker_out"
 }
@@ -390,7 +441,10 @@ install_brewfile() {
     return 1
   fi
 
-  if ! resolve_homebrew; then
+  # Not in a dry run, which reads only the Brewfile: on a Mac without Homebrew
+  # there is no brew to resolve, because install_homebrew only said it would
+  # install one. main has resolved it already wherever there is one.
+  if (( ! DRY_RUN )) && ! resolve_homebrew; then
     return 1
   fi
 
@@ -434,29 +488,25 @@ install_brewfile() {
   # Parse Brewfile and collect items
   TEMP_BREWFILE=$(mrk_mktemp)
 
-  # Arrays to store items for selection
+  # Arrays to store items for selection, "name|line|status" each
   local -a formula_items=()
   local -a cask_items=()
-  # Associative arrays for selected items
-  declare -A selected_formulae=()
-  declare -A selected_casks=()
-  # Map names to their Brewfile lines
-  declare -A formula_lines=()
-  declare -A cask_lines=()
+  # Lists (see in_list) of the selected names
+  local selected_formulae="" selected_casks=""
+  local needs_install=0 item name line written
 
-  # Pre-fetch installed package lists for O(1) lookup (avoids per-package brew list calls)
+  # Pre-fetch installed package lists (avoids per-package brew list calls)
   # Note: use explicit pipe to avoid issues with exec > >(tee) redirect
   log "Fetching installed package lists..."
-  declare -A _installed_formulae=()
-  declare -A _installed_casks=()
-  local _tmp_formulae _tmp_casks
+  local installed_formulae="" installed_casks=""
+  local _tmp_formulae _tmp_casks _pkg
   _tmp_formulae=$($HOMEBREW list --formula 2>/dev/null) || true
   _tmp_casks=$($HOMEBREW list --cask 2>/dev/null) || true
   while IFS= read -r _pkg; do
-    [[ -n "$_pkg" ]] && _installed_formulae["$_pkg"]=1
+    [[ -n "$_pkg" ]] && installed_formulae+="$_pkg"$'\n'
   done <<< "$_tmp_formulae"
   while IFS= read -r _pkg; do
-    [[ -n "$_pkg" ]] && _installed_casks["$_pkg"]=1
+    [[ -n "$_pkg" ]] && installed_casks+="$_pkg"$'\n'
   done <<< "$_tmp_casks"
 
   # First pass: collect all items and check installation status
@@ -476,13 +526,13 @@ install_brewfile() {
         continue
       fi
 
-      # Check if already installed using cached list (O(1) lookup)
-      if [[ -n "${_installed_formulae[$formula]+x}" ]]; then
+      # Check if already installed using cached list
+      if in_list "$installed_formulae" "$formula"; then
         formula_items+=("$formula|$line|installed")
       else
         formula_items+=("$formula|$line|")
+        needs_install=1
       fi
-      formula_lines["$formula"]="$line"
       continue
     fi
 
@@ -494,13 +544,13 @@ install_brewfile() {
         continue
       fi
 
-      # Check if already installed using cached list (O(1) lookup)
-      if [[ -n "${_installed_casks[$cask]+x}" ]]; then
+      # Check if already installed using cached list
+      if in_list "$installed_casks" "$cask"; then
         cask_items+=("$cask|$line|installed")
       else
         cask_items+=("$cask|$line|")
+        needs_install=1
       fi
-      cask_lines["$cask"]="$line"
       continue
     fi
 
@@ -526,12 +576,11 @@ install_brewfile() {
   local _picker_bin
   _picker_bin=$(find_picker)
   if [[ -n "$_picker_bin" ]]; then
-    # Check if anything actually needs installing before launching TUI
-    local _needs_install=0
-    for _item in "${formula_items[@]}" "${cask_items[@]}"; do
-      [[ "$_item" != *"|installed" ]] && { _needs_install=1; break; }
-    done
-    if (( _needs_install )); then
+    # Check if anything actually needs installing before launching TUI. The
+    # scan above keeps the answer, rather than a loop over both arrays here:
+    # bash 3.2 calls an empty array unbound under set -u, and --no-formulae
+    # leaves one empty.
+    if (( needs_install )); then
       _run_mrk_picker "$_picker_bin"
     else
       log "All packages already installed — skipping selection"
@@ -542,21 +591,27 @@ install_brewfile() {
   # Show interactive selection for formulae
   if (( ${#formula_items[@]} > 0 )) && (( ! NO_FORMULAE )); then
     if (( ! _used_mrk_picker )); then
-      interactive_selection "formula" formula_items selected_formulae
+      interactive_selection "formula" "${formula_items[@]}"
+      selected_formulae=$SELECTION
     fi
-    
-    # Add selected formulae to temp Brewfile (skip already installed ones)
+
+    # Add selected formulae to temp Brewfile (skip already installed ones), in
+    # Brewfile order. A name listed twice is written once.
     local selected_count=0
-    for name in "${!selected_formulae[@]}"; do
-      if (( selected_formulae["$name"] == 1 )); then
-        # Check if already installed using cached list
-        if [[ -n "${_installed_formulae[$name]+x}" ]]; then
-          log "Formula '$name' is already installed, skipping installation"
-          continue
-        fi
-        echo "${formula_lines[$name]}" >> "$TEMP_BREWFILE"
-        selected_count=$(( selected_count + 1 ))
+    written=""
+    for item in "${formula_items[@]}"; do
+      name="${item%%|*}"
+      in_list "$selected_formulae" "$name" || continue
+      in_list "$written" "$name" && continue
+      written+="$name"$'\n'
+      # Check if already installed using cached list
+      if in_list "$installed_formulae" "$name"; then
+        log "Formula '$name' is already installed, skipping installation"
+        continue
       fi
+      line="${item#*|}"
+      echo "${line%|*}" >> "$TEMP_BREWFILE"
+      selected_count=$(( selected_count + 1 ))
     done
     FORMULAE_INSTALLED=$selected_count
     # Count already-installed
@@ -574,21 +629,27 @@ install_brewfile() {
   # Show interactive selection for casks
   if (( ${#cask_items[@]} > 0 )) && (( ! NO_CASKS )); then
     if (( ! _used_mrk_picker )); then
-      interactive_selection "cask" cask_items selected_casks
+      interactive_selection "cask" "${cask_items[@]}"
+      selected_casks=$SELECTION
     fi
-    
-    # Add selected casks to temp Brewfile (skip already installed ones)
+
+    # Add selected casks to temp Brewfile (skip already installed ones), in
+    # Brewfile order. A name listed twice is written once.
     local selected_count=0
-    for name in "${!selected_casks[@]}"; do
-      if (( selected_casks["$name"] == 1 )); then
-        # Check if already installed using cached list
-        if [[ -n "${_installed_casks[$name]+x}" ]]; then
-          log "Cask '$name' is already installed, skipping installation"
-          continue
-        fi
-        echo "${cask_lines[$name]}" >> "$TEMP_BREWFILE"
-        selected_count=$(( selected_count + 1 ))
+    written=""
+    for item in "${cask_items[@]}"; do
+      name="${item%%|*}"
+      in_list "$selected_casks" "$name" || continue
+      in_list "$written" "$name" && continue
+      written+="$name"$'\n'
+      # Check if already installed using cached list
+      if in_list "$installed_casks" "$name"; then
+        log "Cask '$name' is already installed, skipping installation"
+        continue
       fi
+      line="${item#*|}"
+      echo "${line%|*}" >> "$TEMP_BREWFILE"
+      selected_count=$(( selected_count + 1 ))
     done
     CASKS_INSTALLED=$selected_count
     for item in "${cask_items[@]}"; do
@@ -637,8 +698,12 @@ main() {
     exit 1
   fi
 
-  # Ensure Homebrew is in PATH
-  if ! resolve_homebrew; then
+  # Ensure Homebrew is in PATH. Not after a dry run found no Homebrew: it said
+  # it would install it, and there is none to find. Until 2026-09-27 that
+  # ended `make brew ARGS=-n` on a new Mac with "Homebrew is not available".
+  if (( DRY_RUN && BREW_INSTALLED )); then
+    :
+  elif ! resolve_homebrew; then
     err "Homebrew is not available. Aborting."
     exit 1
   fi
@@ -700,3 +765,4 @@ elif (( ERRORS > 0 )); then
 else
   log "Installation complete."
 fi
+BREW_FINISHED=1

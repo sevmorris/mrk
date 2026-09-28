@@ -46,6 +46,8 @@ Script: `scripts/setup`
 
 Phase 1 configures the shell environment. It runs on a new machine or on an existing machine.
 
+It runs under the bash 3.2 that macOS ships, so it needs nothing installed first. Until 2026-09-27 it required Homebrew's bash, and on a Mac without Homebrew it stopped at once with "bash 4+ required".
+
 **What it does:**
 
 - Installs the Xcode Command Line Tools when they are absent.
@@ -95,6 +97,8 @@ make trackpad                          # Apply the defaults and the trackpad set
 Script: `scripts/brew`
 
 Phase 2 installs Homebrew and every package that the `Brewfile` lists.
+
+Like Phase 1, it runs under the bash 3.2 that macOS ships. It has to: it is the phase that installs Homebrew, and with it Homebrew's bash. Until 2026-09-27 it required Homebrew's bash, so on a Mac without Homebrew it stopped with "bash 4+ required" before it could install anything. `make brew ARGS=--dry-run` works on such a Mac as well: it says that it would install Homebrew, and counts the Brewfile.
 
 **What it does:**
 
@@ -527,6 +531,8 @@ Write down the apps, the license keys and the settings that mrk does not manage:
 - An internet connection.
 - Your GitHub SSH key. You can also create a key and add it later.
 
+Nothing needs installing first. Phases 1 and 2 run under the bash that macOS ships, and Phase 2 installs Homebrew. Until 2026-09-27 both needed Homebrew's bash, so neither could run on a Mac without Homebrew.
+
 ## Step 1 — Clone mrk
 
 **If SSH already works:**
@@ -773,7 +779,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | `make uninstall` | Delete the symlinks, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |
 | `make pull` | Fast-forward the mrk repository to origin |
-| `make check` | Run the local validation: picker and defaults descriptions, a secret scan over every tracked file, the commit-gate check, the `cleanempties` test, round trips through the defaults and harden undo scripts, the macOS updates test, a `restore-keys` round trip, a check that `mrk-install --all` is `make all`, a test of the pinned clones for nvm and the zsh plugins, a `sync-login-items` round trip with awkward app names, shellcheck and go test |
+| `make check` | Run the local validation: picker and defaults descriptions, a secret scan over every tracked file, the commit-gate check, the `cleanempties` test, round trips through the defaults and harden undo scripts, the macOS updates test, a `restore-keys` round trip, a check that `mrk-install --all` is `make all`, a run of Phases 1 and 2 as a new Mac runs them — under macOS's bash 3.2, with no Homebrew — a test of the pinned clones for nvm and the zsh plugins, a `sync-login-items` round trip with awkward app names, shellcheck and go test |
 | `make ci` | Run the local validation, and build the TUI binaries |
 | `make tidy` | Run `go mod tidy` in every Go tool directory |
 
