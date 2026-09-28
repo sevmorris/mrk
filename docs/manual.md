@@ -487,15 +487,15 @@ git push
 pushall
 ```
 
-mrk brings `~/Projects` back to the new machine only from GitHub: `restore-repos` clones what the manifest records, and Magic Backup Machine does not back up `~/Projects`. Time Machine may hold a copy, but nothing in mrk restores from it — anything that is not on GitHub when you wipe comes back only if you dig it out of a Time Machine backup by hand, and only as it was at the last backup. `pushall` commits and pushes the branch each repository is on, including a repository kept one folder down, such as `FloppyLetters/FloppyLetter2601`, and then names what it leaves behind — commits on other branches that are on no remote, stashes, and folders in `~/Projects` that are not repositories. Deal with each one: push the branch, apply or drop the stash, copy the folder to the transfer disk.
+`restore-repos` brings `~/Projects` back to the new machine from GitHub: it clones what the manifest records, and nothing more. Since 2026-09-27 Magic Backup Machine also backs up `~/Projects`, so what is not on GitHub comes back from its copy instead, but only as it was at the last backup. That is why step 8 comes after this one. `pushall` commits and pushes the branch each repository is on, including a repository kept one folder down, such as `FloppyLetters/FloppyLetter2601`, and then names what it leaves behind — commits on other branches that are on no remote, stashes, and folders in `~/Projects` that are not repositories. Deal with each one: push the branch, and apply or drop the stash. A folder that is not a repository comes back only from the Magic Backup Machine copy.
 
-Files a repository ignores are not pushed either. Copy any you need by hand, such as a credential file that `.gitignore` keeps out of the repository.
+Files a repository ignores are not pushed either; Magic Backup Machine's copy carries them. That copy is not encrypted, so a credential file among them, such as DoublEnder's Cloud service-account key, is safer restored from the password manager than from the backup disk.
 
 `pushall` does not push DoublEnder's Cloud overlay, `~/Projects/DoublEnder-cloud.git`: its files are versioned beside the public repository, which ignores them. `pushall` names the overlay's unpushed commits and uncommitted changes with the rest of what it leaves behind. Commit and push them with `decloud commit` and `decloud push`.
 
 **8. Run a Magic Backup Machine backup**
 
-Open Magic Backup Machine and run a full backup to the local and external destinations. It copies the Logic Pro projects, the audio presets, the browser profiles and the other data that mrk does not manage. It does not copy `~/Projects`; step 7 covers that.
+Open Magic Backup Machine and run a full backup to the local and external destinations. It copies the Logic Pro projects, the audio presets, the browser profiles and the other data that mrk does not manage, and `~/Projects`. Run it after step 7: its copy of `~/Projects` is the only one of what `pushall` leaves off GitHub.
 
 **9. Verify SSH authentication**
 

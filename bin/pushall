@@ -95,12 +95,11 @@ EOF
 #
 # pushall pushes the current branch and nothing else, so before 2026-09-10 a
 # commit on any other branch, or a stash, went unmentioned and "Done" read as
-# "everything is on GitHub". On a migration that is exactly wrong: mrk brings
-# ~/Projects back only through restore-repos, which clones from GitHub, and
-# Magic Backup Machine does not back ~/Projects up at all. Time Machine may
-# hold a copy, but nothing in mrk restores from it — whatever is not on GitHub
-# comes back only by hand, and only as of the last backup. Informational — it
-# does not count as a failure.
+# "everything is on GitHub". On a migration that is exactly wrong:
+# restore-repos clones only from GitHub, and whatever is not there comes back
+# only from Magic Backup Machine's copy of ~/Projects (backed up since
+# 2026-09-27), as of its last run. Informational — it does not count as a
+# failure.
 report_local_only() {
   local repo=$1 label=$2 n s cur b c
   # Reachable from a local branch, but from no remote-tracking branch and not
