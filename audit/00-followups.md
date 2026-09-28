@@ -281,9 +281,8 @@ updater, which did stay off, remains. Details are in `15-audit-2026-09-16.md` un
 - **Changed:** `scripts/trim-services` (the list, and a comment saying why), BIN-1's entry (a new
   bullet, and a Caution that a disable is a record, not a state), and the two trim-services cases
   in `tests/undo-files.sh`, which now load Google's updater.
-- **This Mac:** nothing changed. The two Photos entries stay in launchd's override database and
-  do nothing. `launchctl enable gui/$(id -u)/com.apple.photoanalysisd`, and the same for
-  `mediaanalysisd`, clears them if wanted.
+- **This Mac:** the owner cleared the two Photos entries with `launchctl enable`. launchd now
+  lists both as enabled, which matches what runs, and Google's updater as disabled.
 
 | Mutation | Result |
 |---|---|
