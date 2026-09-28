@@ -5,8 +5,10 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -738,29 +740,60 @@ func emitLines(cats []category, cancelled bool) []string {
 	return out
 }
 
+type options struct {
+	brewfile, installedFormulae, installedCasks string
+	skipFormulae, skipCasks, noIgnore           bool
+}
+
+// parseFlags reads mrk-picker's command line. flag.ErrHelp means -h was given
+// and the flags have been printed; any other error, a wrong command line. A
+// stray argument is one: until 2026-09-28 it was never checked, so
+// `mrk-picker --brewfile Brewfile bogus` opened the picker as though nothing
+// were wrong, where mrk-status and mrk-menu refuse it (audit 19, W-24).
+func parseFlags(args []string, errOut io.Writer) (options, error) {
+	fs := flag.NewFlagSet("mrk-picker", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	var o options
+	fs.StringVar(&o.brewfile, "brewfile", "Brewfile", "Path to Brewfile")
+	fs.StringVar(&o.installedFormulae, "installed-formulae", "", "Comma-separated installed formulae")
+	fs.StringVar(&o.installedCasks, "installed-casks", "", "Comma-separated installed casks")
+	fs.BoolVar(&o.skipFormulae, "skip-formulae", false, "Exclude formulae from picker")
+	fs.BoolVar(&o.skipCasks, "skip-casks", false, "Exclude casks from picker")
+	fs.BoolVar(&o.noIgnore, "no-ignore", false, "Hide the ignore key (mrk brew, which keeps no ignore list)")
+	if err := fs.Parse(args); err != nil {
+		return o, err
+	}
+	if fs.NArg() > 0 {
+		fs.Usage()
+		return o, fmt.Errorf("unexpected argument: %s", fs.Arg(0))
+	}
+	return o, nil
+}
+
 func main() {
-	brewfilePath := flag.String("brewfile", "Brewfile", "Path to Brewfile")
-	installedFormulaeStr := flag.String("installed-formulae", "", "Comma-separated installed formulae")
-	installedCasksStr := flag.String("installed-casks", "", "Comma-separated installed casks")
-	skipFormulae := flag.Bool("skip-formulae", false, "Exclude formulae from picker")
-	skipCasks := flag.Bool("skip-casks", false, "Exclude casks from picker")
-	noIgnore := flag.Bool("no-ignore", false, "Hide the ignore key (mrk brew, which keeps no ignore list)")
-	flag.Parse()
+	o, err := parseFlags(os.Args[1:], os.Stderr)
+	if errors.Is(err, flag.ErrHelp) {
+		os.Exit(0)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "mrk-picker: %v\n", err)
+		os.Exit(2)
+	}
 
 	installedFormulae := map[string]bool{}
 	installedCasks := map[string]bool{}
-	for _, s := range strings.Split(*installedFormulaeStr, ",") {
+	for _, s := range strings.Split(o.installedFormulae, ",") {
 		if s = strings.TrimSpace(s); s != "" {
 			installedFormulae[s] = true
 		}
 	}
-	for _, s := range strings.Split(*installedCasksStr, ",") {
+	for _, s := range strings.Split(o.installedCasks, ",") {
 		if s = strings.TrimSpace(s); s != "" {
 			installedCasks[s] = true
 		}
 	}
 
-	cats, err := parseBrewfile(*brewfilePath, installedFormulae, installedCasks, *skipFormulae, *skipCasks)
+	cats, err := parseBrewfile(o.brewfile, installedFormulae, installedCasks, o.skipFormulae, o.skipCasks)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "mrk-picker: %v\n", err)
 		os.Exit(1)
@@ -780,7 +813,7 @@ func main() {
 	defer tty.Close()
 
 	m := newModel(cats)
-	m.noIgnore = *noIgnore
+	m.noIgnore = o.noIgnore
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithInput(tty), tea.WithOutput(tty))
 	final, err := p.Run()
 	if err != nil {

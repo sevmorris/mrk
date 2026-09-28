@@ -20,22 +20,42 @@ func (m model) Init() tea.Cmd {
 	return nil
 }
 
-func (m model) runCmd(i item) tea.Cmd {
-	var cmd *exec.Cmd
+// commandFor builds the command an item runs. A cmdBin item runs from ~/bin,
+// where setup links mrk's tools, and not by name through PATH: "sync" is also
+// /bin/sync, so wherever /bin came first on PATH, choosing sync ran the
+// system's, which flushes the disks and exits 0, and the menu reported "sync
+// ok". Only .zshrc puts ~/bin on PATH, so a login shell that is not
+// interactive has it last or not at all (audit 19, W-22). A tool that is not
+// in ~/bin is an error, rather than whatever PATH finds under its name.
+func commandFor(i item) (*exec.Cmd, error) {
 	if i.cmdType == cmdBin {
-		cmd = exec.Command(i.target, i.args...)
-	} else {
-		mrkRoot := os.Getenv("MRK_ROOT")
-		if mrkRoot == "" {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				home = "~"
-			}
-			mrkRoot = filepath.Join(home, "mrk")
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
 		}
-		args := []string{"-C", mrkRoot, i.target}
-		args = append(args, i.args...)
-		cmd = exec.Command("make", args...)
+		path := filepath.Join(home, "bin", i.target)
+		if info, err := os.Stat(path); err != nil || info.IsDir() || info.Mode()&0o111 == 0 {
+			return nil, fmt.Errorf("%s is not in ~/bin — make tools links the scripts, make build-tools the TUIs", i.target)
+		}
+		return exec.Command(path, i.args...), nil
+	}
+	mrkRoot := os.Getenv("MRK_ROOT")
+	if mrkRoot == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			home = "~"
+		}
+		mrkRoot = filepath.Join(home, "mrk")
+	}
+	args := []string{"-C", mrkRoot, i.target}
+	args = append(args, i.args...)
+	return exec.Command("make", args...), nil
+}
+
+func (m model) runCmd(i item) tea.Cmd {
+	cmd, err := commandFor(i)
+	if err != nil {
+		return func() tea.Msg { return execFinishedMsg{err: err, item: i} }
 	}
 
 	return tea.ExecProcess(cmd, func(err error) tea.Msg {
@@ -53,7 +73,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKey(msg)
 
 	case execFinishedMsg:
-		m.lastItemName = msg.item.name
 		if msg.err != nil {
 			var exitErr *exec.ExitError
 			if errors.As(msg.err, &exitErr) {
@@ -124,7 +143,8 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case stateFocusItem:
-		max := len(categories[m.cursorCat].items) - 1
+		// lastIdx, not max, which shadowed the builtin (audit 19, W-22)
+		lastIdx := len(categories[m.cursorCat].items) - 1
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
@@ -133,7 +153,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.flashMsg = ""
 			return m, tea.ClearScreen
 		case "j", "down":
-			if m.cursorItems[m.cursorCat] < max {
+			if m.cursorItems[m.cursorCat] < lastIdx {
 				m.cursorItems[m.cursorCat]++
 			}
 			m.flashMsg = ""
@@ -164,7 +184,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.state = stateHelp
 			m.flashMsg = ""
 		default:
-			if d, ok := digitJump(msg.String(), max+1); ok {
+			if d, ok := digitJump(msg.String(), lastIdx+1); ok {
 				m.cursorItems[m.cursorCat] = d
 				m.flashMsg = ""
 			}

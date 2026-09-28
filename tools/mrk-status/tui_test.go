@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -121,4 +122,47 @@ func TestEmptyGroupsDoNotPanic(t *testing.T) {
 	m := model{groups: nil, width: 80, height: 24}
 	m = send(m, "j", "k", "tab")
 	_ = m.View()
+}
+
+// longModel has one check with 40 detail lines, focused on the detail pane.
+func longModel(height int) model {
+	lines := make([]statusLine, 40)
+	for i := range lines {
+		lines[i] = sl(sevInfo, fmt.Sprintf("line-%02d", i))
+	}
+	return model{groups: []group{{"Long", sevInfo, lines, ""}}, width: 100, height: height}
+}
+
+func TestPageKeysMoveTheSameDistance(t *testing.T) {
+	// Until 2026-09-28 pgup moved half a page and pgdown four lines (audit 19,
+	// W-23). At height 30 half a page is not four, so the two cannot agree by
+	// accident.
+	m := longModel(30)
+	step := m.pageStep()
+	if step == 4 {
+		t.Fatalf("pick a height where half a page is not 4; got %d", step)
+	}
+	down := send(m, "pgdown")
+	if down.detailScroll != step {
+		t.Errorf("pgdown should move half a page, %d lines; moved %d", step, down.detailScroll)
+	}
+	if up := send(down, "pgup"); up.detailScroll != 0 {
+		t.Errorf("pgup should come back the same distance, to 0; at %d", up.detailScroll)
+	}
+}
+
+func TestTheLastLineCanBeReachedInAShortTerminal(t *testing.T) {
+	// The scroll bound comes from detailViewH, and what is drawn from viewBody.
+	// Until 2026-09-28 the first floored the body at 6 rows and the second at
+	// 4, so in a terminal under 8 rows the bound stopped short and the last
+	// lines could never be scrolled into view (audit 19, W-23).
+	for h := 3; h <= 8; h++ {
+		m := longModel(h)
+		for i := 0; i < 50; i++ {
+			m = send(m, "pgdown")
+		}
+		if v := m.View(); !strings.Contains(v, "line-39") {
+			t.Errorf("height %d: the last line is never drawn (scrolled to %d)", h, m.detailScroll)
+		}
+	}
 }

@@ -1,6 +1,10 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -166,5 +170,39 @@ func TestFilterCursorClampsWhenResultsShrink(t *testing.T) {
 	}
 	if len(m.filterResults) > 0 && m.filterCursor >= len(m.filterResults) {
 		t.Errorf("filterCursor %d is past the %d results", m.filterCursor, len(m.filterResults))
+	}
+}
+
+func TestCmdBinRunsFromHomeBinNotPath(t *testing.T) {
+	// "sync" is also /bin/sync. Run by name through PATH, wherever /bin came
+	// first, the menu ran the system's and reported "sync ok" (audit 19, W-22).
+	// A ~/bin copy must be what runs, and without one, nothing may.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	sync := item{name: "sync", cmdType: cmdBin, target: "sync"}
+	if _, err := commandFor(sync); err == nil || !strings.Contains(err.Error(), "~/bin") {
+		t.Errorf("with no ~/bin/sync, want an error naming ~/bin; got %v", err)
+	}
+
+	bin := filepath.Join(home, "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "sync"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd, err := commandFor(item{name: "sync --prune", cmdType: cmdBin, target: "sync", args: []string{"--prune"}})
+	if err != nil {
+		t.Fatalf("with ~/bin/sync present: %v", err)
+	}
+	if cmd.Path != filepath.Join(bin, "sync") || !slices.Equal(cmd.Args[1:], []string{"--prune"}) {
+		t.Errorf("want %s --prune, got %s %v", filepath.Join(bin, "sync"), cmd.Path, cmd.Args[1:])
+	}
+
+	// A make item still runs make in MRK_ROOT.
+	t.Setenv("MRK_ROOT", "/nowhere/mrk")
+	cmd, err = commandFor(item{name: "check", cmdType: cmdMake, target: "check"})
+	if err != nil || !slices.Equal(cmd.Args, []string{"make", "-C", "/nowhere/mrk", "check"}) {
+		t.Errorf("a make item: got %v, %v", cmd.Args, err)
 	}
 }

@@ -25,6 +25,9 @@
 #    bin/lib/common.sh, name every function each defines, and no function it
 #    no longer defines. Until 2026-09-28 the lib.sh table lacked seven, and the
 #    common.sh one still listed is_running, which nothing called.
+# 6. make tidy covers every Go module under tools/. Until 2026-09-28 its list
+#    was written out and had missed tools/theme (audit 19, W-25). Read from
+#    `make -n`, which prints the recipe and runs nothing.
 #
 # Read-only, apart from that dry run, which a scratch HOME keeps to itself.
 # ci-check runs it.
@@ -148,5 +151,20 @@ lib_table() {
 }
 lib_table "Table 3.1-1" "$REPO_ROOT/scripts/lib.sh"
 lib_table "Table 3.1-2" "$REPO_ROOT/bin/lib/common.sh"
+
+# ── 6. make tidy covers every Go module ──────────────────────────────────────
+
+tidy_cmd=$(make --no-print-directory -n -C "$REPO_ROOT" tidy 2>/dev/null)
+untidied="" n_mods=0
+for gomod in "$REPO_ROOT"/tools/*/go.mod; do
+  mod=$(basename "$(dirname "$gomod")")
+  n_mods=$((n_mods + 1))
+  grep -qE "for dir in .*\b$mod\b" <<<"$tidy_cmd" || untidied="$untidied $mod"
+done
+if (( n_mods >= 4 )) && [[ -z "$untidied" ]]; then
+  pass "make tidy covers all $n_mods Go modules under tools/"
+else
+  fail "make tidy misses:${untidied:- none} ($n_mods modules)"
+fi
 
 (( fails == 0 ))

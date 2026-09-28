@@ -234,7 +234,10 @@ if ! command -v go >/dev/null 2>&1; then
   exit 1
 fi
 
-for dir in picker mrk-status mrk-menu theme; do
+# Every module under tools/, from its go.mod, so a new one is tested without an
+# edit here; make tidy reads the same list (audit 19, W-25).
+for gomod in "$REPO_ROOT"/tools/*/go.mod; do
+  dir=$(basename "$(dirname "$gomod")")
   log "go test: tools/$dir"
   (cd "$REPO_ROOT/tools/$dir" && go test ./...)
 done
