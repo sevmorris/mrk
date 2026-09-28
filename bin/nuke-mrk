@@ -68,7 +68,8 @@ Usage:
 
 nuke-mrk takes no options other than --help. It moves ~/mrk and ~/.mrk to the
 Trash, removes the ~/bin, dotfile and ~/Projects/CLAUDE.md symlinks that point
-into them, and unloads and deletes the mrk LaunchAgents. It offers to run the
+into them, the two Claude Code skill links and the session hook post-install
+added, and unloads and deletes the mrk LaunchAgents. It offers to run the
 defaults, hardening and services rollback scripts first, and asks separately
 before the defaults one deletes the whole preferences of the apps post-install
 imported. Declined, the scripts are kept in ~/.mrk. It does NOT uninstall Homebrew
@@ -265,6 +266,48 @@ if [[ -L "$claude_link" ]]; then
   if [[ "$target" == "$MRK_DIR"/* ]]; then
     rm -f "$claude_link"
     ok "Projects/CLAUDE.md symlink"
+  fi
+fi
+
+# The two skill links and the SessionStart hook post-install adds for Claude
+# Code. Until 2026-09-28 the nuke left all three: the links pointed into a
+# repository in the Trash, and the hook ran a script that no longer existed at
+# the start of every Claude Code session (audit 19, W-20).
+for link in "$HOME/Projects/.claude/skills" "$HOME/.claude/skills/dependency-updates"; do
+  if [[ -L "$link" ]]; then
+    target=$(readlink "$link" 2>/dev/null || true)
+    if [[ "$target" == "$MRK_DIR"/* ]]; then
+      rm -f "$link"
+      ok "${link#"$HOME"/} symlink"
+    fi
+  fi
+done
+# settings.json is Claude Code's file, so only the one entry post-install added
+# goes, matched on its exact command, and the rest is left as it was. Written
+# back with cat, not mv, so a symlinked settings.json stays a symlink.
+claude_settings="$HOME/.claude/settings.json"
+# shellcheck disable=SC2016  # the literal text post-install wrote, $HOME and all
+deps_hook='bash "$HOME/.claude/skills/dependency-updates/scripts/check.sh" --session'
+# The presence test asks jq, as post-install does when it adds the hook: in the
+# file its quotes are escaped, so a grep for the command as written never
+# matches. Only when jq cannot read the file does a grep for the script's path
+# stand in, to say the hook must go by hand rather than leave it without a word.
+if [[ -f "$claude_settings" ]] && grep -qF 'dependency-updates/scripts/check.sh' "$claude_settings"; then
+  if ! command -v jq >/dev/null 2>&1 || ! jq empty "$claude_settings" >/dev/null 2>&1; then
+    warn "could not read $claude_settings to take out the dependency-updates hook — remove it by hand"
+  elif jq -e --arg c "$deps_hook" '[.hooks.SessionStart[]?.hooks[]?.command] | index($c)' "$claude_settings" >/dev/null 2>&1; then
+    settings_tmp=$(mktemp "${TMPDIR:-/tmp}/mrk-settings.XXXXXX")
+    if jq --arg c "$deps_hook" '
+         .hooks.SessionStart |= (map(if (.hooks | type) == "array" then .hooks |= map(select(.command != $c)) else . end)
+                                 | map(select((.hooks | type) != "array" or (.hooks | length) > 0)))
+         | if (.hooks.SessionStart | length) == 0 then del(.hooks.SessionStart) else . end
+         | if (.hooks | length) == 0 then del(.hooks) else . end' "$claude_settings" > "$settings_tmp" &&
+       cat "$settings_tmp" > "$claude_settings"; then
+      ok "dependency-updates hook in ~/.claude/settings.json"
+    else
+      warn "could not take the dependency-updates hook out of $claude_settings — remove it by hand"
+    fi
+    rm -f "$settings_tmp"
   fi
 fi
 

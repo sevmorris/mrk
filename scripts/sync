@@ -455,6 +455,72 @@ fi
 declare -A selected_casks=()
 declare -A formula_section_map=()
 
+# join_by SEP WORD... — the words joined by SEP. IFS joins on its first
+# character only: until 2026-09-28 the commit message's IFS=', ' gave
+# "add a,b", and IFS='; ' "add a,b;remove c" (audit 19, W-18).
+join_by() {
+  local sep="$1" out="${2-}"
+  shift 2 || return 0
+  local w
+  for w in "$@"; do out+="$sep$w"; done
+  printf '%s' "$out"
+}
+
+# commit_changes — section 11: commit what this run changed. A function, so
+# that the two exits in the add flow reach it too: until 2026-09-28 `sync -p -c`
+# that pruned and then added nothing stopped at "No packages selected" with the
+# prune uncommitted (audit 19, W-18).
+commit_changes() {
+  cd "$REPO_ROOT"
+  # Stage main.go only when this run edited it, so a run that wrote no
+  # description never commits someone's unrelated edit to that file.
+  changed_files=()
+  git diff --quiet Brewfile 2>/dev/null || changed_files+=("Brewfile")
+  if (( PICKER_CHANGED )) && ! git diff --quiet tools/picker/main.go 2>/dev/null; then
+    changed_files+=("tools/picker/main.go")
+  fi
+
+  if (( ${#changed_files[@]} == 0 )); then
+    log "No changes to commit."
+  else
+    # Build commit message from adds and removes
+    added_pkgs=()
+    removed_pkgs=()
+    if (( ${#formula_section_map[@]} > 0 )); then
+      for pkg in "${!formula_section_map[@]}"; do
+        added_pkgs+=("$pkg")
+      done
+    fi
+    if (( ${#selected_casks[@]} > 0 )); then
+      for pkg in "${!selected_casks[@]}"; do
+        (( selected_casks["$pkg"] == 1 )) && added_pkgs+=("$pkg")
+      done
+    fi
+    if (( ${#prune_formulae[@]} > 0 )); then
+      for pkg in "${!prune_formulae[@]}"; do removed_pkgs+=("$pkg"); done
+    fi
+    if (( ${#prune_casks[@]} > 0 )); then
+      for pkg in "${!prune_casks[@]}"; do removed_pkgs+=("$pkg"); done
+    fi
+
+    commit_parts=()
+    if (( ${#added_pkgs[@]} > 0 )); then
+      mapfile -t added_pkgs < <(printf '%s\n' "${added_pkgs[@]}" | sort)
+      commit_parts+=("add $(join_by ', ' "${added_pkgs[@]}")")
+    fi
+    if (( ${#removed_pkgs[@]} > 0 )); then
+      mapfile -t removed_pkgs < <(printf '%s\n' "${removed_pkgs[@]}" | sort)
+      commit_parts+=("remove $(join_by ', ' "${removed_pkgs[@]}")")
+    fi
+
+    commit_msg="sync: $(join_by '; ' "${commit_parts[@]}")"
+    git add "${changed_files[@]}"
+    git commit -m "$commit_msg"
+    log "Committed: $commit_msg"
+  fi
+}
+
+
 if (( ${#new_formulae_arr[@]} == 0 && ${#new_casks_arr[@]} == 0 )); then
   # -C, because sync runs from wherever you are: from outside the repository
   # this diff used to fail, and a sync with nothing to do fell through to the
@@ -634,6 +700,7 @@ fi
 
 if (( n_selected_formulae == 0 && n_selected_casks == 0 )); then
   log "No packages selected. Nothing to add."
+  (( COMMIT )) && commit_changes
   exit 0
 fi
 
@@ -777,6 +844,7 @@ fi
 
 if (( n_formula_insertions == 0 && n_selected_casks == 0 )); then
   log "No packages assigned to sections. Nothing to add."
+  (( COMMIT )) && commit_changes
   exit 0
 fi
 
@@ -1031,51 +1099,5 @@ fi  # end new-package add flow (prune-only skips sections 4–10)
 # ─── 11. Optional commit ─────────────────────────────────────────────────────
 
 if (( COMMIT )); then
-  cd "$REPO_ROOT"
-  # Stage main.go only when this run edited it, so a run that wrote no
-  # description never commits someone's unrelated edit to that file.
-  changed_files=()
-  git diff --quiet Brewfile 2>/dev/null || changed_files+=("Brewfile")
-  if (( PICKER_CHANGED )) && ! git diff --quiet tools/picker/main.go 2>/dev/null; then
-    changed_files+=("tools/picker/main.go")
-  fi
-
-  if (( ${#changed_files[@]} == 0 )); then
-    log "No changes to commit."
-  else
-    # Build commit message from adds and removes
-    added_pkgs=()
-    removed_pkgs=()
-    if (( ${#formula_section_map[@]} > 0 )); then
-      for pkg in "${!formula_section_map[@]}"; do
-        added_pkgs+=("$pkg")
-      done
-    fi
-    if (( ${#selected_casks[@]} > 0 )); then
-      for pkg in "${!selected_casks[@]}"; do
-        (( selected_casks["$pkg"] == 1 )) && added_pkgs+=("$pkg")
-      done
-    fi
-    if (( ${#prune_formulae[@]} > 0 )); then
-      for pkg in "${!prune_formulae[@]}"; do removed_pkgs+=("$pkg"); done
-    fi
-    if (( ${#prune_casks[@]} > 0 )); then
-      for pkg in "${!prune_casks[@]}"; do removed_pkgs+=("$pkg"); done
-    fi
-
-    commit_parts=()
-    if (( ${#added_pkgs[@]} > 0 )); then
-      mapfile -t added_pkgs < <(printf '%s\n' "${added_pkgs[@]}" | sort)
-      commit_parts+=("add $(IFS=', '; echo "${added_pkgs[*]}")")
-    fi
-    if (( ${#removed_pkgs[@]} > 0 )); then
-      mapfile -t removed_pkgs < <(printf '%s\n' "${removed_pkgs[@]}" | sort)
-      commit_parts+=("remove $(IFS=', '; echo "${removed_pkgs[*]}")")
-    fi
-
-    commit_msg="sync: $(IFS='; '; echo "${commit_parts[*]}")"
-    git add "${changed_files[@]}"
-    git commit -m "$commit_msg"
-    log "Committed: $commit_msg"
-  fi
+  commit_changes
 fi

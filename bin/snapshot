@@ -111,9 +111,15 @@ if (( OPT_BREWFILE )); then
     # (docs/app-store-apps.md), and ci-check fails on such a line, so strip them.
     if grep -q '^mas[[:space:]]' "$REPO_ROOT/Brewfile"; then
       n=$(grep -c '^mas[[:space:]]' "$REPO_ROOT/Brewfile")
-      stripped=$(mrk_mktemp)
+      # Until 2026-09-28 this called mrk_mktemp, from scripts/lib.sh, which
+      # this script never sources: the strip died with "command not found" and
+      # left the mas lines in (audit 19, W-21). The temp file sits beside the
+      # Brewfile under the name sync uses, which .gitignore covers, and is
+      # written back through the Brewfile, so its mode stays as it was.
+      stripped=$(mktemp "$REPO_ROOT/.Brewfile.XXXXXX")
       grep -v '^mas[[:space:]]' "$REPO_ROOT/Brewfile" > "$stripped" &&
-        mv "$stripped" "$REPO_ROOT/Brewfile"
+        cat "$stripped" > "$REPO_ROOT/Brewfile"
+      rm -f "$stripped"
       warn "Dropped $n Mac App Store entr(ies) the dump added — mrk does not install them (docs/app-store-apps.md)"
     fi
     log "Brewfile updated"
