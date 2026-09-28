@@ -110,21 +110,16 @@ Items that require a real choice before they can be closed in either direction.
 **Module 19's findings (2026-09-27), awaiting fix sessions.** Unlike the modules before it,
 module 19 fixed nothing, so every item was open. Details, evidence and line numbers are in
 `19-audit-2026-09-27.md`. W-1 is fixed (see Closed), and its fix session added W-31, fixed
-too. W-2 is fixed; see Closed.
+too. W-2, W-4, W-5, W-7 and W-11 are fixed; see Closed.
 
 - **MEDIUM.**
   - W-3: hardening.sh and trim-services keep the rollback check that can empty an undo file.
-  - W-4: setup links git-ignored files in `dotfiles/`, and can displace `~/.claude`.
-  - W-5: setup and post-install run from any checkout repoint `~` at it.
   - W-6: brew ignores `--no-casks`, `--no-formulae` and `--only-formulae` without a TTY.
-  - W-7: `make setup-dry` can run `sudo xcodebuild -license accept`. The W-1 fix found that it
-    can also register a shell in `/etc/shells` and run `chsh`, when the login shell is not the
-    first zsh on PATH, as it is not here in a shell without Homebrew.
   - W-8: `services-rollback.sh` is never offered, and nuke-mrk trashes it, which it did here on
     2026-09-24.
 - **LOW.**
   - W-9 to W-10: setup.
-  - W-11 to W-13: post-install and uninstall.
+  - W-12 to W-13: post-install and uninstall.
   - W-14 to W-17: brew.
   - W-18: sync.
   - W-19: defaults.sh.
@@ -308,6 +303,35 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the setup-safety fix, branch `claude/fix-setup-safety`, 2026-09-27
+
+Batch 2 of module 19's fixes. Details, the design choices and the mutation table are in
+`19-audit-2026-09-27.md`, after W-7.
+
+- **W-5 (MEDIUM)** — setup and post-install linked `~/bin`, every dotfile and four more paths
+  into whichever checkout ran them. A run from a worktree repointed `~` at it, and removing the
+  worktree left every link dangling. Each now links only from the checkout `~` is linked to:
+  `$MRK_ROOT`, or `~/mrk` (`mrk_serves_home` in `lib.sh`). From any other it warns, skips the
+  links and runs the rest.
+- **W-4 (MEDIUM)** — setup linked whatever sat in `dotfiles/`, so the `dotfiles/.claude/` Claude
+  Code creates moved the real `~/.claude` into `~/.mrk/backups`, and `~/.DS_Store` became a link.
+  setup now links regular files only, not documentation, examples or `.DS_Store`
+  (`mrk_is_dotfile`). `status` and `mrk-status` count by the same rule.
+- **W-7 (MEDIUM)** — `setup --dry-run` opened the Command Line Tools installer, ran `sudo
+  xcodebuild -license accept`, registered a shell in `/etc/shells`, ran `chsh`, and made `~/.mrk`,
+  `~/bin` and `install.log`. It now does none of these, and reports "Would link". BIN-1 had
+  documented the directory and log leaks as intended.
+- **W-11 (LOW)** — post-install's topgrade step failed on every run once a dangling link sat at
+  `~/.config/topgrade.toml`. It now uses `ln -sfn`, keeping only a real file as `.bak`.
+
+**Test.** `tests/setup-safety.sh`, in `ci-check`: setup and post-install on a copy of the
+repository, under bash 3.2.57 and 5.3.20, with every acting command stubbed. Ten checks per bash;
+each of twelve mutations fails it, `main`'s `setup` with 4 and `post-install` with 2. A Go test
+covers `mrk-status`. `tests/new-mac.sh` and `tests/plist-import-order.sh` now pass `MRK_ROOT`
+naming their copies. Documented in the manual's Phases 1 and 3 and backups note, BIN-1 §2.12,
+§2.14, `status` and §2.22, and SMAC-1 §2.2 and §2.8 (sevmac, branch `claude/setup-safety`).
+Nothing on this Mac was changed.
 
 ### Closed by the W-31 fix, branch `claude/fix-w31-brew-shellenv`, 2026-09-27
 
