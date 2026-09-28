@@ -17,7 +17,8 @@ shellcheck and staticcheck were all green beforehand, and govulncheck found noth
 - **W-1 (CRITICAL).** On a Mac without Homebrew, `make setup` and `make brew` both exit 1 at a
   bash-4 guard. That is the README's quick start and the manual's new-machine walkthrough.
   Nothing sees it, because test installs keep Homebrew and CI installs bash first. Fixed the
-  same day; see Closed. The fix found W-31 (HIGH) further along the same path, below.
+  same day; see Closed. The fix found W-31 (HIGH) further along the same path: after Phase 2,
+  `make all` did not see Homebrew. Also fixed the same day.
 - **W-2 (HIGH).** post-install writes Sparkle keys into six apps' domains before it imports
   their saved plists, so the imports are skipped. The migration-day rollback file shows it on
   this Mac. Fixed the same day; see Closed.
@@ -108,16 +109,8 @@ Items that require a real choice before they can be closed in either direction.
 
 **Module 19's findings (2026-09-27), awaiting fix sessions.** Unlike the modules before it,
 module 19 fixed nothing, so every item was open. Details, evidence and line numbers are in
-`19-audit-2026-09-27.md`. W-1 is fixed (see Closed), and its fix session added W-31. W-2 is
-fixed; see Closed.
-
-- **HIGH.** W-31: after Phase 2, `make all` does not see Homebrew. Phase 3 logs topgrade, pyenv
-  and pinentry-mac as not installed and skips them, and `build-tools` fails with "Go is not
-  installed", so the README's quick start still exits 2 on a new Mac. The manual's Step 5 skips
-  the same three. The fix is a choice between three candidates, set out in the module:
-  - `brew shellenv` in post-install and the Makefile's go check
-  - the Makefile prepending Homebrew's bin
-  - `exec zsh` in the docs, which fixes the walkthrough only
+`19-audit-2026-09-27.md`. W-1 is fixed (see Closed), and its fix session added W-31, fixed
+too. W-2 is fixed; see Closed.
 
 - **MEDIUM.**
   - W-3: hardening.sh and trim-services keep the rollback check that can empty an undo file.
@@ -315,6 +308,46 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the W-31 fix, branch `claude/fix-w31-brew-shellenv`, 2026-09-27
+
+Details and the mutation table are in `19-audit-2026-09-27.md`, W-31.
+
+- **W-31 (HIGH)** — found by the W-1 fix. `make all` runs every phase with the PATH it started
+  with, and on a new Mac that holds no Homebrew. brew's own `brew shellenv` reached brew's
+  process alone. So after Phase 2:
+  - post-install logged topgrade, pyenv and pinentry-mac as not installed, and skipped them
+  - `build-tools` failed with "Go is not installed"
+
+  The README's quick start exited 2 at its last step.
+
+  **Evidence.** On this Mac, `env -i … PATH=/usr/bin:/bin:/usr/sbin:/sbin make build-tools`
+  exited 2 with "Go is not installed", with `/opt/homebrew/bin/go` present.
+
+  **Fix.** The owner chose the first of three candidates. `homebrew_on_path`, in `lib.sh`, runs
+  `brew shellenv` when Homebrew is installed and its bin is not on PATH, and does nothing when it
+  is. Its callers:
+  - post-install calls it once
+  - the Makefile's `go-build` calls it through `brew-env`, on both lines that need go
+
+  `BREW_PATHS` moved to `lib.sh`, so there is one list of where Homebrew lives.
+
+  **Test.**
+  - `tests/plist-import-order.sh` gains a machine with Homebrew in a scratch prefix, off PATH.
+    post-install runs whole on it, and must link topgrade's config, configure pinentry-mac and
+    install the pinned Python.
+  - `tests/new-mac.sh` runs `make build-tools` the same way, and checks the helper directly.
+    One of those checks is that a PATH already holding Homebrew is left as it was.
+
+  Both pass under both bashes. Every mutation fails them, including post-install and the Makefile
+  as on `main`, and `brew-env` dropped from either line alone. The same `make build-tools` on this
+  Mac now exits 0 with Homebrew's real Go.
+
+  Documented in:
+  - the manual's Phase 3 and its `make build-tools` row
+  - BIN-1 §2.14, §2.35 and §2.22
+
+  SMAC-1 needed no change: its "also builds the TUI binaries" is true on a new Mac again.
 
 ### Closed by the W-1 fix, branch `claude/fix-w1-bootstrap-bash`, 2026-09-27
 

@@ -137,15 +137,9 @@ CASKS_INSTALLED=0
 CASKS_SKIPPED=0
 ERRORS=0
 
-# Where Homebrew's brew is, or will be once installed: /opt/homebrew on Apple
-# silicon, /usr/local on Intel. MRK_BREW names one other path instead, so
-# tests/new-mac.sh can run this phase on a Mac that has Homebrew as though it
-# had none. scripts/sync takes MRK_BREW the same way.
-if [[ -n "${MRK_BREW:-}" ]]; then
-  BREW_PATHS=("$MRK_BREW")
-else
-  BREW_PATHS=(/opt/homebrew/bin/brew /usr/local/bin/brew)
-fi
+# BREW_PATHS, where Homebrew's brew is or will be, comes from lib.sh, and so
+# does MRK_BREW, which tests/new-mac.sh sets to run this phase on a Mac that has
+# Homebrew as though it had none.
 
 # Check if Homebrew is installed
 check_homebrew() {
