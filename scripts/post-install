@@ -143,6 +143,20 @@ backup_plist(){
   defaults export "$domain" "$PLIST_BACKUP_DIR/${domain}.plist" 2>/dev/null || true
 }
 
+# The four links below point into this checkout, so only the checkout ~ is
+# linked to makes them: $MRK_ROOT, or ~/mrk. See mrk_serves_home in lib.sh
+# (audit 19, W-5). From any other checkout, a worktree say, the rest of this
+# phase still runs.
+MRK_HOME_DIR="${MRK_ROOT:-$HOME/mrk}"
+LINK_HOME=0
+if mrk_serves_home "$REPO_ROOT"; then
+  LINK_HOME=1
+else
+  warn "Links into ~ skipped: ~ is linked to $MRK_HOME_DIR, not this checkout"
+  info "Run it from $MRK_HOME_DIR, or set MRK_ROOT to this checkout to make it the one."
+fi
+not_home(){ logskip "$1" "not the checkout ~ is linked to"; }
+
 ###############################################################################
 # Topgrade configuration                                                      #
 ###############################################################################
@@ -151,12 +165,18 @@ TOPGRADE_SRC="$REPO_ROOT/assets/topgrade.toml"
 TOPGRADE_DST="$HOME/.config/topgrade.toml"
 
 if command -v topgrade >/dev/null 2>&1 && [[ -f "$TOPGRADE_SRC" ]]; then
-  mkdir -p "$HOME/.config"
-  if [[ -L "$TOPGRADE_DST" ]] && [[ "$(readlink "$TOPGRADE_DST")" == "$TOPGRADE_SRC" ]]; then
+  if (( ! LINK_HOME )); then
+    not_home "Topgrade config"
+  elif [[ -L "$TOPGRADE_DST" ]] && [[ "$(readlink "$TOPGRADE_DST")" == "$TOPGRADE_SRC" ]]; then
     logskip "Topgrade config" "linked"
   else
-    [[ -f "$TOPGRADE_DST" ]] && mv "$TOPGRADE_DST" "${TOPGRADE_DST}.bak"
-    if ln -s "$TOPGRADE_SRC" "$TOPGRADE_DST"; then
+    mkdir -p "$HOME/.config"
+    # A real file is kept as .bak; a link, dangling or not, is replaced. Until
+    # 2026-09-27 this tested -f, which is false for a dangling link, and then
+    # `ln -s` failed with "File exists" on every run until the link was removed
+    # by hand (audit 19, W-11). A run from a removed worktree left exactly that.
+    [[ -f "$TOPGRADE_DST" && ! -L "$TOPGRADE_DST" ]] && mv "$TOPGRADE_DST" "${TOPGRADE_DST}.bak"
+    if ln -sfn "$TOPGRADE_SRC" "$TOPGRADE_DST"; then
       ok "Linked topgrade config → $TOPGRADE_DST"
     else
       log "Warning: failed to link topgrade config"
@@ -178,7 +198,9 @@ CLAUDEMD_SRC="$REPO_ROOT/assets/CLAUDE.md"
 CLAUDEMD_DST="$HOME/Projects/CLAUDE.md"
 
 if [[ -f "$CLAUDEMD_SRC" && -d "$HOME/Projects" ]]; then
-  if [[ -L "$CLAUDEMD_DST" ]] && [[ "$(readlink "$CLAUDEMD_DST")" == "$CLAUDEMD_SRC" ]]; then
+  if (( ! LINK_HOME )); then
+    not_home "Projects CLAUDE.md"
+  elif [[ -L "$CLAUDEMD_DST" ]] && [[ "$(readlink "$CLAUDEMD_DST")" == "$CLAUDEMD_SRC" ]]; then
     logskip "Projects CLAUDE.md" "linked"
   else
     [[ -f "$CLAUDEMD_DST" && ! -L "$CLAUDEMD_DST" ]] && mv "$CLAUDEMD_DST" "${CLAUDEMD_DST}.bak"
@@ -205,7 +227,9 @@ PSKILLS_SRC="$REPO_ROOT/assets/projects-skills"
 PSKILLS_DST="$HOME/Projects/.claude/skills"
 
 if [[ -d "$PSKILLS_SRC" && -d "$HOME/Projects" ]]; then
-  if [[ -L "$PSKILLS_DST" ]] && [[ "$(readlink "$PSKILLS_DST")" == "$PSKILLS_SRC" ]]; then
+  if (( ! LINK_HOME )); then
+    not_home "Projects Claude skills"
+  elif [[ -L "$PSKILLS_DST" ]] && [[ "$(readlink "$PSKILLS_DST")" == "$PSKILLS_SRC" ]]; then
     logskip "Projects Claude skills" "linked"
   else
     mkdir -p "$HOME/Projects/.claude"
@@ -238,7 +262,9 @@ CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 DEPS_HOOK='bash "$HOME/.claude/skills/dependency-updates/scripts/check.sh" --session'
 
 if [[ -d "$DEPS_SKILL_SRC" ]]; then
-  if [[ -L "$DEPS_SKILL_DST" ]] && [[ "$(readlink "$DEPS_SKILL_DST")" == "$DEPS_SKILL_SRC" ]]; then
+  if (( ! LINK_HOME )); then
+    not_home "dependency-updates skill"
+  elif [[ -L "$DEPS_SKILL_DST" ]] && [[ "$(readlink "$DEPS_SKILL_DST")" == "$DEPS_SKILL_SRC" ]]; then
     logskip "dependency-updates skill" "linked"
   else
     mkdir -p "$HOME/.claude/skills"

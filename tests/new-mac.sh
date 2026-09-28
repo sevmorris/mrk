@@ -12,7 +12,8 @@
 #
 # Every run is on a copy of the repository, under a throwaway HOME, with
 # `env -i` and PATH cut to stubs and the system directories, so no Homebrew is
-# reachable by name. BASH_ENV records which bash runs each script. A re-exec
+# reachable by name. MRK_ROOT names the copy, because setup links into ~ only
+# from the checkout ~ is linked to (audit 19, W-5). BASH_ENV records which bash runs each script. A re-exec
 # into another bash shows up there even when that bash exists, as Homebrew's
 # does on this Mac and on CI, where a missing-bash check would pass.
 #
@@ -210,7 +211,7 @@ run() {
   rm -f "$W/bundled" "$W/picker-args" "$W/gum-labels"
   local cmd=(env -i HOME="$H" USER="${USER:-$(id -un)}" LOGNAME="${USER:-$(id -un)}"
              TMPDIR="$W/tmp" TERM=dumb PATH="$S:$bashdir:/usr/bin:/bin:/usr/sbin:/sbin"
-             BASH_ENV="$W/bash-env" SANDBOX="$W" MRK_BREW="$P/bin/brew" SHELLS_FILE="$W/shells"
+             BASH_ENV="$W/bash-env" SANDBOX="$W" MRK_BREW="$P/bin/brew" SHELLS_FILE="$W/shells" MRK_ROOT="$R"
              GUM_PICK="${GUM_PICK:-}" PICKER_OUT="${PICKER_OUT:-}" "$@")
   if (( tty )); then
     script -q /dev/null "${cmd[@]}" </dev/null 2>&1 | tr -d '\r' > "$W/out"

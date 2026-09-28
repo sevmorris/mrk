@@ -27,7 +27,7 @@ ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
-check-picker-desc, topgrade-npm, picard-settings and plist-import-order tests in tests/, shellcheck over the tracked scripts (the skills' audit scripts included),
+check-picker-desc, topgrade-npm, picard-settings, plist-import-order and setup-safety tests in tests/, shellcheck over the tracked scripts (the skills' audit scripts included),
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
@@ -168,6 +168,13 @@ log "Picard settings"
 # imported on a new Mac. Audit 19, W-2.
 log "plist import order"
 "$REPO_ROOT/tests/plist-import-order.sh"
+
+# setup and post-install on a copy of the repository under a throwaway HOME:
+# until 2026-09-27 they linked ~ into whichever checkout ran them, linked any
+# directory in dotfiles/ (and moved ~/.claude aside for it), and a dry run
+# opened installers, ran sudo and chsh. Audit 19, W-4, W-5, W-7, W-11.
+log "setup safety"
+"$REPO_ROOT/tests/setup-safety.sh"
 
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"

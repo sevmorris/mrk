@@ -150,6 +150,40 @@ sudo_refresh() { sudo -n -v 2>/dev/null || true; }
 mrk_mktemp()   { mktemp    "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
 mrk_mktemp_d() { mktemp -d "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
 
+# mrk_serves_home ROOT — ROOT is the checkout ~ is linked to: $MRK_ROOT when it
+# is set, ~/mrk otherwise. Compared as resolved paths, so a checkout under a
+# symlink still counts. The Makefile's MRK_HOME, update-full and mrk-status read
+# MRK_ROOT the same way.
+#
+# setup and post-install link ~/bin, the dotfiles and four more paths into the
+# checkout that runs them. Until 2026-09-27 they did that from any checkout, so
+# a run from a worktree repointed ~ at the worktree, and removing the worktree
+# left every link dangling: a new shell started without .zshrc (audit 19, W-5).
+# Module 15's T-2 was the same fault in build-tools.
+mrk_serves_home() {
+  local want have
+  want="$(cd "${MRK_ROOT:-$HOME/mrk}" 2>/dev/null && pwd -P)" || return 1
+  have="$(cd "$1" 2>/dev/null && pwd -P)" || return 1
+  [[ "$want" == "$have" ]]
+}
+
+# mrk_is_dotfile PATH — PATH, an entry at the top of dotfiles/, is one setup
+# links into ~: a regular file, not a directory or a symlink, and not
+# documentation, an example or Finder's .DS_Store. scripts/status and
+# mrk-status (checkDotfiles) apply the same rule.
+#
+# Until 2026-09-27 setup linked whatever was on disk there. Claude Code creates
+# dotfiles/.claude/ for a session started in that folder, and .gitignore has
+# listed it since the first commit: setup then moved the real ~/.claude, with
+# its settings, sessions and memory, into ~/.mrk/backups and linked ~/.claude
+# into the repository. ~/.DS_Store became a link too (audit 19, W-4).
+mrk_is_dotfile() {
+  [[ -f "$1" && ! -L "$1" ]] || return 1
+  case "${1##*/}" in
+    *.example|README*|*.md|.DS_Store) return 1 ;;
+  esac
+}
+
 # git_clone_pinned URL TAG COMMIT DEST — clone URL at TAG into DEST, but only
 # when TAG still names COMMIT.
 #
