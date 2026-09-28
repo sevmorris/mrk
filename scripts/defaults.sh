@@ -666,10 +666,6 @@ write_default com.apple.dt.Xcode IDESourceControlWarnUncommittedChangesDefaultsK
 # Finish up                                                                   #
 ###############################################################################
 
-if (( failed > 0 )); then
-  warn "$failed default(s) failed to apply"
-fi
-
 log "Writing rollback helper to $ROLLBACK"
 backup_line "killall Finder >/dev/null 2>&1 || true"
 backup_line "killall Dock >/dev/null 2>&1 || true"
@@ -680,4 +676,13 @@ killall Finder >/dev/null 2>&1 || true
 killall Dock >/dev/null 2>&1 || true
 killall SystemUIServer >/dev/null 2>&1 || true
 
+# Exit 1 when any write failed, after every write has been tried and the undo
+# lines written, as the six app-defaults scripts have since 2026-09-11. Until
+# 2026-09-28 this warned, then printed "Defaults applied" and exited 0, so
+# setup's "defaults.sh returned non-zero" warning could never fire and make
+# defaults always succeeded (audit 19, W-19).
+if (( failed > 0 )); then
+  warn "$failed default(s) failed to apply; the rest are applied. Revert with: $ROLLBACK"
+  exit 1
+fi
 ok "Defaults applied. Revert with: $ROLLBACK"

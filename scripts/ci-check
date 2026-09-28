@@ -27,7 +27,7 @@ ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
-check-picker-desc, topgrade-npm, picard-settings, plist-import-order, setup-safety, undo-files and docs-drift tests in tests/, shellcheck over every tracked bash script,
+check-picker-desc, topgrade-npm, picard-settings, plist-import-order, setup-safety, undo-files, snapshot-brewfile and docs-drift tests in tests/, shellcheck over every tracked bash script,
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
@@ -194,6 +194,12 @@ log "undo files"
 # said 39 entries where it had 41. Audit 19, W-26, W-27, W-28.
 log "docs drift"
 "$REPO_ROOT/tests/docs-drift.sh"
+
+# snapshot --brewfile, with a stub dump that writes a mas line: until 2026-09-28
+# its strip called a helper the script never sources, and left the line in.
+# Audit 19, W-21.
+log "snapshot --brewfile"
+"$REPO_ROOT/tests/snapshot-brewfile.sh"
 
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"

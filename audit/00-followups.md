@@ -110,14 +110,14 @@ Items that require a real choice before they can be closed in either direction.
 **Module 19's findings (2026-09-27), awaiting fix sessions.** Unlike the modules before it,
 module 19 fixed nothing, so every item was open. Details, evidence and line numbers are in
 `19-audit-2026-09-27.md`. W-1 is fixed (see Closed), and its fix session added W-31, fixed
-too. W-2 to W-17 and W-26 to W-30 are fixed; see Closed.
+too. W-2 to W-21 and W-26 to W-30 are fixed; see Closed.
 
 - **LOW.**
-  - W-18: sync.
-  - W-19: defaults.sh.
-  - W-20: Claude Code artifacts that outlive both uninstall paths.
-  - W-21: `bin/snapshot`.
   - W-22 to W-25: Go and the Makefile.
+- **Whether to keep `snapshot`.** Without `--brewfile` it exports plists into
+  `assets/preferences/`, which `.gitignore` excludes and nothing reads; `snapshot-prefs` is the
+  export that restores. W-21 fixed its `--brewfile` path, and left this to the owner. → To close:
+  keep it as a local export, or retire it with its BIN-1 entry and `make snapshot`.
 
 **Module 18's open items (2026-09-23).** Details are in `18-audit-2026-09-23.md`.
 
@@ -293,6 +293,24 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the shell fix, branch `claude/fix-shell-batch6`, 2026-09-28
+
+Batch 6 of module 19's fixes. Details and the mutation table are in `19-audit-2026-09-27.md`, at
+the end of the `bin/snapshot` findings.
+
+- **W-18 (LOW)** — `sync -p -c` that pruned and then added nothing left the prune uncommitted, and
+  its commit message ran names together as "add a,b". Both are fixed.
+- **W-19 (LOW)** — `defaults.sh` printed "Defaults applied" and exited 0 after failed writes. It
+  exits 1 now, after applying the rest.
+- **W-20 (LOW)** — `nuke-mrk` left post-install's two Claude Code skill links and its SessionStart
+  hook. It removes all three, and only that one entry from `settings.json`.
+- **W-21 (LOW)** — `snapshot --brewfile` stripped `mas` lines with a helper it never loads. It
+  uses `mktemp` now, and keeps the Brewfile's mode.
+
+**Test.** New cases in `tests/sync.sh`, `tests/defaults-rollback.sh` and `tests/undo-files.sh`,
+and the new `tests/snapshot-brewfile.sh`. Each of nine mutations fails them. Whether to keep
+`snapshot` at all is open under Deferred decisions.
 
 ### Closed by the brew fix, branch `claude/fix-brew-batch5`, 2026-09-28
 

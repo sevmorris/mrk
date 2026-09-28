@@ -14,6 +14,8 @@
 #   preferences, and every setting made in them since.
 # - W-9: setup's MRK_LOGIN_MSG appended an undo line on every run, so after two
 #   runs the undo ended by writing mrk's own message back.
+# - W-20: nuke-mrk left post-install's two Claude Code skill links and its
+#   SessionStart hook, which then ran a script that no longer existed.
 #
 # Each script runs from a copy of the repository, under a throwaway HOME, with
 # `env -i` and PATH cut to stubs and the system directories. defaults,
@@ -239,6 +241,38 @@ if [[ $RC == 0 ]] && ran_all "${SETTINGS[@]}" "${DOMAINS[@]}" "sudo mv" "launchc
   pass "nuke-mrk, rollbacks yes, apps yes: the two apps' preferences deleted as well"
 else
   fail "nuke-mrk, yes then yes (exit $RC): calls: $(tr '\n' ';' < "$W/calls")"; show 20
+fi
+
+# ── W-20: nuke-mrk takes Claude Code's skill links and session hook ──────────
+
+# post-install links two skill folders into the repository and adds one
+# SessionStart hook to ~/.claude/settings.json. Until 2026-09-28 the nuke left
+# all three, the hook running a script that no longer existed (audit 19, W-20).
+# settings.json is Claude Code's: someone else's hook and setting must survive.
+nuke_mac
+mkdir -p "$H/Projects/.claude" "$H/.claude/skills"
+ln -s "$H/mrk/assets/projects-skills" "$H/Projects/.claude/skills"
+ln -s "$H/mrk/assets/projects-skills/dependency-updates" "$H/.claude/skills/dependency-updates"
+ln -s /elsewhere/other-skill "$H/.claude/skills/other"
+# shellcheck disable=SC2016  # $HOME is literal in settings.json, as post-install writes it
+MRK_HOOK='bash "$HOME/.claude/skills/dependency-updates/scripts/check.sh" --session'
+/usr/bin/jq -n --arg c "$MRK_HOOK" '{
+  permissions: {allow: ["Bash(ls)"]},
+  hooks: {SessionStart: [
+    {hooks: [{type: "command", command: $c, timeout: 10}]},
+    {hooks: [{type: "command", command: "echo mine"}]}
+  ]}}' > "$H/.claude/settings.json"
+ANSWERS="$(answers y n n n n n)" run "$R/bin/nuke-mrk"
+settings_ok=$(/usr/bin/jq -r --arg c "$MRK_HOOK" '
+  ([.hooks.SessionStart[]?.hooks[]?.command] | index($c) == null)
+  and ([.hooks.SessionStart[]?.hooks[]?.command] == ["echo mine"])
+  and (.permissions.allow == ["Bash(ls)"])' "$H/.claude/settings.json" 2>/dev/null)
+if [[ $RC == 0 && ! -L "$H/Projects/.claude/skills" && ! -L "$H/.claude/skills/dependency-updates" \
+      && -L "$H/.claude/skills/other" && "$settings_ok" == true ]]; then
+  pass "nuke-mrk removes both skill links and mrk's session hook, and leaves the rest of settings.json"
+else
+  fail "nuke-mrk and Claude Code (exit $RC): settings.json check '$settings_ok'; links left: $(cd "$H" && find Projects/.claude .claude/skills -type l 2>/dev/null | tr '\n' ' ')"
+  show
 fi
 
 # ── W-13 and W-8: uninstall ──────────────────────────────────────────────────

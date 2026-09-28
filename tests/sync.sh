@@ -58,7 +58,9 @@ esac
 EOF
 cat > "$R/bin/mrk-picker" <<'EOF'
 #!/bin/bash
-# `mrk-picker --brewfile FILE ...`: select every package FILE lists.
+# `mrk-picker --brewfile FILE ...`: select every package FILE lists, or none
+# with PICKER_NONE set.
+[[ -n "${PICKER_NONE:-}" ]] && exit 0
 while (($#)); do [[ "$1" == --brewfile ]] && { f="$2"; shift; }; shift; done
 sed -nE 's/^brew "([^"]+)".*/formula:\1/p; s/^cask "([^"]+)".*/cask:\1/p' "$f"
 EOF
@@ -136,7 +138,7 @@ installed() {
 run_sync() {
   cd "$W/home" || return 1
   local cmd=(env HOME="$W/home" PATH="$W/stubs:$PATH" MRK_BREW="$W/stubs/brew" FIX="$FIX"
-             GUM_CHOICE="${GUM_CHOICE:-}" bash "$R/scripts/sync" "$@")
+             GUM_CHOICE="${GUM_CHOICE:-}" PICKER_NONE="${PICKER_NONE:-}" bash "$R/scripts/sync" "$@")
   # BSD script(1), on macOS, takes the command after the file; util-linux's takes -c.
   if [[ "$(uname -s)" == Darwin ]]; then
     script -q /dev/null "${cmd[@]}" </dev/null
@@ -262,7 +264,9 @@ fi
 
 subject="$(git -C "$R" log -1 --format=%s)"
 files="$(git -C "$R" show --name-only --format= HEAD | sort | tr '\n' ' ')"
-if [[ "$subject" == "sync: add zq-driver,zq-launcher,zq-ledger,zq-pkgapp,zq-plain,zq-studio,zqtool,zzmedia" \
+# ", " between the names: until 2026-09-28 IFS=', ' joined on the comma alone
+# (audit 19, W-18), and this check expected it.
+if [[ "$subject" == "sync: add zq-driver, zq-launcher, zq-ledger, zq-pkgapp, zq-plain, zq-studio, zqtool, zzmedia" \
       && "$files" == "Brewfile tools/picker/main.go " ]] && git -C "$R" diff --quiet; then
   pass "-c commits the Brewfile and main.go together"
 else
@@ -301,6 +305,26 @@ if [[ -z "$(desc_of zq-nodesc)$(desc_of zq-ghost)" ]]; then
   pass "sync writes no description it does not have"
 else
   fail "sync invented a description"
+fi
+
+# 5. sync -p -c: a stale entry pruned, then the additions declined. The prune
+#    must still be committed. Until 2026-09-28 sync stopped at "No packages
+#    selected" before its commit step, and left the Brewfile and main.go
+#    changed and uncommitted (audit 19, W-18).
+git -C "$R" reset -q --hard
+STALE="$(sed -nE 's/^cask "([^"]+)".*/\1/p' "$R/Brewfile" | grep -v '^zq-' | head -1)"
+sed -nE 's/^brew "([^"]+)".*/\1/p' "$R/Brewfile" > "$FIX/leaves"
+cp "$FIX/leaves" "$FIX/formulae"
+{ sed -nE 's/^cask "([^"]+)".*/\1/p' "$R/Brewfile" | grep -vxF "$STALE"; echo zq-kept; } > "$FIX/casks"
+before="$(git -C "$R" rev-parse HEAD)"
+PICKER_NONE=1 run_sync -p -c
+subject="$(git -C "$R" log -1 --format=%s)"
+if [[ "$(git -C "$R" rev-parse HEAD)" != "$before" && "$subject" == "sync: remove $STALE" ]] \
+   && git -C "$R" diff --quiet && ! grep -q "^cask \"$STALE\"" "$R/Brewfile" && grep -q 'No packages selected' "$W/out"; then
+  pass "sync -p -c, the additions declined: the prune of $STALE is committed"
+else
+  fail "sync -p -c, the additions declined: last commit '$subject'; uncommitted: $(git -C "$R" diff --name-only | tr '\n' ' ')"
+  grep -E 'No packages|Committed|stale|Stale' "$W/out" | sed 's/^/      /' >&2
 fi
 
 if (( fails > 0 )); then

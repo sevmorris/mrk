@@ -13,7 +13,9 @@
 # `defaults` accepts as a domain wherever it takes a name, so nothing touches
 # the preferences of the user running it. The round trip runs under
 # /bin/bash as well as the bash running this file, because defaults.sh runs
-# under macOS's bash 3.2 on a new machine. ci-check runs it.
+# under macOS's bash 3.2 on a new machine. It then runs defaults.sh whole, with
+# `defaults` stubbed to keep every domain in the temporary directory, to check
+# how it ends when a write fails. ci-check runs it.
 
 set -uo pipefail
 
@@ -116,5 +118,47 @@ else
   err "the undo script changed these values:"
   diff "$T/before" "$T/after" | grep '^>' | cut -c1-140 >&2
   fails=$((fails + 1))
+fi
+
+# defaults.sh whole, to see how it ends. `defaults` is a stub that keeps every
+# domain as a plist file under $T/store, and FAIL_DOMAIN makes writes to one
+# domain fail, as a managed or locked key does; killall records and does
+# nothing. Until 2026-09-28 a failed write was warned about, and then the
+# script printed "Defaults applied" and exited 0, so setup's "defaults.sh
+# returned non-zero" warning could never fire (audit 19, W-19).
+DS="$T/stubs"; mkdir -p "$DS" "$T/tmp"
+cat > "$DS/defaults" <<'EOF'
+#!/bin/bash
+verb="${1:-}"; dom="${2:-}"
+case "$verb" in read|read-type|write|export) ;; *) echo "defaults $*" >> "$STORE/refused"; exit 2 ;; esac
+case "$dom" in ""|-*|/*) echo "defaults $*" >> "$STORE/refused"; exit 2 ;; esac
+[[ "$verb" == write && "$dom" == "${FAIL_DOMAIN:-}" ]] && exit 1
+shift 2
+exec /usr/bin/defaults "$verb" "$STORE/$dom" "$@"
+EOF
+printf '#!/bin/bash\nexit 0\n' > "$DS/killall"
+chmod +x "$DS"/*
+# run_defaults NAME [FAIL_DOMAIN] — defaults.sh in a HOME and store of its own
+run_defaults() {
+  mkdir -p "$T/$1/home" "$T/$1/store"
+  env -i HOME="$T/$1/home" PATH="$DS:/usr/bin:/bin:/usr/sbin:/sbin" TMPDIR="$T/tmp" \
+    STORE="$T/$1/store" FAIL_DOMAIN="${2:-}" "$BASH" "$REPO_ROOT/scripts/defaults.sh" \
+    </dev/null > "$T/$1/out" 2>&1
+}
+run_defaults clean; rc_clean=$?
+run_defaults locked com.apple.dock; rc_locked=$?
+if [[ $rc_clean == 0 ]] && grep -q 'Defaults applied' "$T/clean/out" && [[ ! -e "$T/clean/store/refused" ]]; then
+  ok "defaults.sh with every write accepted: exits 0, \"Defaults applied\""
+else
+  err "defaults.sh with every write accepted: exit $rc_clean; refused: $(cat "$T/clean/store/refused" 2>/dev/null | head -2)"
+  tail -3 "$T/clean/out" >&2; fails=$((fails + 1))
+fi
+if [[ $rc_locked == 1 ]] && grep -q 'default(s) failed to apply' "$T/locked/out" \
+   && ! grep -q 'Defaults applied' "$T/locked/out" && [[ -f "$T/locked/store/com.apple.finder.plist" ]] \
+   && grep -q '^killall Dock' "$T/locked/home/.mrk/defaults-rollback.sh"; then
+  ok "defaults.sh with the Dock's writes refused: exits 1, says so, and still applies the rest and writes the undo"
+else
+  err "defaults.sh with the Dock's writes refused: exit $rc_locked"
+  tail -3 "$T/locked/out" >&2; fails=$((fails + 1))
 fi
 (( fails == 0 ))
