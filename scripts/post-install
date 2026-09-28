@@ -56,6 +56,11 @@ for _arg in "$@"; do
 done
 export NONINTERACTIVE
 
+# Homebrew on PATH, for a run from the shell Phase 2 ran in: make all's, or one
+# started before Homebrew was installed. topgrade, pyenv and pinentry-mac below
+# are found through PATH. See homebrew_on_path in lib.sh (audit 19, W-31).
+homebrew_on_path || true
+
 failed=0
 
 # Shared rollback file (the same one scripts/defaults.sh maintains) so that
