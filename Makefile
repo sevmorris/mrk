@@ -57,7 +57,7 @@ help: ## Show available make commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-check: ## Run local CI checks (descriptions, secret scan, commit gates, cleanempties, defaults and harden undo, macOS updates, shellcheck, go test)
+check: ## Run every gate in scripts/ci-check: descriptions, secret scan, commit gates, each test in tests/, shellcheck, go test
 	@"$(SCRIPTS)/ci-check"
 
 ci: check build-tools ## Full CI pipeline locally (check + build all TUIs)
@@ -160,8 +160,10 @@ mrk-menu: ## Build the mrk-menu TUI launcher binary
 	$(call link-home-bin,mrk-menu,mrk-menu)
 
 
-# TODO: ARGS is word-split by Make before the shell sees it. For flags with
-# embedded spaces, quote the script invocation directly. (audit Makefile-L1)
+# ARGS reaches each recipe unquoted, so the shell splits it on spaces. That is
+# what lets ARGS carry several flags, as in ARGS="-c -p"; it also means no one
+# value can hold a space. For such a value, run the script directly. (Audit 04
+# Makefile-L1 blamed Make for the split; it is the shell. Audit 19, W-29.)
 
 sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to commit, ARGS=-n for dry run)
 	@"$(SCRIPTS)/sync" $(ARGS)

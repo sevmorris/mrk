@@ -3,8 +3,6 @@
 # Source this file: source "$(dirname "$0")/lib/common.sh"
 # Scope: standalone bin/ tools (bin/) — mrk install-phase scripts use scripts/lib.sh
 
-# shellcheck disable=SC2034  # Variables used by sourcing scripts
-
 # Prevent double-sourcing
 [[ -n "${_COMMON_SH_LOADED:-}" ]] && return 0
 _COMMON_SH_LOADED=1
@@ -15,16 +13,12 @@ if command -v tput >/dev/null 2>&1 && [[ -t 1 ]]; then
   _yellow=$(tput setaf 3)
   _red=$(tput setaf 1)
   _blue=$(tput setaf 4)
-  _cyan=$(tput setaf 6)
-  _bold=$(tput bold)
   _reset=$(tput sgr0)
 else
   _green=""
   _yellow=""
   _red=""
   _blue=""
-  _cyan=""
-  _bold=""
   _reset=""
 fi
 
@@ -48,11 +42,6 @@ info() {
 }
 
 # --- Process/app utilities ---
-
-# is_running PATTERN — check if process matching pattern is running
-is_running() {
-  pgrep -f "$1" >/dev/null 2>&1
-}
 
 # require_cmd CMD [CMD...] — exit with error if any command is missing
 require_cmd() {

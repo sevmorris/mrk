@@ -786,7 +786,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | `make uninstall` | Delete the symlinks, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |
 | `make pull` | Fast-forward the mrk repository to origin |
-| `make check` | Run the local validation: picker and defaults descriptions, a secret scan over every tracked file, the commit-gate check, the `cleanempties` test, round trips through the defaults and harden undo scripts, the macOS updates test, a `restore-keys` round trip, a check that `mrk-install --all` is `make all`, a run of Phases 1 and 2 as a new Mac runs them — under macOS's bash 3.2, with no Homebrew — a test of the pinned clones for nvm and the zsh plugins, a `sync-login-items` round trip with awkward app names, shellcheck and go test |
+| `make check` | Run every gate in `scripts/ci-check`: the picker and defaults descriptions, a secret scan over every tracked file, the commit gates, each test in `tests/`, shellcheck over every tracked bash script, and go test. BIN-1 §2.22 names each test and what it guards |
 | `make ci` | Run the local validation, and build the TUI binaries |
 | `make tidy` | Run `go mod tidy` in every Go tool directory |
 

@@ -86,8 +86,6 @@ alias decrypt='gpg --decrypt ' # Trailing space enables filename completion.
 
 if command -v brew >/dev/null 2>&1; then
   alias brewses='brew uses --installed'
-  # Dump Brewfile to home directory
-  alias dump='brew bundle dump --force --file=~/Brewfile'
 fi
 
 # Safer Homebrew permission fixer

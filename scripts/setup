@@ -178,8 +178,11 @@ validate_phase() {
   esac
 }
 
+# run_phase NAME FUNCTION — run FUNCTION as phase NAME, or skip it under --only.
+# Until 2026-09-28 each call also passed a description from the adventure mode
+# removed in 2026-08, which this discarded (audit 19, W-10).
 run_phase() {
-  local name="$1"; shift 2  # $2 is a per-phase description, now unused
+  local name="$1"; shift
   if [[ -n "$ONLY" ]]; then
     if ! validate_phase "$ONLY"; then
       err "Invalid phase: $ONLY (valid: $valid_phases)"
@@ -580,7 +583,6 @@ phase_dotfiles() {
   fi
 }
 
-# Validate git URL format (basic check)
 phase_defaults() {
   if (( NO_DEFAULTS )); then logskip "defaults" "disabled by flag"; return; fi
   
@@ -751,27 +753,17 @@ phase_shell() {
 # Run validation if requested
 if (( VALIDATE )); then
   if ! validate_setup; then
-    err "Validation failed. Use --continue-on-error to proceed anyway."
+    err "Validation failed — fix the issues above, or run without --validate."
     exit 1
   fi
 fi
 
 # Run phases
-run_phase xcode \
-  "The Xcode Command Line Tools guard the path forward. Without them, git refuses to run and compilers will not compile." \
-  phase_xcode
-run_phase tools \
-  "You wire your scripts and tools from mrk into ~/bin. The inventory grows. Items become accessible throughout your PATH." \
-  phase_link_tools
-run_phase dotfiles \
-  "One by one, your config files are carried from mrk/dotfiles/ and linked into ~/. Any existing files are relocated to ~/.mrk/backups/ first." \
-  phase_dotfiles
-run_phase shell \
-  "You persuade zsh to become your default login shell (it agrees, as it always does) and summon oh-my-zsh and its plugins to furnish it." \
-  phase_shell
-run_phase defaults \
-  "You inscribe your macOS preferences — how the Finder behaves, how the Dock sits, how fast keys repeat. A rollback scroll is saved to ~/.mrk/ should you wish to undo this later." \
-  phase_defaults
+run_phase xcode    phase_xcode
+run_phase tools    phase_link_tools
+run_phase dotfiles phase_dotfiles
+run_phase shell    phase_shell
+run_phase defaults phase_defaults
 
 # Installation summary
 show_summary() {
