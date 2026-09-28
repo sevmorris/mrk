@@ -6,9 +6,10 @@ set -euo pipefail
 # These are not `defaults` keys, so they do not belong in defaults.sh. They are
 # launchd jobs, and the tool for turning one off permanently is
 # `launchctl disable`, which writes to launchd's override database rather than
-# to the job's plist. That matters for the Apple ones: their plists live under
+# to the job's plist. That matters for Apple's agents: their plists live under
 # /System/Library/LaunchAgents and SIP will not let anything edit them, but the
-# override database is writable and survives a reboot.
+# override database is writable and survives a reboot. What it does not do is
+# keep an Apple agent from running: see the note above SERVICES.
 #
 # Every disable is recorded in ~/.mrk/services-rollback.sh, in the same shape as
 # the defaults and hardening rollbacks.
@@ -65,12 +66,18 @@ rollback() {
 }
 
 # label|what it is|what turning it off costs
+#
+# The two Photos agents, com.apple.photoanalysisd and com.apple.mediaanalysisd,
+# were on this list until 2026-09-28, and macOS 26.7 ignores their disable. That
+# day this Mac restarted at 14:48, thirteen minutes after trim-services had run.
+# `launchctl print-disabled` still listed both as disabled, and both were running
+# from 14:49. launchd had started each one for a process that asked for it
+# (`launchctl blame`: "ipc (mach)"). A disable here, then, stopped nothing and
+# only made the record say it had. Audit 15, T-5.
 SERVICES=(
   "com.samsung.magiciansvc|Samsung Magician service|SSD health and firmware tool. Open the app when you want it; it does not need to run the rest of the year."
   "com.samsung.magicianapp|Samsung Magician agent|Same tool, second agent."
   "com.google.GoogleUpdater.wake|Google Chrome updater|Wakes hourly. The Brewfile carries google-chrome as greedy, so brew already upgrades Chrome. Chrome reinstalls this agent when it next launches — re-run this script after a Chrome update to put it back."
-  "com.apple.photoanalysisd|Photos face and scene analysis|Ends People albums, Memories and Visual Look Up. The heaviest item here, and the only one with a real feature cost."
-  "com.apple.mediaanalysisd|Media analysis (Visual Look Up)|Same family as photoanalysisd."
 )
 
 # is_disabled LABEL — whether launchd's override database lists LABEL as

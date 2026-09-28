@@ -1432,7 +1432,8 @@ mrk-push -- "-starts with a dash"</code></pre>
             <li><code>-n</code> or <code>--dry-run</code> — List each agent and the cost of turning it off. trim-services changes nothing.</li>
           </ul>
           <ul>
-            <li>trim-services uses <code>launchctl disable</code>, which writes to the launchd override database. The plists of the Apple agents are under <code>/System/Library/LaunchAgents</code>, and SIP does not allow a change to those. The override database is writable, and launchd keeps a disable in it across a restart.</li>
+            <li>trim-services turns off Samsung Magician's two agents and Google's Chrome updater. It uses <code>launchctl disable</code>, which writes to the launchd override database. launchd keeps a disable there across a restart.</li>
+            <li>Until 2026-09-28 it also turned off the two Photos agents, <code>photoanalysisd</code> and <code>mediaanalysisd</code>. macOS 26.7 does not honour that. On 2026-09-28 this Mac restarted after a run, and <code>launchctl print-disabled</code> still listed both as disabled, but both were running a minute later. launchd had started each one for a process that asked for it: <code>launchctl blame</code> gave "ipc (mach)". They are off the list. On a Mac where trim-services disabled them, the entry stays and does nothing. <code>launchctl enable gui/$(id -u)/com.apple.photoanalysisd</code>, and the same for <code>mediaanalysisd</code>, clears it.</li>
             <li>trim-services reads that database first, and reports a job that it already lists as disabled as "already disabled". After each <code>launchctl disable</code>, it reads the database again, and it reports the job as disabled only when the database lists it. Until 2026-09-16 it did neither: the dry run offered to disable a job that was disabled already, and a real run reported success from the exit status of <code>launchctl</code> alone. On 2026-09-16 this Mac, on macOS 26.7, listed no override for either Photos agent and <code>photoanalysisd</code> was running, though trim-services had run on 2026-09-15 and the Mac had restarted twice since. It is not known whether that disable failed or was dropped. After a restart, check with <code>launchctl print-disabled gui/$(id -u)</code>.</li>
             <li>SIP also refuses <code>launchctl bootout</code> on an Apple agent that runs already. trim-services reports that case as "takes effect at next login" rather than as stopped.</li>
             <li>trim-services writes <code>~/.mrk/services-rollback.sh</code>. Run <code>bash ~/.mrk/services-rollback.sh</code> to turn every agent back on. <a href="#mrk-uninstall">mrk-uninstall</a> and <a href="#nuke-mrk">nuke-mrk</a> offer it too. An undo file already there keeps its lines whatever its first line says: until 2026-09-27 one whose first line was not exactly <code>#!/usr/bin/env bash</code> was emptied. A dry run creates nothing, not even <code>~/.mrk</code>.</li>
@@ -1441,7 +1442,7 @@ mrk-push -- "-starts with a dash"</code></pre>
           </ul>
           <div class="callout callout-caution">
             <span class="callout-label">Caution</span>
-            <div class="callout-body">The Photos agents are the item with a real cost. Without <code>photoanalysisd</code> and <code>mediaanalysisd</code>, Photos does not build People albums or Memories, and Visual Look Up does not work.</div>
+            <div class="callout-body">A disable in launchd's override database records what launchd was asked to do. It does not show whether the job runs. To see that, use <code>launchctl print gui/$(id -u)/<var>label</var></code>, which gives its state, and <code>launchctl blame</code>, which gives why launchd started it.</div>
           </div>
         </div>
       </div>

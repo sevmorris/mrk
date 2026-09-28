@@ -310,17 +310,17 @@ fi
 fresh_home
 mkdir -p "$H/.mrk"
 printf '#!/bin/bash\nlaunchctl enable gui/501/com.example.kept\n' > "$H/.mrk/services-rollback.sh"
-echo com.apple.photoanalysisd > "$W/loaded"
+echo com.google.GoogleUpdater.wake > "$W/loaded"
 run "$R/scripts/trim-services"
 if [[ $RC == 0 ]] && grep -qxF 'launchctl enable gui/501/com.example.kept' "$H/.mrk/services-rollback.sh" \
-   && grep -qF 'com.apple.photoanalysisd' "$H/.mrk/services-rollback.sh"; then
+   && grep -qF 'com.google.GoogleUpdater.wake' "$H/.mrk/services-rollback.sh"; then
   pass "trim-services keeps an undo file that begins #!/bin/bash, and adds to it"
 else
   fail "trim-services (exit $RC) left: $(tr '\n' ';' < "$H/.mrk/services-rollback.sh")"; show
 fi
 
 fresh_home
-echo com.apple.photoanalysisd > "$W/loaded"
+echo com.google.GoogleUpdater.wake > "$W/loaded"
 run "$R/scripts/trim-services" --dry-run
 if [[ $RC == 0 && ! -e "$H/.mrk" ]] && ! called "launchctl disable"; then
   pass "trim-services --dry-run makes no ~/.mrk and disables nothing"
