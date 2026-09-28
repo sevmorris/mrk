@@ -890,7 +890,7 @@ grep -vE '^defaults delete [^ ]+ >/dev/null 2>&1 \|\| true$' ~/.mrk/defaults-rol
 | A dotfile conflict gives a "file exists" warning | 1. Find the backup in `~/.mrk/backups/`. 2. Correct the conflict by hand. 3. Run the command again |
 | post-install skips the plist imports | GitHub does not accept your SSH key. 1. Add the key to GitHub. 2. Run `make pull-prefs`. 3. Run `make post-install` again |
 | mrk-picker does not appear | Build the binary again with `make picker` |
-| `~/bin` is not on the PATH | Run `make doctor ARGS=--fix`. This adds `~/bin` to the PATH in `.zshrc` |
+| `~/bin` is not on the PATH | If `~/.zshrc` already adds it, as mrk's does, the shell has not read it: open a new terminal, or run `exec zsh`. Otherwise run `make doctor ARGS=--fix`, which adds `~/bin` to the PATH in `.zshrc`. mrk-status says which case it is |
 | A Brewfile entry shows ✗ | The package name can differ from the formula name. Check it with `brew info <pkg>` |
 | `make sync` reports "nothing to add" | The Brewfile already has every installed package. Do nothing |
 | `make snapshot-prefs` skips an app | The app is not installed, or `defaults export` failed. snapshot-prefs lists the skipped apps when it exits |

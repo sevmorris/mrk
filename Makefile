@@ -83,8 +83,13 @@ build-tools: ## Build all Go TUI binaries (requires Go)
 	@printf '\n\033[1;34m══ Phase 4: TUI Tools\033[0m\n\n'
 	@$(MAKE) --no-print-directory picker mrk-status mrk-menu
 
+# Every Go module under tools/, read from their go.mod files. The list was
+# written out by hand until 2026-09-28 and had missed tools/theme, which ci-check
+# tests (audit 19, W-25).
+GO_MODULES := $(notdir $(patsubst %/go.mod,%,$(wildcard $(REPO_ROOT)/tools/*/go.mod)))
+
 tidy: ## Run go mod tidy in all tool directories
-	@for dir in picker mrk-status mrk-menu; do \
+	@for dir in $(GO_MODULES); do \
 		printf '  \033[36m▸\033[0m go mod tidy: tools/$$dir\n'; \
 		cd "$(REPO_ROOT)/tools/$$dir" && go mod tidy; \
 	done

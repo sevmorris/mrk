@@ -38,10 +38,9 @@ type model struct {
 	nukeInput string
 
 	// Status footer
-	flashMsg     string
-	lastExitMsg  string
-	lastExitOK   bool
-	lastItemName string
+	flashMsg    string
+	lastExitMsg string
+	lastExitOK  bool
 
 	width  int
 	height int

@@ -51,7 +51,7 @@ func TestEveryFixCommandResolves(t *testing.T) {
 		checkTools(tmp, bin),
 		checkDefaults(tmp),
 		checkHardening(tmp),
-		checkPATH(bin),
+		checkPATH(tmp, bin),
 		checkBrewfile(tmp),
 		checkShell(),
 		checkHomebrew(),

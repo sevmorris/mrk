@@ -82,7 +82,7 @@ func main() {
 	}
 	p := tea.NewProgram(initialModel(), opts...)
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("Error running program: %v\n", err)
+		fmt.Fprintf(os.Stderr, "mrk-menu: %v\n", err)
 		os.Exit(1)
 	}
 }

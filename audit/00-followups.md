@@ -12,7 +12,8 @@ would close it.
 **Last re-verified:** 2026-09-27 against `d8a0f5a` by module 19
 (`19-audit-2026-09-27.md`), a full sweep of every module for shell correctness, idempotency,
 rollback fidelity, the Go code, documentation drift and cruft. It is a findings pass: it fixed
-nothing, and its 30 items wait for fix sessions, listed below. `ci-check`, `go vet`, `gofmt`,
+nothing itself. Its 30 items, and a 31st found while fixing W-1, were fixed by seven sessions on
+2026-09-27 and 2026-09-28; see Closed. `ci-check`, `go vet`, `gofmt`,
 shellcheck and staticcheck were all green beforehand, and govulncheck found nothing reachable. Two findings lead:
 - **W-1 (CRITICAL).** On a Mac without Homebrew, `make setup` and `make brew` both exit 1 at a
   bash-4 guard. That is the README's quick start and the manual's new-machine walkthrough.
@@ -107,13 +108,11 @@ Nothing. W-1 and N-1 are fixed — see Closed below.
 
 Items that require a real choice before they can be closed in either direction.
 
-**Module 19's findings (2026-09-27), awaiting fix sessions.** Unlike the modules before it,
-module 19 fixed nothing, so every item was open. Details, evidence and line numbers are in
-`19-audit-2026-09-27.md`. W-1 is fixed (see Closed), and its fix session added W-31, fixed
-too. W-2 to W-21 and W-26 to W-30 are fixed; see Closed.
+**Module 19's findings (2026-09-27): all fixed.** Module 19 fixed nothing itself, and its 30
+findings went to seven fix sessions on 2026-09-27 and 2026-09-28. The W-1 session found a
+31st, W-31. All 31 are fixed; see Closed, and `19-audit-2026-09-27.md` for each one's evidence,
+fix, test and mutation table. One decision remains:
 
-- **LOW.**
-  - W-22 to W-25: Go and the Makefile.
 - **Whether to keep `snapshot`.** Without `--brewfile` it exports plists into
   `assets/preferences/`, which `.gitignore` excludes and nothing reads; `snapshot-prefs` is the
   export that restores. W-21 fixed its `--brewfile` path, and left this to the owner. → To close:
@@ -293,6 +292,27 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the Go fix, branch `claude/fix-go-batch7`, 2026-09-28
+
+Batch 7, the last of module 19's fixes. Details and the mutation table are in
+`19-audit-2026-09-27.md`, at the end of the Go findings.
+
+- **W-22 (LOW)** — mrk-menu ran command items by name through PATH, so `sync` could be
+  `/bin/sync`, and it reported "sync ok". They run from `~/bin` now. It also loses a write-only
+  field and a shadowed builtin, and sends its run error to stderr.
+- **W-23 (LOW)** — mrk-status:
+  - The Dotfiles and Tools fixes are scoped to `make dotfiles` and `make tools`.
+  - When `.zshrc` already adds `~/bin`, the PATH check says to start a new shell rather than
+    offer a fix that changes nothing.
+  - Scanner errors are reported, `pgup` and `pgdown` match, the scroll bound agrees with the
+    pane, and `viewRight` has one render path.
+- **W-24 (LOW)** — `mrk-picker` refuses a stray argument with exit 2.
+- **W-25 (LOW)** — `make tidy` and ci-check's `go test` read the Go modules from
+  `tools/*/go.mod`, and `tidy` no longer misses `theme`.
+
+**Test.** Nine new Go tests and a sixth check in `tests/docs-drift.sh`; each of eight mutations
+fails one. SMAC-1's `make tidy` and PATH rows are updated (sevmac, branch `claude/tidy-and-path`).
 
 ### Closed by the shell fix, branch `claude/fix-shell-batch6`, 2026-09-28
 

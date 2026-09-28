@@ -81,7 +81,7 @@ func checkDotfiles(repoRoot, home string) group {
 	entries, err := os.ReadDir(dotDir)
 	if err != nil {
 		return group{"Dotfiles", sevWarn,
-			[]statusLine{sl(sevWarn, "dotfiles/ not found")}, "make setup"}
+			[]statusLine{sl(sevWarn, "dotfiles/ not found")}, "make dotfiles"}
 	}
 
 	var lines []statusLine
@@ -104,16 +104,19 @@ func checkDotfiles(repoRoot, home string) group {
 		} else {
 			missing++
 			if _, err2 := os.Lstat(dst); err2 == nil {
-				lines = append(lines, sl(sevWarn, n+" (conflict — backup and re-run make setup)"))
+				lines = append(lines, sl(sevWarn, n+" (conflict — backup and re-run make dotfiles)"))
 			} else {
-				lines = append(lines, sl(sevWarn, n+" (not linked — run make setup)"))
+				lines = append(lines, sl(sevWarn, n+" (not linked — run make dotfiles)"))
 			}
 		}
 	}
 
+	// make dotfiles, the phase that links them, and not make setup: that runs
+	// every phase, the macOS defaults with their Finder and Dock restart and a
+	// sudo xcodebuild among them (audit 19, W-23).
 	fix := ""
 	if missing > 0 {
-		fix = "make setup"
+		fix = "make dotfiles"
 	}
 	summary := fmt.Sprintf("%d linked", linked)
 	if missing > 0 {
@@ -131,7 +134,7 @@ func checkTools(repoRoot, binDir string) group {
 	entries, err := os.ReadDir(binDir)
 	if err != nil {
 		return group{"Tools", sevWarn,
-			[]statusLine{sl(sevWarn, binDir+" not found")}, "mkdir -p ~/bin && make setup"}
+			[]statusLine{sl(sevWarn, binDir+" not found")}, "make tools"}
 	}
 
 	var lines []statusLine
@@ -175,11 +178,15 @@ func checkTools(repoRoot, binDir string) group {
 	return group{"Tools", sev, all, fix}
 }
 
-func countLines(path, pattern string) int {
+// countLines counts PATH's lines that match pattern. A read that fails part
+// way is an error, not a short count: until 2026-09-28 the scanner's error was
+// dropped, and a line over its 64 KiB limit ended the count there without a
+// word (audit 19, W-23).
+func countLines(path, pattern string) (int, error) {
 	re := regexp.MustCompile(pattern)
 	f, err := os.Open(path)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 	defer f.Close()
 	n := 0
@@ -189,7 +196,7 @@ func countLines(path, pattern string) int {
 			n++
 		}
 	}
-	return n
+	return n, sc.Err()
 }
 
 func checkDefaults(stateDir string) group {
@@ -198,7 +205,11 @@ func checkDefaults(stateDir string) group {
 		return group{"macOS Defaults", sevInfo,
 			[]statusLine{sl(sevInfo, "Not applied — run: make defaults")}, "make defaults"}
 	}
-	n := countLines(rollback, `defaults write|defaults delete`)
+	n, err := countLines(rollback, `defaults write|defaults delete`)
+	if err != nil {
+		return group{"macOS Defaults", sevWarn,
+			[]statusLine{sl(sevWarn, "Cannot read the rollback script: "+err.Error())}, ""}
+	}
 	if n == 0 {
 		return group{"macOS Defaults", sevInfo,
 			[]statusLine{sl(sevInfo, "Rollback script present but empty")}, ""}
@@ -221,7 +232,11 @@ func checkHardening(stateDir string) group {
 			// fix here is already a make target.
 			[]statusLine{sl(sevInfo, "Not applied — run: make harden")}, "make harden"}
 	}
-	n := countLines(rollback, `sudo|defaults write|defaults delete`)
+	n, err := countLines(rollback, `sudo|defaults write|defaults delete`)
+	if err != nil {
+		return group{"Security Hardening", sevWarn,
+			[]statusLine{sl(sevWarn, "Cannot read the rollback script: "+err.Error())}, ""}
+	}
 	if n == 0 {
 		return group{"Security Hardening", sevInfo,
 			[]statusLine{sl(sevInfo, "Rollback script present but empty")}, ""}
@@ -332,12 +347,25 @@ func shellListed(path string) bool {
 	return false
 }
 
-func checkPATH(binDir string) group {
+// checkPATH reports whether binDir is on this process's PATH. When it is not,
+// but ~/.zshrc already adds it, as mrk's own .zshrc does, the shell this runs
+// in has not read .zshrc, and the fix is a new shell. Until 2026-09-28 the fix
+// offered was `make doctor ARGS=--fix`, which appends the line only when
+// .zshrc lacks it: here it changed nothing, said "Fixes applied", and the
+// check stayed red (audit 19, W-23). The test is doctor's own, a grep for
+// $HOME/bin, so the two agree on when .zshrc has it.
+func checkPATH(home, binDir string) group {
 	for _, p := range filepath.SplitList(os.Getenv("PATH")) {
 		if p == binDir {
 			return group{"PATH", sevOK,
 				[]statusLine{sl(sevOK, binDir+" is on PATH")}, ""}
 		}
+	}
+	if b, err := os.ReadFile(filepath.Join(home, ".zshrc")); err == nil && strings.Contains(string(b), "$HOME/bin") {
+		return group{"PATH", sevWarn, []statusLine{
+			sl(sevWarn, binDir+" is NOT on PATH in this shell"),
+			sl(sevInfo, "~/.zshrc adds it: open a new terminal, or run exec zsh"),
+		}, ""}
 	}
 	return group{"PATH", sevWarn,
 		[]statusLine{sl(sevWarn, binDir+" is NOT on PATH")}, "make doctor ARGS=--fix"}
@@ -377,6 +405,12 @@ func checkBrewfile(repoRoot string) group {
 		} else if m := reCaskPkg.FindStringSubmatch(l); m != nil {
 			casks = append(casks, m[1])
 		}
+	}
+	// A read that fails part way would otherwise check half a Brewfile as the
+	// whole of it (audit 19, W-23).
+	if err := sc.Err(); err != nil {
+		return group{"Brewfile", sevWarn,
+			[]statusLine{sl(sevWarn, "Cannot read "+path+": "+err.Error())}, ""}
 	}
 
 	if _, err := exec.LookPath("brew"); err != nil {
@@ -470,7 +504,7 @@ func runChecks(repoRoot, home, binDir string) tea.Cmd {
 		}
 		groups = append(groups,
 			checkShell(),
-			checkPATH(binDir),
+			checkPATH(home, binDir),
 			checkHomebrew(),
 			checkBrewfile(repoRoot),
 		)
@@ -602,19 +636,15 @@ func (m model) handleKey(msg tea.KeyMsg) (model, tea.Cmd) {
 		} else {
 			m.scrollDown()
 		}
+	// pgup and pgdown move by the same half page. Until 2026-09-28 pgup moved
+	// half a page and pgdown four lines (audit 19, W-23).
 	case "pgup":
 		if !m.leftFocus {
-			m.detailScroll -= m.detailViewH() / 2
-			if m.detailScroll < 0 {
-				m.detailScroll = 0
-			}
+			m.scrollBy(-m.pageStep())
 		}
 	case "pgdown":
 		if !m.leftFocus {
-			m.scrollDown()
-			m.scrollDown()
-			m.scrollDown()
-			m.scrollDown()
+			m.scrollBy(m.pageStep())
 		}
 
 	case "r":
@@ -632,25 +662,30 @@ func (m model) handleKey(msg tea.KeyMsg) (model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *model) scrollDown() {
+func (m *model) scrollDown() { m.scrollBy(1) }
+
+// scrollBy moves the detail pane by n lines, within 0 and the last full page.
+func (m *model) scrollBy(n int) {
 	g := m.currentGroup()
 	if g == nil {
 		return
 	}
-	vh := m.detailViewH()
-	if maxScroll := len(g.lines) - vh; maxScroll > 0 && m.detailScroll < maxScroll {
-		m.detailScroll++
-	}
+	m.detailScroll = min(max(m.detailScroll+n, 0), max(len(g.lines)-m.detailViewH(), 0))
 }
 
-// detailViewH is the number of visible detail lines in the right pane.
-func (m model) detailViewH() int {
-	bodyH := m.height - 2 // header + footer
-	if bodyH < 6 {
-		bodyH = 6
-	}
-	return bodyH - 2 - 1 // border(2) + group header(1)
-}
+// pageStep is half the detail pane, and at least one line.
+func (m model) pageStep() int { return max(m.detailViewH()/2, 1) }
+
+// bodyHeight is the height of the two panes, borders included: the terminal
+// less the header and footer lines, and never under 4.
+func (m model) bodyHeight() int { return max(m.height-2, 4) }
+
+// detailViewH is the number of visible detail lines in the right pane: the
+// body, less its border (2) and the group header (1). It reads bodyHeight,
+// which viewBody draws with. Until 2026-09-28 this floored the body at 6 and
+// viewBody at 4, so in a very short terminal the scroll bound disagreed with
+// what was drawn (audit 19, W-23).
+func (m model) detailViewH() int { return m.bodyHeight() - 2 - 1 }
 
 func (m *model) clampCursor() {
 	if m.groupIdx >= len(m.groups) {
@@ -774,11 +809,7 @@ func (m model) viewFooter() string {
 }
 
 func (m model) viewBody() string {
-	bodyH := m.height - 2
-	if bodyH < 4 {
-		bodyH = 4
-	}
-	paneH := bodyH - 2 // subtract border top+bottom
+	paneH := m.bodyHeight() - 2 // subtract border top+bottom
 
 	if m.loading && len(m.groups) == 0 {
 		inner := m.width - 4
@@ -838,18 +869,21 @@ func (m model) viewRight(inner, height int) string {
 		return pane.Width(inner).Height(height).Render(styleDim.Render("no data"))
 	}
 
-	// Header: group name + fix hint
+	// Detail lines viewport
+	vh := height - 1 // lines available below header
+	start := m.detailScroll
+	end := min(start+vh, len(g.lines))
+
+	// Header: group name, fix hint, and, when the lines overflow, "start–end /
+	// total" at the right. One render path: until 2026-09-28 the overflow case
+	// rebuilt the header and the lines a second time (audit 19, W-23).
 	header := styleTitle.Render(g.name)
 	if g.fix != "" {
 		header += styleDim.Render("  [f] " + g.fix)
 	}
-
-	// Detail lines viewport
-	vh := height - 1 // lines available below header
-	start := m.detailScroll
-	end := start + vh
-	if end > len(g.lines) {
-		end = len(g.lines)
+	if len(g.lines) > vh {
+		scrollInfo := styleDim.Render(fmt.Sprintf("  %d–%d / %d", start+1, end, len(g.lines)))
+		header += strings.Repeat(" ", max(0, inner-lipgloss.Width(header)-lipgloss.Width(scrollInfo))) + scrollInfo
 	}
 
 	var sb strings.Builder
@@ -859,30 +893,6 @@ func (m model) viewRight(inner, height int) string {
 		text := theme.Truncate(l.text, inner-3)
 		sb.WriteString(icon + " " + styleNorm.Render(text) + "\n")
 	}
-
-	// Scroll indicator, rendered into the header row as "start–end / total".
-	if len(g.lines) > vh {
-		total := len(g.lines)
-		header = styleTitle.Render(g.name)
-		if g.fix != "" {
-			header += styleDim.Render("  [f] " + g.fix)
-		}
-		scrollInfo := styleDim.Render(fmt.Sprintf("  %d–%d / %d", start+1, end, total))
-		gap := inner - lipgloss.Width(header) - lipgloss.Width(scrollInfo)
-		if gap < 0 {
-			gap = 0
-		}
-		var sb2 strings.Builder
-		sb2.WriteString(header + strings.Repeat(" ", gap) + scrollInfo + "\n")
-		for _, l := range g.lines[start:end] {
-			icon := sevStyle(l.sev).Render(l.sev.icon())
-			text := theme.Truncate(l.text, inner-3)
-			sb2.WriteString(icon + " " + styleNorm.Render(text) + "\n")
-		}
-		content := strings.TrimRight(sb2.String(), "\n")
-		return pane.Width(inner).Height(height).Render(content)
-	}
-
 	content := strings.TrimRight(sb.String(), "\n")
 	return pane.Width(inner).Height(height).Render(content)
 }

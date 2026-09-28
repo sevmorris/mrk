@@ -179,21 +179,65 @@ func TestCheckHardeningDistinguishesEmptyFromApplied(t *testing.T) {
 // ── PATH ────────────────────────────────────────────────────────────────────
 
 func TestCheckPATH(t *testing.T) {
-	binDir := t.TempDir()
+	binDir, home := t.TempDir(), t.TempDir()
 	t.Setenv("PATH", strings.Join([]string{"/usr/bin", binDir, "/bin"}, string(os.PathListSeparator)))
-	if g := checkPATH(binDir); g.sev != sevOK {
+	if g := checkPATH(home, binDir); g.sev != sevOK {
 		t.Errorf("binDir on PATH should be OK, got sev=%v", g.sev)
 	}
 
 	t.Setenv("PATH", "/usr/bin:/bin")
-	if g := checkPATH(binDir); g.sev != sevWarn {
+	if g := checkPATH(home, binDir); g.sev != sevWarn {
 		t.Errorf("binDir absent from PATH should warn, got sev=%v", g.sev)
 	}
 
 	// A prefix must not count as a match: /opt/bin is not /opt/bin-extra.
 	t.Setenv("PATH", binDir+"-extra")
-	if g := checkPATH(binDir); g.sev != sevWarn {
+	if g := checkPATH(home, binDir); g.sev != sevWarn {
 		t.Errorf("a PATH entry that merely starts with binDir must not count as present")
+	}
+}
+
+func TestCheckPATHWhenZshrcAlreadyAddsBin(t *testing.T) {
+	// doctor --fix appends the PATH line only when .zshrc lacks it, so with
+	// mrk's own .zshrc it changes nothing, and offering it left the check red
+	// after "Fixes applied" (audit 19, W-23). The fix there is a new shell.
+	binDir, home := t.TempDir(), t.TempDir()
+	t.Setenv("PATH", "/usr/bin:/bin")
+
+	if g := checkPATH(home, binDir); g.fix != "make doctor ARGS=--fix" {
+		t.Errorf("with no .zshrc line, doctor --fix is the fix; got %q", g.fix)
+	}
+
+	line := `[ -d "$HOME/bin" ] && export PATH="$HOME/bin:$PATH"` + "\n"
+	if err := os.WriteFile(filepath.Join(home, ".zshrc"), []byte(line), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	g := checkPATH(home, binDir)
+	if g.sev != sevWarn || g.fix != "" {
+		t.Errorf("with .zshrc adding ~/bin: want a warning and no fix command, got sev=%v fix=%q", g.sev, g.fix)
+	}
+	if !strings.Contains(texts(g), "exec zsh") {
+		t.Errorf("it should say to start a new shell:\n%s", texts(g))
+	}
+}
+
+// ── Scanner errors ──────────────────────────────────────────────────────────
+
+func TestUnreadableFilesAreReportedNotMiscounted(t *testing.T) {
+	// A line over bufio.Scanner's 64 KiB limit stops the scan with an error.
+	// Until 2026-09-28 the error was dropped: the rollback counts stopped
+	// short, and the Brewfile check ran on half the file (audit 19, W-23).
+	dir := t.TempDir()
+	long := "defaults write x y -bool true\n" + strings.Repeat("#", 70000) + "\ndefaults write x z -bool true\n"
+	for _, name := range []string{"defaults-rollback.sh", "hardening-rollback.sh", "Brewfile"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(long), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, g := range []group{checkDefaults(dir), checkHardening(dir), checkBrewfile(dir)} {
+		if g.sev != sevWarn || !strings.Contains(texts(g), "Cannot read") {
+			t.Errorf("%s: a file that cannot be read to the end should warn, got sev=%v:\n%s", g.name, g.sev, texts(g))
+		}
 	}
 }
 
@@ -236,5 +280,19 @@ func TestCheckShellOffersChshOnlyForAListedShell(t *testing.T) {
 	}
 	if g := checkShell(); g.fix != "chsh -s "+zsh {
 		t.Errorf("listed shell: fix = %q, want %q", g.fix, "chsh -s "+zsh)
+	}
+}
+
+func TestDotfilesAndToolsFixesAreScoped(t *testing.T) {
+	// The f key runs the fix. make setup runs every phase — the macOS defaults
+	// with their Finder and Dock restart, and a sudo xcodebuild — to link one
+	// dotfile (audit 19, W-23). The scoped targets are make dotfiles and make
+	// tools.
+	repo, home := dotfileRepo(t)
+	if g := checkDotfiles(repo, home); g.fix != "make dotfiles" {
+		t.Errorf("an unlinked dotfile's fix should be make dotfiles, got %q", g.fix)
+	}
+	if g := checkTools(repo, filepath.Join(t.TempDir(), "absent")); g.fix != "make tools" {
+		t.Errorf("a missing ~/bin's fix should be make tools, got %q", g.fix)
 	}
 }
