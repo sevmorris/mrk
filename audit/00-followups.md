@@ -154,8 +154,6 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
   System Settings › General › Time Machine (it asks for the share's password), let the first
   backup finish, and check `tmutil destinationinfo`. mrk cannot do this for you. T-9 no longer
   waits on it: `hide_tm.sh` was deleted.
-- **U-7's uninstall (your action).** GPG Suite is out of the Brewfile. → To close: `brew
-  uninstall --cask gpg-suite-no-mail`, which asks for the login password.
 
 U-7 and U-8 were decided on 2026-09-28; see Closed.
 
@@ -292,8 +290,9 @@ Nothing on this Mac was changed.
   Apps` as a list, added only when it exists. `tests/dock-setup.sh` is new, and ci-check runs it.
   `make dock` was not run.
 - **U-7, two GnuPGs:** GPG Suite is out of the Brewfile and the picker, as the owner chose, and
-  Homebrew's gnupg stays. The package count is 115. The uninstall is the owner's (see Module 16's
-  items above).
+  Homebrew's gnupg stays. The package count is 115. The owner uninstalled the cask at 14:20.
+  Homebrew autoremoved `openjdk@25` with it. That was an orphan: nothing names it, and `gradle`
+  uses `openjdk` 27.
 
 Mutation checks of `tests/dock-setup.sh`, each on a copy of the repository:
 
