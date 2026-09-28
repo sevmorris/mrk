@@ -87,7 +87,7 @@ cleanup() {
   local rc=$?
   if [[ -z "$MRK_SUCCESS" ]]; then
     err "!!! ${CURRENT_STEP:-unknown step} FAILED"
-    err "See $LOGFILE for details"
+    (( DRY_RUN )) || err "See $LOGFILE for details"
     # Under bash 3.2 a `set -u` abort runs this with $? at 0, and the script
     # then exits 0, so make all would go on to Phase 2 after a failed Phase 1.
     # Bash 5 exits 1 there itself.
@@ -109,12 +109,24 @@ BACKUP_DIR="$STATE_DIR/backups/$(date +%Y%m%d-%H%M%S)"
 readonly BACKUP_DIR
 readonly ROLLBACK="$STATE_DIR/defaults-rollback.sh"
 
-# Create required directories with individual error checking
-if ! mkdir -p "$STATE_DIR"; then
+# The checkout ~ is linked to: the tools and dotfiles phases link only from it.
+# See mrk_serves_home in lib.sh (audit 19, W-5).
+MRK_HOME_DIR="${MRK_ROOT:-$HOME/mrk}"
+readonly MRK_HOME_DIR
+LINK_HOME=0
+if mrk_serves_home "$REPO_ROOT"; then
+  LINK_HOME=1
+fi
+readonly LINK_HOME
+
+# Create required directories with individual error checking. A dry run creates
+# nothing, and writes no log (audit 19, W-7): until 2026-09-27 it made ~/.mrk
+# and ~/bin and appended to install.log.
+if (( ! DRY_RUN )) && ! mkdir -p "$STATE_DIR"; then
   err "Failed to create state directory: $STATE_DIR"
   exit 1
 fi
-if ! mkdir -p "$INSTALL_BIN"; then
+if (( ! DRY_RUN )) && ! mkdir -p "$INSTALL_BIN"; then
   err "Failed to create bin directory: $INSTALL_BIN"
   exit 1
 fi
@@ -136,10 +148,12 @@ if (( ! DRY_RUN )) && { ! touch "$ROLLBACK" || ! chmod +x "$ROLLBACK"; }; then
 fi
 
 # Setup logging with rotation
-setup_logging
-exec > >(tee -a "$LOGFILE") 2>&1
+if (( ! DRY_RUN )); then
+  setup_logging
+  exec > >(tee -a "$LOGFILE") 2>&1
+fi
 section "Phase 1 of 3: Setup"
-log "Log: $LOGFILE"
+(( DRY_RUN )) || log "Log: $LOGFILE"
 if (( DRY_RUN )); then
   printf '\n  %s⚠  DRY RUN — no changes will be made%s\n' "$_YLW" "$_R" >&2
 fi
@@ -175,7 +189,7 @@ run_phase() {
   fi
 
   CURRENT_STEP="$name"
-  sudo_refresh
+  (( DRY_RUN )) || sudo_refresh
   log "Phase: ${_B}$name${_R}"
   if (( CONTINUE_ON_ERROR )); then
     if ! "$@"; then
@@ -218,22 +232,35 @@ validate_setup() {
 }
 
 # Phase functions - invoked indirectly via run_phase
+# Until 2026-09-27 a dry run did both of these for real: it opened the
+# Command Line Tools installer, and ran `sudo xcodebuild -license accept`,
+# which asks for a password and accepts the licence (audit 19, W-7).
 phase_xcode() {
-  if ! xcode-select -p >/dev/null 2>&1; then
+  if xcode-select -p >/dev/null 2>&1; then
+    logskip "Xcode Command Line Tools" "already installed"
+  elif (( DRY_RUN )); then
+    dry "Would open the Xcode Command Line Tools installer"
+  else
     log "Xcode Command Line Tools not found. Triggering install (GUI). Re-run after completion."
     xcode-select --install || true
-  else
-    logskip "Xcode Command Line Tools" "already installed"
   fi
-  if [[ -d "/Applications/Xcode.app" ]]; then
-    sudo xcodebuild -license accept >/dev/null 2>&1 || true
-  else
+  if [[ ! -d "/Applications/Xcode.app" ]]; then
     logskip "Xcode license" "Xcode.app not found"
+  elif (( DRY_RUN )); then
+    dry "Would accept the Xcode licence (sudo xcodebuild -license accept)"
+  else
+    sudo xcodebuild -license accept >/dev/null 2>&1 || true
   fi
 }
 
 phase_link_tools() {
   if (( NO_LINK_TOOLS )); then logskip "link-tools" "disabled by flag"; return; fi
+  if (( ! LINK_HOME )); then
+    warn "$INSTALL_BIN not linked: ~ is linked to $MRK_HOME_DIR, not this checkout"
+    info "Run setup from $MRK_HOME_DIR, or set MRK_ROOT to this checkout to make it the one."
+    WARNINGS=$(( WARNINGS + 1 ))
+    return 0
+  fi
   
   if [[ ! -d "$INSTALL_BIN" ]]; then
     if (( DRY_RUN )); then
@@ -244,8 +271,8 @@ phase_link_tools() {
     fi
   fi
   
-  # Verify directory is writable
-  if [[ ! -w "$INSTALL_BIN" ]]; then
+  # Verify directory is writable. A dry run on a new Mac has not created it.
+  if [[ -d "$INSTALL_BIN" && ! -w "$INSTALL_BIN" ]]; then
     err "Directory $INSTALL_BIN is not writable"
     return 1
   fi
@@ -423,7 +450,9 @@ phase_link_tools() {
     fi
   fi
 
-  if (( linked > 0 )); then
+  if (( linked > 0 )) && (( DRY_RUN )); then
+    dry "Would link $linked tool(s) into $INSTALL_BIN"
+  elif (( linked > 0 )); then
     log "Linked $linked tool(s) into $INSTALL_BIN"
     TOOLS_LINKED=$linked
   fi
@@ -451,6 +480,12 @@ phase_link_tools() {
 
 phase_dotfiles() {
   if (( NO_DOTFILES )); then logskip "dotfiles" "disabled by flag"; return; fi
+  if (( ! LINK_HOME )); then
+    warn "Dotfiles not linked: ~ is linked to $MRK_HOME_DIR, not this checkout"
+    info "Run setup from $MRK_HOME_DIR, or set MRK_ROOT to this checkout to make it the one."
+    WARNINGS=$(( WARNINGS + 1 ))
+    return 0
+  fi
   
   if [[ ! -d "$REPO_ROOT/dotfiles" ]]; then
     warn "dotfiles directory not found: $REPO_ROOT/dotfiles"
@@ -464,25 +499,16 @@ phase_dotfiles() {
   local skipped=0
   local backed_up=0
   
-  # Count total for progress (excluding example and documentation files)
+  # Count total for progress. mrk_is_dotfile is the rule: regular files only,
+  # never a directory, documentation, an example or .DS_Store.
   local total=0
   for src in "$REPO_ROOT/dotfiles"/*; do
-    [[ -e "$src" ]] || continue
-    # Skip .example files and README files
-    case "$(basename "$src")" in
-      *.example|README*|*.md) continue ;;
-      *) ((total++)) || true ;;
-    esac
+    mrk_is_dotfile "$src" && { ((total++)) || true; }
   done
   
   local current=0
   for src in "$REPO_ROOT/dotfiles"/*; do
-    [[ -e "$src" ]] || continue
-    
-    # Skip .example files and README/documentation files
-    case "$(basename "$src")" in
-      *.example|README*|*.md) continue ;;
-    esac
+    mrk_is_dotfile "$src" || continue
     
     found=1
     ((current++)) || true
@@ -530,7 +556,9 @@ phase_dotfiles() {
   printf "\r\033[K" >&2 || true  # Clear progress line
   shopt -u dotglob nullglob
   
-  if (( linked > 0 )); then
+  if (( linked > 0 )) && (( DRY_RUN )); then
+    dry "Would link $linked dotfile(s)"
+  elif (( linked > 0 )); then
     log "Linked $linked dotfile(s)"
     DOTFILES_LINKED=$linked
   fi
@@ -540,7 +568,9 @@ phase_dotfiles() {
     DOTFILES_SKIPPED=$skipped
   fi
 
-  if (( backed_up > 0 )); then
+  if (( backed_up > 0 )) && (( DRY_RUN )); then
+    dry "Would back up $backed_up file(s) into $BACKUP_DIR"
+  elif (( backed_up > 0 )); then
     log "Created $backed_up backup(s) in $BACKUP_DIR"
     BACKUPS_CREATED=$backed_up
   fi
@@ -644,12 +674,19 @@ phase_shell() {
     local target_shell
     target_shell="$(command -v zsh)"
     if [[ "$(dscl . -read "/Users/$USER" UserShell 2>/dev/null | awk '{print $2}')" != "$target_shell" ]]; then
-      if ! register_shell "$target_shell"; then
+      # Until 2026-09-27 a dry run registered the shell in /etc/shells, with
+      # sudo when needed, and ran chsh (audit 19, W-7). From a shell without
+      # Homebrew on PATH that is `chsh -s /bin/zsh` on a Mac whose login shell
+      # is Homebrew's.
+      if (( DRY_RUN )); then
+        dry "Would set login shell to $target_shell, registering it in ${SHELLS_FILE:-/etc/shells} if needed"
+      elif ! register_shell "$target_shell"; then
         warn "Skipping chsh: $target_shell is not an approved shell"
         return 0
+      else
+        log "Setting login shell to $target_shell"
+        chsh -s "$target_shell" || warn "chsh failed (is $target_shell listed in /etc/shells?)"
       fi
-      log "Setting login shell to $target_shell"
-      chsh -s "$target_shell" || warn "chsh failed (is $target_shell listed in /etc/shells?)"
     else
       logskip "login shell" "already $target_shell"
     fi

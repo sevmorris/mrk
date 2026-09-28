@@ -88,7 +88,12 @@ func checkDotfiles(repoRoot, home string) group {
 	linked, missing := 0, 0
 	for _, e := range entries {
 		n := e.Name()
-		if strings.HasSuffix(n, ".example") || strings.HasPrefix(n, "README") || strings.HasSuffix(n, ".md") {
+		// setup's rule, mrk_is_dotfile in scripts/lib.sh: regular files only,
+		// never a directory, documentation, an example or .DS_Store. A
+		// directory there, such as the dotfiles/.claude/ Claude Code creates,
+		// is not a dotfile (audit 19, W-4).
+		if !e.Type().IsRegular() || n == ".DS_Store" ||
+			strings.HasSuffix(n, ".example") || strings.HasPrefix(n, "README") || strings.HasSuffix(n, ".md") {
 			continue
 		}
 		src := filepath.Join(dotDir, n)

@@ -62,6 +62,35 @@ func TestCheckDotfilesLinkedIsOK(t *testing.T) {
 	}
 }
 
+func TestCheckDotfilesIgnoresDirectoriesAndDSStore(t *testing.T) {
+	// setup never links these (mrk_is_dotfile in scripts/lib.sh), so they must
+	// not read as dotfiles waiting to be linked: Claude Code creates
+	// dotfiles/.claude/ for a session started there, and Finder a .DS_Store.
+	repo, home := dotfileRepo(t)
+	dots := filepath.Join(repo, "dotfiles")
+	if err := os.MkdirAll(filepath.Join(dots, ".claude"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dots, ".claude", "settings.local.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dots, ".DS_Store"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(dots, ".zshrc"), filepath.Join(home, ".zshrc")); err != nil {
+		t.Fatal(err)
+	}
+	g := checkDotfiles(repo, home)
+	if g.sev != sevOK {
+		t.Errorf("with only .zshrc to link, and linked, the group should be OK, got sev=%v:\n%s", g.sev, texts(g))
+	}
+	for _, n := range []string{".claude", ".DS_Store"} {
+		if strings.Contains(texts(g), n) {
+			t.Errorf("%s is not a dotfile and should not be reported:\n%s", n, texts(g))
+		}
+	}
+}
+
 func TestCheckDotfilesRealFileIsNotMistakenForALink(t *testing.T) {
 	// The false-green case: a real file sitting where the symlink belongs means
 	// edits are going somewhere mrk does not track.

@@ -51,7 +51,8 @@ It runs under the bash 3.2 that macOS ships, so it needs nothing installed first
 **What it does:**
 
 - Installs the Xcode Command Line Tools when they are absent.
-- Symlinks every file in `dotfiles/` into `$HOME`. Phase 1 first backs up any file that it replaces.
+- Symlinks each file in `dotfiles/` into `$HOME`, except the README, the `*.example` files and `.DS_Store`. It never links a directory. Phase 1 first backs up any file that it replaces. Until 2026-09-27 it linked whatever was in `dotfiles/`, directories included. Claude Code creates `dotfiles/.claude/` for a session started in that folder, and Phase 1 then moved your real `~/.claude`, with its settings, sessions and memory, into `~/.mrk/backups`.
+- Links into `~` only from `~/mrk`, or from the checkout `MRK_ROOT` names. Run from any other checkout, a worktree say, Phase 1 skips the dotfiles and `~/bin` with a warning, and runs its other steps. Until 2026-09-27 it linked `~` into whichever checkout ran it, so removing a worktree left every link dangling, and a new shell started without `.zshrc`.
 
 **Managed dotfiles:**
 
@@ -59,6 +60,7 @@ It runs under the bash 3.2 that macOS ships, so it needs nothing installed first
 |---|---|
 | `.aliases` | Shell aliases |
 | `.gitconfig` | Git configuration |
+| `.gitignore_global` | Git's global ignore rules |
 | `.hushlogin` | Suppresses "Last login" terminal message |
 | `.zprofile` | Zsh login shell profile |
 | `.zshenv` | Zsh environment variables |
@@ -92,6 +94,8 @@ make defaults                          # Short form of --only defaults
 make trackpad                          # Apply the defaults and the trackpad settings
 ```
 
+A dry run changes nothing. It creates no directory, writes no log, and runs no installer, `sudo` or `chsh`: it says what each step would do. Until 2026-09-27 it opened the Command Line Tools installer, accepted the Xcode licence with `sudo`, and could change your login shell.
+
 ## Phase 2 — Homebrew (`make brew`)
 
 Script: `scripts/brew`
@@ -117,7 +121,8 @@ It can run in the same shell as Phase 2, whether that is `make all`'s or one ope
 
 **What it does:**
 
-- **Topgrade:** Symlinks `assets/topgrade.toml` to `~/.config/topgrade.toml`.
+- **Topgrade:** Symlinks `assets/topgrade.toml` to `~/.config/topgrade.toml`. A link already there is replaced, even one that points nowhere, and a real file is kept as `.bak`. Until 2026-09-27 a link that pointed nowhere failed Phase 3 on every run.
+- **Links into `~` come only from `~/mrk`,** or from the checkout `MRK_ROOT` names, as in Phase 1. That covers the topgrade link and the three Claude Code links below. From any other checkout, Phase 3 skips the four with a warning, and runs the rest.
 - **Browsers:** Applies the Safari defaults and the Helium defaults. The Safari defaults need Full Disk Access for your terminal, because Safari keeps its preferences in its sandbox container. Without it, Phase 3 skips them with one log line and still reports success. It opens the extension URLs when you ask for them. It no longer installs Chrome and Brave managed policies: those were JSON files in `policies/managed/`, which is the Linux policy mechanism, and Chrome on macOS never read them.
 - **App defaults:** Writes the settings for Audio Hijack, Fission, AlDente, and the Rogue Amoeba update options. They are written after the plist imports, so they land on top of your restored preferences. The Rogue Amoeba update options go only to the Rogue Amoeba apps that are installed.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
@@ -839,6 +844,12 @@ setup skips the file and no backup is made.
 So the directory holds the machine's *pre-mrk* dotfiles. The repository is the
 source of truth for mrk's dotfiles; the backup is the one copy of what those
 files replaced, which the repository never had.
+
+Before 2026-09-27 a backup could hold more than that. Setup linked every entry
+in `dotfiles/`, so a `dotfiles/.claude/` folder moved the real `~/.claude` into
+the backup and left `~/.claude` pointing into the repository. Setup now links
+files only. If `~/.claude` is a symlink on a Mac set up before then, the real
+one is in `~/.mrk/backups/`.
 
 Two consequences:
 

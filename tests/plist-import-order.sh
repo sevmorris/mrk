@@ -199,12 +199,14 @@ machine() {
   /usr/bin/defaults write "$d/home/.mrk/preferences/sevmorris-apps/$OWN_ID" mrkTestSaved -string "$OWN_ID"
 }
 
-# run_pi DIR — post-install --yes on that machine; output in DIR/out
+# run_pi DIR — post-install --yes on that machine; output in DIR/out. MRK_ROOT
+# names the copy: post-install makes its links into ~, topgrade's among them,
+# only from the checkout ~ is linked to (audit 19, W-5).
 run_pi() {
   local d="$1"
   env -i HOME="$d/home" PATH="$STUBS:/usr/bin:/bin:/usr/sbin:/sbin" TMPDIR="$d/tmp" \
     STORE="$d/domains" SCRATCH="$W" DEFAULTS_LOG="$d/defaults.log" CALLS="$d/calls.log" \
-    MRK_BREW="$W/homebrew/bin/brew" \
+    MRK_BREW="$W/homebrew/bin/brew" MRK_ROOT="$R" \
     "$STUBS/bash" "$R/scripts/post-install" --yes </dev/null > "$d/out" 2>&1
 }
 
