@@ -306,6 +306,23 @@ Mutation checks of docs-drift check 7, each on a copy of the repository:
 | README still says 143 | killed: "README says 143, the manual 136" |
 | The manual still says 143 | killed |
 | README's row loses its number | killed: "README says nothing" |
+
+**Found on the way: setup did not wait for its log.** This PR's first CI run failed
+`tests/setup-safety.sh` under bash 3.2. The case was W-5's "setup from another checkout". `setup`
+sends its output through `exec > >(tee -a "$LOGFILE")`, and bash does not wait for a process
+substitution. So `setup` could exit while its last lines were still in the pipe, and the test
+read `$W/out` before the warning reached it. A `tee` left running also wrote into the next case's
+output. The failure had nothing to do with this PR, and it did not happen locally in five runs.
+It showed only on the slower runner. A `tee` stub that starts 0.3 s late reproduced it every time.
+`setup` now records the `tee`'s PID. On exit it closes its output and watches the `tee` go, for at
+most five seconds, because bash 3.2 cannot `wait` for a process substitution (exit 127). The test
+keeps the late stub and requires that no `tee` outlives `setup` (six runs under each bash).
+
+| Mutation | Result |
+|---|---|
+| The PID not recorded | killed: 6 `tee`s still running when `setup` exited |
+| `cleanup` does not call the wait | killed |
+| The output left open, so `tee` never sees end-of-file (only the five-second cap ends the wait) | killed |
 | A `write_default` with no MRK-1 entry | killed: `check-defaults-desc` fails, so there is no count |
 | One key and its MRK-1 entry removed together (135) | killed: "defaults.sh writes 135 keys" |
 

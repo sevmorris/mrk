@@ -109,6 +109,22 @@ cat > "$S/dscl" <<'EOF'
 #!/bin/bash
 echo "UserShell: ${LOGIN_SHELL:-/bin/zsh}"
 EOF
+# setup sends its output through `exec > >(tee -a "$LOGFILE")`. This tee starts
+# late, so the output reaches $W/out only if setup waits for it before exiting.
+# Until 2026-09-28 it did not: bash does not wait for a process substitution, and
+# on a slow CI runner the W-5 case read $W/out before tee had written the warning.
+# A tee still running also wrote into the next case's $W/out. Each tee leaves a
+# tee-running.PID file while it runs, and a tee-ran line when it is done.
+cat > "$S/tee" <<'EOF'
+#!/bin/bash
+: > "$SANDBOX/tee-running.$$"
+sleep 0.3
+/usr/bin/tee "$@"
+rc=$?
+echo ran >> "$SANDBOX/tee-ran"
+rm -f "$SANDBOX/tee-running.$$"
+exit "$rc"
+EOF
 cat > "$S/xcode-select" <<'EOF'
 #!/bin/bash
 printf 'xcode-select %s\n' "$*" >> "$SANDBOX/calls"
@@ -147,7 +163,13 @@ run() {
   [[ -n "${HOME_ROOT:-}" ]] && env+=(MRK_ROOT="$HOME_ROOT")
   env -i "${env[@]}" "$S/bash" "$@" </dev/null > "$W/out" 2>&1
   RC=$?
+  # A tee still running now outlived the command that started it
+  if compgen -G "$W/tee-running.*" >/dev/null; then
+    TEE_LEFT="$TEE_LEFT ${1##*/}"
+    rm -f "$W"/tee-running.*
+  fi
 }
+TEE_LEFT=""
 has()   { grep -qF -- "$1" "$W/out"; }
 show()  { sed 's/^/      /' "$W/out" | tail -"${1:-12}" >&2; }
 # links_into_repo — every symlink under HOME that points into the copy
@@ -293,6 +315,15 @@ if [[ $RC == 0 && "$(readlink "$H/.config/topgrade.toml")" == "$R/assets/topgrad
 else
   fail "  a real topgrade.toml (exit $RC): link '$(readlink "$H/.config/topgrade.toml")', .bak '$(cat "$H/.config/topgrade.toml.bak" 2>/dev/null)'"
   show
+fi
+
+# ── setup waits for its log ──────────────────────────────────────────────────
+
+tees=$(wc -l < "$W/tee-ran" 2>/dev/null | tr -d ' ')
+if (( ${tees:-0} >= 3 )) && [[ -z "$TEE_LEFT" ]]; then
+  pass "setup waited for its log's tee each time it ran one ($tees)"
+else
+  fail "tees run: ${tees:-0}; still running when the command exited:${TEE_LEFT:- none}"
 fi
 
 (( fails == 0 ))
