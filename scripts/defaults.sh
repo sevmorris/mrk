@@ -388,28 +388,12 @@ write_default com.apple.frameworks.diskimages skip-verify-remote bool true || fa
 # Why: prevents Time Machine dialogs from interrupting when external drives are connected for other purposes
 write_default com.apple.TimeMachine DoNotOfferNewDisksForBackup bool true || failed=$(( failed + 1 ))
 
-###############################################################################
-# Software Update & App Store                                                 #
-###############################################################################
-
-# Auto-check for updates
-# Why: security patches are applied automatically without waiting for manual intervention
-write_default com.apple.SoftwareUpdate AutomaticCheckEnabled bool true || failed=$(( failed + 1 ))
-# Auto-download updates
-write_default com.apple.SoftwareUpdate AutomaticDownload bool true || failed=$(( failed + 1 ))
-# Install system data files automatically
-write_default com.apple.SoftwareUpdate ConfigDataInstall bool true || failed=$(( failed + 1 ))
-# Install security updates automatically
-write_default com.apple.SoftwareUpdate CriticalUpdateInstall bool true || failed=$(( failed + 1 ))
-# Auto-update App Store apps
-write_default com.apple.commerce AutoUpdate bool true || failed=$(( failed + 1 ))
-
-# Check for updates every day
-write_default com.apple.SoftwareUpdate ScheduleFrequency int 1 || failed=$(( failed + 1 ))
-
-# Install updates that need a restart
-# Why: pairs with AutoUpdate above; without it the updates that matter most wait for a manual run
-write_default com.apple.commerce AutoUpdateRestartRequired bool true || failed=$(( failed + 1 ))
+# Software Update is left to System Settings. softwareupdated takes its settings
+# from /Library/Preferences, not from the user domain this script writes, so the
+# seven Software Update and App Store keys that were here until 2026-09-28
+# changed nothing. To write the system domain instead would turn automatic
+# downloads back on, and they were turned off on 2026-09-15 to stop a macOS 27
+# download. Audit 15, T-3.
 
 ###############################################################################
 # Activity Monitor                                                            #

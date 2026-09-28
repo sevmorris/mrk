@@ -28,6 +28,9 @@
 # 6. make tidy covers every Go module under tools/. Until 2026-09-28 its list
 #    was written out and had missed tools/theme (audit 19, W-25). Read from
 #    `make -n`, which prints the recipe and runs nothing.
+# 7. README and the manual give the number of keys defaults.sh writes, and it
+#    is the number check-defaults-desc counts. On 2026-09-28 seven keys left
+#    (audit 15, T-3) and both said 143 until they were edited by hand.
 #
 # Read-only, apart from that dry run, which a scratch HOME keeps to itself.
 # ci-check runs it.
@@ -165,6 +168,17 @@ if (( n_mods >= 4 )) && [[ -z "$untidied" ]]; then
   pass "make tidy covers all $n_mods Go modules under tools/"
 else
   fail "make tidy misses:${untidied:- none} ($n_mods modules)"
+fi
+
+# ── 7. The defaults key count ────────────────────────────────────────────────
+
+n_keys=$("$REPO_ROOT/scripts/check-defaults-desc" 2>/dev/null | sed -nE 's/.*OK \(([0-9]+) keys.*/\1/p')
+readme_keys=$(grep -oE 'scripts/defaults\.sh.? \| [0-9]+ keys' "$REPO_ROOT/README.md" | grep -oE '[0-9]+ keys' | grep -oE '[0-9]+')
+manual_keys=$(grep -oE 'It writes [0-9]+ preference keys' "$MANUAL" | grep -oE '[0-9]+')
+if [[ -n "$n_keys" && "$readme_keys" == "$n_keys" && "$manual_keys" == "$n_keys" ]]; then
+  pass "README and the manual say defaults.sh writes $n_keys keys, and it does"
+else
+  fail "defaults.sh writes ${n_keys:-an uncounted number of} keys; README says ${readme_keys:-nothing}, the manual ${manual_keys:-nothing}"
 fi
 
 (( fails == 0 ))

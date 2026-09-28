@@ -183,13 +183,6 @@ const DEFAULT_DESCRIPTIONS = {
         category: 'System',
         systemDefault: '0'
     },
-    'com.apple.commerce.AutoUpdateRestartRequired': {
-        title: 'Install Updates Needing Restart',
-        description: 'Installs a macOS update that needs a restart, without asking first.',
-        category: 'System',
-        why: 'This pairs with AutoUpdate. Set only that one and the updates that matter most still wait for a manual run.',
-        systemDefault: 'false'
-    },
     'com.apple.Terminal.NewTabWorkingDirectoryBehavior': {
         title: 'New Tab Directory',
         description: 'Sets the directory a new Terminal tab opens in. 1 is the default working directory rather than the directory of the current tab.',
@@ -355,12 +348,6 @@ const DEFAULT_DESCRIPTIONS = {
         category: 'Screenshots',
         why: 'A recording of a workflow is hard to follow when the clicks are invisible.',
         systemDefault: 'false'
-    },
-    'com.apple.SoftwareUpdate.ScheduleFrequency': {
-        title: 'Update Check Interval',
-        description: 'Sets how many days pass between automatic checks for a software update. 1 checks every day.',
-        category: 'System',
-        systemDefault: '7'
     },
     'com.apple.menuextra.clock.FlashDateSeparators': {
         title: 'Flashing Time Separators',
@@ -718,37 +705,6 @@ const DEFAULT_DESCRIPTIONS = {
         description: 'Stops the "Do you want to use [disk] to back up with Time Machine?" dialog that appears when you connect a blank external drive. The key hides the prompt only. It does not turn Time Machine off, and it does not change an existing backup destination. Clicking "Don\'t Use" normally writes an invisible .com.apple.timemachine.donotpresent marker file to that one volume. This key instead hides the prompt for every new disk.',
         category: 'System',
         why: 'Prevents Time Machine dialogs from interrupting when external drives are connected for other purposes — archiving, file transfers, etc.'
-    },
-
-    // Software Update & App Store
-    'com.apple.SoftwareUpdate.AutomaticCheckEnabled': {
-        title: 'Check for Updates Automatically',
-        description: 'Turns on the background check for macOS software updates. It matches "Automatically keep my Mac up to date" in System Settings → General → Software Update.',
-        category: 'Security',
-        why: 'Security patches are applied automatically without waiting for manual intervention. The risk of an unpatched vulnerability outweighs the risk of an automatic update.'
-    },
-    'com.apple.SoftwareUpdate.AutomaticDownload': {
-        title: 'Download Updates Automatically',
-        description: 'Turns on the background download of an available update. The download is silent. macOS does not install the update unless you also turn on an installation key, such as CriticalUpdateInstall.',
-        category: 'Security'
-    },
-    'com.apple.SoftwareUpdate.ConfigDataInstall': {
-        title: 'Install System Data Files Automatically',
-        description: 'Turns on the automatic installation of the Apple security data files. These are the XProtect malware signature database, the Malware Removal Tool (MRT) and the Gatekeeper compatibility data. Apple pushes them silently. If you turn this key off, XProtect gets no new malware signatures.',
-        category: 'Security',
-        background: 'The CIS macOS benchmark specifically recommends leaving this enabled.'
-    },
-    'com.apple.SoftwareUpdate.CriticalUpdateInstall': {
-        title: 'Install Critical Security Updates Automatically',
-        description: 'Turns on the automatic installation of the critical security patches. These include the Apple Rapid Security Responses (RSRs).',
-        category: 'Security',
-        background: 'Apple introduced Rapid Security Responses in macOS Ventura. They are streamlined security-only updates that can be deployed without a full OS update, typically within hours of a critical vulnerability disclosure.'
-    },
-    'com.apple.commerce.AutoUpdate': {
-        title: 'Auto-Update App Store Apps',
-        description: 'Turns on the automatic updates for the App Store apps.',
-        category: 'System',
-        background: 'This key lives in com.apple.commerce, the purchase and commerce engine domain of the App Store, rather than in com.apple.SoftwareUpdate. The split reflects the historically separate lineage of the App Store and the OS-level update pipelines.'
     },
 
     // Activity Monitor

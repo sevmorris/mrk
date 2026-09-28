@@ -1,6 +1,6 @@
 # App Store Apps
 
-These 22 applications come from the Mac App Store. **mrk does not install them.** On a new
+These applications come from the Mac App Store. **mrk does not install them.** On a new
 machine, sign in to App Store.app and install them by hand — the list below is the record of
 which ones belong on this Mac, because the App Store's own Purchased list also holds
 everything ever bought, installed or not.
@@ -11,25 +11,18 @@ Each name links to its App Store page.
 |---|---|
 | [Amphetamine](https://apps.apple.com/app/id937984704) | |
 | [BetterSnapTool](https://apps.apple.com/app/id417375580) | `post-install` restores its preferences and registers its login item — run `make post-install` again after installing it |
-| [Blackmagic Disk Speed Test](https://apps.apple.com/app/id425264550) | |
 | [Chrono Plus - Time Tracker](https://apps.apple.com/app/id946047238) | `post-install` registers its login item — same re-run applies |
-| [Code of War Mobile Shooter](https://apps.apple.com/app/id1310262344) | |
-| [Compressor](https://apps.apple.com/app/id424390742) | |
-| [DM1 - The Drum Machine](https://apps.apple.com/app/id522349879) | |
-| [Encrypto: Secure Your Files](https://apps.apple.com/app/id935235287) | |
 | [Final Cut Pro](https://apps.apple.com/app/id424389933) | Large download |
 | [GarageBand](https://apps.apple.com/app/id682658836) | |
 | [Hush \| AI for Spoken Audio](https://apps.apple.com/app/id1664181766) | |
 | [iMovie](https://apps.apple.com/app/id408981434) | |
-| [Keynote](https://apps.apple.com/app/id361285480) | |
+| [Keynote](https://apps.apple.com/app/id361285480) | Installed as `Keynote Creator Studio.app` |
 | [Logic Pro](https://apps.apple.com/app/id634148309) | Large download; its sound library downloads separately, inside the app |
-| [Mactracker](https://apps.apple.com/app/id430255202) | |
-| [Numbers](https://apps.apple.com/app/id361304891) | |
-| [Pages](https://apps.apple.com/app/id361309726) | |
+| [Numbers](https://apps.apple.com/app/id361304891) | Installed as `Numbers Creator Studio.app` |
+| [Pages](https://apps.apple.com/app/id361309726) | Installed as `Pages Creator Studio.app` |
 | [Parcel Classic](https://apps.apple.com/app/id639968404) | |
 | [Pixelmator Pro](https://apps.apple.com/app/id1289583905) | |
 | [Pure Paste](https://apps.apple.com/app/id1611378436) | |
-| [Speedtest by Ookla](https://apps.apple.com/app/id1153157709) | |
 | [Xcode](https://apps.apple.com/app/id497799835) | Large download; needed to build the app repositories in `~/Projects` |
 
 ## Why they are not in the Brewfile
@@ -57,3 +50,8 @@ Nothing checks it. When you install or stop using an App Store app, edit this fi
 
 `post-install` restores preferences and login items only for applications that are installed
 when it runs, so on a new machine install these first, then run `make post-install` again.
+
+Until 2026-09-28 it also listed Blackmagic Disk Speed Test, Code of War Mobile Shooter,
+Compressor, DM1 - The Drum Machine, Encrypto, Mactracker and Speedtest by Ookla. None of them
+was installed after the 2026-09-15 migration, so they were taken off the list (audit 15, T-15).
+They are still in the App Store's Purchased list if you want one back.

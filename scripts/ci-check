@@ -191,7 +191,9 @@ log "undo files"
 # The hand-written lists of commands, targets and tests, against the repository:
 # until 2026-09-28 the manual listed three ~/Makefile targets that did not
 # exist, make check's help and the manual's row missed half the tests, and BIN-1
-# said 39 entries where it had 41. Audit 19, W-26, W-27, W-28.
+# said 39 entries where it had 41. Audit 19, W-26, W-27, W-28. Since
+# 2026-09-28 it also holds README's and the manual's defaults key count to
+# check-defaults-desc's (audit 15, T-3).
 log "docs drift"
 "$REPO_ROOT/tests/docs-drift.sh"
 
