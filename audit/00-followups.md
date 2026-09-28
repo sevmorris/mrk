@@ -24,6 +24,11 @@ shellcheck and staticcheck were all green beforehand, and govulncheck found noth
   their saved plists, so the imports are skipped. The migration-day rollback file shows it on
   this Mac. Fixed the same day; see Closed.
 
+**Open items refreshed:** 2026-09-28 against `fc27cbc`. Every entry under Deferred decisions
+and Known limitations was checked against the Mac and the repository, read-only, and corrected
+where it had gone stale: the five module-18 casks were already gone, U-4 looked done, and two
+known limitations described code that has since changed.
+
 **Previously re-verified:** 2026-09-23 against `84a6825` by module 18
 (`18-audit-2026-09-23.md`). It asked whether mrk suits the M5 Pro on macOS 26 it now runs on,
 checking every Brewfile package against Homebrew's own definitions, the Go tools as built for
@@ -116,16 +121,18 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
 
 **Module 18's open items (2026-09-23).** Details are in `18-audit-2026-09-23.md`.
 
-- **The five casks removed from the Brewfile are still on the Mac.** `sync` offers any
-  installed leaf again. → To close: `brew uninstall --cask kobo minecraft veracrypt macfuse
-  samsung-magician` on the Mac.
-- **Startup Security.** If macFUSE's or Samsung Magician's kext was ever approved, this Mac is
-  at Reduced Security. → To close: after the uninstall, check it in recoveryOS and set it back
-  to Full Security if nothing else needs it.
-- **Intel-only apps that Homebrew does not mark.** App Store apps and casks with a single build
-  are unchecked, and `mdfind` cannot find them with Spotlight indexing off. → To close: run
-  `lipo -archs` over the executables in `/Applications`, and decide per app. A check in
-  `mrk-status` could keep it true.
+- **Startup Security (your action).** The five casks removed from the Brewfile are gone from
+  the Mac too. On 2026-09-28 none was installed, and no macFUSE or Samsung kernel extension was
+  loaded. If either kext was ever approved, this Mac is still at Reduced Security. → To close:
+  check it in recoveryOS (Startup Security Utility), and set it back to Full Security if nothing
+  else needs it.
+- **Intel-only apps and plug-ins (your decisions).** Surveyed 2026-09-28 with `lipo -archs`:
+  - **Apps:** one of 98 app bundles is Intel-only, `Waves AU Reg Utility 12`.
+  - **Plug-ins:** 9 of 74 audio plug-in bundles are Intel-only. They are Waves' V12 shells, its
+    V13 and V14 VST2 shells, and iZotope's RX 12 spectral-editor AU hook.
+
+  Rosetta is installed. → To close: decide per component, in Waves Central and iZotope's
+  installer. mrk manages none of them. The list is in `18-audit-2026-09-23.md`.
 - **Browser GPU caches and nvm at shell start.** `clear-app-caches` deletes Helium's compiled
   Metal pipelines daily. `.zshrc` loads nvm eagerly, which was not measured. Both are the
   owner's call.
@@ -157,8 +164,10 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
 
 U-7 and U-8 were decided on 2026-09-28; see Closed.
 
-**U-4's state half is the owner's.** Thaw replaced Ice in mrk and on this Mac. Start Thaw,
-grant it Accessibility, and let it start at login.
+**U-4's state half looks done.** Thaw replaced Ice in mrk and on this Mac. On 2026-09-28 Thaw was
+running and was a login item. Its Accessibility permission was not checked, because that would
+mean reading the privacy database. → To close: confirm that Thaw is on in System Settings ›
+Privacy & Security › Accessibility.
 
 **Module 15's decisions (2026-09-16): all settled.** All six were settled on 2026-09-28: T-3,
 T-8, T-9, T-14 and T-15 were decided, and T-11 turned out to have been done on 2026-09-18. See
@@ -199,38 +208,50 @@ it explicitly. Documented in `12-fresh-audit-2026-08.md N-19`.
 
 ## Known limitations (documented, not blocking)
 
+Items the audit identified that are real but classified as acceptable.
+
 **sync-login-items keys tracked items by bundle file name, and system items by login-item
 name.** If an app's login item is named differently from its `.app` file, sync-login-items
 lists it as new and as stale on every run. No app on this Mac is like that. Found while writing
 `tests/sync-login-items.sh` (module 17).
 → To close: compare by normalized path instead of by name.
 
-Items the audit identified that are real but classified as acceptable.
+**About 40 app-preference writes have no undo.** The six app-defaults scripts that Phase 3 runs
+write their keys directly, and none writes a line to `defaults-rollback.sh`. Counted on
+2026-09-28:
 
-**~40 browser and app-preference writes have NO ROLLBACK FOUND.** Safari, Helium, Audio
-Hijack, Fission, AlDente, and all six Rogue Amoeba update-suppression domains are written
-by `assets/browsers/` and `assets/preferences/` scripts with no rollback entries
-(`scripts/post-install:157,173,189,203,356,363,369,373`). The 14 plist imports
-(`defaults import`, `:464-477`) and browser policy JSON files also have no rollback.
-Documented in `02-side-effects.md` (macOS defaults tables) and `11-test-results.md §5`.
-Re-verified unchanged 2026-08-02. Still the largest deferred item.
-→ To close: extend the rollback mechanism to these paths. Significant work; lower
-priority because plist imports are gated on the preferences file being absent (skip-if-
-exists) and browser policies are additive, not destructive to existing user settings.
+| Script | Writes |
+|---|---|
+| Safari | 9 |
+| AlDente | 9 |
+| Fission | 6 |
+| Audio Hijack | 4 |
+| Helium | 2 |
+| Rogue Amoeba | 2 for each Rogue Amoeba app installed, up to 12 |
 
-**ARGS word-split for value-bearing flags.** Make word-splits `$(ARGS)` before the
-shell receives it. For single-token flags (`--dry-run`, `-c`) this is benign. For
-flags with embedded spaces (`ARGS="--message hello world"`) the value is split into
-three tokens. A TODO comment documents this at `Makefile:140-141` (was `:145-146`, and `:124` before
-that). No current ARGS values trigger the problem. Documented in `04-makefile-audit.md L1`.
-→ To close: quote the expansion in each recipe: `@"$(SCRIPTS)/sync" "$(ARGS)"`. For
-multi-flag use, a proper argument-splitting approach or documented workaround would
-also help.
+- **Where the imports cover them.** Where post-install also imported the app's plist on that Mac
+  (Helium, Audio Hijack and the Rogue Amoeba apps), the import's undo line deletes the whole
+  domain, and these keys go with it. Safari, AlDente and Fission have no undo at all. `manual.md`
+  says so beside `defaults-rollback.sh`.
+- **What changed since this entry was written.** The 17 plist imports do have an undo now: one
+  whole-domain line each, which `make uninstall` and `nuke-mrk` offer separately (audit 19,
+  W-13). The browser policy files this entry named were removed.
+
+Still the largest deferred item.
+→ To close: give the app-defaults scripts an undo, as `defaults.sh` has. Significant work.
+
+**ARGS splits on spaces.** `$(ARGS)` reaches each recipe unquoted, so the shell splits it.
+That is what lets `ARGS="-c -p"` carry two flags, and it means no single value can hold a
+space. A note above the Makefile's `sync` target says so. Audit 04 L1 blamed Make for the
+split, and audit 19 W-29 corrected it: the split is the shell's. Quoting the expansion, the fix
+this entry used to propose, would break every multi-flag use. No current ARGS value holds a
+space.
+→ To close: nothing, unless a value with a space is ever needed. Then run that script directly.
 
 **make doctor --fix bare form (Make limitation).** `make doctor --fix` is interpreted
 by Make as passing `--fix` as a Make option and produces `make: invalid option -- -`.
-The documented canonical form is `make doctor ARGS=--fix` (Makefile has `$(ARGS)`
-passthrough at `:121`). Fixing the bare form would require MAKEFLAGS manipulation or
+The documented canonical form is `make doctor ARGS=--fix` (the Makefile passes `$(ARGS)`
+through). Fixing the bare form would require MAKEFLAGS manipulation or
 `.RECIPEPREFIX` changes — marginal value. Documented in
 `07-contract-verification.md CLAIM-06`.
 The bare form had regressed into `docs/manual.md`; Phase B corrected it in `292485f`,
