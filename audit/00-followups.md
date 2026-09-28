@@ -16,7 +16,8 @@ nothing, and its 30 items wait for fix sessions, listed below. `ci-check`, `go v
 shellcheck and staticcheck were all green beforehand, and govulncheck found nothing reachable. Two findings lead:
 - **W-1 (CRITICAL).** On a Mac without Homebrew, `make setup` and `make brew` both exit 1 at a
   bash-4 guard. That is the README's quick start and the manual's new-machine walkthrough.
-  Nothing sees it, because test installs keep Homebrew and CI installs bash first.
+  Nothing sees it, because test installs keep Homebrew and CI installs bash first. Fixed the
+  same day; see Closed. The fix found W-31 (HIGH) further along the same path, below.
 - **W-2 (HIGH).** post-install writes Sparkle keys into six apps' domains before it imports
   their saved plists, so the imports are skipped. The migration-day rollback file shows it on
   this Mac. Fixed the same day; see Closed.
@@ -97,12 +98,7 @@ below.
 
 ## Blocking
 
-- **W-1 (module 19, CRITICAL): a Mac without Homebrew cannot run Phase 1 or Phase 2.**
-  `scripts/setup:4-10` and `scripts/brew:4-10` exit 1 unless Homebrew's bash is present. setup
-  needs no bash 4; brew does, and is what installs Homebrew. Details and the reproduction are in
-  `19-audit-2026-09-27.md`.
-
-N-1 is fixed — see Closed below.
+Nothing. W-1 and N-1 are fixed — see Closed below.
 
 ---
 
@@ -112,14 +108,25 @@ Items that require a real choice before they can be closed in either direction.
 
 **Module 19's findings (2026-09-27), awaiting fix sessions.** Unlike the modules before it,
 module 19 fixed nothing, so every item was open. Details, evidence and line numbers are in
-`19-audit-2026-09-27.md`. W-1 is under Blocking above. W-2 is fixed; see Closed.
+`19-audit-2026-09-27.md`. W-1 is fixed (see Closed), and its fix session added W-31. W-2 is
+fixed; see Closed.
+
+- **HIGH.** W-31: after Phase 2, `make all` does not see Homebrew. Phase 3 logs topgrade, pyenv
+  and pinentry-mac as not installed and skips them, and `build-tools` fails with "Go is not
+  installed", so the README's quick start still exits 2 on a new Mac. The manual's Step 5 skips
+  the same three. The fix is a choice between three candidates, set out in the module:
+  - `brew shellenv` in post-install and the Makefile's go check
+  - the Makefile prepending Homebrew's bin
+  - `exec zsh` in the docs, which fixes the walkthrough only
 
 - **MEDIUM.**
   - W-3: hardening.sh and trim-services keep the rollback check that can empty an undo file.
   - W-4: setup links git-ignored files in `dotfiles/`, and can displace `~/.claude`.
   - W-5: setup and post-install run from any checkout repoint `~` at it.
   - W-6: brew ignores `--no-casks`, `--no-formulae` and `--only-formulae` without a TTY.
-  - W-7: `make setup-dry` can run `sudo xcodebuild -license accept`.
+  - W-7: `make setup-dry` can run `sudo xcodebuild -license accept`. The W-1 fix found that it
+    can also register a shell in `/etc/shells` and run `chsh`, when the login shell is not the
+    first zsh on PATH, as it is not here in a shell without Homebrew.
   - W-8: `services-rollback.sh` is never offered, and nuke-mrk trashes it, which it did here on
     2026-09-24.
 - **LOW.**
@@ -308,6 +315,64 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the W-1 fix, branch `claude/fix-w1-bootstrap-bash`, 2026-09-27
+
+Details, the choice of approach and the mutation table are in `19-audit-2026-09-27.md`, W-1.
+
+- **W-1 (CRITICAL)** — `scripts/setup` and `scripts/brew` began by re-executing themselves with
+  `/opt/homebrew/bin/bash` or `/usr/local/bin/bash`, and exited 1 when neither existed. On a Mac
+  without Homebrew, `make setup` and `make brew` stopped at their first lines, and brew is the
+  phase that installs Homebrew.
+
+  **Evidence.** The module's reproduction: a scratch copy with the two guard paths pointing
+  nowhere, and `PATH=/usr/bin:/bin`. `make setup` and `make brew` both printed "bash 4+
+  required" and exited 2.
+
+  **Fix.** Neither script re-executes. setup needed no bash 4. brew is now bash-3.2-clean: lists
+  replace its associative arrays, a global replaces its namerefs. It takes `MRK_BREW`, as sync
+  does. Making brew 3.2-clean was chosen over installing Homebrew's bash under 3.2 and then
+  re-executing. That way would have kept two paths through Phase 2, and a dry run on a new Mac
+  could not have got past it. The test found three more defects on the same path, fixed here:
+  - brew's dry run without Homebrew stopped with "Homebrew is not available"
+  - under bash 3.2 a `set -u` abort exits 0 through an EXIT trap; both traps now exit 1 for a run
+    that did not reach its end
+  - setup expanded an array that bash 3.2 calls unbound when empty
+
+  **Test.** `tests/new-mac.sh`, in `ci-check`. It runs both scripts through their `#!` lines
+  and through `make`, on a copy of the repository, under a throwaway HOME, with `env -i` and no
+  Homebrew on PATH. It runs them under `/bin/bash` 3.2.57, then Homebrew's bash 5.3.20, with
+  `curl`, `brew`, `gum` and the system commands stubbed. `BASH_ENV` records the bash that runs
+  each script, so a hand-over to Homebrew's bash is caught even where it exists. A static guard
+  rejects bash-4 syntax in every script a new Mac runs under `/bin/bash`. 51 checks, all pass.
+
+  | Mutation | Failing checks (`/bin/bash`, bash 5.3, guard) |
+  |---|---|
+  | setup as on `main` | 5, 0, 0 |
+  | setup as on `main`, on a Mac with no Homebrew | 10, 0, 0 |
+  | brew with `main`'s guard put back | 7, 0, 0 |
+  | the same, on a Mac with no Homebrew | 16, 0, 0 |
+  | `declare -A` put back in brew | 16, 0, 1 |
+  | `${type_label,,}` put back | 0, 0, 1 |
+  | brew's loop over both package arrays put back | 2, 0, 0 |
+  | setup's `bin/` loop unguarded | 2, 0, 0 |
+  | setup's trap fix removed | 1, 0, 0 |
+  | brew's trap fix removed | 1, 0, 0 |
+  | the dry-run fix removed, from `main` / from `install_brewfile` | 3, 3, 0 / 1, 1, 0 |
+  | brew ignoring `MRK_BREW` | 12, 12, 0 |
+  | `in_list` always false | 4, 4, 0 |
+  | brew as on `main` | 8, 3, 1 |
+
+  Under bash 5.3, `main`'s brew fails only the dry-run checks without Homebrew, and the guard.
+  On a Mac with Homebrew's bash, brew's selection and install behaviour is unchanged.
+
+  Documented in:
+  - the manual's Phases 1 and 2, the new-machine prerequisites, and its `make check` row
+  - BIN-1 §2.12, §2.13 and §2.22
+
+  SMAC-1 §2.2 was read and needed no change: it names no prerequisite. Nothing on this Mac was
+  changed. What no test covers is a real new Mac: Homebrew's installer, its prompts and a real
+  `brew bundle`. That run is the owner's.
 
 ### Closed by the W-2 fix, branch `claude/fix-w2-plist-import-order`, 2026-09-27
 

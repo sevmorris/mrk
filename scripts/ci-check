@@ -26,7 +26,7 @@ Options:
 ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
-restore-keys, install-all, pinned-downloads, sync-login-items, sync,
+restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
 check-picker-desc, topgrade-npm, picard-settings and plist-import-order tests in tests/, shellcheck over the tracked scripts (the skills' audit scripts included),
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
@@ -116,6 +116,13 @@ log "restore-keys"
 # phases itself and skipped what make all does around them. It now runs make all.
 log "install --all"
 "$REPO_ROOT/tests/install-all.sh"
+
+# setup and brew as a new Mac runs them: under /bin/bash, with no Homebrew and
+# curl, brew and gum stubbed. Until 2026-09-27 both demanded Homebrew's bash
+# and exited 1 without it, so neither could run on the Mac it was for — and
+# brew is the phase that installs Homebrew.
+log "new Mac (bash 3.2, no Homebrew)"
+"$REPO_ROOT/tests/new-mac.sh"
 
 # git_clone_pinned, against repositories built on the spot: until 2026-09-18 nvm
 # arrived by piping its install script into bash and the zsh plugins by tag

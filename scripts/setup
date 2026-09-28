@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 
-# Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2)
-if (( BASH_VERSINFO[0] < 4 )); then
-  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
-    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
-  done
-  echo "error: bash 4+ required (system bash is ${BASH_VERSION}; install via 'brew install bash')" >&2
-  exit 1
-fi
+# mrk setup — Phase 1: idempotent bootstrap for macOS (with Strap-inspired improvements)
+#
+# No bash-4 re-exec. Phase 1 runs before Homebrew exists, under the bash 3.2
+# that macOS ships, and it needs nothing newer. From 2026-03-20 until
+# 2026-09-27 it re-executed itself with Homebrew's bash and, finding none,
+# exited 1, so a Mac without Homebrew could not run Phase 1 at all (audit 19,
+# W-1). Keep it 3.2-clean: no associative arrays, namerefs or ${x,,}, and an
+# array that may be empty is expanded as ${a[@]+"${a[@]}"}, because bash 3.2
+# calls an empty array unbound under set -u. tests/new-mac.sh runs this under
+# /bin/bash.
 
 set -euo pipefail
-
-# mrk setup — Phase 1: idempotent bootstrap for macOS (with Strap-inspired improvements)
 
 # Resolve symlinks so this works when called via ~/bin
 _self="${BASH_SOURCE[0]}"
@@ -84,10 +84,18 @@ fi
 CURRENT_STEP=""
 MRK_SUCCESS=""
 cleanup() {
+  local rc=$?
   if [[ -z "$MRK_SUCCESS" ]]; then
     err "!!! ${CURRENT_STEP:-unknown step} FAILED"
     err "See $LOGFILE for details"
+    # Under bash 3.2 a `set -u` abort runs this with $? at 0, and the script
+    # then exits 0, so make all would go on to Phase 2 after a failed Phase 1.
+    # Bash 5 exits 1 there itself.
+    if (( rc == 0 )); then
+      rc=1
+    fi
   fi
+  exit "$rc"
 }
 trap "cleanup" EXIT
 
@@ -301,7 +309,7 @@ phase_link_tools() {
     done < <(find "$SCRIPTS_DIR" -maxdepth 1 -type f -print0 2>/dev/null)
     
     local current=0
-    for f in "${files[@]}"; do
+    for f in ${files[@]+"${files[@]}"}; do
       [[ -f "$f" && -x "$f" ]] || continue
       ((current++)) || true
       local base link_name
@@ -365,7 +373,7 @@ phase_link_tools() {
     done < <(find "$BIN_DIR" -maxdepth 1 -type f -print0 2>/dev/null)
     
     local current=0
-    for f in "${bin_files[@]}"; do
+    for f in ${bin_files[@]+"${bin_files[@]}"}; do
       [[ -f "$f" && -x "$f" ]] || continue
       ((current++)) || true
       local base
