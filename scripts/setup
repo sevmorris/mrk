@@ -546,14 +546,26 @@ phase_dotfiles() {
       continue
     fi
 
-    if [[ -e "$dst" && ! -L "$dst" ]]; then
+    # Anything else there is backed up before the link replaces it: a file, a
+    # folder, or a link that points elsewhere or at nothing. A link that
+    # reaches src by another path is the same file, and is relinked without a
+    # backup. Until 2026-09-28 every link was replaced with no backup, so a
+    # dotfile linked from elsewhere was lost without a record (audit 17).
+    local in_way=0
+    if [[ -L "$dst" ]]; then
+      [[ "$dst" -ef "$src" ]] || in_way=1
+    elif [[ -e "$dst" ]]; then
+      in_way=1
+    fi
+    if (( in_way )); then
       if (( DRY_RUN )); then
         dry "Would backup: $dst -> $BACKUP_DIR/$(basename "$dst")"
         ((backed_up++)) || true
       else
         log "Backing up: $dst -> $BACKUP_DIR/$(basename "$dst")"
         mkdir -p "$BACKUP_DIR" || { err "Failed to create backup directory: $BACKUP_DIR"; shopt -u dotglob nullglob; printf "\r" >&2; return 1; }
-        if ! mv "$dst" "$BACKUP_DIR/" || [[ ! -e "$BACKUP_DIR/$(basename "$dst")" ]]; then
+        if ! mv "$dst" "$BACKUP_DIR/" \
+           || { [[ ! -e "$BACKUP_DIR/$(basename "$dst")" ]] && [[ ! -L "$BACKUP_DIR/$(basename "$dst")" ]]; }; then
           err "Failed to backup $dst - aborting dotfile linking"
           shopt -u dotglob nullglob
           printf "\r" >&2

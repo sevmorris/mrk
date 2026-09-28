@@ -51,7 +51,7 @@ It runs under the bash 3.2 that macOS ships, so it needs nothing installed first
 **What it does:**
 
 - Installs the Xcode Command Line Tools when they are absent.
-- Symlinks each file in `dotfiles/` into `$HOME`, except the README, the `*.example` files and `.DS_Store`. It never links a directory. Phase 1 first backs up any file that it replaces. Until 2026-09-27 it linked whatever was in `dotfiles/`, directories included. Claude Code creates `dotfiles/.claude/` for a session started in that folder, and Phase 1 then moved your real `~/.claude`, with its settings, sessions and memory, into `~/.mrk/backups`.
+- Symlinks each file in `dotfiles/` into `$HOME`, except the README, the `*.example` files and `.DS_Store`. It never links a directory. Before it links a dotfile, Phase 1 moves whatever is already there into a timestamped folder in `~/.mrk/backups/`: a file, a folder, or a link that points elsewhere or at nothing. A link that already reaches the same file is only relinked. Until 2026-09-28 a link was replaced with no backup. Until 2026-09-27 it linked whatever was in `dotfiles/`, directories included. Claude Code creates `dotfiles/.claude/` for a session started in that folder, and Phase 1 then moved your real `~/.claude`, with its settings, sessions and memory, into `~/.mrk/backups`.
 - Links into `~` only from `~/mrk`, or from the checkout `MRK_ROOT` names. Run from any other checkout, a worktree say, Phase 1 skips the dotfiles and `~/bin` with a warning, and runs its other steps. Until 2026-09-27 it linked `~` into whichever checkout ran it, so removing a worktree left every link dangling, and a new shell started without `.zshrc`.
 
 **Managed dotfiles:**

@@ -248,6 +248,72 @@ else
 fi
 rm -rf "$R/dotfiles/.claude" "$R/dotfiles/.DS_Store"
 
+# ── Things in a dotfile's place (audit 17) ───────────────────────────────────
+
+# setup replaces whatever is at a dotfile's path, and ~/.mrk/backups holds the
+# only copy of what was there. Audit 14 V-10 tried a regular file. Until
+# 2026-09-28 nothing had tried the rest, and a symlink there, working or
+# dangling, was replaced with no backup: the manual's "backups of the dotfiles
+# that setup replaced" was not true of it. A link that already reaches the
+# repository's own file, by another path, is relinked and needs no backup.
+in_the_way() {
+  fresh_home
+  rm -rf "$W/elsewhere" "$W/repo-alias"
+  mkdir -p "$W/elsewhere" "$H/.gitconfig"
+  echo mine > "$H/.aliases"
+  echo nested > "$H/.gitconfig/kept"
+  echo theirs > "$W/elsewhere/zshrc"
+  ln -s "$W/elsewhere/zshrc" "$H/.zshrc"
+  ln -s "$W/gone" "$H/.zprofile"
+  ln -s "$R" "$W/repo-alias"
+  ln -s "$W/repo-alias/dotfiles/.zshenv" "$H/.zshenv"
+}
+IN_THE_WAY=(.aliases .gitconfig .zshrc .zprofile .zshenv)
+
+in_the_way
+HOME_ROOT="$R" run "$R/scripts/setup" --only dotfiles --dry-run
+kept=""
+[[ "$(cat "$H/.aliases" 2>/dev/null)" == mine && -d "$H/.gitconfig" \
+   && "$(readlink "$H/.zshrc")" == "$W/elsewhere/zshrc" && "$(readlink "$H/.zprofile")" == "$W/gone" \
+   && "$(readlink "$H/.zshenv")" == "$W/repo-alias/dotfiles/.zshenv" ]] && kept=yes
+if [[ $RC == 0 && $kept == yes && ! -e "$H/.mrk/backups" ]] && has "Would back up 4 file(s)"; then
+  pass "things in the way, dry run: four backups named, nothing moved"
+else
+  fail "things in the way, dry run (exit $RC): unchanged ${kept:-no}"; show
+fi
+
+in_the_way
+HOME_ROOT="$R" run "$R/scripts/setup" --only dotfiles
+bk=""
+for d in "$H"/.mrk/backups/*/; do bk="${d%/}"; done
+unlinked=""
+for n in "${IN_THE_WAY[@]}"; do
+  [[ "$(readlink "$H/$n")" == "$R/dotfiles/$n" ]] || unlinked="$unlinked $n"
+done
+if [[ $RC == 0 && -z "$unlinked" ]] && has "Created 4 backup(s)"; then
+  pass "things in the way: all five linked, four backed up"
+else
+  fail "things in the way (exit $RC): not linked:${unlinked:- none}"; show
+fi
+if [[ -n "$bk" && "$(cat "$bk/.aliases" 2>/dev/null)" == mine \
+      && "$(cat "$bk/.gitconfig/kept" 2>/dev/null)" == nested ]]; then
+  pass "  a file and a folder in the way are backed up whole"
+else
+  fail "  file or folder backup: '${bk:-no backup dir}' holds $(/bin/ls -A "$bk" 2>/dev/null | tr '\n' ' ')"
+fi
+if [[ "$(readlink "$bk/.zshrc" 2>/dev/null)" == "$W/elsewhere/zshrc" \
+      && "$(cat "$W/elsewhere/zshrc")" == theirs \
+      && "$(readlink "$bk/.zprofile" 2>/dev/null)" == "$W/gone" ]]; then
+  pass "  a link elsewhere and a dangling link are backed up as links; the target is untouched"
+else
+  fail "  link backups: .zshrc -> '$(readlink "$bk/.zshrc" 2>/dev/null)', .zprofile -> '$(readlink "$bk/.zprofile" 2>/dev/null)'"
+fi
+if [[ ! -e "$bk/.zshenv" && ! -L "$bk/.zshenv" ]]; then
+  pass "  a link to the same file by another path is relinked with no backup"
+else
+  fail "  the same file by another path was backed up"
+fi
+
 # ── W-7: a dry run changes nothing ───────────────────────────────────────────
 
 # A new Mac: no Command Line Tools, Xcode.app present, and a login shell that
