@@ -21,6 +21,12 @@ set -euo pipefail
 #   loses its signing continuity. It lives in the login Keychain, so no
 #   file-tree backup catches it, which is exactly why it is bundled here.
 #
+#   A few credentials live inside a project's working tree, gitignored, because
+#   its build reads them from there. git never carries them, and Magic Backup
+#   Machine's copy of ~/Projects is not encrypted, so they ride here too, under
+#   Projects/ in the archive. restore-keys puts each back only once the checkout
+#   it belongs in exists.
+#
 # Format is symmetric OpenPGP, AES-256, ASCII-armored — the same shape KeyVault
 # exports, so both halves of a transfer open with a plain `gpg -d` on any
 # machine, years from now, with no mrk and no KeyVault present.
@@ -63,7 +69,8 @@ usage() {
   cat <<'EOF'
 Usage: snapshot-keys [-o PATH] [-n] [-f] [--no-signing]
 
-Bundle ~/.ssh, ~/.gnupg and your code-signing identities into one
+Bundle ~/.ssh, ~/.gnupg, your code-signing identities and the credentials
+projects keep out of git (DoublEnder's Cloud keys) into one
 passphrase-encrypted OpenPGP archive.
 
   -o, --output PATH   Where to write the archive
@@ -149,6 +156,28 @@ for s in "${sources[@]}"; do
   count=$(find "$HOME/$s" -type f 2>/dev/null | wc -l | tr -d ' ')
   # shellcheck disable=SC2088  # Literal "~/" for the reader, not a path to expand
   log "~/$s ($count files)"
+done
+
+# ── Credentials kept inside projects ──────────────────────────────────────────
+
+# Paths relative to $HOME. The component after Projects/ names the checkout a
+# file belongs in, which is what restore-keys waits for before putting it back.
+# DoublEnder's Cloud edition signs its uploads with a GCS service-account key
+# and its heartbeat with a Cloudflare Access token; both are gitignored in both
+# of its repositories, and its pre-commit hook refuses them.
+PROJECT_SECRETS=(
+  'Projects/DoublEnder/DoublEnderCloud/doublender-*.json'
+  'Projects/DoublEnder/DoublEnderCloud/ingest.env'
+)
+project_files=()
+for pat in "${PROJECT_SECRETS[@]}"; do
+  while IFS= read -r f; do
+    if [[ -f "$f" ]]; then project_files+=("${f#"$HOME"/}"); fi
+  done < <(compgen -G "$HOME/$pat" || true)
+done
+for f in ${project_files[@]+"${project_files[@]}"}; do
+  # shellcheck disable=SC2088  # Literal "~/" for the reader, not a path to expand
+  log "~/$f"
 done
 
 # ── Code-signing identities ───────────────────────────────────────────────────
@@ -241,6 +270,9 @@ tar_excludes=(
 if (( DRY_RUN )); then
   echo "" >&2
   dry "Would bundle: ${sources[*]}"
+  if (( ${#project_files[@]} > 0 )); then
+    dry "Would bundle ${#project_files[@]} project credential file(s) under Projects/"
+  fi
   if (( WITH_SIGNING )); then
     sig_count=$(security find-identity -v -p codesigning 2>/dev/null | grep -c ')' || true)
     if [[ -n "$sig_count" && "$sig_count" != "0" ]]; then
@@ -252,7 +284,7 @@ if (( DRY_RUN )); then
   dry "Would write:  $OUTPUT"
   echo "" >&2
   info "Contents that would be included:"
-  tar -czf - -C "$HOME" "${tar_excludes[@]}" "${sources[@]}" 2>/dev/null \
+  tar -czf - -C "$HOME" "${tar_excludes[@]}" "${sources[@]}" ${project_files[@]+"${project_files[@]}"} 2>/dev/null \
     | tar -tvf - 2>/dev/null | sed 's/^/    /' >&2 || true
   exit 0
 fi
@@ -283,7 +315,8 @@ tmp_out="$(mrk_mktemp)"
 cleanup() { rm -f "$tmp_out"; cleanup_stage; }
 trap cleanup EXIT
 
-if ! tar -czf - -C "$HOME" "${tar_excludes[@]}" "${sources[@]}" "${tar_extra[@]}" 2>/dev/null \
+if ! tar -czf - -C "$HOME" "${tar_excludes[@]}" "${sources[@]}" ${project_files[@]+"${project_files[@]}"} \
+       ${tar_extra[@]+"${tar_extra[@]}"} 2>/dev/null \
    | gpg --symmetric --cipher-algo AES256 --armor --yes -o "$tmp_out"; then
   err "Encryption failed — no archive written."
   exit 1

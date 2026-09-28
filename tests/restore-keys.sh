@@ -15,6 +15,11 @@
 # to 104 bytes. A real gpg builds the keyring and the archive; a gpg first on
 # PATH supplies the passphrase. The real ~/.gnupg and its agent are not touched.
 #
+# It also has snapshot-keys build an archive holding project credentials, and
+# proves restore-keys puts those only into a checkout that exists: on a new
+# machine it runs before restore-repos, and a file written into
+# ~/Projects/DoublEnder first would stop restore-repos from cloning it.
+#
 # Runs restore-keys under /bin/bash as well as the bash running it. ci-check
 # runs it.
 
@@ -105,6 +110,58 @@ restore() {
   return "$rc"
 }
 
+# ── An archive from snapshot-keys, holding project credentials ─────────────────
+
+# snapshot-keys builds this one itself, so the test covers what it bundles as
+# well as how restore-keys puts it back. The contents are placeholders.
+PSRC="$ROOT/psrc"
+CLOUD="Projects/DoublEnder/DoublEnderCloud"
+mkdir -m 700 "$PSRC" "$PSRC/.ssh"
+mkdir -p "$PSRC/Projects/DoublEnder/.git" "$PSRC/$CLOUD"
+printf 'not-a-real-key\n' > "$PSRC/.ssh/id_test"
+printf 'placeholder json\n' > "$PSRC/$CLOUD/doublender-test.json"
+printf 'placeholder env\n' > "$PSRC/$CLOUD/ingest.env"
+printf 'tracked template\n' > "$PSRC/$CLOUD/ingest.env.example"
+PARCHIVE="$ROOT/mrk-keys-projects.asc"
+snap() {  # snap ARGS... — run snapshot-keys in PSRC
+  HOME="$PSRC" GNUPGHOME="" PATH="$(stub_dir "$PASSPHRASE"):$PATH" \
+    "$REPO_ROOT/scripts/snapshot-keys" --no-signing "$@"
+}
+if snap -n -o "$ROOT/dry-run.asc" >"$ROOT/snap-dry.log" 2>&1 && grep -q "$CLOUD/ingest.env" "$ROOT/snap-dry.log"; then
+  pass "snapshot-keys -n lists the project credentials"
+else
+  fail "snapshot-keys -n did not list the project credentials; see $ROOT/snap-dry.log"
+fi
+if snap -o "$PARCHIVE" >"$ROOT/snap.log" 2>&1 && [[ -s "$PARCHIVE" ]]; then
+  pass "snapshot-keys writes an archive"
+else
+  fail "snapshot-keys wrote no archive; see $ROOT/snap.log"
+  exit 1
+fi
+listing=$("$REAL_GPG" --homedir "$ROOT/enc" --batch --pinentry-mode loopback --passphrase "$PASSPHRASE" \
+  -d -q "$PARCHIVE" 2>/dev/null | tar -tf - 2>/dev/null)
+if grep -qx "$CLOUD/doublender-test.json" <<<"$listing" && grep -qx "$CLOUD/ingest.env" <<<"$listing" \
+   && grep -qx '.ssh/id_test' <<<"$listing"; then
+  pass "the archive holds the keys and both project credentials, under Projects/"
+else
+  fail "the archive is missing a key or a project credential: $(tr '\n' ' ' <<<"$listing")"
+fi
+if grep -q 'ingest\.env\.example' <<<"$listing"; then
+  fail "the archive holds ingest.env.example, which git already carries"
+else
+  pass "a tracked file beside them is left out"
+fi
+
+# placed HOME — do both project credentials sit in HOME, identical to the
+# originals and mode 600?
+placed() {
+  local f
+  for f in doublender-test.json ingest.env; do
+    cmp -s "$1/$CLOUD/$f" "$PSRC/$CLOUD/$f" || return 1
+    [[ -n "$(find "$1/$CLOUD/$f" -perm 600)" ]] || return 1
+  done
+}
+
 # sees_key HOME — does gpg, run as it would be in that HOME, list the key?
 sees_key() {
   HOME="$1" GNUPGHOME="" "$REAL_GPG" --list-keys --with-colons 2>/dev/null \
@@ -177,13 +234,100 @@ cases() {
   if [[ -z "$LEFTOVER" ]]; then pass "the scratch home is removed after -l"; else fail "scratch home left behind after -l: $LEFTOVER"; fi
 }
 
+project_cases() {
+  local sh="$1" h rc tag
+  # shellcheck disable=SC2016  # expanded by the inner bash, not this one
+  tag="$(basename "$sh")-$("$sh" -c 'echo "${BASH_VERSINFO[0]}"')"
+
+  # A new machine: the keys come back, and ~/Projects is left to restore-repos.
+  h="$ROOT/$tag-pnew"; mkdir -m 700 "$h"
+  if restore "$sh" "$h" "$PASSPHRASE" "$PARCHIVE" && [[ -f "$h/.ssh/id_test" ]]; then
+    pass "restores the keys from an archive holding project credentials"
+  else
+    fail "the restore exited non-zero or left out ~/.ssh; see $h.log"
+  fi
+  if [[ -e "$h/Projects" ]]; then
+    fail "a restore before restore-repos wrote into ~/Projects"
+  else
+    pass "nothing is written into ~/Projects before the project is cloned"
+  fi
+  if grep -q 'restore-keys --projects' "$h.log"; then
+    pass "it says which credentials wait, and how to restore them"
+  else
+    fail "it did not say the project credentials are still to come; see $h.log"
+  fi
+  if [[ -z "$LEFTOVER" ]]; then pass "the scratch home is removed"; else fail "scratch home left behind: $LEFTOVER"; fi
+
+  # --projects before the clone: nothing written, and a non-zero exit.
+  restore "$sh" "$h" "$PASSPHRASE" --projects "$PARCHIVE"; rc=$?
+  if (( rc != 0 )) && [[ ! -e "$h/Projects" ]]; then
+    pass "--projects with the project not cloned exits $rc and writes nothing"
+  else
+    fail "--projects with the project not cloned exited $rc or wrote into ~/Projects"
+  fi
+
+  # After restore-repos: --projects puts them in place.
+  mkdir -p "$h/Projects/DoublEnder/.git"
+  if restore "$sh" "$h" "$PASSPHRASE" --projects "$PARCHIVE" && placed "$h"; then
+    pass "--projects puts both credentials into the cloned project, mode 600"
+  else
+    fail "--projects did not place both credentials, identical and 600; see $h.log"
+  fi
+
+  # A different file already there is kept aside; an identical one is not.
+  printf 'edited since\n' > "$h/$CLOUD/ingest.env"
+  if restore "$sh" "$h" "$PASSPHRASE" --projects "$PARCHIVE" && placed "$h"; then
+    pass "--projects restores over an existing credential"
+  else
+    fail "--projects over an existing credential failed; see $h.log"
+  fi
+  if grep -qx 'edited since' "$h/$CLOUD"/ingest.env.before-restore-* 2>/dev/null; then
+    pass "the different one is kept, timestamped"
+  else
+    fail "the edited ingest.env was not kept aside"
+  fi
+  if compgen -G "$h/$CLOUD/doublender-test.json.before-restore-*" >/dev/null; then
+    fail "an identical credential was kept aside as well"
+  else
+    pass "an identical one leaves no copy behind"
+  fi
+
+  # The wrong passphrase: the credentials already there are untouched.
+  printf 'edited again\n' > "$h/$CLOUD/ingest.env"
+  restore "$sh" "$h" "not-the-passphrase" --projects "$PARCHIVE"; rc=$?
+  if (( rc != 0 )) && grep -qx 'edited again' "$h/$CLOUD/ingest.env"; then
+    pass "--projects with the wrong passphrase exits $rc and changes nothing"
+  else
+    fail "--projects with the wrong passphrase exited $rc or changed ingest.env"
+  fi
+
+  # A full restore onto a machine where the project is already cloned places
+  # them in the same run.
+  h="$ROOT/$tag-pcloned"; mkdir -m 700 "$h"; mkdir -p "$h/Projects/DoublEnder/.git"
+  if restore "$sh" "$h" "$PASSPHRASE" "$PARCHIVE" && placed "$h"; then
+    pass "a full restore places them when the project is already cloned"
+  else
+    fail "a full restore with the project cloned did not place them; see $h.log"
+  fi
+
+  # An archive from before project credentials: --projects has nothing to do.
+  h="$ROOT/$tag-pold"; mkdir -m 700 "$h"
+  if restore "$sh" "$h" "$PASSPHRASE" --projects "$ARCHIVE" && grep -q 'holds no project credentials' "$h.log"; then
+    pass "--projects on an archive without them says so and exits 0"
+  else
+    fail "--projects on an archive without project credentials failed; see $h.log"
+  fi
+}
+
 # shellcheck disable=SC2016  # expanded by the inner bash, not this one
 printf '  under bash %s\n' "$(/bin/bash -c 'echo "${BASH_VERSION%%(*}"')"
 cases /bin/bash
+project_cases /bin/bash
 if [[ ! "$BASH" -ef /bin/bash ]]; then
   # shellcheck disable=SC2016  # expanded by the inner bash, not this one
   printf '  under bash %s\n' "$("$BASH" -c 'echo "${BASH_VERSION%%(*}"')"
   cases "$BASH"
+  project_cases "$BASH"
 fi
 
 (( fails == 0 ))

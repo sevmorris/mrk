@@ -433,7 +433,7 @@ Do these ten steps on the **old machine** before you transfer. They run in the s
 make snapshot-keys
 ```
 
-`snapshot-keys` bundles `~/.ssh`, `~/.gnupg` and your code-signing identities into one passphrase-encrypted OpenPGP archive. It writes the archive to `~/Desktop` and pushes it nowhere. Use `ARGS="-o PATH"` to write it somewhere else, and `ARGS=-n` to see what it would bundle first.
+`snapshot-keys` bundles `~/.ssh`, `~/.gnupg`, your code-signing identities and the two credentials DoublEnder's Cloud edition keeps out of git — its GCS service-account key and `ingest.env` — into one passphrase-encrypted OpenPGP archive. It writes the archive to `~/Desktop` and pushes it nowhere. Use `ARGS="-o PATH"` to write it somewhere else, and `ARGS=-n` to see what it would bundle first.
 
 > **Caution:** The identities need two passphrases. macOS asks for a `.p12` passphrase of its own, on top of the archive passphrase. Store both in your password manager. Apple reissues a lost certificate, but the private key is generated once — no archive, no key, no signing.
 
@@ -447,7 +447,7 @@ The script refuses to write inside `~/mrk` or `~/.mrk`, because `nuke-mrk` delet
 
 Start KeyVault, and export the vault. KeyVault writes its own passphrase-encrypted OpenPGP archive, which holds the API keys, the notes and the stored files. Put that archive on the transfer disk too.
 
-> **Note:** The two archives hold different things, and you need both. `snapshot-keys` holds the files in `~/.ssh` and `~/.gnupg`. The KeyVault export holds the API keys and the notes from the login Keychain, and the files that KeyVault stores. Neither one holds the other's contents.
+> **Note:** The two archives hold different things, and you need both. `snapshot-keys` holds the files in `~/.ssh` and `~/.gnupg`, the signing identities and DoublEnder's Cloud credentials. The KeyVault export holds the API keys and the notes from the login Keychain, and the files that KeyVault stores. Neither one holds the other's contents.
 
 **3. Sync the Brewfile**
 
@@ -489,7 +489,7 @@ pushall
 
 `restore-repos` brings `~/Projects` back to the new machine from GitHub: it clones what the manifest records, and nothing more. Since 2026-09-27 Magic Backup Machine also backs up `~/Projects`, so what is not on GitHub comes back from its copy instead, but only as it was at the last backup. That is why step 8 comes after this one. `pushall` commits and pushes the branch each repository is on, including a repository kept one folder down, such as `FloppyLetters/FloppyLetter2601`, and then names what it leaves behind — commits on other branches that are on no remote, stashes, and folders in `~/Projects` that are not repositories. Deal with each one: push the branch, and apply or drop the stash. A folder that is not a repository comes back only from the Magic Backup Machine copy.
 
-Files a repository ignores are not pushed either; Magic Backup Machine's copy carries them. That copy is not encrypted, so a credential file among them, such as DoublEnder's Cloud service-account key, is safer restored from the password manager than from the backup disk.
+Files a repository ignores are not pushed either; Magic Backup Machine's copy carries them. That copy is not encrypted. DoublEnder's Cloud credentials travel encrypted in the `snapshot-keys` archive instead (step 1), so exclude them from Magic Backup Machine's `~/Projects` source and no plain copy reaches the backup disk.
 
 `pushall` does not push DoublEnder's Cloud overlay, `~/Projects/DoublEnder-cloud.git`: its files are versioned beside the public repository, which ignores them. `pushall` names the overlay's unpushed commits and uncommitted changes with the rest of what it leaves behind. Commit and push them with `decloud commit` and `decloud push`.
 
@@ -612,6 +612,8 @@ make restore-keys ARGS="-l ~/Desktop/mrk-keys-<timestamp>.asc"
 
 `restore-keys` never overwrites in place. It moves an existing `~/.ssh` or `~/.gnupg` aside with a timestamp first, and it puts them back if the restore fails.
 
+`restore-keys` leaves DoublEnder's Cloud credentials in the archive for now, and says so. They belong inside `~/Projects/DoublEnder`, which is not cloned yet, and writing them there first would stop `restore-repos` from cloning it. They go back after the repositories, below.
+
 **API keys, notes and stored files**
 
 > **Caution:** Set a master passphrase in KeyVault before you import an archive that holds stored files. Without one, KeyVault stops the import and writes nothing.
@@ -640,6 +642,14 @@ make restore-repos          # ARGS=-n to see what it would clone first
 ```
 
 `restore-repos` skips any repository already on disk. It lists bare repositories but never clones one: a bare overlay shares its working tree with another repository, so a plain clone puts the files in the wrong shape. Set those up by hand.
+
+Then put back the credentials that live inside the projects:
+
+```bash
+make restore-keys ARGS="--projects ~/Desktop/mrk-keys-<timestamp>.asc"
+```
+
+`--projects` restores only those, and only into a project that is cloned. It asks for the archive passphrase again, because this is a new run.
 
 ## Step 7 — Check the installation
 
@@ -691,8 +701,8 @@ Then install the App Store apps in [docs/app-store-apps.md](app-store-apps.md) f
 
 | Command | Description |
 |---|---|
-| `make snapshot-keys` | Bundle `~/.ssh`, `~/.gnupg` and the code-signing identities into a passphrase-encrypted OpenPGP archive (`ARGS="-o PATH"` · `ARGS=-n` dry run · `ARGS=-f` overwrite · `ARGS=--no-signing` skip the identities) |
-| `make restore-keys ARGS=<archive>` | Restore `~/.ssh`, `~/.gnupg` and the identities from that archive (`ARGS="-l <archive>"` lists the contents) |
+| `make snapshot-keys` | Bundle `~/.ssh`, `~/.gnupg`, the code-signing identities and DoublEnder's Cloud credentials into a passphrase-encrypted OpenPGP archive (`ARGS="-o PATH"` · `ARGS=-n` dry run · `ARGS=-f` overwrite · `ARGS=--no-signing` skip the identities) |
+| `make restore-keys ARGS=<archive>` | Restore `~/.ssh`, `~/.gnupg`, the identities and the project credentials from that archive (`ARGS="-l <archive>"` lists the contents · `ARGS="--projects <archive>"` only the project credentials, after `restore-repos`) |
 | `make restore-repos` | Clone the repositories listed in the mrk-prefs manifest (`ARGS=-n` dry run) |
 
 > No preferences command touches a private key.
