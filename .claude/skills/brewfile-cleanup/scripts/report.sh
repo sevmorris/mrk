@@ -131,7 +131,7 @@ fi
 
 h "/Applications paths that mrk's scripts name and this Mac does not have"
 : > "$TMP/apps"
-for f in scripts/post-install scripts/snapshot-prefs bin/snapshot scripts/dock-setup \
+for f in scripts/post-install scripts/snapshot-prefs scripts/dock-setup \
          assets/preferences/*.sh assets/browsers/*.sh; do
   [[ -f "$REPO/$f" ]] || continue
   $GREP -oE '"/Applications/[^"]+\.app"' "$REPO/$f" | tr -d '"' | sort -u | while IFS= read -r app; do

@@ -464,8 +464,7 @@
   </div>
   <a class="section-head">Sect. 1 — Standalone</a>
   <a href="#nuke-mrk">1.1 nuke-mrk</a>
-  <a href="#snapshot">1.2 snapshot</a>
-  <a href="#decloud">1.3 decloud</a>
+  <a href="#decloud">1.2 decloud</a>
   <a class="section-head">Sect. 2 — mrk</a>
   <a href="#check-updates">2.1 check-updates</a>
   <a href="#doctor">2.2 doctor</a>
@@ -526,7 +525,7 @@
 
       <div class="callout">
         <span class="callout-label">Asking a Command What It Does</span>
-        <div class="callout-body">Every command in this manual answers <code>-h</code> and <code>--help</code> by printing a usage summary and exiting 0, and refuses any argument it does not recognise with exit 2. Both halves are deliberate. A script with no option parser does not ignore an unrecognised flag — it runs, with the flag discarded. Twelve commands here behaved that way until 2026-09-10, so <code>mrk-uninstall --help</code> unlinked <code>~/bin</code> and <code>mrk-post-install --help</code> installed applications. This manual has 41 command entries, one for each executable mrk puts on the PATH — <code>status</code> and <code>mrk-status</code> are two names for the same binary, and <code>bin/lib/</code> is a directory rather than a command. Forty of the 41 answer <code>--help</code> and refuse an unknown argument with exit 2; <code>mrk-install</code> does so by handing an argument it does not know to the phase script, which refuses it. An option given without its value, or with a value it cannot use, is a wrong command line too and also exits 2 — <code>pushall --projects</code> with no directory, <code>snapshot-keys -o ""</code>, <code>prune-deployments --keep abc</code>. Until 2026-09-10 five options exited 1 when their value was missing, four of them with bash's own message and no usage. <code>decloud</code> is the single exception and forwards every argument to git by design. The usage summary goes to stdout, so <code>restore-repos --help | less</code> shows it; five commands sent it to stderr until 2026-09-10, where a pipe saw nothing. <code>mrk-picker</code> keeps its help on stderr by design: its stdout is the selection it hands back to <code>mrk-brew</code>. Where a command takes no options of its own, the contract comes from <code>mrk_help_guard</code> in <code>scripts/lib.sh</code>; the two LaunchAgent scripts spell it out inline so that an unattended job depends on nothing but itself. Exit 2 always means the command line was wrong and nothing was attempted. A command that ran and then failed exits 1, so the two are worth telling apart: <code>restore-keys nope.gpg</code> exits 1 because the archive is missing, while <code>restore-keys a.gpg b.gpg</code> exits 2 because it never started.</div>
+        <div class="callout-body">Every command in this manual answers <code>-h</code> and <code>--help</code> by printing a usage summary and exiting 0, and refuses any argument it does not recognise with exit 2. Both halves are deliberate. A script with no option parser does not ignore an unrecognised flag — it runs, with the flag discarded. Twelve commands here behaved that way until 2026-09-10, so <code>mrk-uninstall --help</code> unlinked <code>~/bin</code> and <code>mrk-post-install --help</code> installed applications. This manual has 40 command entries, one for each executable mrk puts on the PATH — <code>status</code> and <code>mrk-status</code> are two names for the same binary, and <code>bin/lib/</code> is a directory rather than a command. Thirty-nine of the 40 answer <code>--help</code> and refuse an unknown argument with exit 2; <code>mrk-install</code> does so by handing an argument it does not know to the phase script, which refuses it. An option given without its value, or with a value it cannot use, is a wrong command line too and also exits 2 — <code>pushall --projects</code> with no directory, <code>snapshot-keys -o ""</code>, <code>prune-deployments --keep abc</code>. Until 2026-09-10 five options exited 1 when their value was missing, four of them with bash's own message and no usage. <code>decloud</code> is the single exception and forwards every argument to git by design. The usage summary goes to stdout, so <code>restore-repos --help | less</code> shows it; five commands sent it to stderr until 2026-09-10, where a pipe saw nothing. <code>mrk-picker</code> keeps its help on stderr by design: its stdout is the selection it hands back to <code>mrk-brew</code>. Where a command takes no options of its own, the contract comes from <code>mrk_help_guard</code> in <code>scripts/lib.sh</code>; the two LaunchAgent scripts spell it out inline so that an unattended job depends on nothing but itself. Exit 2 always means the command line was wrong and nothing was attempted. A command that ran and then failed exits 1, so the two are worth telling apart: <code>restore-keys nope.gpg</code> exits 1 because the archive is missing, while <code>restore-keys a.gpg b.gpg</code> exits 2 because it never started.</div>
       </div>
 
       <div class="callout callout-caution">
@@ -568,27 +567,9 @@
         </div>
       </div>
 
-      <div class="proc" id="snapshot">
-        <div class="proc-header">
-          <span class="proc-num">1.2</span>
-          <h3>snapshot <span class="tag tag-standalone">standalone</span></h3>
-        </div>
-        <div class="proc-body">
-          <p class="desc">snapshot exports the current app preferences as plists into <code>~/mrk/assets/preferences/</code>.</p>
-          <pre><code>snapshot [--brewfile] [--help]</code></pre>
-          <ul>
-            <li>snapshot writes the plists and then stops. It does not commit or push them, and gitignore excludes them.</li>
-            <li>snapshot does not scan the exported plists for secrets, because it commits nothing. The commands that commit — <code>snapshot-prefs</code>, <code>mrk-push</code> and <code>pushall</code> — scan what they commit.</li>
-            <li>snapshot exports <code>~/Library/Preferences/ID.plist</code> when that file exists, and the sandbox container's copy otherwise. Until 2026-09-11 it worked out that order and then exported by bundle id regardless, which reads the container's copy whenever there is one; none of its ten apps had a stale container, so no export was wrong.</li>
-            <li><code>--brewfile</code> — also runs <code>brew bundle dump</code>. This command overwrites the comments in the Brewfile, so snapshot asks you to confirm first. A dump on a Mac where mas is installed writes <code>mas</code> entries into the Brewfile; snapshot strips them and says how many, because mrk does not install App Store apps (<a href="https://github.com/sevmorris/mrk/blob/main/docs/app-store-apps.md">docs/app-store-apps.md</a>) and <code>check-picker-desc</code> fails on such a line. Until 2026-09-11 it did the opposite, putting entries back from <code>Brewfile.bak</code> when a dump dropped them. It then strips any <code>mas</code> line the dump writes back, which mrk does not install and ci-check refuses. Until 2026-09-28 that strip called a helper this script never loads, failed with "command not found", and left the lines in.</li>
-            <li><strong>Apps:</strong> AlDente, Amphetamine, BetterSnapTool, Fission, HandBrake, Helium, iTerm2, Thaw. Descript was removed on 2026-09-17, because it is no longer installed. Thaw replaced Ice the same day: Ice 0.11.12 crashes at launch on macOS 26.7.</li>
-          </ul>
-        </div>
-      </div>
-
       <div class="proc" id="decloud">
         <div class="proc-header">
-          <span class="proc-num">1.3</span>
+          <span class="proc-num">1.2</span>
           <h3>decloud <span class="tag tag-standalone">standalone</span></h3>
         </div>
         <div class="proc-body">
@@ -1183,7 +1164,6 @@ mrk-push -- "-starts with a dash"</code></pre>
             <li>Run <code>tests/setup-safety.sh</code>, which runs <a href="#mrk-setup">mrk-setup</a> and <a href="#mrk-post-install">mrk-post-install</a> on a copy of the repository under both bashes. It uses a throwaway home, an empty environment and stubs of <code>sudo</code>, <code>chsh</code>, <code>git</code>, <code>dscl</code>, <code>xcode-select</code> and every other command that would act. It requires that neither links anything into <code>~</code> from a checkout <code>~</code> is not linked to, and that both link from one it is, <code>MRK_ROOT</code> or a symlinked <code>~/mrk</code>. A <code>dotfiles/.claude/</code> and a <code>.DS_Store</code> must be left unlinked, with the real <code>~/.claude</code> untouched, and <code>make status</code> must agree. A dry run on a new Mac must leave the home empty and run nothing. A dangling or real <code>topgrade.toml</code> must be replaced, the real one kept as <code>.bak</code>.</li>
             <li>Run <code>tests/undo-files.sh</code>, which runs <a href="#mrk-uninstall">mrk-uninstall</a>, <a href="#nuke-mrk">nuke-mrk</a>, <a href="#trim-services">trim-services</a> and mrk-setup's login message under both bashes, on a copy of the repository and a throwaway home. The undo scripts it plants run through stubs of <code>defaults</code>, <code>launchctl</code>, <code>killall</code> and <code>sudo</code>. mrk-uninstall runs in a pseudo-terminal that answers each prompt. It requires that both commands offer the services rollback, that nuke-mrk keeps all three undo scripts when declined, and that the whole-app deletes run only when asked for. The pattern must be the same in <code>lib.sh</code> and nuke-mrk. trim-services must keep an undo file that begins <code>#!/bin/bash</code>, and its dry run must create nothing. Two runs with <code>MRK_LOGIN_MSG</code> must leave one undo line, which restores the original message.</li>
             <li>Run <code>tests/docs-drift.sh</code>, which holds four hand-written lists to the repository. Every test in <code>tests/</code> must be run by ci-check, named in its <code>--help</code> and described here. Every target the manual lists under <code>~/Makefile</code> must exist in <code>dotfiles/Makefile</code>. This manual's count of its command entries must be right. Every command mrk puts on the PATH must have an entry: the names come from a dry run of mrk-setup's tools phase on a copy of the repository, and from the Makefile. And the two tables of Section 3.1 must name every function <code>scripts/lib.sh</code> and <code>bin/lib/common.sh</code> define, and none they do not. Until 2026-09-28 the manual listed three <code>~/Makefile</code> targets that did not exist, <code>make check</code>'s help missed half the tests, this manual said it had 39 entries where it had 41, and its <code>lib.sh</code> table lacked seven functions.</li>
-            <li>Run <code>tests/snapshot-brewfile.sh</code>, which runs <a href="#snapshot">snapshot</a> <code>--brewfile</code> on a copy of the repository under both bashes, with a stub <code>brew bundle dump</code> that writes a <code>mas</code> line, in a pseudo-terminal that answers its prompt. It requires that the <code>mas</code> line is stripped and the rest kept, that the old Brewfile is kept as <code>Brewfile.bak</code>, that the Brewfile's mode is unchanged, and that no temporary file is left.</li>
             <li>Run shellcheck on every bash script in <code>scripts/</code>, <code>bin/</code>, <code>tests/</code>, <code>.claude/skills/</code> and <code>assets/projects-skills/</code>, where the <code>release-standards</code> and <code>repo-standards</code> skills keep their audit scripts and <code>dependency-updates</code> its check.</li>
             <li>Run <code>go test</code> in every Go module under <code>tools/</code>, found from their <code>go.mod</code> files: today picker, mrk-status, mrk-menu and theme. <code>make tidy</code> reads the same list. Until 2026-09-28 both lists were written out, and <code>make tidy</code>'s had missed theme.</li>
           </ol>
@@ -1624,7 +1604,7 @@ mrk-push -- "-starts with a dash"</code></pre>
 
       <div class="table-scroll">
 <table class="ref-table">
-        <caption>Table 3.1-2. bin/lib/common.sh — standalone bin/ tools (nuke-mrk, snapshot, maintain, …)</caption>
+        <caption>Table 3.1-2. bin/lib/common.sh — standalone bin/ tools (nuke-mrk, maintain, …)</caption>
         <thead>
           <tr><th>Function</th><th>Purpose</th></tr>
         </thead>
@@ -1650,7 +1630,6 @@ mrk-push -- "-starts with a dash"</code></pre>
           <tr><th>Command</th><th>What it does</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>snapshot</code></td><td>Export the app preferences into the mrk repository</td></tr>
           <tr><td><code>snapshot-prefs</code></td><td>Export the app preferences and push them to the private repository</td></tr>
           <tr><td><code>sync</code></td><td>Add the new Homebrew packages to the Brewfile</td></tr>
           <tr><td><code>sync-login-items</code></td><td>Compare the login items, then update post-install and the manual</td></tr>

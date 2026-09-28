@@ -708,11 +708,7 @@ Then install the App Store apps in [docs/app-store-apps.md](app-store-apps.md) f
 | `make snapshot-prefs` | Export the app preferences, and push them to mrk-prefs |
 | `make pull-prefs` | Clone or pull the app preferences from mrk-prefs |
 
-> `snapshot` and `snapshot-prefs` are not the same command.
->
-> `snapshot` writes plists into `assets/preferences/` in the public mrk repository. gitignore excludes those plists, and no other script reads them. `snapshot` is a local export only, and it does not scan for secrets.
->
-> `snapshot-prefs` writes to the private mrk-prefs repository, and it pushes. `pull-prefs` and `post-install` use that data to restore your preferences on a new machine.
+> `snapshot-prefs` writes to the private mrk-prefs repository, and it pushes. `pull-prefs` and `post-install` use that data to restore your preferences on a new machine. A separate `snapshot` command, which exported plists into the public repository where nothing read them, was retired on 2026-09-28.
 
 **Keys**
 
