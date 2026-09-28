@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -141,5 +142,46 @@ func TestSpaceAndIgnoreAreMutuallyExclusive(t *testing.T) {
 	}
 	if !p.ignored {
 		t.Error("i should set ignored")
+	}
+}
+
+func TestNoIgnoreHidesTheIgnoreKey(t *testing.T) {
+	// mrk brew runs the picker with --no-ignore: Phase 2 installs from the
+	// Brewfile and keeps no ignore list, so an `i` mark there had nowhere to go
+	// and was dropped (audit 19, W-17). The key must do nothing, the footer
+	// must not offer it, and nothing may come out as "ignore-".
+	var m tea.Model = newModel(cleanFixture())
+	mm := m.(model)
+	mm.noIgnore = true
+	m = mm
+	// With the key hidden, i neither marks nor moves the cursor, so the space
+	// that follows selects the same package. With it live, i would mark alpha
+	// and step to beta.
+	for _, k := range []string{"tab", "i", " ", "q"} {
+		m, _ = m.Update(key(k))
+	}
+	got := m.(model)
+	for _, p := range got.cats[0].pkgs {
+		if p.ignored {
+			t.Errorf("%s was marked ignored with the key hidden", p.name)
+		}
+	}
+	if !got.cats[0].pkgs[0].selected {
+		t.Error("i should not move the cursor with the key hidden, so space selects alpha")
+	}
+	for _, line := range emitLines(got.cats, got.cancelled) {
+		if strings.HasPrefix(line, "ignore-") {
+			t.Errorf("emitted %q with the ignore key hidden", line)
+		}
+	}
+	footer := got.viewFooter()
+	for _, s := range []string{"i ignore", "ignores kept"} {
+		if strings.Contains(footer, s) {
+			t.Errorf("footer offers %q with the ignore key hidden: %q", s, footer)
+		}
+	}
+	// And the default keeps the key, for sync.
+	if !strings.Contains(newModel(cleanFixture()).viewFooter(), "i ignore") {
+		t.Error("the default footer should still offer i ignore")
 	}
 }

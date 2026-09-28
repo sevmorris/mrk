@@ -301,6 +301,11 @@ type model struct {
 	// move when you are adding nothing — silently threw the marks away and the
 	// same packages came back next run.
 	aborted bool
+	// noIgnore hides the ignore key, for mrk brew: Phase 2 installs from the
+	// Brewfile and keeps no ignore list, so a mark there had nowhere to go and
+	// was dropped (audit 19, W-17). sync, which keeps ~/.mrk/sync-ignore, leaves
+	// it false.
+	noIgnore bool
 }
 
 func newModel(cats []category) model {
@@ -415,7 +420,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "i":
-			if !m.leftFocus {
+			if !m.leftFocus && !m.noIgnore {
 				pkgs := m.currentPkgs()
 				if m.pkgIdx < len(pkgs) {
 					p := pkgs[m.pkgIdx]
@@ -535,6 +540,9 @@ func (m model) viewFooter() string {
 	// terminal and stops the width being something a future edit can quietly
 	// break again.
 	help := "↑↓/jk move · tab/hl pane · space add · i ignore · a all · enter ok · q quit (ignores kept)"
+	if m.noIgnore {
+		help = "↑↓/jk move · tab/hl pane · space add · a all · enter ok · q quit"
+	}
 	if m.width > 0 {
 		help = theme.Truncate(help, m.width)
 	}
@@ -736,6 +744,7 @@ func main() {
 	installedCasksStr := flag.String("installed-casks", "", "Comma-separated installed casks")
 	skipFormulae := flag.Bool("skip-formulae", false, "Exclude formulae from picker")
 	skipCasks := flag.Bool("skip-casks", false, "Exclude casks from picker")
+	noIgnore := flag.Bool("no-ignore", false, "Hide the ignore key (mrk brew, which keeps no ignore list)")
 	flag.Parse()
 
 	installedFormulae := map[string]bool{}
@@ -770,7 +779,9 @@ func main() {
 	}
 	defer tty.Close()
 
-	p := tea.NewProgram(newModel(cats), tea.WithAltScreen(), tea.WithInput(tty), tea.WithOutput(tty))
+	m := newModel(cats)
+	m.noIgnore = *noIgnore
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithInput(tty), tea.WithOutput(tty))
 	final, err := p.Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "mrk-picker: %v\n", err)
