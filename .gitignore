@@ -4,10 +4,6 @@
 
 # macOS
 .DS_Store
-
-# Dev-only scripts (not distributed)
-scripts/clean-test
-scripts/dev-test.sh
 .AppleDouble
 .LSOverride
 ._*
@@ -19,9 +15,6 @@ scripts/dev-test.sh
 .vscode/
 .idea/
 *.sublime-*
-
-# Backup directories (if tracked)
-backups/
 
 # Temporary files
 *.tmp
@@ -36,12 +29,10 @@ backups/
 !.claude/skills/
 dotfiles/.claude/
 
-# Test files
-test-*
+# Scratch files at the top of the repository, and Go test binaries. Rooted, so
+# that a script under tests/ named test-*.sh is never ignored without a word.
+/test-*
 *.test
-
-# Generated files
-MANIFEST.json
 
 # Browser extension lists (user-specific)
 assets/browsers/*-extensions.txt

@@ -4,8 +4,9 @@
 # ==============================================================================
 
 # --- Homebrew Environment (Apple Silicon first, then Intel) ---
-# NOTE: This block is also present in scripts/brew and scripts/setup.
-# Keep them in sync if the Homebrew install paths change.
+# NOTE: the same two paths are BREW_PATHS in scripts/lib.sh, which brew,
+# post-install and the Makefile read. Keep them in step if Homebrew's install
+# paths change.
 if [ -x /opt/homebrew/bin/brew ]; then
   eval "$(/opt/homebrew/bin/brew shellenv)"
 elif [ -x /usr/local/bin/brew ]; then

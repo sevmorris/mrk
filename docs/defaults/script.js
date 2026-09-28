@@ -635,7 +635,6 @@ const DEFAULT_DESCRIPTIONS = {
         preference: true,
         systemDefault: '0.5 (seconds)'
     },
-    // kept for compatibility — not in defaults.sh
 
     // Finder
     'com.apple.finder.DisableAllAnimations': {
@@ -645,7 +644,6 @@ const DEFAULT_DESCRIPTIONS = {
         why: 'Makes file operations feel instant. Each animation adds visible latency per action, which compounds across a day of file management.',
         background: 'This is one of the earliest macOS performance tips, documented since about 2007.'
     },
-    // kept for compatibility — not in defaults.sh
 
     // Screenshots
     'com.apple.screencapture.disable-shadow': {
@@ -850,7 +848,6 @@ const DEFAULT_DESCRIPTIONS = {
         background: 'macOS 12.4 Monterey introduced this key to replace the older boolean ShowDayOfMonth key, which had no "when space allows" middle option. A dotfile that still sets ShowDayOfMonth uses the deprecated predecessor.'
     },
 
-    // kept for compatibility — not in defaults.sh
 
     // Terminal.app — window profile
     'com.apple.Terminal.Default Window Settings': {

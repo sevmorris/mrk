@@ -110,20 +110,17 @@ Items that require a real choice before they can be closed in either direction.
 **Module 19's findings (2026-09-27), awaiting fix sessions.** Unlike the modules before it,
 module 19 fixed nothing, so every item was open. Details, evidence and line numbers are in
 `19-audit-2026-09-27.md`. W-1 is fixed (see Closed), and its fix session added W-31, fixed
-too. W-2, W-3, W-4, W-5, W-7, W-8, W-9, W-11, W-12 and W-13 are fixed; see Closed.
+too. W-2 to W-5, W-7 to W-13 and W-26 to W-30 are fixed; see Closed.
 
 - **MEDIUM.**
   - W-6: brew ignores `--no-casks`, `--no-formulae` and `--only-formulae` without a TTY.
 - **LOW.**
-  - W-10: setup.
   - W-14 to W-17: brew.
   - W-18: sync.
   - W-19: defaults.sh.
   - W-20: Claude Code artifacts that outlive both uninstall paths.
   - W-21: `bin/snapshot`.
   - W-22 to W-25: Go and the Makefile.
-  - W-26 to W-28: documentation.
-  - W-29 to W-30: cruft and shellcheck scope.
 
 **Module 18's open items (2026-09-23).** Details are in `18-audit-2026-09-23.md`.
 
@@ -299,6 +296,27 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the cleanup fix, branch `claude/cleanup-batch4`, 2026-09-28
+
+Batch 4 of module 19's fixes. Details and the mutation table are in `19-audit-2026-09-27.md`, at
+the end of Cruft.
+
+- **W-26 (LOW)** — the manual's `~/Makefile` table listed three targets that `dotfiles/Makefile`
+  lacked. It forwards them now.
+- **W-27 (LOW)** — `make check`'s help and the manual's row named fewer tests than `ci-check`
+  runs, and SMAC-1's did too. None of them lists tests now; they point to BIN-1 §2.22.
+- **W-28 (LOW)** — BIN-1 said 39 command entries where it had 41, and three comments were stale.
+  BIN-1's `lib.sh` table also lacked seven functions, four of them from batches 2 and 3.
+- **W-10 (LOW)** — setup's dead phase descriptions, a stray comment, and a `--validate` message
+  that pointed at a flag that does not help.
+- **W-29 (LOW)** — unused `common.sh` helpers, four dead ignore rules and an overbroad `test-*`,
+  a TODO that blamed Make for the shell's split, and the `dump` alias.
+- **W-30 (LOW)** — `ci-check` now shellchecks every tracked bash script, the six `assets/` ones
+  included, and the two `SC2046` disables are arrays.
+
+**Test.** `tests/docs-drift.sh`, in `ci-check`, holds the hand-written lists of tests, targets,
+commands and library functions to the repository. Six checks; each of nine mutations fails it.
 
 ### Closed by the undo-files fix, branch `claude/fix-undo-files`, 2026-09-28
 

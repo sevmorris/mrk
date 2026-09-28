@@ -1,6 +1,6 @@
 MRK := $(HOME)/mrk
 
-.PHONY: sync snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos picker help
+.PHONY: sync snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos picker mrk-status mrk-menu build-tools help
 
 help: ## Show available make commands
 	@echo ""
@@ -34,4 +34,13 @@ restore-repos: ## Clone the repositories recorded in the mrk-prefs manifest
 
 picker: ## Build the mrk-picker TUI binary
 	@$(MAKE) -C $(MRK) picker
+
+mrk-status: ## Build the mrk-status TUI binary
+	@$(MAKE) -C $(MRK) mrk-status
+
+mrk-menu: ## Build the mrk-menu TUI binary
+	@$(MAKE) -C $(MRK) mrk-menu
+
+build-tools: ## Build the three TUI binaries
+	@$(MAKE) -C $(MRK) build-tools
 

@@ -183,10 +183,12 @@ done
 
 if (( SHOW_DESC )); then
   h "Picker descriptions beside Homebrew's"
-  # shellcheck disable=SC2046  # one argument per package is the point
-  brew info --json=v2 --formula $(cat "$TMP/bf-formulae") > "$TMP/f.json" 2>/dev/null || echo '{}' > "$TMP/f.json"
-  # shellcheck disable=SC2046
-  brew info --json=v2 --cask $(cat "$TMP/bf-casks") > "$TMP/c.json" 2>/dev/null || echo '{}' > "$TMP/c.json"
+  # One argument per package, read into arrays rather than split from $(cat):
+  # .shellcheckrc says quoting findings are fixed, not disabled (audit 19, W-30).
+  bf_formulae=(); while IFS= read -r p; do [[ -n "$p" ]] && bf_formulae+=("$p"); done < "$TMP/bf-formulae"
+  bf_casks=();    while IFS= read -r p; do [[ -n "$p" ]] && bf_casks+=("$p");    done < "$TMP/bf-casks"
+  brew info --json=v2 --formula ${bf_formulae[@]+"${bf_formulae[@]}"} > "$TMP/f.json" 2>/dev/null || echo '{}' > "$TMP/f.json"
+  brew info --json=v2 --cask ${bf_casks[@]+"${bf_casks[@]}"} > "$TMP/c.json" 2>/dev/null || echo '{}' > "$TMP/c.json"
   python3 - "$TMP/f.json" "$TMP/c.json" "$PICKER" <<'PY'
 import json, re, sys
 hb = {}

@@ -790,7 +790,7 @@ for pkg in "${!formula_section_map[@]}"; do
 done
 
 for pkg in "${sorted_selected_casks[@]}"; do
-  # `greedy: true`, because this Brewfile carries it on every cask but one.
+  # `greedy: true`, because this Brewfile carries it on every cask.
   #
   # It is not Homebrew's default — `brew bundle dump` emits a bare
   # `cask "name"`, and so did this line, so neither of the two ways a cask

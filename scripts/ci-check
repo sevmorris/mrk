@@ -27,7 +27,7 @@ ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
-check-picker-desc, topgrade-npm, picard-settings, plist-import-order, setup-safety and undo-files tests in tests/, shellcheck over the tracked scripts (the skills' audit scripts included),
+check-picker-desc, topgrade-npm, picard-settings, plist-import-order, setup-safety, undo-files and docs-drift tests in tests/, shellcheck over every tracked bash script,
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
@@ -188,13 +188,23 @@ log "setup safety"
 log "undo files"
 "$REPO_ROOT/tests/undo-files.sh"
 
+# The hand-written lists of commands, targets and tests, against the repository:
+# until 2026-09-28 the manual listed three ~/Makefile targets that did not
+# exist, make check's help and the manual's row missed half the tests, and BIN-1
+# said 39 entries where it had 41. Audit 19, W-26, W-27, W-28.
+log "docs drift"
+"$REPO_ROOT/tests/docs-drift.sh"
+
 if command -v shellcheck >/dev/null 2>&1; then
   log "shellcheck"
+  # Every tracked file whose first line names bash, wherever it lives. Until
+  # 2026-09-28 this listed directories, and the six app-defaults scripts in
+  # assets/ that post-install runs were never checked (audit 19, W-30).
   scripts=()
   while IFS= read -r f; do
     [[ -n "$f" ]] && scripts+=("$f")
   done < <(
-    git -C "$REPO_ROOT" ls-files 'scripts/*' 'bin/*' 'tests/*' '.claude/skills/*' 'assets/projects-skills/*' \
+    git -C "$REPO_ROOT" ls-files \
       | while IFS= read -r f; do
           [[ -f "$REPO_ROOT/$f" ]] && head -1 "$REPO_ROOT/$f" | grep -qE '^#!.*bash' && printf '%s\n' "$REPO_ROOT/$f"
         done
