@@ -13,7 +13,9 @@
 # changed; ThirdPartyDataSubmit had no undo line at all; the password-on-wake
 # step wrote screensaver keys macOS ignores, and now goes through
 # `sysadminctl -screenLock`; and Touch ID now goes into /etc/pam.d/sudo_local
-# where sudo includes it, written beside its target and renamed over it.
+# where sudo includes it, written beside its target and renamed over it. And,
+# from 2026-09-27, an undo file that is already there keeps its lines whatever
+# its shebang (audit 19, W-3).
 #
 # Runs under /bin/bash as well as the bash running it: harden has no bash-4
 # guard, so on a new Mac it runs under 3.2. ci-check runs it.
@@ -212,5 +214,25 @@ if setup E enabled; then
     fail "Touch ID already enabled, yet a PAM file changed"
   fi
 fi
+
+# F — an undo file already there, whose first line is another shebang or has a
+# trailing space. Until 2026-09-27 hardening.sh kept its own copy of the old
+# check and rewrote either to a bare shebang, losing every line (audit 19,
+# W-3). It now calls init_rollback.
+f_n=0
+for shebang in '#!/bin/bash' '#!/usr/bin/env bash '; do
+  f_n=$((f_n + 1))
+  if setup "F$f_n" stock15; then
+    mkdir -p "$SB/home/.mrk"
+    printf '%s\nsudo mv /etc/x.backup.mrk /etc/x\nsudo rm -f /etc/y\n' "$shebang" > "$SB/home/.mrk/hardening-rollback.sh"
+    harden
+    if grep -qxF 'sudo mv /etc/x.backup.mrk /etc/x' "$SB/home/.mrk/hardening-rollback.sh" \
+       && grep -qxF 'sudo rm -f /etc/y' "$SB/home/.mrk/hardening-rollback.sh"; then
+      pass "an undo file beginning '$shebang' keeps its lines"
+    else
+      fail "an undo file beginning '$shebang' lost its lines: $(tr '\n' ';' < "$SB/home/.mrk/hardening-rollback.sh")"
+    fi
+  fi
+done
 
 (( fails == 0 ))

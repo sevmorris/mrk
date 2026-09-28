@@ -416,7 +416,7 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 
 > `nuke-mrk` deletes more than `make uninstall`. Use `make uninstall` to unlink mrk only. Use `nuke-mrk` to get a clean machine for a test installation.
 >
-> **Caution:** before it deletes anything, `nuke-mrk` lists any uncommitted change, unpushed commit or stash in `~/mrk` or `~/.mrk/preferences` and stops unless you answer `y`. The fresh clone it tells you to make cannot contain them. Until 2026-09-11 it trashed them without a word — including the Brewfile commit its own pre-nuke `sync -c` had just made, because `sync -c` commits and does not push. That commit is now pushed when it is the only one waiting. If you decline to run the rollback scripts, `nuke-mrk` keeps them, with `~/.mrk/plist-backups/`, in `~/.mrk` — the settings they undo are still in force, and a reinstall adds to them rather than recording mrk's own values as the originals. Until 2026-09-11 they went to the Trash with the rest.
+> **Caution:** before it deletes anything, `nuke-mrk` lists any uncommitted change, unpushed commit or stash in `~/mrk` or `~/.mrk/preferences` and stops unless you answer `y`. The fresh clone it tells you to make cannot contain them. Until 2026-09-11 it trashed them without a word — including the Brewfile commit its own pre-nuke `sync -c` had just made, because `sync -c` commits and does not push. That commit is now pushed when it is the only one waiting. If you decline to run the rollback scripts, `nuke-mrk` keeps them in `~/.mrk`: the defaults, hardening and services ones, with `~/.mrk/plist-backups/`. The settings they undo are still in force, and a reinstall adds to them rather than recording mrk's own values as the originals. Until 2026-09-11 they went to the Trash with the rest, and until 2026-09-27 the services one still did. If you accept, `nuke-mrk` names the apps whose preferences the defaults rollback would delete whole, and asks about those separately.
 
 ## How to update the manual
 
@@ -828,8 +828,9 @@ mrk writes its state to `~/.mrk/`. gitignore excludes this directory.
 | `~/Projects/CLAUDE.md` | Symlink to `assets/CLAUDE.md`. Guidance Claude Code reads for the whole `~/Projects` tree; linked by `make post-install` |
 | `~/.claude/skills/dependency-updates` | Symlink to `assets/projects-skills/dependency-updates`, so that skill loads in every session, not only under `~/Projects`. post-install also adds its SessionStart hook to `~/.claude/settings.json`. Its cache and acknowledgements live in `~/Library/Caches/dependency-updates`, which nothing needs to carry to a new Mac |
 | `~/Projects/.claude/skills` | Symlink to `assets/projects-skills/`. Skills Claude Code loads for work under `~/Projects`, the release-standards one among them; linked by `make post-install`. The whole directory is linked, so a skill added there needs no change to post-install |
-| `~/.mrk/defaults-rollback.sh` | Undoes the macOS system defaults that `make defaults` wrote, and the app plists that post-install imported. It does **not** cover the app-preference scripts that Phase 3 runs for Safari, Helium, AlDente, Audio Hijack, Fission and Rogue Amoeba. Those scripts write their defaults directly |
+| `~/.mrk/defaults-rollback.sh` | Undoes the macOS system defaults that `make defaults` wrote, and the app plists that post-install imported. For each import it holds a line that deletes the app's whole preferences domain, and run long after the import, that line takes every setting made in the app since. `make uninstall` and `nuke-mrk` therefore name those apps and ask about them separately. Until 2026-09-27 they ran the whole file on one yes: on this Mac, 33 apps' preferences. It does **not** cover the app-preference scripts that Phase 3 runs for Safari, Helium, AlDente, Audio Hijack, Fission and Rogue Amoeba. Those scripts write their defaults directly |
 | `~/.mrk/hardening-rollback.sh` | Undoes the security hardening |
+| `~/.mrk/services-rollback.sh` | Undoes `trim-services`: turns the background services it disabled back on. `make uninstall` and `nuke-mrk` offer it, and `nuke-mrk` keeps it when you decline. Until 2026-09-27 neither offered it, and `nuke-mrk` sent it to the Trash while the services stayed off |
 | `~/.mrk/sync-ignore` | The formula names and cask names that `sync` does not offer. One name per line. sync creates this file when you accept its offer to ignore a declined package |
 | `~/.mrk/login-items-ignore` | The login-item names that `sync-login-items` does not offer. One name per line. sync-login-items creates this file when you accept its offer to ignore a declined item |
 
@@ -869,11 +870,13 @@ only if you still want the option of reading what a dotfile looked like before
 mrk replaced it.
 
 
-To undo the macOS defaults that mrk applied, run this command:
+To undo the macOS defaults that mrk applied, and nothing else, run this command:
 
 ```bash
-bash ~/.mrk/defaults-rollback.sh
+grep -vE '^defaults delete [^ ]+ >/dev/null 2>&1 \|\| true$' ~/.mrk/defaults-rollback.sh | bash
 ```
+
+> **Caution:** `bash ~/.mrk/defaults-rollback.sh` runs the whole file. That also deletes the whole preferences of every app whose settings post-install imported, with every setting made in them since. `make uninstall` asks about that part separately, and names the apps.
 
 ---
 

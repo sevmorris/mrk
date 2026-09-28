@@ -3,7 +3,8 @@ set -euo pipefail
 
 # mrk uninstaller - conservative
 # - Unlinks ~/bin symlinks pointing into this repo
-# - Optionally runs ~/.mrk/defaults-rollback.sh and hardening-rollback.sh
+# - Optionally runs ~/.mrk/defaults-rollback.sh, hardening-rollback.sh and
+#   services-rollback.sh
 # - Does not remove user data or dotfiles
 
 # Resolve symlinks so this works when called via ~/bin
@@ -31,9 +32,12 @@ Options:
   -h, --help      Show this help
 
 mrk-uninstall takes no options other than --help. It unlinks every ~/bin
-symlink pointing into this repository, then offers to run ~/.mrk/defaults-
-rollback.sh and ~/.mrk/hardening-rollback.sh. It removes no user data, no
-dotfiles and not the repository itself. It must be run interactively.
+symlink pointing into this repository, then offers to run the undo scripts in
+~/.mrk: the macOS defaults, the security hardening and the background
+services. The defaults undo also deletes the whole preferences of each app
+whose settings post-install imported; that part is offered on its own, with
+the apps named. It removes no user data, no dotfiles and not the repository
+itself. It must be run interactively.
 EOF
 }
 
@@ -148,7 +152,45 @@ for label in com.user.clear_app_caches com.user.clear_derived_data; do
   fi
 done
 
-offer_rollback "$HOME/.mrk/defaults-rollback.sh" "macOS defaults"
+# The defaults undo in two parts: the per-key lines, then the whole-domain
+# deletes of the apps post-install imported, named and asked about on their own.
+# See MRK_WHOLE_DOMAIN_UNDO in lib.sh (audit 19, W-13).
+offer_defaults_rollback() {
+  local script="$HOME/.mrk/defaults-rollback.sh" domains n=0 ans
+  [[ -s "$script" ]] || return 0
+  read -r -p "Run macOS defaults rollback now? It puts back the macOS settings mrk changed [y/N] " ans
+  if [[ ! "$ans" =~ ^[Yy]$ ]]; then
+    log "Skipped macOS defaults rollback (you can run it later: $script)."
+    return 0
+  fi
+  log "Running the macOS settings in $script..."
+  if run_rollback "$script" settings; then
+    log "macOS defaults rollback completed successfully"
+  else
+    warn "macOS defaults rollback returned non-zero exit code"
+  fi
+
+  domains=$(rollback_domains "$script")
+  [[ -n "$domains" ]] && n=$(printf '%s\n' "$domains" | wc -l | tr -d ' ')
+  (( n > 0 )) || return 0
+  log "The same file also deletes the whole preferences of $n app(s) whose settings post-install imported:"
+  printf '%s\n' "$domains" | sed 's/^/    /'
+  log "Everything set in those apps since the import would go with them."
+  read -r -p "Delete those apps' preferences too? [y/N] " ans
+  if [[ ! "$ans" =~ ^[Yy]$ ]]; then
+    log "Kept those apps' preferences."
+    return 0
+  fi
+  if run_rollback "$script" domains; then
+    log "Deleted the preferences of $n app(s)"
+  else
+    warn "deleting those apps' preferences returned non-zero exit code"
+  fi
+}
+
+offer_defaults_rollback
 offer_rollback "$HOME/.mrk/hardening-rollback.sh" "security hardening"
+# trim-services writes this one. Until 2026-09-27 nothing offered it (audit 19, W-8).
+offer_rollback "$HOME/.mrk/services-rollback.sh" "background services"
 
 log "Uninstall complete."

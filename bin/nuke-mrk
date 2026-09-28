@@ -3,7 +3,7 @@ set -euo pipefail
 
 # nuke-mrk — Remove all mrk artifacts for a fresh test install
 # Moves ~/mrk and ~/.mrk to Trash; removes ~/bin and dotfile symlinks.
-# Optionally runs defaults and hardening rollback scripts before cleanup.
+# Optionally runs the defaults, hardening and services rollback scripts first.
 # Does NOT uninstall Homebrew packages.
 
 if [[ -t 1 ]]; then
@@ -69,7 +69,9 @@ Usage:
 nuke-mrk takes no options other than --help. It moves ~/mrk and ~/.mrk to the
 Trash, removes the ~/bin, dotfile and ~/Projects/CLAUDE.md symlinks that point
 into them, and unloads and deletes the mrk LaunchAgents. It offers to run the
-defaults and hardening rollback scripts first. It does NOT uninstall Homebrew
+defaults, hardening and services rollback scripts first, and asks separately
+before the defaults one deletes the whole preferences of the apps post-install
+imported. Declined, the scripts are kept in ~/.mrk. It does NOT uninstall Homebrew
 packages or undo the macOS defaults on its own, and it asks for confirmation
 before it starts. Before deleting anything it lists any uncommitted change,
 unpushed commit or stash in ~/mrk or ~/.mrk/preferences, and stops unless you
@@ -324,24 +326,80 @@ done
 # Offer to run rollback scripts before trashing state dir
 DEFAULTS_ROLLBACK="$STATE_DIR/defaults-rollback.sh"
 HARDENING_ROLLBACK="$STATE_DIR/hardening-rollback.sh"
+# trim-services writes this one. Until 2026-09-27 it was neither offered nor
+# kept, and went to the Trash with ~/.mrk while launchd kept the disables. That
+# happened on this Mac on 2026-09-24 (audit 19, W-8).
+SERVICES_ROLLBACK="$STATE_DIR/services-rollback.sh"
 has_rollbacks=0
-[[ -f "$DEFAULTS_ROLLBACK" || -f "$HARDENING_ROLLBACK" ]] && has_rollbacks=1
+[[ -f "$DEFAULTS_ROLLBACK" || -f "$HARDENING_ROLLBACK" || -f "$SERVICES_ROLLBACK" ]] && has_rollbacks=1
+
+# The lines of the defaults undo that delete a whole app's preferences, one per
+# plist post-install imported: MRK_WHOLE_DOMAIN_UNDO in scripts/lib.sh, copied
+# because this script sources nothing. Run now, each takes every setting made
+# in that app since, so they are asked about on their own (audit 19, W-13).
+WHOLE_DOMAIN_UNDO='^defaults delete [^ ]+ >/dev/null 2>&1 \|\| true$'
+app_domains=""
+if [[ -f "$DEFAULTS_ROLLBACK" ]]; then
+  app_domains=$({ grep -E "$WHOLE_DOMAIN_UNDO" "$DEFAULTS_ROLLBACK" || true; } | awk '{print $3}')
+fi
+n_apps=0
+[[ -n "$app_domains" ]] && n_apps=$(printf '%s\n' "$app_domains" | wc -l | tr -d ' ')
+
+# undo_part FILE settings|apps — run FILE's per-key lines, or only its
+# whole-domain deletes, from a copy
+undo_part() {
+  local tmp rc=0
+  tmp=$(mktemp "${TMPDIR:-/tmp}/mrk-undo.XXXXXX") || return 1
+  if [[ "$2" == apps ]]; then
+    { printf '#!/usr/bin/env bash\n'; grep -E "$WHOLE_DOMAIN_UNDO" "$1" || true; } > "$tmp"
+  else
+    { grep -vE "$WHOLE_DOMAIN_UNDO" "$1" || true; } > "$tmp"
+  fi
+  bash "$tmp" || rc=$?
+  rm -f "$tmp"
+  return "$rc"
+}
 
 if (( has_rollbacks )); then
   echo ""
   printf "  Rollback scripts found in ${_B}$STATE_DIR${_R}:\n"
-  [[ -f "$DEFAULTS_ROLLBACK" ]]  && printf "  ${_YLW}•${_R} defaults-rollback.sh\n"
+  if [[ -f "$DEFAULTS_ROLLBACK" ]]; then
+    if (( n_apps > 0 )); then
+      printf "  ${_YLW}•${_R} defaults-rollback.sh — the macOS settings, and the preferences of %s app(s) post-install imported\n" "$n_apps"
+    else
+      printf "  ${_YLW}•${_R} defaults-rollback.sh\n"
+    fi
+  fi
   [[ -f "$HARDENING_ROLLBACK" ]] && printf "  ${_YLW}•${_R} hardening-rollback.sh\n"
+  [[ -f "$SERVICES_ROLLBACK" ]]  && printf "  ${_YLW}•${_R} services-rollback.sh\n"
   echo ""
-  printf "${_B}Run rollback scripts to undo macOS defaults and hardening? [y/N]:${_R} "
+  printf "${_B}Run rollback scripts to undo macOS defaults, hardening and services? [y/N]:${_R} "
   read -r run_rollbacks
+  run_apps=""
+  if [[ "$run_rollbacks" =~ ^[Yy]$ ]] && (( n_apps > 0 )); then
+    echo ""
+    printf "  The defaults rollback also deletes the whole preferences of these %s app(s):\n" "$n_apps"
+    printf '%s\n' "$app_domains" | sed 's/^/    /'
+    printf "  Everything set in them since post-install imported them goes too.\n"
+    printf "${_B}Delete those apps' preferences as well? [y/N]:${_R} "
+    read -r run_apps
+  fi
   if [[ "$run_rollbacks" =~ ^[Yy]$ ]]; then
     if [[ -f "$DEFAULTS_ROLLBACK" ]]; then
       log "Running defaults rollback..."
-      if bash "$DEFAULTS_ROLLBACK"; then
+      if undo_part "$DEFAULTS_ROLLBACK" settings; then
         ok "Defaults restored"
       else
         warn "defaults-rollback.sh exited with errors"
+      fi
+      if [[ "$run_apps" =~ ^[Yy]$ ]]; then
+        if undo_part "$DEFAULTS_ROLLBACK" apps; then
+          ok "Deleted the preferences of $n_apps app(s)"
+        else
+          warn "deleting those apps' preferences exited with errors"
+        fi
+      elif (( n_apps > 0 )); then
+        dim "Kept the preferences of $n_apps app(s)"
       fi
     fi
     if [[ -f "$HARDENING_ROLLBACK" ]]; then
@@ -350,6 +408,14 @@ if (( has_rollbacks )); then
         ok "Hardening undone"
       else
         warn "hardening-rollback.sh exited with errors"
+      fi
+    fi
+    if [[ -f "$SERVICES_ROLLBACK" ]]; then
+      log "Running services rollback..."
+      if bash "$SERVICES_ROLLBACK"; then
+        ok "Services re-enabled"
+      else
+        warn "services-rollback.sh exited with errors"
       fi
     fi
   else
@@ -369,7 +435,7 @@ fi
 # init_rollback does not truncate, and each key's first-run line wins.
 keep_undo=()
 if (( has_rollbacks )) && [[ ! "${run_rollbacks:-}" =~ ^[Yy]$ ]]; then
-  for f in defaults-rollback.sh hardening-rollback.sh; do
+  for f in defaults-rollback.sh hardening-rollback.sh services-rollback.sh; do
     if [[ -e "$STATE_DIR/$f" ]]; then keep_undo+=("$f"); fi
   done
   if [[ -e "$STATE_DIR/defaults-rollback.sh" && -d "$STATE_DIR/plist-backups" ]]; then

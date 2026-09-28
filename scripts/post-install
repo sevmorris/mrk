@@ -33,12 +33,21 @@ Options:
 post-install imports the app preferences, writes app defaults over them,
 installs the Node LTS when nvm has none, installs this Mac's own apps from their GitHub
 releases — only when each is signed by the expected Developer ID and accepted
-by Gatekeeper — registers the login items, and loads the mrk LaunchAgents. Every domain it overwrites is exported to
-~/.mrk/plist-backups first, and each change appends to the shared
-~/.mrk/defaults-rollback.sh. It exits 1 when any step failed. Normally run as
+by Gatekeeper — registers the login items, and loads the mrk LaunchAgents.
+
+It imports a plist only into an app with no settings yet, and each import
+appends a line to the shared ~/.mrk/defaults-rollback.sh that deletes that
+app's whole preferences domain. The app-defaults scripts (Safari, Helium,
+AlDente, Audio Hijack, Fission, Rogue Amoeba) write their keys directly and
+record no undo. It exits 1 when any step failed. Normally run as
 `make post-install`.
 EOF
 }
+
+# The undo sentence above said until 2026-09-27 that every domain post-install
+# overwrites is exported to ~/.mrk/plist-backups first and every change recorded.
+# The app-defaults scripts do neither, and an import never overwrites (audit 19,
+# W-12).
 
 # The *) arm is not optional here. Without it an unrecognised flag was simply
 # discarded and the whole of post-install ran anyway, so `mrk-post-install

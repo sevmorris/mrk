@@ -187,6 +187,38 @@ sudo_refresh() { sudo -n -v 2>/dev/null || true; }
 mrk_mktemp()   { mktemp    "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
 mrk_mktemp_d() { mktemp -d "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
 
+# The lines of an undo file that delete a whole preferences domain: those
+# post-install appends to defaults-rollback.sh for each plist it imports,
+# `defaults delete DOMAIN >/dev/null 2>&1 || true`. Every other line there puts
+# back or removes one key. Run long after the import, a whole-domain delete
+# takes with it every setting made in that app since, so uninstall and nuke-mrk
+# offer these lines apart from the rest. Until 2026-09-27 "Run macOS defaults
+# rollback now?" ran them all: on this Mac, 33 apps' preferences, iTerm2's,
+# Raycast's, Keka's and the owner's own apps' among them (audit 19, W-13).
+# nuke-mrk sources nothing, so it keeps its own copy of the pattern;
+# tests/undo-files.sh checks that the two agree.
+MRK_WHOLE_DOMAIN_UNDO='^defaults delete [^ ]+ >/dev/null 2>&1 \|\| true$'
+
+# rollback_domains FILE — the domains FILE deletes whole, one to a line
+rollback_domains() {
+  { grep -E "$MRK_WHOLE_DOMAIN_UNDO" "$1" 2>/dev/null || true; } | awk '{print $3}'
+}
+
+# run_rollback FILE settings|domains — run FILE's per-key lines, or only its
+# whole-domain deletes, from a copy
+run_rollback() {
+  local tmp rc=0
+  tmp=$(mrk_mktemp) || return 1
+  if [[ "$2" == domains ]]; then
+    { printf '#!/usr/bin/env bash\n'; grep -E "$MRK_WHOLE_DOMAIN_UNDO" "$1" || true; } > "$tmp"
+  else
+    { grep -vE "$MRK_WHOLE_DOMAIN_UNDO" "$1" || true; } > "$tmp"
+  fi
+  bash "$tmp" || rc=$?
+  rm -f "$tmp"
+  return "$rc"
+}
+
 # mrk_serves_home ROOT — ROOT is the checkout ~ is linked to: $MRK_ROOT when it
 # is set, ~/mrk otherwise. Compared as resolved paths, so a checkout under a
 # symlink still counts. The Makefile's MRK_HOME, update-full and mrk-status read
