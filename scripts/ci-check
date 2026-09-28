@@ -120,7 +120,8 @@ log "install --all"
 # setup and brew as a new Mac runs them: under /bin/bash, with no Homebrew and
 # curl, brew and gum stubbed. Until 2026-09-27 both demanded Homebrew's bash
 # and exited 1 without it, so neither could run on the Mac it was for — and
-# brew is the phase that installs Homebrew.
+# brew is the phase that installs Homebrew. Also build-tools with Homebrew off
+# PATH, as make all runs it after Phase 2: until 2026-09-27 "Go is not installed".
 log "new Mac (bash 3.2, no Homebrew)"
 "$REPO_ROOT/tests/new-mac.sh"
 
@@ -165,7 +166,9 @@ log "Picard settings"
 # post-install whole, on a copy of the repository with defaults stubbed to keep
 # every domain in a scratch directory: until 2026-09-27 its app-defaults scripts
 # ran before the plist imports, so six apps' saved preferences were never
-# imported on a new Mac. Audit 19, W-2.
+# imported on a new Mac. Audit 19, W-2. Also a Mac with Homebrew off PATH, as
+# after Phase 2 in make all, where until 2026-09-27 it skipped topgrade, pyenv
+# and pinentry-mac as not installed. Audit 19, W-31.
 log "plist import order"
 "$REPO_ROOT/tests/plist-import-order.sh"
 

@@ -28,14 +28,25 @@ endef
 
 .PHONY: trim-services all install fix-exec setup setup-dry brew post-install apps tools dotfiles defaults trackpad uninstall update pull updates harden status doctor picker mrk-status mrk-menu build-tools tidy sync sync-login-items snapshot snapshot-prefs pull-prefs snapshot-keys restore-keys restore-repos dock help check ci maintain
 
+# Put Homebrew on PATH for one recipe line, when it is installed and not on PATH
+# already: homebrew_on_path in scripts/lib.sh. make all runs every step with the
+# PATH it started with, and on a new Mac that holds no Homebrew, so until
+# 2026-09-27 build-tools failed with "Go is not installed" right after Phase 2
+# had installed Go (audit 19, W-31).
+brew-env = . "$(SCRIPTS)/lib.sh" && { homebrew_on_path || true; };
+
 # Build a Go tool: $(call go-build,<binary>,<tool-dir>)
+#
+# brew-env on both lines that need go, since each recipe line is its own shell.
 define go-build
-	@if ! command -v go >/dev/null 2>&1; then \
+	@$(brew-env) \
+	if ! command -v go >/dev/null 2>&1; then \
 		echo "error: Go is not installed. Install it with: brew install go"; \
 		exit 1; \
 	fi
 	@printf '  \033[36m▸\033[0m Building $(1)…\n'
-	@VERSION=$$(git -C "$(REPO_ROOT)" describe --tags --always --dirty 2>/dev/null || echo dev); \
+	@$(brew-env) \
+	 VERSION=$$(git -C "$(REPO_ROOT)" describe --tags --always --dirty 2>/dev/null || echo dev); \
 	 SHA=$$(git -C "$(REPO_ROOT)" rev-parse --short HEAD 2>/dev/null || echo unknown); \
 	 cd "$(REPO_ROOT)/tools/$(2)" && \
 	 go build -ldflags "-X main.Version=$$VERSION -X main.GitSHA=$$SHA" -o "$(BIN_DIR)/$(1)" .

@@ -141,6 +141,43 @@ init_rollback() {
   return 0
 }
 
+# Where Homebrew's brew is, or will be once installed: /opt/homebrew on Apple
+# silicon, /usr/local on Intel. MRK_BREW names one other path instead, so a test
+# can run a phase on a Mac that has Homebrew as though it had none, or had it
+# somewhere else. scripts/sync takes MRK_BREW the same way.
+if [[ -n "${MRK_BREW:-}" ]]; then
+  BREW_PATHS=("$MRK_BREW")
+else
+  BREW_PATHS=(/opt/homebrew/bin/brew /usr/local/bin/brew)
+fi
+
+# homebrew_on_path — put Homebrew on PATH when it is installed and its bin is
+# not on PATH. Returns 1 when there is no Homebrew.
+#
+# A shell started before Phase 2 installed Homebrew has no /opt/homebrew/bin,
+# and make all runs every phase with the PATH it was started with. brew puts
+# Homebrew on its own PATH with `brew shellenv`, which reaches brew's process
+# alone. Until 2026-09-27 post-install therefore logged topgrade, pyenv and
+# pinentry-mac as not installed and skipped them, and build-tools failed with
+# "Go is not installed", on the Mac Phase 2 had just installed them on (audit
+# 19, W-31).
+#
+# Only when the bin is missing: shellenv puts Homebrew first on PATH, and a PATH
+# that already holds it keeps its order, so a Mac set up from its dotfiles sees
+# no change.
+homebrew_on_path() {
+  local b
+  for b in "${BREW_PATHS[@]}"; do
+    [[ -x "$b" ]] || continue
+    case ":$PATH:" in
+      *":${b%/*}:"*) ;;
+      *) eval "$("$b" shellenv)" ;;
+    esac
+    return 0
+  done
+  return 1
+}
+
 # Refresh sudo timestamp to prevent timeout during long-running installs.
 # Uses -n (non-interactive) so it never prompts — only extends an active session.
 sudo_refresh() { sudo -n -v 2>/dev/null || true; }

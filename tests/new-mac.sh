@@ -10,6 +10,13 @@
 # Homebrew, CI installs bash before ci-check, and tests/install-all.sh stubs
 # make. Both scripts are now bash-3.2-clean and never re-execute.
 #
+# It also runs `make build-tools` as make all does after Phase 2: Homebrew
+# installed, and not on the PATH make started with. Until 2026-09-27 that failed
+# with "Go is not installed" (audit 19, W-31). homebrew_on_path in lib.sh now
+# puts Homebrew on PATH there, and is checked here directly as well. Its
+# post-install half is tested in tests/plist-import-order.sh, which runs
+# post-install whole.
+#
 # Every run is on a copy of the repository, under a throwaway HOME, with
 # `env -i` and PATH cut to stubs and the system directories, so no Homebrew is
 # reachable by name. MRK_ROOT names the copy, because setup links into ~ only
@@ -19,7 +26,8 @@
 #
 # brew runs with MRK_BREW naming a path in the sandbox. curl is a stub whose
 # Homebrew "installer" puts a stub brew there, and `brew install gum` puts a
-# stub gum beside it. sudo, chsh, dscl, xcode-select and git are stubs too.
+# stub gum beside it, and a case that needs Go puts a stub go there. sudo, chsh,
+# dscl, xcode-select and git are stubs too.
 # Nothing is installed, and the real HOME, ~/.mrk, ~/bin and /opt/homebrew are
 # never touched. ci-check runs it.
 
@@ -52,14 +60,22 @@ while IFS= read -r -d '' f; do
   mkdir -p "$R/$(dirname "$f")"
   cp -p "$REPO_ROOT/$f" "$R/$f"
 done < <(git -C "$REPO_ROOT" ls-files -z scripts bin dotfiles Brewfile Makefile tools/picker/main.go)
+# build-tools changes into each tool's directory; the stub go needs no source
+mkdir -p "$R/tools/mrk-status" "$R/tools/mrk-menu"
 
-# Belt and braces: MRK_BREW keeps brew away from this Mac's Homebrew, and the
-# copy's own Homebrew paths are pointed into the sandbox as well. A brew that
-# stopped honouring MRK_BREW then finds nothing, rather than a real brew to run
-# `brew bundle` with.
-sed -i.orig -e "s#/opt/homebrew/bin/brew#$W/refused/bin/brew#g" \
-  -e "s#/usr/local/bin/brew#$W/refused/bin/brew#g" "$R/scripts/brew"
-rm -f "$R/scripts/brew.orig"
+# Belt and braces: MRK_BREW keeps brew, and homebrew_on_path, away from this
+# Mac's Homebrew, and the copy's own Homebrew paths are pointed into the sandbox
+# as well. A copy that stopped honouring MRK_BREW then finds nothing, rather
+# than a real brew to run `brew bundle` with, or a real Homebrew to put on PATH.
+for f in "$R/scripts/brew" "$R/scripts/lib.sh"; do
+  sed -i.orig -e "s#/opt/homebrew/bin/brew#$W/refused/bin/brew#g" \
+    -e "s#/usr/local/bin/brew#$W/refused/bin/brew#g" "$f"
+  rm -f "$f.orig"
+done
+if grep -nE '/(opt/homebrew|usr/local)/bin/brew' "$R/scripts/brew" "$R/scripts/lib.sh" "$R/Makefile"; then
+  fail "a real Homebrew path survived the rewrite — refusing to run"
+  exit 1
+fi
 
 # Copies of both, beside lib.sh in a directory of their own, with an unbound
 # variable planted after their traps are set, for the abort cases below
@@ -133,6 +149,16 @@ for a in "$@"; do
   [[ " $GUM_PICK " == *" ${a%% — *} "* ]] && printf '%s\n' "$a"
 done
 exit 0
+EOF
+# go, when a case puts it in Homebrew's bin: `go build … -o OUT .` leaves an
+# executable at OUT
+cat > "$TPL/go" <<'EOF'
+#!/bin/bash
+printf 'go %s\n' "$*" >> "$SANDBOX/calls"
+while (($#)); do
+  if [[ "$1" == -o ]]; then printf '#!/bin/sh\n' > "$2"; chmod +x "$2"; fi
+  shift
+done
 EOF
 # mrk-picker, when a case puts it in the repository's bin/: records its
 # arguments and prints PICKER_OUT, one word per line.
@@ -387,6 +413,53 @@ cases() {
       fail "$s, aborted by an unbound variable, exits $RC"; show 4
     fi
   done
+
+  # After Phase 2, from the shell it ran in: Homebrew installed with Go in it,
+  # and not on PATH. make all runs build-tools there.
+  with_homebrew
+  cp -p "$TPL/go" "$P/bin/go"
+  run "$b" make --no-print-directory -C "$R" build-tools
+  if [[ $RC -eq 0 && -x "$R/bin/mrk-picker" && -x "$R/bin/mrk-status" && -x "$R/bin/mrk-menu" ]] \
+     && (( $(grep -c '^go build' "$W/calls") == 3 )); then
+    pass "make build-tools after Phase 2, Homebrew not on PATH: builds all three with Homebrew's go"
+  else
+    fail "make build-tools after Phase 2, Homebrew not on PATH: exit $RC"; show 6
+  fi
+  rm -f "$R/bin/mrk-picker" "$R/bin/mrk-status" "$R/bin/mrk-menu"
+
+  fresh_mac
+  run "$b" make --no-print-directory -C "$R" build-tools
+  if [[ $RC -ne 0 ]] && has "Go is not installed" && [[ ! -e "$R/bin/mrk-picker" ]]; then
+    pass "make build-tools with no Homebrew: still says Go is not installed"
+  else
+    fail "make build-tools with no Homebrew: exit $RC"; show 4
+  fi
+
+  # homebrew_on_path itself, in the bash under test
+  # shellcheck disable=SC2016  # expanded by the inner bash
+  local on_path='. "$1/scripts/lib.sh"; p0=$PATH; homebrew_on_path; rc=$?
+    [[ "$PATH" == "$p0" ]] && same=unchanged || same=changed
+    echo "rc=$rc $same PATH=$PATH"'
+  with_homebrew
+  run "$b" bash -c "$on_path" _ "$R"
+  if has "rc=0 changed PATH=$P/bin:$S:"; then
+    pass "homebrew_on_path puts Homebrew's bin first when it is not on PATH"
+  else
+    fail "homebrew_on_path, Homebrew not on PATH:"; show 2
+  fi
+  run "$b" bash -c "PATH=\"\$2:\$PATH\"; $on_path" _ "$R" "$P/bin"
+  if has "rc=0 unchanged" && ! grep -q '^brew shellenv' "$W/calls"; then
+    pass "  and leaves a PATH that already holds it as it was, without running brew"
+  else
+    fail "  Homebrew already on PATH:"; show 2
+  fi
+  fresh_mac
+  run "$b" bash -c "$on_path" _ "$R"
+  if has "rc=1 unchanged"; then
+    pass "  and returns 1 when there is no Homebrew"
+  else
+    fail "  no Homebrew:"; show 2
+  fi
 
   # The audit's reproduction: through make, as the README and the manual run it
   fresh_mac

@@ -117,6 +117,8 @@ Script: `scripts/post-install`
 
 Phase 3 configures the installed apps. Run Phase 2 first.
 
+It can run in the same shell as Phase 2, whether that is `make all`'s or one opened before Homebrew was installed. When Homebrew is installed and not on the PATH, Phase 3 puts it there first, with `brew shellenv`. Until 2026-09-27 it logged topgrade, pyenv and pinentry-mac as not installed in that shell, and skipped their steps, on the Mac Phase 2 had just installed them on.
+
 **What it does:**
 
 - **Topgrade:** Symlinks `assets/topgrade.toml` to `~/.config/topgrade.toml`. A link already there is replaced, even one that points nowhere, and a real file is kept as `.bak`. Until 2026-09-27 a link that pointed nowhere failed Phase 3 on every run.
@@ -739,7 +741,7 @@ Then install the App Store apps in [docs/app-store-apps.md](app-store-apps.md) f
 | `make picker` | Build the mrk-picker TUI binary |
 | `make mrk-status` | Build the mrk-status TUI binary |
 | `make mrk-menu` | Build the mrk-menu TUI binary |
-| `make build-tools` | Build the three TUI binaries — mrk-picker, mrk-status and mrk-menu. They are linked into `~/bin` only when you build in `~/mrk` (or `$MRK_ROOT`) |
+| `make build-tools` | Build the three TUI binaries — mrk-picker, mrk-status and mrk-menu. They are linked into `~/bin` only when you build in `~/mrk` (or `$MRK_ROOT`). It finds Homebrew's Go when Homebrew is not on the PATH, as in `make all` on a new Mac |
 
 **General**
 

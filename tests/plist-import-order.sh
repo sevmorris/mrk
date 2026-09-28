@@ -22,6 +22,14 @@
 # it writes no preferences. Nothing reaches the network, System Events, launchd
 # or the apps' real settings.
 #
+# A fifth machine is the one Phase 2 has just run on: Homebrew installed, and
+# not on the PATH make all started with. Until 2026-09-27 post-install logged
+# topgrade, pyenv and pinentry-mac as not installed there, and skipped them
+# (audit 19, W-31). It lives here because this is the one harness that runs
+# post-install whole. Homebrew is a scratch prefix named by MRK_BREW, holding
+# stubs, and the copy's lib.sh is pointed away from this Mac's Homebrew too, so
+# no real pyenv or topgrade can reach PATH.
+#
 # The run goes under /bin/bash and under the bash running this file, because
 # post-install carries no bash-4 guard and a new Mac runs it with bash 3.2.
 # ci-check runs it.
@@ -65,6 +73,8 @@ mkdir -p "$R/scripts" "$R/assets/preferences" "$R/assets/browsers" "$APPS" "$STU
 cp -p "$REPO_ROOT/scripts/post-install" "$REPO_ROOT/scripts/lib.sh" "$R/scripts/"
 cp -p "$REPO_ROOT"/assets/preferences/*.sh "$R/assets/preferences/"
 cp -p "$REPO_ROOT"/assets/browsers/*.sh "$R/assets/browsers/"
+cp -p "$REPO_ROOT/assets/topgrade.toml" "$R/assets/"
+cp -p "$REPO_ROOT/.python-version" "$R/"
 cat > "$R/scripts/install-apps" <<'EOF'
 #!/usr/bin/env bash
 install_companion_apps() { COMPANION_FAILED=0; }
@@ -79,6 +89,16 @@ if grep -n '/Applications/' "$R/scripts/post-install" "$R"/assets/*/*.sh | grep 
 fi
 if grep -n '/usr/bin/defaults' "$R/scripts/post-install" "$R"/assets/*/*.sh; then
   fail "a script names /usr/bin/defaults, which the stub cannot intercept — refusing to run"
+  exit 1
+fi
+
+# run_pi sets MRK_BREW to the scratch Homebrew. lib.sh's own Homebrew paths are
+# pointed into the scratch directory as well, so a post-install that stopped
+# honouring MRK_BREW would find no Homebrew, rather than this Mac's.
+sed -e "s#/opt/homebrew/bin/brew#$W/refused/bin/brew#g" -e "s#/usr/local/bin/brew#$W/refused/bin/brew#g" \
+  "$R/scripts/lib.sh" > "$W/rewrite" && cat "$W/rewrite" > "$R/scripts/lib.sh"
+if grep -nE '/(opt/homebrew|usr/local)/bin/brew' "$R/scripts/post-install" "$R/scripts/lib.sh"; then
+  fail "a real Homebrew path survived the rewrite — refusing to run"
   exit 1
 fi
 
@@ -179,11 +199,14 @@ machine() {
   /usr/bin/defaults write "$d/home/.mrk/preferences/sevmorris-apps/$OWN_ID" mrkTestSaved -string "$OWN_ID"
 }
 
-# run_pi DIR — post-install --yes on that machine; output in DIR/out
+# run_pi DIR — post-install --yes on that machine; output in DIR/out. MRK_ROOT
+# names the copy: post-install makes its links into ~, topgrade's among them,
+# only from the checkout ~ is linked to (audit 19, W-5).
 run_pi() {
   local d="$1"
   env -i HOME="$d/home" PATH="$STUBS:/usr/bin:/bin:/usr/sbin:/sbin" TMPDIR="$d/tmp" \
     STORE="$d/domains" SCRATCH="$W" DEFAULTS_LOG="$d/defaults.log" CALLS="$d/calls.log" \
+    MRK_BREW="$W/homebrew/bin/brew" MRK_ROOT="$R" \
     "$STUBS/bash" "$R/scripts/post-install" --yes </dev/null > "$d/out" 2>&1
 }
 
@@ -308,6 +331,62 @@ if [[ -z "$not_imported" ]]; then
   pass "installed later, post-install again: all six imported, mrk's keys over them"
 else
   fail "installed later, post-install again: not imported: ${not_imported#, }"; show_out "$L"
+fi
+
+# ── 5. Right after Phase 2: Homebrew installed, and not on PATH ──────────────
+
+# Machines 1 to 4 had no Homebrew: MRK_BREW named nothing. This one has a brew
+# whose shellenv puts its bin on PATH, and stubs of topgrade, pyenv,
+# pinentry-mac and gpgconf beside it. PATH is the same as before.
+HB="$W/homebrew/bin"
+mkdir -p "$HB"
+cat > "$HB/brew" <<'EOF'
+#!/bin/bash
+printf 'brew %s\n' "$*" >> "$CALLS"
+[[ "${1:-}" == shellenv ]] || exit 1
+bin="$(cd "$(dirname "$0")" && pwd)"
+printf 'export HOMEBREW_PREFIX=%q; export PATH=%q:"$PATH";\n' "${bin%/bin}" "$bin"
+EOF
+# pyenv keeps the versions it has "installed" in the machine's HOME
+cat > "$HB/pyenv" <<'EOF'
+#!/bin/bash
+printf 'pyenv %s\n' "$*" >> "$CALLS"
+case "${1:-}" in
+  versions) cat "$HOME/.pyenv-stub" 2>/dev/null ;;
+  install)  printf '%s\n' "${!#}" >> "$HOME/.pyenv-stub" ;;
+esac
+exit 0
+EOF
+for tool in topgrade pinentry-mac gpgconf; do
+  cat > "$HB/$tool" <<EOF
+#!/bin/bash
+printf '%s %s\n' $tool "\$*" >> "\$CALLS"
+EOF
+done
+chmod +x "$HB"/*
+
+P2="$W/after-phase-2"
+machine "$P2"; apps all
+if run_pi "$P2"; then
+  pass "after Phase 2, Homebrew not on PATH: post-install exits 0"
+else
+  fail "after Phase 2, Homebrew not on PATH: post-install exited non-zero"; show_out "$P2"
+fi
+want_py=$(tr -d '[:space:]' < "$R/.python-version")
+skipped=$(grep -oE '(topgrade|pyenv|pinentry-mac) not installed' "$P2/out" | tr '\n' ' ')
+if [[ "$(readlink "$P2/home/.config/topgrade.toml")" == "$R/assets/topgrade.toml" ]] \
+   && grep -qxF "pinentry-program $HB/pinentry-mac" "$P2/home/.gnupg/gpg-agent.conf" 2>/dev/null \
+   && grep -qxF "pyenv install -s $want_py" "$P2/calls.log" \
+   && [[ -z "$skipped" ]]; then
+  pass "after Phase 2: topgrade's config linked, pinentry-mac configured, Python $want_py installed"
+else
+  fail "after Phase 2: ${skipped:+logged as not installed: $skipped}"
+  grep -E 'topgrade|pyenv|pinentry' "$P2/out" | sed 's/^/      /' >&2
+fi
+if (( $(grep -c '^brew shellenv$' "$P2/calls.log") == 1 )); then
+  pass "after Phase 2: brew shellenv run once"
+else
+  fail "after Phase 2: brew shellenv run $(grep -c '^brew shellenv$' "$P2/calls.log") times"
 fi
 
 # ── Nothing escaped the stubs ────────────────────────────────────────────────
