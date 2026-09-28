@@ -30,6 +30,11 @@
 # dscl, xcode-select and git are stubs too.
 # Nothing is installed, and the real HOME, ~/.mrk, ~/bin and /opt/homebrew are
 # never touched. ci-check runs it.
+#
+# It also holds Phase 2's flags and failures, since this is the harness that
+# runs brew: --no-casks, --no-formulae and --only-formulae without a terminal
+# (W-6), one failure counted once (W-14), a failed brew list (W-15), a dry run
+# offline (W-16), and the picker's ignore key (W-17). Audit 19.
 
 set -uo pipefail
 
@@ -118,6 +123,7 @@ EOF
 cat > "$S/curl" <<'EOF'
 #!/bin/bash
 printf 'curl %s\n' "$*" >> "$SANDBOX/calls"
+[[ "${CURL_FAIL:-0}" == 1 ]] && exit 7
 case "$*" in
   *Homebrew/install*)
     printf 'mkdir -p %q && cp %q %q\n' "$(dirname "$MRK_BREW")" "$SANDBOX/templates/brew" "$MRK_BREW" ;;
@@ -130,9 +136,11 @@ printf 'brew %s\n' "$*" >> "$SANDBOX/calls"
 prefix="$(cd "$(dirname "$0")/.." && pwd)"
 case "$1" in
   shellenv) printf 'export HOMEBREW_PREFIX=%q; export PATH=%q:"$PATH";\n' "$prefix" "$prefix/bin" ;;
-  list)     if [[ "${2:-}" == --cask ]]; then cat "$SANDBOX/installed-casks"; else cat "$SANDBOX/installed-formulae"; fi ;;
+  list)     [[ "${LIST_FAIL:-0}" == 1 ]] && exit 1
+            if [[ "${2:-}" == --cask ]]; then cat "$SANDBOX/installed-casks"; else cat "$SANDBOX/installed-formulae"; fi ;;
   install)  if [[ "${2:-}" == gum ]]; then cp "$SANDBOX/templates/gum" "$prefix/bin/gum"; else exit 1; fi ;;
-  bundle)   for a in "$@"; do [[ "$a" == --file=* ]] && cp "${a#--file=}" "$SANDBOX/bundled"; done; exit 0 ;;
+  bundle)   for a in "$@"; do [[ "$a" == --file=* ]] && cp "${a#--file=}" "$SANDBOX/bundled"; done
+            [[ "${BUNDLE_FAIL:-0}" == 1 ]] && exit 1; exit 0 ;;
   *)        echo "brew stub: unexpected: $*" >&2; exit 1 ;;
 esac
 EOF
@@ -161,9 +169,11 @@ while (($#)); do
 done
 EOF
 # mrk-picker, when a case puts it in the repository's bin/: records its
-# arguments and prints PICKER_OUT, one word per line.
+# arguments and prints PICKER_OUT, one word per line. Asked for -h, it prints
+# PICKER_HELP to stderr, as Go's flag package does.
 cat > "$TPL/mrk-picker" <<'EOF'
 #!/bin/bash
+[[ "${1:-}" == -h ]] && { printf '%s\n' "${PICKER_HELP:-}" >&2; exit 0; }
 printf '%s\n' "$@" > "$SANDBOX/picker-args"
 tr ' ' '\n' <<< "$PICKER_OUT"
 EOF
@@ -238,7 +248,8 @@ run() {
   local cmd=(env -i HOME="$H" USER="${USER:-$(id -un)}" LOGNAME="${USER:-$(id -un)}"
              TMPDIR="$W/tmp" TERM=dumb PATH="$S:$bashdir:/usr/bin:/bin:/usr/sbin:/sbin"
              BASH_ENV="$W/bash-env" SANDBOX="$W" MRK_BREW="$P/bin/brew" SHELLS_FILE="$W/shells" MRK_ROOT="$R"
-             GUM_PICK="${GUM_PICK:-}" PICKER_OUT="${PICKER_OUT:-}" "$@")
+             GUM_PICK="${GUM_PICK:-}" PICKER_OUT="${PICKER_OUT:-}" PICKER_HELP="${PICKER_HELP:-}"
+             CURL_FAIL="${CURL_FAIL:-0}" LIST_FAIL="${LIST_FAIL:-0}" BUNDLE_FAIL="${BUNDLE_FAIL:-0}" "$@")
   if (( tty )); then
     script -q /dev/null "${cmd[@]}" </dev/null 2>&1 | tr -d '\r' > "$W/out"
     RC=${PIPESTATUS[0]}
@@ -459,6 +470,85 @@ cases() {
     pass "  and returns 1 when there is no Homebrew"
   else
     fail "  no Homebrew:"; show 2
+  fi
+
+  # ── Phase 2's flags and failures (audit 19, W-6, W-14 to W-17) ──
+
+  # W-6: without a terminal, the flags choose what brew bundle is handed
+  local flag want_brew want_cask got_brew got_cask
+  for flag in --no-casks --only-formulae --no-formulae; do
+    with_homebrew
+    run "$b" "$R/scripts/brew" --yes "$flag"
+    want_brew=${#FORMULAE[@]}; want_cask=0
+    [[ "$flag" == --no-formulae ]] && { want_brew=0; want_cask=${#CASKS[@]}; }
+    got_brew=$(grep -c '^brew "' "$W/bundled" 2>/dev/null); got_cask=$(grep -c '^cask "' "$W/bundled" 2>/dev/null)
+    if [[ $RC -eq 0 && "$got_brew" == "$want_brew" && "$got_cask" == "$want_cask" ]] \
+       && [[ "$(grep -vE '^(brew|cask) "' "$W/bundled")" == "$(grep -vE '^(brew|cask) "' "$R/Brewfile")" ]]; then
+      pass "brew --yes $flag: bundles $want_brew formulae and $want_cask casks, with every tap"
+    else
+      fail "brew --yes $flag (exit $RC): bundled $got_brew formulae and $got_cask casks"; show
+    fi
+  done
+
+  # W-6: and a mas line is left out there too, as in the interactive path
+  with_homebrew
+  cp -p "$R/Brewfile" "$W/Brewfile.saved"
+  printf 'mas "Xcode", id: 497799835\n' >> "$R/Brewfile"
+  run "$b" "$R/scripts/brew" --yes
+  cp -p "$W/Brewfile.saved" "$R/Brewfile"
+  if [[ $RC -eq 0 ]] && ! grep -q '^mas ' "$W/bundled" && has "Ignoring a Mac App Store entry" \
+     && [[ "$(grep -c '^cask "' "$W/bundled")" == "${#CASKS[@]}" ]]; then
+    pass "brew --yes with a mas line: warns and leaves it out, and bundles the rest"
+  else
+    fail "brew --yes with a mas line (exit $RC): $(grep -c '^mas ' "$W/bundled" 2>/dev/null) mas line(s) bundled"; show
+  fi
+
+  # W-14: one failure, counted once
+  with_homebrew
+  BUNDLE_FAIL=1 run "$b" "$R/scripts/brew" --yes
+  if [[ $RC -eq 1 ]] && has "Errors encountered: 1" && ! has "Errors encountered: 2"; then
+    pass "brew bundle failing: exit 1, and \"Errors encountered: 1\""
+  else
+    fail "brew bundle failing (exit $RC): $(grep -o 'Errors encountered: [0-9]*' "$W/out")"; show
+  fi
+
+  # W-15: a failed brew list stops the selection before anything is bundled
+  with_homebrew
+  cp -p "$TPL/mrk-picker" "$R/bin/mrk-picker"
+  LIST_FAIL=1 PICKER_OUT="formula:$F1 cask:$C1" run "$b" --tty "$R/scripts/brew"
+  if [[ $RC -ne 0 && ! -e "$W/bundled" && ! -e "$W/picker-args" ]] && has "brew list failed"; then
+    pass "brew list failing: says so, shows no picker, bundles nothing, exits $RC"
+  else
+    fail "brew list failing (exit $RC): bundled $([[ -e "$W/bundled" ]] && echo something || echo nothing)"; show
+  fi
+
+  # W-16: a dry run needs no network
+  fresh_mac
+  CURL_FAIL=1 run "$b" "$R/scripts/brew" --dry-run
+  if [[ $RC -eq 0 ]] && has "Dry run complete" && ! has "No internet connection"; then
+    pass "brew --dry-run offline: completes"
+  else
+    fail "brew --dry-run offline (exit $RC)"; show
+  fi
+
+  # W-17: the ignore key is hidden when the picker has --no-ignore, and marks
+  # from one that does not are reported rather than dropped without a word
+  with_homebrew
+  cp -p "$TPL/mrk-picker" "$R/bin/mrk-picker"
+  PICKER_HELP="  -no-ignore	Hide the ignore key" PICKER_OUT="formula:$F1" run "$b" --tty "$R/scripts/brew"
+  if [[ $RC -eq 0 ]] && grep -qx -- --no-ignore "$W/picker-args"; then
+    pass "a picker with --no-ignore: brew passes it"
+  else
+    fail "a picker with --no-ignore (exit $RC): given $(tr '\n' ' ' < "$W/picker-args" 2>/dev/null)"; show
+  fi
+  with_homebrew
+  cp -p "$TPL/mrk-picker" "$R/bin/mrk-picker"
+  PICKER_OUT="formula:$F1 ignore-cask:$C1" run "$b" --tty "$R/scripts/brew"
+  if [[ $RC -eq 0 ]] && ! grep -qx -- --no-ignore "$W/picker-args" && has "1 ignore mark(s) not saved" \
+     && bundled_ok "$F1"; then
+    pass "an older picker: no --no-ignore, its mark reported as not saved, the selection bundled"
+  else
+    fail "an older picker (exit $RC): $(grep -i 'ignore' "$W/out" | head -2)"; show
   fi
 
   # The audit's reproduction: through make, as the README and the manual run it

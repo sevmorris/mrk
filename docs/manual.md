@@ -102,14 +102,16 @@ Script: `scripts/brew`
 
 Phase 2 installs Homebrew and every package that the `Brewfile` lists.
 
-Like Phase 1, it runs under the bash 3.2 that macOS ships. It has to: it is the phase that installs Homebrew, and with it Homebrew's bash. Until 2026-09-27 it required Homebrew's bash, so on a Mac without Homebrew it stopped with "bash 4+ required" before it could install anything. `make brew ARGS=--dry-run` works on such a Mac as well: it says that it would install Homebrew, and counts the Brewfile.
+Like Phase 1, it runs under the bash 3.2 that macOS ships. It has to: it is the phase that installs Homebrew, and with it Homebrew's bash. Until 2026-09-27 it required Homebrew's bash, so on a Mac without Homebrew it stopped with "bash 4+ required" before it could install anything. `make brew ARGS=--dry-run` works on such a Mac as well: it says that it would install Homebrew, and counts the Brewfile. A dry run needs no network either; until 2026-09-28 it stopped offline with "No internet connection".
 
 **What it does:**
 
 - Installs Homebrew when it is absent.
 - Runs `brew bundle install` against the Brewfile.
 - Asks you about each new package.
-- Shows the mrk-picker TUI, so you can select the packages. If mrk-picker is absent, Phase 2 uses `gum`.
+- Shows the mrk-picker TUI, so you can select the packages. If mrk-picker is absent, Phase 2 uses `gum`. The picker here has no `i ignore` key: Phase 2 keeps no ignore list, so a mark had nowhere to go and was dropped. `sync`'s picker keeps the key.
+- With `--yes`, or with no terminal, Phase 2 asks nothing. It installs every package in the Brewfile, less what `--no-casks`, `--no-formulae` or `--only-formulae` leaves out. Until 2026-09-28 those flags were ignored there, and the whole Brewfile went to `brew bundle`.
+- Stops before the picker when `brew list` fails, rather than showing every package as missing.
 
 ## Phase 3 — Post-Install (`make post-install`)
 

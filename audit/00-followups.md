@@ -110,12 +110,9 @@ Items that require a real choice before they can be closed in either direction.
 **Module 19's findings (2026-09-27), awaiting fix sessions.** Unlike the modules before it,
 module 19 fixed nothing, so every item was open. Details, evidence and line numbers are in
 `19-audit-2026-09-27.md`. W-1 is fixed (see Closed), and its fix session added W-31, fixed
-too. W-2 to W-5, W-7 to W-13 and W-26 to W-30 are fixed; see Closed.
+too. W-2 to W-17 and W-26 to W-30 are fixed; see Closed.
 
-- **MEDIUM.**
-  - W-6: brew ignores `--no-casks`, `--no-formulae` and `--only-formulae` without a TTY.
 - **LOW.**
-  - W-14 to W-17: brew.
   - W-18: sync.
   - W-19: defaults.sh.
   - W-20: Claude Code artifacts that outlive both uninstall paths.
@@ -296,6 +293,25 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the brew fix, branch `claude/fix-brew-batch5`, 2026-09-28
+
+Batch 5 of module 19's fixes, and the last MEDIUM. Details and the mutation table are in
+`19-audit-2026-09-27.md`, at the end of the brew findings.
+
+- **W-6 (MEDIUM)** — with `--yes` or no terminal, brew handed `brew bundle` the whole Brewfile,
+  ahead of `--no-casks`, `--no-formulae`, `--only-formulae` and the `mas` guard. It now hands over
+  what the flags allow.
+- **W-14 (LOW)** — one failure printed "Errors encountered: 2". It is counted once now.
+- **W-15 (LOW)** — a failed `brew list` read as nothing installed, and choosing everything would
+  have upgraded what was. It stops the phase now.
+- **W-16 (LOW)** — a dry run offline stopped at the network check. It skips it now.
+- **W-17 (LOW)** — Phase 2's picker offered `i ignore`, and brew dropped the marks. `mrk-picker
+  --no-ignore` hides the key, and brew passes it when the picker has it.
+
+**Test.** Nine new checks per bash in `tests/new-mac.sh`, and `TestNoIgnoreHidesTheIgnoreKey`
+in Go. Each of ten mutations fails them. This Mac's `bin/mrk-picker` needs `make picker` before
+Phase 2 hides the key.
 
 ### Closed by the cleanup fix, branch `claude/cleanup-batch4`, 2026-09-28
 

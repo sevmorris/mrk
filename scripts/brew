@@ -401,6 +401,18 @@ _run_mrk_picker() {
   (( NO_FORMULAE )) && picker_args+=("--skip-formulae")
   (( NO_CASKS ))    && picker_args+=("--skip-casks")
 
+  # Phase 2 installs from the Brewfile and keeps no ignore list, so the picker's
+  # `i ignore` key is hidden here; sync, which keeps ~/.mrk/sync-ignore, shows
+  # it. Until 2026-09-28 Phase 2 offered the key and dropped every mark (audit
+  # 19, W-17). A picker built before then has no --no-ignore, and an unknown flag
+  # makes it exit as though cancelled, so it is asked first. make all runs this
+  # phase before build-tools, so such a picker can be the one here. Its help is
+  # captured whole rather than piped to grep -q, whose early exit would fail the
+  # pipe under pipefail.
+  local picker_help
+  picker_help=$("$picker_bin" -h 2>&1 || true)
+  [[ "$picker_help" == *-no-ignore* ]] && picker_args+=("--no-ignore")
+
   # The installed lists, comma-separated as mrk-picker takes them
   local installed_f installed_c
   installed_f=$(printf '%s' "$installed_formulae" | tr '\n' ',')
@@ -414,13 +426,42 @@ _run_mrk_picker() {
     return 0
   fi
 
+  local dropped=0
   while IFS=: read -r pkg_type pkg_name; do
     [[ -z "$pkg_name" ]] && continue
     case "$pkg_type" in
       formula) selected_formulae+="$pkg_name"$'\n' ;;
       cask)    selected_casks+="$pkg_name"$'\n' ;;
+      ignore-formula|ignore-cask) dropped=$(( dropped + 1 )) ;;
     esac
   done <<< "$picker_out"
+  if (( dropped > 0 )); then
+    warn "Phase 2 keeps no ignore list: $dropped ignore mark(s) not saved"
+    info "This mrk-picker predates --no-ignore. Run make picker to rebuild it."
+  fi
+}
+
+# brewfile_line_skipped LINE — true for a Brewfile line this run leaves out:
+# a formula under --no-formulae, a cask under --no-casks or --only-formulae,
+# and any `mas` line, which it also warns about.
+#
+# mrk stopped tracking App Store apps on 2026-09-11 (docs/app-store-apps.md),
+# and ci-check fails a Brewfile that has a `mas` line. This guard is for the
+# copy that has one anyway — a `brew bundle dump` on a Mac where mas is
+# installed writes them back. Handing one to brew bundle runs `mas install`,
+# which needs root that brew bundle never has, and fails the phase.
+brewfile_line_skipped() {
+  if [[ "$1" =~ ^brew\ \" ]]; then
+    (( NO_FORMULAE ))
+  elif [[ "$1" =~ ^cask\ \" ]]; then
+    (( NO_CASKS ))
+  elif [[ "$1" =~ ^mas[[:space:]] ]]; then
+    warn "Ignoring a Mac App Store entry in the Brewfile: $1"
+    info "mrk does not install App Store apps — see docs/app-store-apps.md"
+    return 0
+  else
+    return 1
+  fi
 }
 
 # Install packages from Brewfile
@@ -455,17 +496,29 @@ install_brewfile() {
     return 0
   fi
 
-  # Non-interactive mode (--yes / no TTY): skip the picker entirely and install
-  # the whole Brewfile — no /dev/tty. --no-upgrade installs missing packages
-  # without upgrading existing ones (idempotent re-runs).
+  # Non-interactive mode (--yes / no TTY): no picker and no /dev/tty. Every
+  # package the flags allow is handed to brew bundle, with --no-upgrade, so a
+  # package already installed is left as it is. Until 2026-09-28 this path handed
+  # over the whole Brewfile, ahead of --no-casks, --no-formulae, --only-formulae
+  # and the mas guard, which only the interactive path below applied (audit 19,
+  # W-6). A Brewfile with nothing to leave out is handed over as itself.
   if (( ${NONINTERACTIVE:-0} )) || [[ ! -t 0 ]]; then
-    log "Non-interactive mode — installing the full Brewfile (no package selection)"
-    if $HOMEBREW bundle --file="$BREWFILE" --no-upgrade --verbose; then
+    local bundle_file="$BREWFILE" line
+    TEMP_BREWFILE=$(mrk_mktemp)
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      brewfile_line_skipped "$line" || printf '%s\n' "$line"
+    done < "$BREWFILE" > "$TEMP_BREWFILE"
+    cmp -s "$TEMP_BREWFILE" "$BREWFILE" || bundle_file="$TEMP_BREWFILE"
+    log "Non-interactive mode — installing the Brewfile's packages (no package selection)"
+    (( NO_FORMULAE )) && logskip "Formulae" "--no-formulae"
+    (( NO_CASKS ))    && logskip "Casks" "--no-casks or --only-formulae"
+    if $HOMEBREW bundle --file="$bundle_file" --no-upgrade --verbose; then
       log "Brewfile installation completed successfully"
       return 0
     else
+      # main counts the failure. Until 2026-09-28 this counted it as well, and
+      # one failure printed "Errors encountered: 2" (audit 19, W-14).
       err "Brewfile installation failed"
-      ERRORS=$(( ERRORS + 1 ))
       return 1
     fi
   fi
@@ -494,8 +547,15 @@ install_brewfile() {
   log "Fetching installed package lists..."
   local installed_formulae="" installed_casks=""
   local _tmp_formulae _tmp_casks _pkg
-  _tmp_formulae=$($HOMEBREW list --formula 2>/dev/null) || true
-  _tmp_casks=$($HOMEBREW list --cask 2>/dev/null) || true
+  # A failed read is not an empty one. Until 2026-09-28 `|| true` made it so:
+  # every package showed as not installed, the counts were wrong, and choosing
+  # them all ran brew bundle, without --no-upgrade, over what was installed
+  # (audit 19, W-15). sync and mrk-status refuse the same way (module 14, P-4).
+  if ! _tmp_formulae=$($HOMEBREW list --formula 2>/dev/null) ||
+     ! _tmp_casks=$($HOMEBREW list --cask 2>/dev/null); then
+    err "Cannot tell what is installed — brew list failed (run: brew doctor)"
+    return 1
+  fi
   while IFS= read -r _pkg; do
     [[ -n "$_pkg" ]] && installed_formulae+="$_pkg"$'\n'
   done <<< "$_tmp_formulae"
@@ -548,14 +608,9 @@ install_brewfile() {
       continue
     fi
 
-    # mrk stopped tracking App Store apps on 2026-09-11 (docs/app-store-apps.md),
-    # and ci-check fails a Brewfile that has a `mas` line. This guard is for the
-    # copy that has one anyway — a `brew bundle dump` on a Mac where mas is
-    # installed writes them back. Handing one to brew bundle runs `mas install`,
-    # which needs root that brew bundle never has, and fails the phase.
+    # A `mas` line: see brewfile_line_skipped
     if [[ "$line" =~ ^mas[[:space:]] ]]; then
-      warn "Ignoring a Mac App Store entry in the Brewfile: ${line}"
-      info "mrk does not install App Store apps — see docs/app-store-apps.md"
+      brewfile_line_skipped "$line" || true
       continue
     fi
 
@@ -663,8 +718,7 @@ install_brewfile() {
     log "Brewfile installation completed successfully"
     return 0
   else
-    err "Brewfile installation failed"
-    ERRORS=$(( ERRORS + 1 ))
+    err "Brewfile installation failed"   # main counts it (W-14)
     return 1
   fi
 }
@@ -679,9 +733,10 @@ main() {
     warn "It's recommended to run Phase 1 first: make setup"
   fi
 
-  # Pre-flight: check network connectivity
-  # 5s timeout to avoid blocking on slow networks
-  if ! curl -sf --max-time 5 https://brew.sh >/dev/null 2>&1; then
+  # Pre-flight: check network connectivity, with a 5 s timeout. Not in a dry
+  # run, which reads only the Brewfile: until 2026-09-28 `make brew ARGS=-n`
+  # offline exited 1 with "No internet connection" (audit 19, W-16).
+  if (( ! DRY_RUN )) && ! curl -sf --max-time 5 https://brew.sh >/dev/null 2>&1; then
     err "No internet connection detected."
     exit 1
   fi
