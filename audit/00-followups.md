@@ -19,7 +19,7 @@ shellcheck and staticcheck were all green beforehand, and govulncheck found noth
   Nothing sees it, because test installs keep Homebrew and CI installs bash first.
 - **W-2 (HIGH).** post-install writes Sparkle keys into six apps' domains before it imports
   their saved plists, so the imports are skipped. The migration-day rollback file shows it on
-  this Mac.
+  this Mac. Fixed the same day; see Closed.
 
 **Previously re-verified:** 2026-09-23 against `84a6825` by module 18
 (`18-audit-2026-09-23.md`). It asked whether mrk suits the M5 Pro on macOS 26 it now runs on,
@@ -111,11 +111,25 @@ N-1 is fixed — see Closed below.
 Items that require a real choice before they can be closed in either direction.
 
 **Module 19's findings (2026-09-27), awaiting fix sessions.** Unlike the modules before it,
-module 19 fixed nothing, so every item is open. Details, evidence and line numbers are in
-`19-audit-2026-09-27.md`. W-1 is under Blocking above.
+module 19 fixed nothing, so every item was open. Details, evidence and line numbers are in
+`19-audit-2026-09-27.md`. W-1 is under Blocking above. W-2 is fixed (see Closed), and leaves one
+decision about this Mac.
 
-- **HIGH.** W-2: post-install never imports Loopback, SoundSource, Audio Hijack, Farrago, Piezo
-  or Helium on a new Mac.
+- **W-2, on this Mac.** The 2026-09-15 migration never imported the saved plists of Loopback,
+  SoundSource, Audio Hijack, Farrago, Piezo and Helium. The fix changes what a new Mac does; it
+  does not change this one. Each app has been set up by use since then.
+
+  The copies at mrk-prefs' HEAD are no longer the old Mac's. `snapshot-prefs` ran here on
+  2026-09-18 and 2026-09-24 and exported this Mac's six domains over them. The old Mac's last
+  snapshot is `953bb08` (2026-09-15 11:20, per module 16), so its settings are
+  `git -C ~/.mrk/preferences show 953bb08:<File>.plist`. `make post-install` will not bring them
+  back: the six domains are configured, and it skips them.
+
+  Recover them only if they hold something you still want. If you do, quit the app, export its
+  domain first, then `defaults import <id> <file>`. `defaults import` merges: every saved key
+  replaces the current value, and keys that only the current domain has are kept. Then run
+  `make post-install` so that mrk's own keys are written on top again. Leaving it as it is is
+  also a valid choice.
 - **MEDIUM.**
   - W-3: hardening.sh and trim-services keep the rollback check that can empty an undo file.
   - W-4: setup links git-ignored files in `dotfiles/`, and can displace `~/.claude`.
@@ -310,6 +324,46 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the W-2 fix, branch `claude/fix-w2-plist-import-order`, 2026-09-27
+
+Details, the design reasoning and the rollback analysis are in `19-audit-2026-09-27.md`, W-2.
+
+- **W-2 (HIGH)** — post-install ran its app-defaults scripts before the plist imports.
+  `rogue-amoeba-updates.sh` wrote two Sparkle keys into Loopback, SoundSource, Audio Hijack,
+  Farrago and Piezo, and the Audio Hijack and Helium scripts wrote their own keys. `import_plist`
+  imports only into an empty domain, so it skipped all six as configured.
+
+  **Evidence.** `~/.mrk/defaults-rollback.sh` gets a line only when an import happens. The
+  migration-day run left lines for Ice, iTerm2, Raycast, Stats, Typora, Keka, Waves Central,
+  TimeMachineEditor, MacWhisper and the `io.github.sevmorris.*` apps. It left none for the six,
+  although mrk-prefs held all six plists beforehand.
+
+  **Fix.** The import section now runs before the first step that writes app defaults. The
+  scripts then write mrk's keys over the restored settings. The Rogue Amoeba script now writes
+  only to the apps that are installed, so an app installed after the first run still gets its
+  plist imported on the next one.
+
+  **Test.** `tests/plist-import-order.sh`, in `ci-check`. It runs `post-install` whole, from a
+  copy of the repository, under `/bin/bash` 3.2.57 and bash 5.3.20. HOME is a throwaway, and
+  `defaults` is stubbed first on PATH, keeping every domain as a file in the scratch directory.
+  It runs four machines: fresh; the same machine again; every app already configured; and the
+  six installed only after a first run. Eleven checks per bash, all pass.
+
+  | Mutation | Failing checks, each bash |
+  |---|---|
+  | `post-install` and `rogue-amoeba-updates.sh` as on `main` | 4. Names exactly the six |
+  | `post-install` as on `main` | 3 |
+  | `rogue-amoeba-updates.sh` as on `main` | 2 |
+  | Helium's defaults moved back above the imports | 3, Helium only |
+  | the domain gate removed | 2 |
+  | the gate put back to the pre-2026-09-11 file test | 2 |
+  | the not-installed check removed | 1 |
+  | `import_own_apps` gated on an installed app | 2 |
+
+  Documented in the manual's Phase 3, BIN-1 §2.14 and §2.22, and SMAC-1 §2.2 (sevmac, branch
+  `claude/w2-plist-import-order`). Nothing on this Mac was changed. Its six domains are the open
+  item under Deferred decisions.
 
 ### Closed by module 18, the 2026-09-23 Apple silicon pass
 
