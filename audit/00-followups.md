@@ -139,10 +139,6 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
 
 **Module 17's open items (2026-09-18).** Details are in `17-audit-2026-09-18.md`.
 
-- **Dotfile backups against things in the way.** setup moves a file it replaces into
-  `~/.mrk/backups/`, the only copy. Audit 14 V-10 verified the timestamped backup and the
-  checked move. Nobody has tried a link pointing elsewhere, a dangling link, or a folder in
-  the way. → To close: run `setup --only dotfiles` against a sandbox HOME holding each case.
 - **`assets/CLAUDE.md` against the sibling repos.** It guides every Claude session in
   `~/Projects`, other sessions edit it daily, and nobody has checked its claims about release
   scripts, notarization and shared files against those repos. → To close: check each claim
@@ -289,6 +285,16 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by testing dotfile backups against things in the way, branch `claude/dotfile-backup-cases`, 2026-09-28
+
+Module 17's item 4. `tests/setup-safety.sh` now puts five things in the dotfiles' places: a
+file, a folder, a link elsewhere, a dangling link, and a link to the same file by another path.
+The file and the folder were already backed up whole. The two links were replaced with no
+backup, so a dotfile linked in from another folder was lost without a record. `setup` now backs
+up anything at the path except a link that already reaches the same file. It moves a link as a
+link. The manual, BIN-1 and SMAC-1's backups note say so. There are three mutations, each
+killed. Details are in `17-audit-2026-09-18.md`.
 
 ### Closed by retiring the Photos agents from trim-services, branch `claude/trim-services-photos`, 2026-09-28
 
