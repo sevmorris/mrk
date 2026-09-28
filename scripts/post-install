@@ -30,8 +30,8 @@ Options:
   -y, --yes       Answer yes to every prompt and run unattended
   -h, --help      Show this help
 
-post-install writes app defaults, installs the Node LTS when nvm has none,
-imports the app preferences, installs this Mac's own apps from their GitHub
+post-install imports the app preferences, writes app defaults over them,
+installs the Node LTS when nvm has none, installs this Mac's own apps from their GitHub
 releases — only when each is signed by the expected Developer ID and accepted
 by Gatekeeper — registers the login items, and loads the mrk LaunchAgents. Every domain it overwrites is exported to
 ~/.mrk/plist-backups first, and each change appends to the shared
@@ -271,6 +271,189 @@ if [[ -d "$DEPS_SKILL_SRC" ]]; then
 fi
 
 ###############################################################################
+# Application preferences — plist imports                                     #
+###############################################################################
+
+# Plists live in ~/.mrk/preferences/ — pulled from the private mrk-prefs repo.
+# Auto-clone if missing; skip silently if SSH key isn't available yet.
+#
+# This section comes before every step that writes app defaults: the browser
+# scripts and the app-defaults scripts below. import_plist imports only into an
+# empty domain, and one key is enough to make a domain look configured. Until
+# 2026-09-27 it ran after them, so the two Sparkle keys rogue-amoeba-updates.sh
+# writes, and the Helium and Audio Hijack scripts' own keys, made six domains
+# look configured: Loopback, SoundSource, Audio Hijack, Farrago, Piezo and
+# Helium were skipped on the 2026-09-15 migration, although mrk-prefs held all
+# six. Importing first also puts mrk's own keys on top of the restored
+# settings, and leaves each import's rollback line deleting a domain that did
+# not exist before mrk, rather than restoring mrk's keys as the original.
+LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
+PREFS_SCRIPT="$SCRIPT_DIR/pull-prefs"
+
+_ssh_ok=0
+if command -v git >/dev/null 2>&1; then
+  # Capture before grep: ssh -T exits 1 even on successful auth, which under
+  # pipefail made the old pipeline unconditionally false. || true absorbs it.
+  _ssh_out=$(ssh -T -o ConnectTimeout=5 git@github.com 2>&1 || true)
+  if grep -q "successfully authenticated" <<< "$_ssh_out"; then
+    _ssh_ok=1
+  fi
+fi
+
+# Switch mrk remote from HTTPS to SSH now that auth is confirmed
+if (( _ssh_ok )); then
+  MRK_DIR="$REPO_ROOT"
+  _current_url=$(git -C "$MRK_DIR" remote get-url origin 2>/dev/null || true)
+  if [[ "$_current_url" == https://* ]]; then
+    _ssh_url="${_current_url/https:\/\/github.com\//git@github.com:}"
+    if git -C "$MRK_DIR" remote set-url origin "$_ssh_url"; then
+      log "Switched mrk remote to SSH"
+    else
+      warn "Failed to switch mrk remote to SSH"
+    fi
+  fi
+fi
+
+import_own_apps(){
+  local src="$LOCAL_PREFS_DIR/sevmorris-apps"
+  local f base bundle_id restored=0 skipped=0
+
+  if [[ ! -d "$src" ]]; then
+    logskip "my own apps" "not in preferences — run: make snapshot-prefs"
+    return 0
+  fi
+
+  for f in "$src"/io.github.sevmorris.*.plist; do
+    [[ -f "$f" ]] || continue          # no match leaves the glob unexpanded
+    base="$(basename "$f")"
+    bundle_id="${base%.plist}"
+
+    # The domain, not the file — see import_plist below.
+    if defaults read "$bundle_id" >/dev/null 2>&1; then
+      skipped=$(( skipped + 1 ))
+      continue
+    fi
+
+    backup_plist "$bundle_id"
+    if ! defaults import "$bundle_id" "$f"; then
+      warn "failed to import $bundle_id"
+      continue
+    fi
+    {
+      if [[ -f "$PLIST_BACKUP_DIR/${bundle_id}.plist" ]]; then
+        printf 'defaults import %s %s\n' \
+          "$(printf '%q' "$bundle_id")" \
+          "$(printf '%q' "$PLIST_BACKUP_DIR/${bundle_id}.plist")"
+      else
+        printf 'defaults delete %s >/dev/null 2>&1 || true\n' \
+          "$(printf '%q' "$bundle_id")"
+      fi
+    } >> "$ROLLBACK"
+    restored=$(( restored + 1 ))
+  done
+
+  if (( restored > 0 )); then
+    log "Imported $restored of my own apps' preferences"
+  fi
+  if (( skipped > 0 )); then
+    logskip "my own apps" "$skipped already configured — not overwritten"
+  fi
+  return 0
+}
+
+if [[ ! -d "$LOCAL_PREFS_DIR" ]]; then
+  if (( _ssh_ok )); then
+    log "Fetching personal preferences from mrk-prefs..."
+    bash "$PREFS_SCRIPT" || log "Warning: could not pull preferences — skipping plist imports"
+  else
+    log "SSH key not ready — skipping auto-pull of preferences (run: make pull-prefs)"
+  fi
+fi
+
+# Import a full plist if the app is installed and not already configured
+import_plist(){
+  local app_path="$1" bundle_id="$2" plist_file="$3" name="$4"
+  if [[ ! -d "$app_path" ]]; then
+    logskip "$name plist" "not installed"
+    return 0
+  fi
+  if [[ ! -f "$plist_file" ]]; then
+    logskip "$name plist" "not found in $LOCAL_PREFS_DIR — run: make snapshot-prefs"
+    return 0
+  fi
+  # Only import if the app hasn't been configured yet. Ask defaults whether the
+  # domain holds anything, rather than test for ~/Library/Preferences/ID.plist:
+  # a sandboxed app keeps its domain in its container, and its first launch
+  # moves that file inside. Until 2026-09-11 the file test found no Keka
+  # preferences on a Mac where Keka was set up, so every run after the first
+  # would have imported over its live settings — `defaults import` writes into
+  # the container once the container holds a copy. `defaults read` exits 1 for
+  # an absent or empty domain, and looks in the container itself. Any key
+  # counts, one that mrk wrote included, which is why this section runs before
+  # the app-defaults scripts.
+  if defaults read "$bundle_id" >/dev/null 2>&1; then
+    logskip "$name plist" "exists — skipping import (won't overwrite)"
+    return 0
+  fi
+
+  # Snapshot any existing domain state so rollback can restore it.
+  backup_plist "$bundle_id"
+
+  defaults import "$bundle_id" "$plist_file" || return 1
+
+  # Append the inverse of the import to the shared rollback file. If we
+  # captured a prior snapshot, restore via `defaults import`; otherwise
+  # remove the imported domain entirely (mirrors hardening.sh's pattern
+  # for keys that didn't exist before).
+  {
+    if [[ -f "$PLIST_BACKUP_DIR/${bundle_id}.plist" ]]; then
+      printf 'defaults import %s %s\n' \
+        "$(printf '%q' "$bundle_id")" \
+        "$(printf '%q' "$PLIST_BACKUP_DIR/${bundle_id}.plist")"
+    else
+      printf 'defaults delete %s >/dev/null 2>&1 || true\n' \
+        "$(printf '%q' "$bundle_id")"
+    fi
+  } >> "$ROLLBACK"
+
+  log "Imported $name preferences"
+}
+
+if [[ ! -d "$LOCAL_PREFS_DIR" ]]; then
+  : # preferences will be noted in make all summary
+else
+  import_plist "/Applications/BetterSnapTool.app"  "com.hegenberg.BetterSnapTool"              "$LOCAL_PREFS_DIR/BetterSnapTool.plist"    "BetterSnapTool"    || failed=$(( failed + 1 ))
+  import_plist "/Applications/Thaw.app"           "com.stonerl.Thaw"                          "$LOCAL_PREFS_DIR/Thaw.plist"              "Thaw"              || failed=$(( failed + 1 ))
+  import_plist "/Applications/iTerm.app"          "com.googlecode.iterm2"                     "$LOCAL_PREFS_DIR/iTerm2.plist"            "iTerm2"            || failed=$(( failed + 1 ))
+  import_plist "/Applications/Raycast.app"        "com.raycast.macos"                         "$LOCAL_PREFS_DIR/Raycast.plist"           "Raycast"           || failed=$(( failed + 1 ))
+  import_plist "/Applications/Stats.app"          "eu.exelban.Stats"                          "$LOCAL_PREFS_DIR/Stats.plist"             "Stats"             || failed=$(( failed + 1 ))
+  import_plist "/Applications/Loopback.app"       "com.rogueamoeba.Loopback"                  "$LOCAL_PREFS_DIR/Loopback.plist"          "Loopback"          || failed=$(( failed + 1 ))
+  import_plist "/Applications/SoundSource.app"    "com.rogueamoeba.soundsource"               "$LOCAL_PREFS_DIR/SoundSource.plist"       "SoundSource"       || failed=$(( failed + 1 ))
+  import_plist "/Applications/Audio Hijack.app"   "com.rogueamoeba.audiohijack"               "$LOCAL_PREFS_DIR/AudioHijack.plist"       "Audio Hijack"      || failed=$(( failed + 1 ))
+  import_plist "/Applications/Farrago.app"        "com.rogueamoeba.farrago"                   "$LOCAL_PREFS_DIR/Farrago.plist"           "Farrago"           || failed=$(( failed + 1 ))
+  import_plist "/Applications/Piezo.app"          "com.rogueamoeba.Piezo"                     "$LOCAL_PREFS_DIR/Piezo.plist"             "Piezo"             || failed=$(( failed + 1 ))
+  import_plist "/Applications/Typora.app"         "abnerworks.Typora"                         "$LOCAL_PREFS_DIR/Typora.plist"            "Typora"            || failed=$(( failed + 1 ))
+  import_plist "/Applications/Keka.app"           "com.aone.keka"                             "$LOCAL_PREFS_DIR/Keka.plist"              "Keka"              || failed=$(( failed + 1 ))
+  # Migrated from Magic Backup Machine, 2026-09-02 — see snapshot-prefs.
+  import_plist "/Applications/Helium.app"         "net.imput.helium"                          "$LOCAL_PREFS_DIR/Helium.plist"            "Helium"            || failed=$(( failed + 1 ))
+  import_plist "/Applications/Waves Central.app"  "com.WavesAudio.central"                    "$LOCAL_PREFS_DIR/WavesCentral.plist"      "Waves Central"     || failed=$(( failed + 1 ))
+  import_plist "/Applications/MusicBrainz Picard.app" "org.musicbrainz.Picard"                "$LOCAL_PREFS_DIR/Picard.plist"            "MusicBrainz Picard" || failed=$(( failed + 1 ))
+
+  # My own applications, restored as the group snapshot-prefs captures. The
+  # bundle id is the file name without .plist, so the two ends stay in step with
+  # no list to maintain on either side.
+  #
+  # Deliberately NOT gated on the app being installed, unlike import_plist above.
+  # Several of these are tools with no /Applications bundle, and on a new machine
+  # the preferences usually arrive before the app does — restoring them early
+  # means the app finds its settings on first launch instead of starting blank.
+  # The domain is namespaced to me, so there is nothing to collide with.
+  import_own_apps || failed=$(( failed + 1 ))
+  import_plist "/Applications/TimeMachineEditor.app" "com.tclementdev.timemachineeditor.application" "$LOCAL_PREFS_DIR/TimeMachineEditor.plist" "TimeMachineEditor" || failed=$(( failed + 1 ))
+  import_plist "/Applications/MacWhisper.app"     "com.goodsnooze.MacWhisper"                 "$LOCAL_PREFS_DIR/MacWhisper.plist"        "MacWhisper"        || failed=$(( failed + 1 ))
+fi
+
+###############################################################################
 # Browser preferences                                                        #
 ###############################################################################
 
@@ -505,6 +688,10 @@ failed=$(( failed + COMPANION_FAILED ))
 
 PREFS_DIR="$REPO_ROOT/assets/preferences"
 
+# After the plist imports, as the browser scripts are: these write into domains
+# that import_plist restores, and would make them look configured. See the
+# note at "Application preferences — plist imports".
+
 # Audio Hijack
 if [[ -d "/Applications/Audio Hijack.app" ]]; then
   apply_defaults "$PREFS_DIR/audio-hijack-defaults.sh" "Audio Hijack" || failed=$(( failed + 1 ))
@@ -519,7 +706,8 @@ else
   logskip "Fission defaults" "not installed"
 fi
 
-# Rogue Amoeba — disable Sparkle auto-updates (managed by topgrade)
+# Rogue Amoeba — disable Sparkle auto-updates (managed by topgrade). Not gated
+# here: the script checks for each of the six apps itself.
 apply_defaults "$PREFS_DIR/rogue-amoeba-updates.sh" "Rogue Amoeba updates" || failed=$(( failed + 1 ))
 
 # AlDente
@@ -527,176 +715,6 @@ if [[ -d "/Applications/AlDente.app" ]]; then
   apply_defaults "$PREFS_DIR/aldente-defaults.sh" "AlDente" || failed=$(( failed + 1 ))
 else
   logskip "AlDente defaults" "not installed"
-fi
-
-###############################################################################
-# Application preferences — plist imports                                     #
-###############################################################################
-
-# Plists live in ~/.mrk/preferences/ — pulled from the private mrk-prefs repo.
-# Auto-clone if missing; skip silently if SSH key isn't available yet.
-LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
-PREFS_SCRIPT="$SCRIPT_DIR/pull-prefs"
-
-_ssh_ok=0
-if command -v git >/dev/null 2>&1; then
-  # Capture before grep: ssh -T exits 1 even on successful auth, which under
-  # pipefail made the old pipeline unconditionally false. || true absorbs it.
-  _ssh_out=$(ssh -T -o ConnectTimeout=5 git@github.com 2>&1 || true)
-  if grep -q "successfully authenticated" <<< "$_ssh_out"; then
-    _ssh_ok=1
-  fi
-fi
-
-# Switch mrk remote from HTTPS to SSH now that auth is confirmed
-if (( _ssh_ok )); then
-  MRK_DIR="$REPO_ROOT"
-  _current_url=$(git -C "$MRK_DIR" remote get-url origin 2>/dev/null || true)
-  if [[ "$_current_url" == https://* ]]; then
-    _ssh_url="${_current_url/https:\/\/github.com\//git@github.com:}"
-    if git -C "$MRK_DIR" remote set-url origin "$_ssh_url"; then
-      log "Switched mrk remote to SSH"
-    else
-      warn "Failed to switch mrk remote to SSH"
-    fi
-  fi
-fi
-
-import_own_apps(){
-  local src="$LOCAL_PREFS_DIR/sevmorris-apps"
-  local f base bundle_id restored=0 skipped=0
-
-  if [[ ! -d "$src" ]]; then
-    logskip "my own apps" "not in preferences — run: make snapshot-prefs"
-    return 0
-  fi
-
-  for f in "$src"/io.github.sevmorris.*.plist; do
-    [[ -f "$f" ]] || continue          # no match leaves the glob unexpanded
-    base="$(basename "$f")"
-    bundle_id="${base%.plist}"
-
-    # The domain, not the file — see import_plist below.
-    if defaults read "$bundle_id" >/dev/null 2>&1; then
-      skipped=$(( skipped + 1 ))
-      continue
-    fi
-
-    backup_plist "$bundle_id"
-    if ! defaults import "$bundle_id" "$f"; then
-      warn "failed to import $bundle_id"
-      continue
-    fi
-    {
-      if [[ -f "$PLIST_BACKUP_DIR/${bundle_id}.plist" ]]; then
-        printf 'defaults import %s %s\n' \
-          "$(printf '%q' "$bundle_id")" \
-          "$(printf '%q' "$PLIST_BACKUP_DIR/${bundle_id}.plist")"
-      else
-        printf 'defaults delete %s >/dev/null 2>&1 || true\n' \
-          "$(printf '%q' "$bundle_id")"
-      fi
-    } >> "$ROLLBACK"
-    restored=$(( restored + 1 ))
-  done
-
-  if (( restored > 0 )); then
-    log "Imported $restored of my own apps' preferences"
-  fi
-  if (( skipped > 0 )); then
-    logskip "my own apps" "$skipped already configured — not overwritten"
-  fi
-  return 0
-}
-
-if [[ ! -d "$LOCAL_PREFS_DIR" ]]; then
-  if (( _ssh_ok )); then
-    log "Fetching personal preferences from mrk-prefs..."
-    bash "$PREFS_SCRIPT" || log "Warning: could not pull preferences — skipping plist imports"
-  else
-    log "SSH key not ready — skipping auto-pull of preferences (run: make pull-prefs)"
-  fi
-fi
-
-# Import a full plist if the app is installed and not already configured
-import_plist(){
-  local app_path="$1" bundle_id="$2" plist_file="$3" name="$4"
-  if [[ ! -d "$app_path" ]]; then
-    logskip "$name plist" "not installed"
-    return 0
-  fi
-  if [[ ! -f "$plist_file" ]]; then
-    logskip "$name plist" "not found in $LOCAL_PREFS_DIR — run: make snapshot-prefs"
-    return 0
-  fi
-  # Only import if the app hasn't been configured yet. Ask defaults whether the
-  # domain holds anything, rather than test for ~/Library/Preferences/ID.plist:
-  # a sandboxed app keeps its domain in its container, and its first launch
-  # moves that file inside. Until 2026-09-11 the file test found no Keka
-  # preferences on a Mac where Keka was set up, so every run after the first
-  # would have imported over its live settings — `defaults import` writes into
-  # the container once the container holds a copy. `defaults read` exits 1 for
-  # an absent or empty domain, and looks in the container itself.
-  if defaults read "$bundle_id" >/dev/null 2>&1; then
-    logskip "$name plist" "exists — skipping import (won't overwrite)"
-    return 0
-  fi
-
-  # Snapshot any existing domain state so rollback can restore it.
-  backup_plist "$bundle_id"
-
-  defaults import "$bundle_id" "$plist_file" || return 1
-
-  # Append the inverse of the import to the shared rollback file. If we
-  # captured a prior snapshot, restore via `defaults import`; otherwise
-  # remove the imported domain entirely (mirrors hardening.sh's pattern
-  # for keys that didn't exist before).
-  {
-    if [[ -f "$PLIST_BACKUP_DIR/${bundle_id}.plist" ]]; then
-      printf 'defaults import %s %s\n' \
-        "$(printf '%q' "$bundle_id")" \
-        "$(printf '%q' "$PLIST_BACKUP_DIR/${bundle_id}.plist")"
-    else
-      printf 'defaults delete %s >/dev/null 2>&1 || true\n' \
-        "$(printf '%q' "$bundle_id")"
-    fi
-  } >> "$ROLLBACK"
-
-  log "Imported $name preferences"
-}
-
-if [[ ! -d "$LOCAL_PREFS_DIR" ]]; then
-  : # preferences will be noted in make all summary
-else
-  import_plist "/Applications/BetterSnapTool.app"  "com.hegenberg.BetterSnapTool"              "$LOCAL_PREFS_DIR/BetterSnapTool.plist"    "BetterSnapTool"    || failed=$(( failed + 1 ))
-  import_plist "/Applications/Thaw.app"           "com.stonerl.Thaw"                          "$LOCAL_PREFS_DIR/Thaw.plist"              "Thaw"              || failed=$(( failed + 1 ))
-  import_plist "/Applications/iTerm.app"          "com.googlecode.iterm2"                     "$LOCAL_PREFS_DIR/iTerm2.plist"            "iTerm2"            || failed=$(( failed + 1 ))
-  import_plist "/Applications/Raycast.app"        "com.raycast.macos"                         "$LOCAL_PREFS_DIR/Raycast.plist"           "Raycast"           || failed=$(( failed + 1 ))
-  import_plist "/Applications/Stats.app"          "eu.exelban.Stats"                          "$LOCAL_PREFS_DIR/Stats.plist"             "Stats"             || failed=$(( failed + 1 ))
-  import_plist "/Applications/Loopback.app"       "com.rogueamoeba.Loopback"                  "$LOCAL_PREFS_DIR/Loopback.plist"          "Loopback"          || failed=$(( failed + 1 ))
-  import_plist "/Applications/SoundSource.app"    "com.rogueamoeba.soundsource"               "$LOCAL_PREFS_DIR/SoundSource.plist"       "SoundSource"       || failed=$(( failed + 1 ))
-  import_plist "/Applications/Audio Hijack.app"   "com.rogueamoeba.audiohijack"               "$LOCAL_PREFS_DIR/AudioHijack.plist"       "Audio Hijack"      || failed=$(( failed + 1 ))
-  import_plist "/Applications/Farrago.app"        "com.rogueamoeba.farrago"                   "$LOCAL_PREFS_DIR/Farrago.plist"           "Farrago"           || failed=$(( failed + 1 ))
-  import_plist "/Applications/Piezo.app"          "com.rogueamoeba.Piezo"                     "$LOCAL_PREFS_DIR/Piezo.plist"             "Piezo"             || failed=$(( failed + 1 ))
-  import_plist "/Applications/Typora.app"         "abnerworks.Typora"                         "$LOCAL_PREFS_DIR/Typora.plist"            "Typora"            || failed=$(( failed + 1 ))
-  import_plist "/Applications/Keka.app"           "com.aone.keka"                             "$LOCAL_PREFS_DIR/Keka.plist"              "Keka"              || failed=$(( failed + 1 ))
-  # Migrated from Magic Backup Machine, 2026-09-02 — see snapshot-prefs.
-  import_plist "/Applications/Helium.app"         "net.imput.helium"                          "$LOCAL_PREFS_DIR/Helium.plist"            "Helium"            || failed=$(( failed + 1 ))
-  import_plist "/Applications/Waves Central.app"  "com.WavesAudio.central"                    "$LOCAL_PREFS_DIR/WavesCentral.plist"      "Waves Central"     || failed=$(( failed + 1 ))
-  import_plist "/Applications/MusicBrainz Picard.app" "org.musicbrainz.Picard"                "$LOCAL_PREFS_DIR/Picard.plist"            "MusicBrainz Picard" || failed=$(( failed + 1 ))
-
-  # My own applications, restored as the group snapshot-prefs captures. The
-  # bundle id is the file name without .plist, so the two ends stay in step with
-  # no list to maintain on either side.
-  #
-  # Deliberately NOT gated on the app being installed, unlike import_plist above.
-  # Several of these are tools with no /Applications bundle, and on a new machine
-  # the preferences usually arrive before the app does — restoring them early
-  # means the app finds its settings on first launch instead of starting blank.
-  # The domain is namespaced to me, so there is nothing to collide with.
-  import_own_apps || failed=$(( failed + 1 ))
-  import_plist "/Applications/TimeMachineEditor.app" "com.tclementdev.timemachineeditor.application" "$LOCAL_PREFS_DIR/TimeMachineEditor.plist" "TimeMachineEditor" || failed=$(( failed + 1 ))
-  import_plist "/Applications/MacWhisper.app"     "com.goodsnooze.MacWhisper"                 "$LOCAL_PREFS_DIR/MacWhisper.plist"        "MacWhisper"        || failed=$(( failed + 1 ))
 fi
 
 ###############################################################################

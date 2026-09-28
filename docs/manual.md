@@ -113,9 +113,9 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 
 - **Topgrade:** Symlinks `assets/topgrade.toml` to `~/.config/topgrade.toml`.
 - **Browsers:** Applies the Safari defaults and the Helium defaults. The Safari defaults need Full Disk Access for your terminal, because Safari keeps its preferences in its sandbox container. Without it, Phase 3 skips them with one log line and still reports success. It opens the extension URLs when you ask for them. It no longer installs Chrome and Brave managed policies: those were JSON files in `policies/managed/`, which is the Linux policy mechanism, and Chrome on macOS never read them.
-- **App defaults:** Writes the settings for Audio Hijack, Fission, AlDente, and the Rogue Amoeba update options.
+- **App defaults:** Writes the settings for Audio Hijack, Fission, AlDente, and the Rogue Amoeba update options. They are written after the plist imports, so they land on top of your restored preferences. The Rogue Amoeba update options go only to the Rogue Amoeba apps that are installed.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
-- **Plist imports (17 apps):** Imports your preference plists. Phase 3 skips an app that already has preferences — in `~/Library/Preferences`, or in its sandbox container for a sandboxed app such as Keka — so it never overwrites a live configuration. It also skips an app that is not installed yet.
+- **Plist imports (17 apps):** Imports your preference plists. Phase 3 skips an app that already has preferences — in `~/Library/Preferences`, or in its sandbox container for a sandboxed app such as Keka — so it never overwrites a live configuration. It also skips an app that is not installed yet. The imports run before any step that writes app defaults, the browser defaults included, because one key is enough to make an app look configured. Until 2026-09-27 they ran after, and the keys the Rogue Amoeba, Helium and Audio Hijack scripts wrote made six apps look configured: Loopback, SoundSource, Audio Hijack, Farrago, Piezo and Helium were never imported on the 2026-09-15 migration.
 - **My own applications:** Imports every `io.github.sevmorris.*` plist that `snapshot-prefs` captured. This one does not check that the application is installed: several are tools with no bundle in `/Applications`, and on a new machine the preferences usually arrive before the application does, so an early import means the app finds its settings on first launch.
 - **Dev runtimes:** Links Homebrew's openjdk into `/Library/Java/JavaVirtualMachines/`. Clones nvm into `~/.nvm` at a pinned commit, refusing the release tag if it has been moved, then installs the current Node LTS as nvm's default — only when nvm has no default yet, so an existing Node is never replaced. Installs the Python version in `.python-version` with pyenv, and checks that it can run a subprocess.
 - **My own applications, installed:** Installs Barkeep, ClipHack, DoublEnder, FilmStrip, KeyVault, Magic Backup Machine and WaxOn/WaxOff from the most recent GitHub release of each, and only when the app in that release's DMG verifies, is signed by my Developer ID team, and is accepted by Gatekeeper as notarized; anything else is refused and counted as a failed step. Phase 3 skips an app that is already in `/Applications` — this bootstraps a Mac, it does not manage updates, and each of these apps checks GitHub for its own updates once it is running. To update one, use the app, or delete it and run `make apps`. The list lives in `scripts/install-apps`, which `make apps` also runs on its own. Two apps are not in it, both retired: **Cypher/FL2601** (2026-09-23), which never came from here, since being sandboxed with no network entitlement it could not check for its own updates and was a Homebrew cask, and **WireHack**, superseded by ClipHack. Magic Backup Machine's repository is private, which is why the download prefers `gh` and its token; an unauthenticated request for a private release returns 404, indistinguishable from "no such release".
@@ -131,25 +131,27 @@ Phase 3 configures the installed apps. Run Phase 2 first.
 
 **Managed app preferences:**
 
-| App | Plist imported |
-|---|---|
-| BetterSnapTool | ✓ |
-| Thaw | ✓ |
-| iTerm2 | ✓ |
-| Raycast | ✓ |
-| Stats | ✓ |
-| Loopback | ✓ + App Support files |
-| SoundSource | ✓ + App Support files |
-| Audio Hijack | ✓ |
-| Farrago | ✓ |
-| Piezo | ✓ |
-| Typora | ✓ |
-| Keka | ✓ |
-| TimeMachineEditor | ✓ |
-| MacWhisper | ✓ |
-| Helium | ✓ |
-| Waves Central | ✓ |
-| MusicBrainz Picard | ✓ |
+| App | Plist imported | Then written by mrk |
+|---|---|---|
+| BetterSnapTool | ✓ | — |
+| Thaw | ✓ | — |
+| iTerm2 | ✓ | — |
+| Raycast | ✓ | — |
+| Stats | ✓ | — |
+| Loopback | ✓ + App Support files | Auto-update off |
+| SoundSource | ✓ + App Support files | Auto-update off |
+| Audio Hijack | ✓ | Theme, buffer size, external editor, external commands off, auto-update off |
+| Farrago | ✓ | Auto-update off |
+| Piezo | ✓ | Auto-update off |
+| Typora | ✓ | — |
+| Keka | ✓ | — |
+| TimeMachineEditor | ✓ | — |
+| MacWhisper | ✓ | — |
+| Helium | ✓ | Automatic updates on |
+| Waves Central | ✓ | — |
+| MusicBrainz Picard | ✓ | — |
+
+The third column is what the app-defaults scripts write into the same domain, after the import. Where a key is in both, mrk's value wins.
 
 ## Full Install
 

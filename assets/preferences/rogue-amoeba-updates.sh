@@ -16,27 +16,41 @@ SCRIPT_DIR="$(cd "$(dirname "$_self")/../.." && pwd)/scripts"
 source "$SCRIPT_DIR/lib.sh"
 
 failed=0
+disabled=0
 
+# bundle id|app name in /Applications.
+#
+# Only an installed app gets the keys, as in every other app-defaults script.
+# This one used to write all six domains whether or not the app was there, and
+# post-install imports a saved plist only into an empty domain: an app installed
+# after the first run of post-install found its domain already holding these
+# two keys, and its saved preferences were never imported.
 apps=(
-  "com.rogueamoeba.audiohijack"
-  "com.rogueamoeba.Fission"
-  "com.rogueamoeba.Loopback"
-  "com.rogueamoeba.Piezo"
-  "com.rogueamoeba.soundsource"
-  "com.rogueamoeba.farrago"
+  "com.rogueamoeba.audiohijack|Audio Hijack"
+  "com.rogueamoeba.Fission|Fission"
+  "com.rogueamoeba.Loopback|Loopback"
+  "com.rogueamoeba.Piezo|Piezo"
+  "com.rogueamoeba.soundsource|SoundSource"
+  "com.rogueamoeba.farrago|Farrago"
 )
 
-for bundle_id in "${apps[@]}"; do
-  app_name="${bundle_id##*.}"
+for entry in "${apps[@]}"; do
+  bundle_id="${entry%%|*}"
+  app_name="${entry#*|}"
+  if [[ ! -d "/Applications/$app_name.app" ]]; then
+    logskip "$app_name auto-update" "not installed"
+    continue
+  fi
   defaults write "$bundle_id" SUAllowsAutomaticUpdates -bool false || failed=$(( failed + 1 ))
   defaults write "$bundle_id" SUAutomaticallyUpdate -bool false || failed=$(( failed + 1 ))
   log "Disabled auto-update: $app_name"
+  disabled=$(( disabled + 1 ))
 done
 
 if (( failed > 0 )); then
   warn "$failed default(s) failed to apply"
 else
-  ok "All Rogue Amoeba auto-updates disabled"
+  ok "Auto-updates disabled for $disabled installed Rogue Amoeba app(s)"
 fi
 
 # Exit 1 when any write failed, after every write has been tried and counted, so
