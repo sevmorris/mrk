@@ -164,11 +164,9 @@ grant it Accessibility, and let it start at login.
 T-8, T-9, T-14 and T-15 were decided, and T-11 turned out to have been done on 2026-09-18. See
 Closed, and `15-audit-2026-09-16.md` under each item.
 
-One item is fixed in code and still open in the Mac's state: **T-5**, where neither Photos agent
-is disabled (run `trim-services`, then check `launchctl print-disabled` after a restart). Module
-16 re-checked it on 2026-09-17, and it still stands. It has grown: `com.google.GoogleUpdater.wake`
-arrived with Chrome after the migration-day run, so `trim-services -n` now offers three. **T-7**'s
-state half, the Safari settings, was done by the owner on 2026-09-28 (see Closed).
+**T-5**'s state half was settled on 2026-09-28. After `trim-services` and a restart, the two Photos
+agents were listed as disabled and were running anyway, so they are off `trim-services`' list
+(see Closed). **T-7**'s state half, the Safari settings, was done by the owner the same day.
 
 **Tests 1C, 2, 3, and 4 — UNBLOCKED: the plan now exists; the tests have not run.**
 `audit/10-test-plan.md` is written and committed. It specifies Test 1C (combined
@@ -270,6 +268,26 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by retiring the Photos agents from trim-services, branch `claude/trim-services-photos`, 2026-09-28
+
+T-5's state half. After `trim-services` at 14:35 and a restart at 14:48,
+`launchctl print-disabled` listed `photoanalysisd` and `mediaanalysisd` as disabled. Both were
+running from 14:49, started by launchd for a process that asked for them (`launchctl blame`:
+"ipc (mach)"). macOS 26.7 does not honour the disable for them, and `trim-services` reported
+success because it reads the same list. As the owner chose, they are off the list, and Google's
+updater, which did stay off, remains. Details are in `15-audit-2026-09-16.md` under T-5.
+
+- **Changed:** `scripts/trim-services` (the list, and a comment saying why), BIN-1's entry (a new
+  bullet, and a Caution that a disable is a record, not a state), and the two trim-services cases
+  in `tests/undo-files.sh`, which now load Google's updater.
+- **This Mac:** the owner cleared the two Photos entries with `launchctl enable`. launchd now
+  lists both as enabled, which matches what runs, and Google's updater as disabled.
+
+| Mutation | Result |
+|---|---|
+| The test still loads `photoanalysisd` | killed |
+| Google's updater dropped from `trim-services` | killed |
 
 ### Closed by the second audit decisions, branch `claude/audit-decisions-2`, 2026-09-28
 
