@@ -17,6 +17,10 @@ set -euo pipefail
 #   Plaintext key material is never written to a temporary file. gpg decrypts
 #   straight into tar, which extracts to the final location. There is no
 #   window in which an unencrypted copy exists somewhere else on disk.
+#
+# The archive can also hold credentials that live inside a project's working
+# tree, under Projects/. Those go back only into a checkout that already
+# exists; see "Credentials kept inside projects" below.
 
 _self="${BASH_SOURCE[0]}"
 while [[ -L "$_self" ]]; do
@@ -45,26 +49,32 @@ if [[ -z "${GPG_TTY:-}" ]]; then
 fi
 
 LIST_ONLY=0
+PROJECTS_ONLY=0
 ARCHIVE=""
 
 usage() {
   cat <<'EOF'
-Usage: restore-keys [-l] <archive>
+Usage: restore-keys [-l | --projects] <archive>
 
-Restore ~/.ssh, ~/.gnupg and any code-signing identities from a
-snapshot-keys archive.
+Restore ~/.ssh, ~/.gnupg, any code-signing identities, and the credentials
+projects keep out of git, from a snapshot-keys archive.
 
-  -l, --list    List the archive contents, restore nothing
-  -h, --help    Show this help
+  -l, --list      List the archive contents, restore nothing
+      --projects  Restore only the project credentials, into the checkouts
+                  that exist now. Run it after restore-repos.
+  -h, --help      Show this help
 
 An existing ~/.ssh or ~/.gnupg is moved aside with a timestamp before the
-restore, never overwritten in place.
+restore, never overwritten in place, and so is an existing project credential
+that differs from the archive's. A project credential goes back only once its
+project is cloned; until then it stays in the archive.
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -l|--list) LIST_ONLY=1; shift ;;
+    --projects) PROJECTS_ONLY=1; shift ;;
     -h|--help) usage; exit 0 ;;
     -*)        err "Unknown option: $1"; echo >&2; usage >&2; exit 2 ;;
     # One archive, not several. This arm used to be a bare assignment inside
@@ -158,11 +168,111 @@ if (( LIST_ONLY )); then
   exit 0
 fi
 
+stamp="$(date +%Y%m%d-%H%M%S)"
+
+# ── Credentials kept inside projects ──────────────────────────────────────────
+
+# snapshot-keys bundles a few credentials that live inside project working
+# trees, under Projects/ in the archive, and the main extract below leaves them
+# out. On a new machine this runs before restore-repos, and a file written into
+# ~/Projects/DoublEnder before the clone makes that folder exist without being a
+# repository, so restore-repos would leave it alone and never clone it. Each
+# file goes in only once the checkout it belongs in exists; the rest stay in the
+# archive, and `restore-keys --projects` puts them back after restore-repos.
+#
+# Reading the archive again does not ask for the passphrase again: gpg-agent
+# caches a symmetric passphrase for the life of the scratch home.
+PROJECT_PENDING=()
+PROJECT_RESTORED=0
+restore_project_files() {
+  local listing name project dest i
+  local -a names=() ready=() pmoved=() pmoved_orig=()
+
+  if ! listing=$(gpg --homedir "$GPG_SCRATCH" -d -q "$ARCHIVE" 2>/dev/null | tar -tf - 2>/dev/null); then
+    err "Could not read the archive — wrong passphrase, or a damaged archive."
+    return 1
+  fi
+  while IFS= read -r name; do
+    if [[ "$name" == Projects/*/* && "$name" != */ ]]; then names+=("$name"); fi
+  done <<<"$listing"
+  if (( ${#names[@]} == 0 )); then
+    if (( PROJECTS_ONLY )); then info "The archive holds no project credentials."; fi
+    return 0
+  fi
+
+  for name in "${names[@]}"; do
+    project=${name#Projects/}
+    project=${project%%/*}
+    if [[ -d "$HOME/Projects/$project/.git" ]]; then
+      ready+=("$name")
+    else
+      PROJECT_PENDING+=("$name")
+    fi
+  done
+  (( ${#ready[@]} > 0 )) || return 0
+
+  # Nothing clobbered silently, as with ~/.ssh: an existing file is moved aside
+  # first, and the copy is dropped below only when the archive's is identical.
+  for name in "${ready[@]}"; do
+    dest="$HOME/$name"
+    if [[ -e "$dest" ]]; then
+      mv "$dest" "$dest.before-restore-$stamp"
+      pmoved+=("$dest.before-restore-$stamp")
+      pmoved_orig+=("$dest")
+    fi
+  done
+  if ! gpg --homedir "$GPG_SCRATCH" -d -q "$ARCHIVE" 2>/dev/null | tar -xpf - -C "$HOME" "${ready[@]}"; then
+    err "Could not extract the project credentials — putting the originals back."
+    for i in "${!pmoved[@]}"; do
+      rm -f "${pmoved_orig[$i]}"
+      mv "${pmoved[$i]}" "${pmoved_orig[$i]}"
+    done
+    return 1
+  fi
+  for name in "${ready[@]}"; do
+    chmod 600 "$HOME/$name"
+    # shellcheck disable=SC2088  # Literal "~/" for the reader, not a path to expand
+    ok "~/$name restored (600)"
+    PROJECT_RESTORED=$((PROJECT_RESTORED + 1))
+  done
+  for i in "${!pmoved[@]}"; do
+    if cmp -s "${pmoved[$i]}" "${pmoved_orig[$i]}"; then
+      rm -f "${pmoved[$i]}"
+    else
+      warn "Kept the previous ~/${pmoved_orig[$i]#"$HOME"/} as $(basename "${pmoved[$i]}")"
+    fi
+  done
+  return 0
+}
+
+report_project_pending() {
+  local name
+  (( ${#PROJECT_PENDING[@]} > 0 )) || return 0
+  echo "" >&2
+  warn "Not restored yet — the project each belongs in is not cloned here:"
+  for name in "${PROJECT_PENDING[@]}"; do
+    info "  ~/$name"
+  done
+  info "They are still in the archive. Once restore-repos has cloned the project:"
+  info "  restore-keys --projects $ARCHIVE"
+}
+
+if (( PROJECTS_ONLY )); then
+  log "Reading $ARCHIVE..."
+  restore_project_files || exit 1
+  report_project_pending
+  (( ${#PROJECT_PENDING[@]} == 0 )) || exit 1
+  if (( PROJECT_RESTORED > 0 )); then
+    echo "" >&2
+    ok "Restored $PROJECT_RESTORED project credential file(s)"
+  fi
+  exit 0
+fi
+
 # ── Move aside whatever is already there ──────────────────────────────────────
 
 log "Reading $ARCHIVE..."
 
-stamp="$(date +%Y%m%d-%H%M%S)"
 # Parallel arrays rather than deriving the original path back out of the backup
 # name: the rollback below runs on the failure path, which is the worst place to
 # be doing string surgery on a filename.
@@ -199,7 +309,8 @@ trap 'restore_originals || true; cleanup_gpg_scratch' EXIT
 
 # ── Decrypt straight into place ───────────────────────────────────────────────
 
-if ! gpg --homedir "$GPG_SCRATCH" -d -q "$ARCHIVE" 2>/dev/null | tar -xpf - -C "$HOME"; then
+# Projects/ is left out here and placed below, only into checkouts that exist.
+if ! gpg --homedir "$GPG_SCRATCH" -d -q "$ARCHIVE" 2>/dev/null | tar -xpf - -C "$HOME" --exclude Projects; then
   err "Decryption or extraction failed — wrong passphrase, or a damaged archive."
   exit 1
 fi
@@ -273,6 +384,12 @@ if [[ -f "$P12" ]]; then
   rm -f "$P12"
 fi
 
+# The keys are in place by now, so a failure here is reported, not rolled back.
+if ! restore_project_files; then
+  warn "The keys are restored; the project credentials are not."
+  info "Once the cause is fixed: restore-keys --projects $ARCHIVE"
+fi
+
 # ── Report ────────────────────────────────────────────────────────────────────
 
 echo "" >&2
@@ -291,6 +408,8 @@ info "  ssh-add -l                                 # SSH keys"
 info "  gpg --list-secret-keys                     # GPG secret keys"
 info "  ssh -T git@github.com                      # GitHub authentication"
 info "  security find-identity -v -p codesigning   # signing identities"
+
+report_project_pending
 
 if (( ${#moved[@]} > 0 )); then
   echo "" >&2
