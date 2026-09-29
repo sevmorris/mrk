@@ -648,7 +648,13 @@ walkthrough never mentions `gh auth login`. The other six apps installed in ever
 - **R-2:** the walkthrough has `gh auth login`, and a private repo gh cannot reach is a skip
   that names `make apps`, not a failure.
 
-A re-run of 4b and 2 would show both at runtime.
+**Re-run at `eeeba49`, in fresh VMs:**
+- **4b:** the summary reads `1 default(s) failed`, and the stub-free re-run exits 0 with
+  `Defaults applied`.
+- **2:** `make all` exits 0 in both runs and builds `mrk-picker`, `mrk-status` and `mrk-menu`.
+  It skips Magic Backup Machine with `sevmorris/magic-backup-machine is private, or has no
+  release, and gh is not logged in — after gh auth login, run: make apps`, and `diff -r` is
+  empty.
 
 **Corrections to the plan,** made in `10-test-plan.md` alongside these results:
 - `capture.sh` sets `LC_ALL=C`;

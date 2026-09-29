@@ -194,8 +194,9 @@ are made in `10-test-plan.md`.
   installer.
 - **To remove it all:** delete `~/Applications/tart.app` and `~/.tart`.
 
-→ To close: re-run 4b and 2 in a clone of the base image, now that R-1 and R-2 are fixed. 4b's
-summary should read 1 and its re-run exit 0, and `make all` should finish. Each takes minutes.
+Both fixes were re-run in fresh VMs on 2026-09-28, at `eeeba49`, and hold (see Closed). Nothing
+from the VM tests is open. That leaves the half-copied-app gap below, which the run did not
+produce.
 
 **A half-copied app would survive (from reading `install-apps`, not shown).**
 - **The gap.** An interrupt during `ditto` (`install-apps:166`) runs the traps. They detach the
@@ -312,7 +313,11 @@ the audit artifacts have the full detail.
     the old rule; every failure a skip; a skip counted as a failure; and `install_github_app`
     swallowing the skip.
 - **This Mac:** nothing changes. The Music keys are already set here, and `gh` is logged in.
-- **Still open:** a re-run of 4b and 2 in the VM, to see both fixes at runtime (above).
+- **Verified in fresh VMs at `eeeba49`:**
+  - **4b:** the injected run reads `1 default(s) failed` and exits 1, and the stub-free re-run
+    exits 0 with `Defaults applied`.
+  - **2:** both runs of `make all` exit 0 and build the three TUI binaries. Magic Backup
+    Machine is skipped with the new note, and `diff -r run1 run2` is empty.
 
 ### Closed by keeping Homebrew's installer script, branch `claude/brew-installer-decision`, 2026-09-28
 
