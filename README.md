@@ -102,7 +102,7 @@ data in them is not.
 | Login items | `add_login_item` block in `scripts/post-install` | AlDente, BetterSnapTool, Chrono Plus, Dropbox, Raycast, Stats, Thaw. |
 | Snapshotted apps | `scripts/snapshot-prefs` | The 17 plist domains and the Application Support trees I care about. |
 | Dock | `DOCK_APPS` and `DOCK_FOLDER` in `scripts/dock-setup` | Wipes the Dock before it rebuilds it. |
-| macOS defaults | `scripts/defaults.sh` | 136 keys, each one a preference of mine. Documented in the [defaults reference](https://sevmorris.github.io/mrk/defaults/). |
+| macOS defaults | `scripts/defaults.sh` | 133 keys, each one a preference of mine. Documented in the [defaults reference](https://sevmorris.github.io/mrk/defaults/). |
 | My own apps | `COMPANION_APPS` in `scripts/install-apps` | Installs seven apps of mine — Barkeep, ClipHack, DoublEnder, FilmStrip, KeyVault, Magic Backup Machine and WaxOn/WaxOff — and refuses any app not signed by `GITHUB_APP_TEAM_ID`, my Developer ID team. |
 | Dotfiles | `dotfiles/` | My shell, aliases and git config. |
 

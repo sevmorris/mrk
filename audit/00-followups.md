@@ -183,8 +183,8 @@ macOS 26.6.2. The verdicts and the evidence are in `11-test-results.md`.
 | 4a | PASS |
 | 4b | Every N-1 and W-19 check holds; its counts were upset by R-1 |
 
-Two findings from the run are open under their own entries below, R-1 and R-2. The plan's eight
-corrections are made in `10-test-plan.md`.
+Both findings from the run were fixed the same day; see Closed. The plan's eight corrections
+are made in `10-test-plan.md`.
 
 **What stays on this Mac, for re-runs:**
 - **Tart 2.40.0,** in `~/Applications/tart.app`, not through Homebrew: the `cirruslabs/cli`
@@ -194,32 +194,8 @@ corrections are made in `10-test-plan.md`.
   installer.
 - **To remove it all:** delete `~/Applications/tart.app` and `~/.tart`.
 
-→ To close: fix R-1 and R-2, then re-run 4b and 2 in a clone of the base image. Each takes
-minutes. The plan's first-run notes say what else to expect.
-
-**R-1 — three Music keys can't be written on macOS 26 (from the VM tests).**
-- **What happens.** `defaults.sh:628-632` writes three keys to `com.apple.Music`. macOS's
-  System Policy denies every other process `user-preference-write` there
-  (`deny(1) user-preference-write com.apple.music`). Full Disk Access does not lift it, and
-  opening Music first does not either.
-- **On a new Mac,** `make defaults` reports three failures and exits 1 every time, and setup
-  warns during every `make all`.
-- **On this Mac** the keys arrived with the migration, already at mrk's values, so they are
-  skipped and never written.
-
-→ To close: drop the three keys, as T-3 dropped the Software Update keys, with a comment
-saying why; or keep them and have `defaults.sh` skip a domain that refuses writes, with a note
-rather than a failure.
-
-**R-2 — Magic Backup Machine's repository is private (from the VM tests).**
-- **What happens.** `install-apps` cannot read its release without an authenticated `gh`, so
-  post-install counts a failed step and exits 1. `make all` then stops before `build-tools`,
-  and `mrk-status`, `mrk-menu` and `mrk-picker` are never built.
-- **The docs don't cover it.** The manual's new-machine walkthrough never says to run
-  `gh auth login` first.
-
-→ To close: add `gh auth login` to the walkthrough before `make all`; or make `install-apps`
-treat a private repository it cannot read as a skip with a note, not a failure; or both.
+→ To close: re-run 4b and 2 in a clone of the base image, now that R-1 and R-2 are fixed. 4b's
+summary should read 1 and its re-run exit 0, and `make all` should finish. Each takes minutes.
 
 **A half-copied app would survive (from reading `install-apps`, not shown).**
 - **The gap.** An interrupt during `ditto` (`install-apps:166`) runs the traps. They detach the
@@ -316,6 +292,27 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by fixing R-1 and R-2 from the VM tests, branch `claude/r1-r2-fixes`, 2026-09-28
+
+- **R-1, three Music keys macOS 26 refuses.** `showAppleMusic`, `userWantsPlaybackNotifications`
+  and `useErrorCorrection` are gone from `defaults.sh`, and their MRK-1 entries with them. A
+  comment says why. System Policy denies any other process `user-preference-write` on
+  `com.apple.Music`, so on a new Mac they always failed and `make defaults` always exited 1.
+  The key count is 133, and docs-drift holds README and the manual to it. The owner chose this
+  over skipping refused writes, which could hide a real failure.
+- **R-2, Magic Backup Machine's private repository.** The owner chose both remedies:
+  - **The walkthrough** has `gh auth login` before Phase 3, and the one-command install ends
+    with `gh auth login` and `make apps`.
+  - **`install-apps`** treats a 404 without a logged-in `gh` as a skip. It names the app and
+    says to run `make apps` after logging in, and returns 3, which `install_companion_apps`
+    counts in `COMPANION_SKIPPED`, not `COMPANION_FAILED`. A 403 or no network still fails. So
+    `make all` finishes and builds the TUI binaries on a new Mac.
+  - **`tests/install-apps.sh`** is new, and ci-check runs it. Four mutations are each caught:
+    the old rule; every failure a skip; a skip counted as a failure; and `install_github_app`
+    swallowing the skip.
+- **This Mac:** nothing changes. The Music keys are already set here, and `gh` is logged in.
+- **Still open:** a re-run of 4b and 2 in the VM, to see both fixes at runtime (above).
 
 ### Closed by keeping Homebrew's installer script, branch `claude/brew-installer-decision`, 2026-09-28
 

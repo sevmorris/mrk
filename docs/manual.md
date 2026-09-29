@@ -31,7 +31,7 @@ Keep both repositories current. You can then restore the full setup on a new mac
 > 4. Edit the `add_login_item` list in `scripts/post-install`. It adds eight applications.
 > 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 17 named plist domains, plus every `io.github.sevmorris.*` domain as a group.
 > 6. Edit `DOCK_APPS` and `DOCK_FOLDER` in `scripts/dock-setup`. The script clears the Dock before it adds the applications.
-> 7. Read `scripts/defaults.sh` before you run it. It writes 136 preference keys, and each key is a personal choice.
+> 7. Read `scripts/defaults.sh` before you run it. It writes 133 preference keys, and each key is a personal choice.
 > 8. Edit `COMPANION_APPS` in `scripts/install-apps` — it is my own applications, and a fork wants none of them. Empty the list, or replace it with yours and set `GITHUB_APP_TEAM_ID` to your Developer ID team: the installer refuses any app not signed by that team.
 >
 > Use `make setup-dry` and `make sync ARGS=-n` to see the result of a phase before you apply it.
@@ -131,7 +131,7 @@ It can run in the same shell as Phase 2, whether that is `make all`'s or one ope
 - **Plist imports (17 apps):** Imports your preference plists. Phase 3 skips an app that already has preferences — in `~/Library/Preferences`, or in its sandbox container for a sandboxed app such as Keka — so it never overwrites a live configuration. It also skips an app that is not installed yet. The imports run before any step that writes app defaults, the browser defaults included, because one key is enough to make an app look configured. Until 2026-09-27 they ran after, and the keys the Rogue Amoeba, Helium and Audio Hijack scripts wrote made six apps look configured: Loopback, SoundSource, Audio Hijack, Farrago, Piezo and Helium were never imported on the 2026-09-15 migration.
 - **My own applications:** Imports every `io.github.sevmorris.*` plist that `snapshot-prefs` captured. This one does not check that the application is installed: several are tools with no bundle in `/Applications`, and on a new machine the preferences usually arrive before the application does, so an early import means the app finds its settings on first launch.
 - **Dev runtimes:** Links Homebrew's openjdk into `/Library/Java/JavaVirtualMachines/`. Clones nvm into `~/.nvm` at a pinned commit, refusing the release tag if it has been moved, then installs the current Node LTS as nvm's default — only when nvm has no default yet, so an existing Node is never replaced. `.zshrc` then loads nvm in each shell without its own `nvm use`, and puts the newest installed Node that matches the default alias on the PATH itself. That takes about 30 ms, where `nvm use` took about 250; since 2026-09-28. Installs the Python version in `.python-version` with pyenv, and checks that it can run a subprocess.
-- **My own applications, installed:** Installs Barkeep, ClipHack, DoublEnder, FilmStrip, KeyVault, Magic Backup Machine and WaxOn/WaxOff from the most recent GitHub release of each, and only when the app in that release's DMG verifies, is signed by my Developer ID team, and is accepted by Gatekeeper as notarized; anything else is refused and counted as a failed step. Phase 3 skips an app that is already in `/Applications` — this bootstraps a Mac, it does not manage updates, and each of these apps checks GitHub for its own updates once it is running. To update one, use the app, or delete it and run `make apps`. The list lives in `scripts/install-apps`, which `make apps` also runs on its own. Two apps are not in it, both retired: **Cypher/FL2601** (2026-09-23), which never came from here, since being sandboxed with no network entitlement it could not check for its own updates and was a Homebrew cask, and **WireHack**, superseded by ClipHack. Magic Backup Machine's repository is private, which is why the download prefers `gh` and its token; an unauthenticated request for a private release returns 404, indistinguishable from "no such release".
+- **My own applications, installed:** Installs Barkeep, ClipHack, DoublEnder, FilmStrip, KeyVault, Magic Backup Machine and WaxOn/WaxOff from the most recent GitHub release of each, and only when the app in that release's DMG verifies, is signed by my Developer ID team, and is accepted by Gatekeeper as notarized; anything else is refused and counted as a failed step. Phase 3 skips an app that is already in `/Applications` — this bootstraps a Mac, it does not manage updates, and each of these apps checks GitHub for its own updates once it is running. To update one, use the app, or delete it and run `make apps`. The list lives in `scripts/install-apps`, which `make apps` also runs on its own. Two apps are not in it, both retired: **Cypher/FL2601** (2026-09-23), which never came from here, since being sandboxed with no network entitlement it could not check for its own updates and was a Homebrew cask, and **WireHack**, superseded by ClipHack. Magic Backup Machine's repository is private, which is why the download prefers `gh` and its token; an unauthenticated request for a private release returns 404, indistinguishable from "no such release". Without `gh` logged in, Phase 3 now skips that app with a note — run `gh auth login`, then `make apps` — rather than counting a failed step. Until 2026-09-28 it counted, so on a new Mac `make all` stopped at Phase 3 and never built the TUI binaries.
 - **Application Support restore:** Restores the Loopback and SoundSource configuration files. Phase 3 skips a file that exists.
 - **Fonts:** Restores the fonts captured by `snapshot-prefs` into `~/Library/Fonts`. Phase 3 skips a font that is already installed.
 - **GPG pinentry:** Points `gpg-agent` at `pinentry-mac`, so gpg asks for a passphrase in a window. Phase 3 adds one line to `~/.gnupg/gpg-agent.conf`, and it skips this step when the file already sets `pinentry-program`.
@@ -595,7 +595,15 @@ It does not install App Store apps. mrk tracked them as Brewfile `mas` entries u
 
 ## Step 5 — Phase 3: the app configuration
 
-First give your terminal Full Disk Access: System Settings › Privacy & Security › Full Disk Access. Phase 3 needs it for the Safari settings. Without it, Phase 3 skips them and still reports success — on 2026-09-15 that is what happened on this Mac. If you grant the access later, run `make post-install` again.
+First log `gh` in. Phase 2 installed it, and Phase 3 needs it for Magic Backup Machine, whose repository is private:
+
+```bash
+gh auth login
+```
+
+Without it, Phase 3 skips Magic Backup Machine and says so; run `make apps` once `gh` is logged in.
+
+Then give your terminal Full Disk Access: System Settings › Privacy & Security › Full Disk Access. Phase 3 needs it for the Safari settings. Without it, Phase 3 skips them and still reports success — on 2026-09-15 that is what happened on this Mac. If you grant the access later, run `make post-install` again.
 
 ```bash
 make post-install
@@ -682,9 +690,11 @@ Read the output. Correct every item that has a ✗ mark or a ⚠ mark.
 cd ~/mrk
 make all
 exec zsh
+gh auth login   # Magic Backup Machine's repository is private
+make apps       # installs it, now that gh can reach it
 ```
 
-Then install the App Store apps in [docs/app-store-apps.md](app-store-apps.md) from App Store.app, and run `make post-install` again to restore the preferences and login items it skipped for them.
+`make all` cannot pause for `gh auth login`, so it skips Magic Backup Machine and says so; the last two commands install it. Then install the App Store apps in [docs/app-store-apps.md](app-store-apps.md) from App Store.app, and run `make post-install` again to restore the preferences and login items it skipped for them.
 
 ---
 

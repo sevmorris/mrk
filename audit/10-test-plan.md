@@ -46,8 +46,10 @@ they stood.
 7. **The VM's disk is too small for the whole Brewfile.** The base image has 17 GB free, and SIP
    guards the recovery partition that stops the main one growing. Tests that install packages
    run `~/trim-brewfile.sh` first; see Environment.
-8. **Two expectations need R-1 and R-2 resolved.** 4b's counts, Test 2's complete `make all`
-   and every "exits 0" after post-install depend on them; see each test.
+8. **Two expectations depended on R-1 and R-2.** These were 4b's counts, Test 2's complete
+   `make all` and every "exits 0" after post-install. Both were fixed on 2026-09-28, in branch
+   `claude/r1-r2-fixes`: the Music keys are gone from `defaults.sh`, and a private repo gh
+   cannot reach is a skip. The notes below say what the first run saw.
 
 ## Refresh, 2026-09-28
 
@@ -565,9 +567,10 @@ Fresh clone. Nothing pre-applied.
 4. `~/capture.sh run2`
 5. `diff -r ~/captures/run1 ~/captures/run2`
 
-Run `~/trim-brewfile.sh` before step 1. If `make all` stops at post-install, as it does without
-a GitHub login (R-2), `build-tools` never runs. Then run `make build-tools` twice, with a
-capture after each, and diff those too.
+Run `~/trim-brewfile.sh` before step 1. If `make all` stops before `build-tools`, run
+`make build-tools` twice, with a capture after each, and diff those too. The first run had to
+do this: without a GitHub login, Magic Backup Machine's private repo made post-install exit 1
+(R-2, since fixed).
 
 ### "No changes", concretely
 
@@ -651,8 +654,9 @@ run `make setup` first.
 ### Procedure
 
 On both, `~/trim-brewfile.sh` first. Then run each phase whatever the last one returned, and
-record its exit code. post-install exits 1 without a GitHub login (R-2), and `&&` would stop
-3b before `brew`.
+record its exit code, so that a failure in one phase cannot keep the next from running. In the
+first run, post-install exited 1 without a GitHub login (R-2, since fixed), and `&&` would have
+stopped 3b before `brew`.
 
 On `mrk-test-3a`:
 1. `make setup; make brew; make post-install`
@@ -757,8 +761,8 @@ well-formed.
     `[post-install] interrupted — exiting` and exits 1;
   - that exit fires `install_github_app`'s `EXIT` trap, `_github_app_done` (`install-apps:128-134`),
     whose `hdiutil detach` releases the mount and which deletes both temporary paths.
-- **The re-run completes** and reports no failures other than R-2's. It installs the app that
-  was interrupted, or finds it complete.
+- **The re-run completes** and reports no failures. It installs the app that was interrupted,
+  or finds it complete. Magic Backup Machine is skipped with a note when `gh` is not logged in.
 - **`recovered` matches `order-a`.**
 
 If the watcher misses the window, because the copy out of the image was too quick, the run is
@@ -801,8 +805,8 @@ export PATH="$HOME/stub:$PATH"
 
 - **The run does not abort** at the refused write. It continues through every remaining write.
 - **The summary.** `~/inject.log` shows `1 default(s) failed to apply; the rest are applied.
-  Revert with: …` (`defaults.sh:668-671`). Until R-1 is resolved, macOS 26 adds three Music
-  failures, and it reads `4`.
+  Revert with: …` (`defaults.sh:668-671`). In the first run it read `4`: macOS 26 refused three
+  Music keys too (R-1, since removed from `defaults.sh`).
 - **The exit code is 1.** Until W-19 it was 0, which hid the failure from `setup` and
   `make defaults`.
 - **The failure is isolated.** Every other domain in `injected` is fully applied, and only
@@ -811,8 +815,8 @@ export PATH="$HOME/stub:$PATH"
   `bash -n`. It holds an entry for each domain and key touched before *and after* the refused
   write, and for the refused key itself, since `write_default` records before it writes. A file
   that stops at the refusal is the N-1 regression.
-- **The step-6 re-run** applies the refused key, exits 0 and prints "Defaults applied". Until R-1
-  is resolved, it exits 1 with `3 default(s)`.
+- **The step-6 re-run** applies the refused key, exits 0 and prints "Defaults applied". In the
+  first run it exited 1 with `3 default(s)`, R-1's Music keys.
 
 ### Pass / fail
 

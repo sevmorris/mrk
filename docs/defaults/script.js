@@ -94,24 +94,6 @@ const DEFAULT_DESCRIPTIONS = {
         why: 'Ducking interrupts playback in the middle of audio work.',
         systemDefault: 'true'
     },
-    'com.apple.Music.showAppleMusic': {
-        title: 'Apple Music Content',
-        description: 'Hides the Apple Music subscription content, so the sidebar shows the local library alone.',
-        category: 'Applications',
-        systemDefault: 'true'
-    },
-    'com.apple.Music.userWantsPlaybackNotifications': {
-        title: 'Track Change Notifications',
-        description: 'Stops Music showing a notification for each track change.',
-        category: 'Applications',
-        systemDefault: 'true'
-    },
-    'com.apple.Music.useErrorCorrection': {
-        title: 'CD Import Error Correction',
-        description: 'Uses error correction when importing an audio CD. The import is slower and the result is more accurate.',
-        category: 'Applications',
-        systemDefault: 'false'
-    },
     'com.apple.Safari.SandboxBroker.ShowDevelopMenu': {
         title: 'Safari Develop Menu',
         description: 'Keeps the Develop menu out of the Safari menu bar.',
