@@ -168,6 +168,11 @@ install_homebrew() {
     return 0
   fi
 
+  # Homebrew's own documented installer, from HEAD of Homebrew/install. Its
+  # signed .pkg was weighed on 2026-09-28 and not adopted. This runs once per
+  # Mac, over TLS, from Homebrew's repository, and every `brew update` after it
+  # trusts the same repositories without a signature check. And a second
+  # install path would first run, untested, on the next new Mac. Audit 17.
   log "Homebrew not found. Installing Homebrew..."
   if (( DRY_RUN )); then
     dry "Would run: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""

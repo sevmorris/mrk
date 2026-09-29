@@ -134,19 +134,8 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
   Rosetta is installed. → To close: decide per component, in Waves Central and iZotope's
   installer. mrk manages none of them. The list is in `18-audit-2026-09-23.md`.
 
-**Module 17's open items (2026-09-18).** Details are in `17-audit-2026-09-18.md`.
-
-- **Homebrew's installer runs from `HEAD`.** It is the vendor's documented method. The
-  alternative is Homebrew's signed `.pkg`, checked with `pkgutil --check-signature` before
-  `installer`. On 2026-09-28 the latest release, 7.0.7, published a single `Homebrew.pkg` of
-  150 MB. The advice given that day was to keep `HEAD`:
-  - it runs once per Mac, over TLS, from Homebrew's own repository;
-  - every `brew update` afterwards trusts the same GitHub repositories without a signature
-    check;
-  - a new install path would run for the first time on the next new Mac, untested.
-
-  → To close: accept `HEAD` as the vendor's choice (advised), or adopt the `.pkg` and test it on
-  a fresh Mac.
+**Module 17's items (2026-09-18): all settled.** The last, Homebrew's installer, was decided on
+2026-09-28: it keeps running from `HEAD` (see Closed). Details are in `17-audit-2026-09-18.md`.
 
 **Module 16's items (2026-09-17).** Evidence and options for each are in
 `16-audit-2026-09-17.md`.
@@ -285,6 +274,17 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by keeping Homebrew's installer script, branch `claude/brew-installer-decision`, 2026-09-28
+
+Module 17's last open item, as the owner chose. Phase 2 keeps Homebrew's documented installer
+from `HEAD` rather than its signed `.pkg`:
+- it runs once per Mac, over TLS, from Homebrew's repository;
+- every `brew update` afterwards trusts the same repositories without a signature check;
+- a new install path would first run, untested, on the next new Mac.
+
+A comment in `scripts/brew`, beside the install, records the reasons, so the question is not
+reopened without them.
 
 ### Closed by loading nvm with --no-use, branch `claude/zshrc-nvm-no-use`, 2026-09-28
 
