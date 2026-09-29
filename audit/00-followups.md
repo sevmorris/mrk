@@ -131,8 +131,18 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
   - **Plug-ins:** 9 of 74 audio plug-in bundles are Intel-only. They are Waves' V12 shells, its
     V13 and V14 VST2 shells, and iZotope's RX 12 spectral-editor AU hook.
 
-  Rosetta is installed. → To close: decide per component, in Waves Central and iZotope's
-  installer. mrk manages none of them. The list is in `18-audit-2026-09-23.md`.
+  Rosetta is installed.
+  - **Re-checked 2026-09-28, evening.** The list was unchanged. The broken
+    `WaveShell1-VST 12..vst` held only an empty `Info.plist`, so the owner had it moved to the
+    Trash, not deleted, with no audio host running.
+  - **Advice given the same day.** Unused plug-ins cost nothing, since only a host that loads one
+    runs it, so none needs disabling. Waves' shells should not be removed by hand, because Waves
+    Central manages them.
+
+  → To close: in Waves Central, uninstall V12 if every Waves plug-in in use loads from V13 or V14.
+  That removes the V12 AU, VST and VST3 shells and the AU Reg Utility, four of the ten. Keep the
+  VST2 shells, which Logic never loads, and iZotope's hook, which RX 12 has no native build of.
+  mrk manages none of them. The list is in `18-audit-2026-09-23.md`.
 
 **Module 17's items (2026-09-18): all settled.** The last, Homebrew's installer, was decided on
 2026-09-28: it keeps running from `HEAD` (see Closed). Details are in `17-audit-2026-09-18.md`.
