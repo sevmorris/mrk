@@ -8,9 +8,15 @@
 # build-tools. A 404 is now a skip, with the way to finish. Anything else is
 # still a failure: a rate limit (403), no network, a DMG that will not download.
 #
+# And until 2026-09-28 a copy into /Applications cut short by Ctrl-C was left
+# where it stopped: the traps detached the image and removed the temporary
+# paths, but only a ditto that failed removed the partial app, and the next
+# run's skip test took it for installed. Now the EXIT trap removes it, and
+# `make apps` on its own exits on Ctrl-C as post-install does, so the trap runs.
+#
 # scripts/install-apps is sourced, which defines its functions and runs nothing.
-# curl, gh and hdiutil are stubs first on PATH, so no request leaves the machine
-# and nothing is mounted. install_github_app runs against app paths in a scratch
+# curl, gh, hdiutil, ditto, codesign and spctl are stubs first on PATH, so no
+# request leaves the machine, nothing is mounted and nothing is verified for real. install_github_app runs against app paths in a scratch
 # folder, never /Applications. Each case runs under /bin/bash and under the bash
 # running this file. ci-check runs it.
 
@@ -29,6 +35,7 @@ if [[ "${1:-}" != --inner ]]; then
   if [[ ! "$BASH" -ef /bin/bash ]]; then run_under "$BASH" || rc=1; fi
   exit "$rc"
 fi
+BASH_UNDER_TEST="$2"
 
 # shellcheck source=../scripts/lib.sh
 source "$REPO_ROOT/scripts/lib.sh"
@@ -60,14 +67,39 @@ cat > "$S/gh" <<'EOF'
 printf 'gh %s\n' "$*" >> "$SANDBOX/calls"
 exit 1
 EOF
+# hdiutil: `attach … -mountpoint DIR` puts $STUB_APP.app in DIR.
 cat > "$S/hdiutil" <<'EOF'
 #!/bin/bash
 printf 'hdiutil %s\n' "$*" >> "$SANDBOX/calls"
+if [[ "$1" == attach ]]; then
+  mp=""; prev=""
+  for a in "$@"; do [[ "$prev" == -mountpoint ]] && mp="$a"; prev="$a"; done
+  mkdir -p "$mp/${STUB_APP:-Example}.app/Contents" && echo app > "$mp/${STUB_APP:-Example}.app/Contents/Info.plist"
+fi
 exit 0
 EOF
+# ditto SRC DEST: DITTO_MODE=ok copies; fail stops part-way; interrupt stops
+# part-way and sends SIGINT to the shell that ran it, as Ctrl-C would.
+cat > "$S/ditto" <<'EOF'
+#!/bin/bash
+printf 'ditto %s\n' "$*" >> "$SANDBOX/calls"
+case "${DITTO_MODE:-ok}" in
+  ok)        /bin/cp -R "$1" "$2" ;;
+  fail)      mkdir -p "$2/Contents"; echo partial > "$2/Contents/partial"; exit 1 ;;
+  interrupt) mkdir -p "$2/Contents"; echo partial > "$2/Contents/partial"
+             kill -INT "$PPID"; sleep 1; exit 130 ;;
+esac
+EOF
+# codesign and spctl pass everything, with the expected team.
+cat > "$S/codesign" <<'EOF'
+#!/bin/bash
+[[ "$1" == -dv ]] && echo "TeamIdentifier=T9RLNAXPWU" >&2
+exit 0
+EOF
+printf '#!/bin/bash\nexit 0\n' > "$S/spctl"
 chmod +x "$S"/*
 export PATH="$S:/usr/bin:/bin:/usr/sbin:/sbin" SANDBOX="$W" TMPDIR="$W/tmp"
-for cmd in curl gh hdiutil; do
+for cmd in curl gh hdiutil ditto codesign spctl; do
   [[ "$(command -v "$cmd")" == "$S/$cmd" ]] || { fail "the $cmd stub is not first on PATH — refusing to run"; exit 1; }
 done
 
@@ -142,6 +174,60 @@ if [[ $COMPANION_FAILED == 1 && $COMPANION_SKIPPED == 2 ]]; then
   pass "install_companion_apps: 1 failed, 2 skipped, and only failures reach post-install's count"
 else
   fail "install_companion_apps: failed $COMPANION_FAILED, skipped $COMPANION_SKIPPED (want 1 and 2)"
+fi
+
+# ── A copy into /Applications, whole, failed or cut short ────────────────────
+
+
+# copy MODE — install_github_app with the release found and ditto in MODE, run
+# from a script file carrying post-install's INT trap, as post-install runs it;
+# sets RC, OUT and LEFT. A script file, not `bash -c` or a subshell: bash 3.2
+# unwinds the function before the EXIT trap in those, so the trap cannot see
+# install_github_app's locals. In a script file, as post-install and install-apps
+# always run, it can.
+cat > "$W/driver.sh" <<'EOF'
+source "$1"
+trap 'printf "interrupted\n"; exit 1' INT TERM
+install_github_app "$2" sevmorris/example Example
+EOF
+copy() {
+  rm -rf "$W/Applications/Example.app"; : > "$W/calls"
+  OUT=$(CURL_CODE=200 DITTO_MODE="$1" "$BASH_UNDER_TEST" "$W/driver.sh" \
+    "$REPO_ROOT/scripts/install-apps" "$W/Applications/Example.app" 2>&1); RC=$?
+  LEFT=$(find "$W/tmp" -mindepth 1 -maxdepth 1 | tr '\n' ' ')
+}
+copy ok
+if [[ $RC == 0 && -f "$W/Applications/Example.app/Contents/Info.plist" && -z "$LEFT" ]]; then
+  pass "a whole copy is installed, and no temporary file is left"
+else
+  fail "whole copy: exit $RC, left '$LEFT', said: $OUT"
+fi
+copy fail
+if [[ $RC == 1 && ! -e "$W/Applications/Example.app" && -z "$LEFT" ]] && grep -q 'failed to copy' <<<"$OUT"; then
+  pass "a failed copy is removed and reported"
+else
+  fail "failed copy: exit $RC, app $([[ -e "$W/Applications/Example.app" ]] && echo left || echo gone), said: $OUT"
+fi
+copy interrupt
+if [[ $RC == 1 && ! -e "$W/Applications/Example.app" && -z "$LEFT" ]] && grep -q interrupted <<<"$OUT" \
+   && grep -q '^hdiutil detach' "$W/calls"; then
+  pass "a copy cut short by Ctrl-C is removed, the image detached, no temporary file left"
+else
+  fail "interrupted copy: exit $RC, app $([[ -e "$W/Applications/Example.app" ]] && echo LEFT BEHIND || echo gone), left '$LEFT'"
+fi
+
+# `make apps` on its own: a copy of the script, its /Applications pointed into
+# the sandbox, interrupted during its first app's copy.
+C="$W/copy"; mkdir -p "$C"
+cp "$REPO_ROOT/scripts/lib.sh" "$C/"
+sed "s#/Applications/#$W/Applications/#g" "$REPO_ROOT/scripts/install-apps" > "$C/install-apps"
+first=$(sed -n 's/^  "\([^"|]*\)\.app|.*/\1/p' "$C/install-apps" | head -1)
+rm -rf "$W/Applications"/*; : > "$W/calls"
+OUT=$(CURL_CODE=200 DITTO_MODE=interrupt STUB_APP="$first" "$BASH_UNDER_TEST" "$C/install-apps" 2>&1); RC=$?
+if [[ -n "$first" && $RC == 1 && ! -e "$W/Applications/$first.app" ]] && grep -q 'interrupted' <<<"$OUT"; then
+  pass "make apps, interrupted during $first's copy: exits 1 and removes the partial app"
+else
+  fail "make apps interrupted (first app '$first'): exit $RC, app $([[ -e "$W/Applications/$first.app" ]] && echo LEFT BEHIND || echo gone), said: $(tail -3 <<<"$OUT")"
 fi
 
 (( fails == 0 ))

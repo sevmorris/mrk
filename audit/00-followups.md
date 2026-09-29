@@ -194,19 +194,10 @@ are made in `10-test-plan.md`.
   installer.
 - **To remove it all:** delete `~/Applications/tart.app` and `~/.tart`.
 
-Both fixes were re-run in fresh VMs on 2026-09-28, at `eeeba49`, and hold (see Closed). Nothing
-from the VM tests is open. That leaves the half-copied-app gap below, which the run did not
-produce.
+Both fixes were re-run in fresh VMs on 2026-09-28, at `eeeba49`, and hold (see Closed). The
+half-copied-app gap the run could not produce was fixed the same day (see Closed). Nothing from
+the VM tests is open.
 
-**A half-copied app would survive (from reading `install-apps`, not shown).**
-- **The gap.** An interrupt during `ditto` (`install-apps:166`) runs the traps. They detach the
-  image and delete the temporary paths, but only a failed `ditto` removes the partial app. The
-  re-run's skip test would then take it for installed.
-- **Why it's unproven.** Test 4a interrupted a copy of ClipHack, but the copy had already
-  finished, and its signature verified.
-
-→ To close: remove `$app_path` in `_github_app_done` when the copy did not finish, and prove it
-with a stub `ditto` that is killed part-way.
 
 ---
 
@@ -293,6 +284,35 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by removing a copy cut short, branch `claude/install-apps-partial-copy`, 2026-09-28
+
+**The gap.** An interrupt during `ditto` in `install_github_app` ran the traps. They detached the
+image and deleted the temporary paths, but only a `ditto` that failed removed the partial app,
+and the next run's skip test took it for installed. Test 4a's interrupt landed after the copy had
+finished, so the run could not show it. It came from reading the code.
+
+- **The fix.** `install_github_app` sets `copying=1` around the `ditto`, and `_github_app_done`
+  (the EXIT trap, and every return path) removes `$app_path` while it is set. One place now
+  removes a failed copy and an interrupted one. Run on its own, `install-apps` traps `INT` and
+  `TERM` as post-install does. Without that, Ctrl-C during a copy went on to the next app, and
+  the EXIT trap never ran.
+- **The test.** `tests/install-apps.sh` stubs `ditto`, `codesign` and `spctl` as well, and checks
+  under both bashes:
+  - a whole copy is installed;
+  - a failed copy is removed;
+  - a copy cut short by Ctrl-C is removed, the image detached, nothing left in the temporary
+    folder;
+  - the same for `make apps` on its own.
+- **Mutations**, each killed:
+  - the trap does not remove the copy (the old gap);
+  - a copy is never marked;
+  - the mark is not cleared after a whole copy;
+  - `make apps` without its `INT` trap.
+- **A bash 3.2 detail.** The test had to drive the copy from a script file. In `bash -c` or a
+  subshell, bash 3.2 unwinds the function before the EXIT trap runs, and the trap then cannot
+  see the function's locals. In a script file, which is how post-install and `install-apps`
+  always run, it can, in both bashes.
 
 ### Closed by fixing R-1 and R-2 from the VM tests, branch `claude/r1-r2-fixes`, 2026-09-28
 
