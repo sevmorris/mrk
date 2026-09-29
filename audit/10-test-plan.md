@@ -1,6 +1,7 @@
 # Audit Module 10 — Runtime Test Plan
 
-**Branch:** `main` | **Authored:** 2026-08-07 | **Refreshed:** 2026-09-28, against `0309878`
+**Branch:** `main` | **Authored:** 2026-08-07 | **Refreshed:** 2026-09-28, against `0309878` |
+**First run:** 2026-09-28, at `be0ef6a` (results in `11-test-results.md`; corrections below)
 **Companion:** `audit/11-test-results.md` (results are recorded there, not here)
 **Environment:** Tart VM, macOS 26 (Tahoe), matching the host's 26.7, ARM64
 **VM source:** `mrk-audit-clean-prepared`, built as described under Environment (Tart,
@@ -17,6 +18,36 @@ against the scripts as they stood after the N-1, N-2 and N-3 fixes.
 
 Expected results below are derived from reading the current scripts. Where the derivation
 contradicts an earlier prediction, that is called out rather than silently reconciled.
+
+## Corrections from the first run, 2026-09-28
+
+The tests ran on 2026-09-28. The run found eight things this plan got wrong or left out, and
+each is corrected in place below. The verdicts of that run were recorded under the rules as
+they stood.
+
+1. **The capture sorted by the locale.** Two sessions with different `LC_ALL` sorted
+   `applications.txt` differently. `capture.sh` now sets `LC_ALL=C`.
+2. **Keys macOS or an app writes for itself.** 1C's revert left `FXDesktopVolumePositions`,
+   which Finder writes itself when mrk turns on `ShowHardDrivesOnDesktop`. Captures from two VMs
+   differed in five values macOS writes for itself. The rules now name such keys as exceptions;
+   see "Keys macOS and apps write for themselves" below.
+3. **Test 3 chained the phases with `&&`.** post-install exits 1 in a VM without a GitHub login
+   (`11-test-results.md`, R-2), so `&&` would stop 3b before `brew`. Each phase now runs
+   regardless of the last, and its exit code is recorded.
+4. **Test 3's prediction missed the topgrade link.** post-install links the topgrade config
+   only when `topgrade` is installed (`post-install:181`), so the link is in Claim A's list.
+5. **The capture has no app domains.** Claim A's app-defaults keys and imported domains could be
+   seen only through `defaults-rollback.sh`. Before the next run, add a probe for each
+   `import_plist` bundle ID (`post-install:465-493`) and each domain the six app-defaults
+   scripts write (`assets/browsers/`, `assets/preferences/`).
+6. **4a's watcher failed.** Its time limit ran out during pyenv's Python build, and
+   `kill -- -<pgid>` reached nothing, because `set -m` without a terminal made no process group.
+   The watcher that worked is now in the procedure.
+7. **The VM's disk is too small for the whole Brewfile.** The base image has 17 GB free, and SIP
+   guards the recovery partition that stops the main one growing. Tests that install packages
+   run `~/trim-brewfile.sh` first; see Environment.
+8. **Two expectations need R-1 and R-2 resolved.** 4b's counts, Test 2's complete `make all`
+   and every "exits 0" after post-install depend on them; see each test.
 
 ## Refresh, 2026-09-28
 
@@ -220,6 +251,21 @@ When the captures are copied to the host, `tart delete mrk-test-<ID>`.
 - **Two VMs at most.** macOS runs at most two macOS guests at once. Test 3 needs exactly two.
 - **Disk.** A clone is copy-on-write, but a full Homebrew install adds tens of gigabytes to it.
   Keep one test VM at a time, except for Test 3.
+- **The trimmed Brewfile.** The Cirrus Labs image's disk is 50 GB, with 17 GB free, and the
+  whole Brewfile needs 25–30 GB.
+  - **Why the disk can't simply grow.** `tart set --disk-size` enlarges the disk, but macOS's
+    recovery partition sits between the main container and the new space, and SIP forbids
+    removing it.
+  - **So** every test that installs packages runs `~/trim-brewfile.sh` after checkout. It cuts
+    `~/mrk/Brewfile` to the 25 entries post-install and `make all` depend on, and refuses to run
+    if it finds any other number.
+  - **The entries** are listed in `11-test-results.md`. Update the script's list whenever
+    post-install starts depending on another package.
+- **Over SSH, Homebrew is not on `PATH`.** Run `eval "$(/opt/homebrew/bin/brew shellenv)"`
+  before a capture taken after `make brew`. Without it, the package probes come back empty on
+  both sides of a diff, and prove nothing.
+- **Long tests run detached** (`nohup … &`), writing a done-file, so that a dropped SSH session
+  cannot end one halfway.
 
 ---
 
@@ -245,6 +291,9 @@ Mac Analytics plist are captured separately, because neither is an ordinary user
 # A probe that times out is recorded in _incomplete.txt. If that file is
 # non-empty, the capture is NOT evidence — fix the cause and re-run.
 set -uo pipefail
+# Sort order must not depend on the session: two SSH sessions with different
+# locales sorted applications.txt differently on 2026-09-28.
+export LC_ALL=C
 label="${1:?usage: capture.sh <label>}"
 out="$HOME/captures/$label"; mkdir -p "$out"
 : > "$out/_incomplete.txt"
@@ -355,6 +404,24 @@ write:
 - Homebrew's own metadata under `$(brew --prefix)/var/homebrew/` — churns independently.
 - The Go binaries `make build-tools` rebuilds in `~/mrk/bin`. Their links are captured, and the
   links do not change.
+
+**Keys macOS and apps write for themselves.** Some keys sit in a domain mrk writes, but no mrk
+script writes or records them. macOS, or the app, writes them itself.
+- **What counts.** A difference confined to such keys is recorded by name. It does not count
+  against a verdict, as long as no key that `defaults.sh`, `hardening.sh` or post-install writes
+  differs.
+- **What the first run met:**
+  - **In 1C:** `com.apple.finder` `FXDesktopVolumePositions`, which Finder writes when it draws
+    the disk icon that `ShowHardDrivesOnDesktop` turns on.
+  - **Between two VMs:**
+    - `com.apple.chronod`: a UUID and a timestamp;
+    - `com.apple.sharingd`: dates;
+    - `com.apple.dock`: `last-analytics-stamp`;
+    - `com.apple.TelephonyUtilities`: a serialized blob whose key order varies;
+    - `com.apple.amp.mediasharingd`: the order of the playlist list;
+    - `com.apple.Terminal`: a date.
+- **How to check one.** Before counting a key as one of these, confirm that no script writes it:
+  `grep -rn KEY scripts/ assets/`.
 
 ### Pre-flight: prove the harness before trusting a verdict
 
@@ -467,7 +534,10 @@ If `applied` equals `baseline`, the applies did not run, and the test says nothi
   byte-identical between `baseline` and `reverted`.
 - **PARTIAL** — the defaults domains match but a privileged item (firewall, PAM, Mac
   Analytics) does not.
-- **FAIL** — any domain that `defaults.sh` or `hardening.sh` wrote differs from baseline.
+- **FAIL** — any key that `defaults.sh` or `hardening.sh` wrote differs from baseline. A key
+  Finder or macOS writes for itself is recorded by name and does not count (see State capture).
+  The 2026-09-28 run applied the older, domain-level wording, and recorded FAIL for Finder's
+  `FXDesktopVolumePositions` alone.
 
 ---
 
@@ -494,6 +564,10 @@ Fresh clone. Nothing pre-applied.
 3. `make all` again, capturing stdout/stderr to `~/run2.log`.
 4. `~/capture.sh run2`
 5. `diff -r ~/captures/run1 ~/captures/run2`
+
+Run `~/trim-brewfile.sh` before step 1. If `make all` stops at post-install, as it does without
+a GitHub login (R-2), `build-tools` never runs. Then run `make build-tools` twice, with a
+capture after each, and diff those too.
 
 ### "No changes", concretely
 
@@ -576,12 +650,16 @@ run `make setup` first.
 
 ### Procedure
 
+On both, `~/trim-brewfile.sh` first. Then run each phase whatever the last one returned, and
+record its exit code. post-install exits 1 without a GitHub login (R-2), and `&&` would stop
+3b before `brew`.
+
 On `mrk-test-3a`:
-1. `make setup && make brew && make post-install`
+1. `make setup; make brew; make post-install`
 2. `~/capture.sh order-a`
 
 On `mrk-test-3b`:
-1. `make setup && make post-install && make brew`
+1. `make setup; make post-install; make brew`
 2. `~/capture.sh order-b-singlepass`
 3. `make post-install`
 4. `~/capture.sh order-b-converged`
@@ -602,22 +680,26 @@ diff -r order-a order-b-converged     # Claim B
   lines in `defaults-rollback.sh`.
 - **The app-defaults keys** for the installed casks: Helium, Audio Hijack, Fission, AlDente and
   the Rogue Amoeba apps.
-- **In `other-links.txt`,** the openjdk link.
+- **In `other-links.txt`,** the openjdk link, and the topgrade config link: post-install links it
+  only when `topgrade` is installed (`post-install:181`). The first version of this plan missed
+  that.
 - **In `runtimes.txt`,** the pyenv Python and the pinentry-mac line.
 
 It does **not** differ in:
 - the defaults domains, which `setup` wrote;
 - the dotfile and tool links;
-- the topgrade and Claude Code links;
+- the Claude Code links;
 - nvm and the Node default, the GitHub apps and the LaunchAgents;
 - the package set: `brew` ran in both orders.
 
-**Claim B shows no differences.**
+**Claim B shows no differences,** apart from the keys macOS writes for itself (see State
+capture). The app-defaults keys and imported domains show only through `defaults-rollback.sh`
+until the capture records the apps' domains (correction 5).
 
 ### Pass / fail
 
-- **PASS** — Claim B diff is empty. Claim A's differences are confined to the artifacts named
-  above and are explained by the skip guards.
+- **PASS** — Claim B diff is empty, apart from named keys macOS writes for itself. Claim A's
+  differences are confined to the artifacts named above and are explained by the skip guards.
 - **PARTIAL** — Claim B converges except for a named artifact; record which and why.
 - **FAIL** — Claim B does not converge, or Claim A differs in the defaults domains, the
   symlink sets, nvm, the GitHub apps or the package set, none of which depend on Homebrew's
@@ -643,15 +725,23 @@ well-formed.
 
 **Procedure.**
 1. `~/capture.sh pre-interrupt`
-2. Start `make post-install` in its own process group, and interrupt it while a GitHub app's DMG
-   is attached. That is the window between `hdiutil attach` (`install-apps:139`) and the
-   detach. A watcher makes the timing repeatable, rather than a hand on Ctrl-C:
+2. Start `make post-install`, and interrupt it while `ditto` copies a GitHub app out of its
+   mounted DMG (`install-apps:166`). The image is attached then, and a copy cut short is the case
+   nothing else cleans up.
+   - **The watcher waits for the app phase.** pyenv's Python build comes first and takes minutes.
+   - **It signals each process by ID,** as Ctrl-C would reach them. Without a terminal, `set -m`
+     makes no process group to signal. The 2026-09-28 first attempt used both, and tested
+     nothing.
    ```bash
-   set -m; make -C ~/mrk post-install > ~/4a.log 2>&1 & pg=$!
-   until hdiutil info | grep -q "image-path.*/mrk\."; do sleep 0.1; done
-   kill -INT -- -"$pg"          # the whole group, as Ctrl-C would
-   wait "$pg"; echo "exit $?"
+   ( cd ~/mrk && exec make post-install ) > ~/interrupted.log 2>&1 & mk=$!
+   until grep -q 'Downloading ' ~/interrupted.log || ! kill -0 "$mk"; do sleep 0.2; done
+   while kill -0 "$mk" 2>/dev/null; do dpid=$(pgrep -x ditto | head -1); [ -n "$dpid" ] && break; done
+   kill -INT "$dpid" $(pgrep -f 'scripts/post-install') "$mk"
+   wait "$mk"; echo "exit $?"
    ```
+   Record the `ditto` command line, which names the app. After the leak checks, verify that
+   app's signature with `codesign --verify --deep --strict`. A copy cut short fails it, and the
+   re-run's skip test would then keep the broken app.
 3. Immediately check for leaks. `hdiutil info` must list no image under `$TMPDIR/mrk.*`, and
    `ls -d "${TMPDIR:-/tmp}"/mrk.*` must show no DMG or mount point from the install. The mount
    is at a temporary path, not under `/Volumes`, so `ls /Volumes` cannot show it; the first
@@ -667,7 +757,8 @@ well-formed.
     `[post-install] interrupted — exiting` and exits 1;
   - that exit fires `install_github_app`'s `EXIT` trap, `_github_app_done` (`install-apps:128-134`),
     whose `hdiutil detach` releases the mount and which deletes both temporary paths.
-- **The re-run completes** and reports no failures. It installs the app that was interrupted.
+- **The re-run completes** and reports no failures other than R-2's. It installs the app that
+  was interrupted, or finds it complete.
 - **`recovered` matches `order-a`.**
 
 If the watcher misses the window, because the copy out of the image was too quick, the run is
@@ -710,7 +801,8 @@ export PATH="$HOME/stub:$PATH"
 
 - **The run does not abort** at the refused write. It continues through every remaining write.
 - **The summary.** `~/inject.log` shows `1 default(s) failed to apply; the rest are applied.
-  Revert with: …` (`defaults.sh:668-671`).
+  Revert with: …` (`defaults.sh:668-671`). Until R-1 is resolved, macOS 26 adds three Music
+  failures, and it reads `4`.
 - **The exit code is 1.** Until W-19 it was 0, which hid the failure from `setup` and
   `make defaults`.
 - **The failure is isolated.** Every other domain in `injected` is fully applied, and only
@@ -719,7 +811,8 @@ export PATH="$HOME/stub:$PATH"
   `bash -n`. It holds an entry for each domain and key touched before *and after* the refused
   write, and for the refused key itself, since `write_default` records before it writes. A file
   that stops at the refusal is the N-1 regression.
-- **The step-6 re-run** applies the refused key, exits 0 and prints "Defaults applied".
+- **The step-6 re-run** applies the refused key, exits 0 and prints "Defaults applied". Until R-1
+  is resolved, it exits 1 with `3 default(s)`.
 
 ### Pass / fail
 
