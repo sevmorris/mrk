@@ -172,32 +172,33 @@ Closed, and `15-audit-2026-09-16.md` under each item.
 agents were listed as disabled and were running anyway, so they are off `trim-services`' list
 (see Closed). **T-7**'s state half, the Safari settings, was done by the owner the same day.
 
-**Tests 1C, 2, 3, and 4 — UNBLOCKED: the plan now exists; the tests have not run.**
-`audit/10-test-plan.md` is written and committed. It specifies Test 1C (combined
-`make defaults` + `make harden` rollback), Test 2 (idempotency), Test 3
-(order-independence) and Test 4 (re-entry recovery), each with its VM setup, a shared
-state-capture method derived from the module-02 write set, a procedure, an expected
-result and explicit pass/fail criteria. Expectations are derived from the scripts as they
-stand after the N-1/N-2/N-3 fixes.
+**Tests 1C, 2, 3 and 4 — the plan is refreshed; the tests have not run.** `audit/10-test-plan.md`
+was re-derived on 2026-09-28 against `0309878`, from the scripts as they are. Seven corrections
+change a test, not just a line number:
+- Test 1C's baseline would have included the defaults `setup` applies.
+- Test 4a's leak check looked in `/Volumes`, where the installer never mounts.
+- The imports need fixture preferences in the VM.
+- `make harden` changed completely.
+- `defaults.sh` exits 1 on a failed write.
+- Homebrew's installer runs unattended given passwordless `sudo`.
+- post-install grew.
 
-The two broken cross-references are fixed: `11-test-results.md:3,264` pointed at
-`docs/audit/10-test-plan.md` and now point at `audit/10-test-plan.md`. The
-`syncall-removal.md:67-78` pointer named in the previous version of this entry was
-**wrong** — that table does not reference the test plan at all; it is a record of edits to
-other audit modules, whose `docs/audit/` paths were correct when written. It carries a
-dated path note instead of being rewritten.
+The capture script ran twice on the host, identically, in under two seconds. It is no longer
+tied to coreutils.
 
-**Two corrections to the earlier prediction, both from reading the current scripts.**
-First, the predicted PARTIAL verdict for 1C does not apply at that test's scope: the ~40
-uncovered browser and app-preference keys are written by `assets/browsers/` and
-`assets/preferences/` from `scripts/post-install`, and neither `make defaults` nor
-`make harden` invokes them, so those keys are never written during 1C. The uncovered-
-rollback limitation belongs to a full-install rollback test, which does not exist and
-would need its own ID. Second, `make harden` is not part of `make all`, so 1C must apply
-it explicitly. Documented in `12-fresh-audit-2026-08.md N-19`.
-→ To close: run the four tests per the plan —
-`tart clone mrk-audit-clean-prepared mrk-test-N` — and record the results in
-`11-test-results.md`. Tests 3 and 4 need more than one VM.
+The plan was first written on 2026-08-07. Its two corrections to the earlier 1C prediction,
+and the fix to the cross-references that pointed at `docs/audit/`, are recorded in
+`12-fresh-audit-2026-08.md` (N-19) and in the plan itself.
+
+What the run still needs:
+- Tart installed on this Mac: `brew install cirruslabs/cli/tart`. Tart and `~/.tart` did not
+  survive the migration.
+- A macOS 26 base image, built as the plan's Environment section says, with fixture preferences
+  and passwordless `sudo`.
+- The owner's one-time Automation and Full Disk Access grants in it.
+
+→ To close: build the image, run the four tests per the plan, and record the results in
+`11-test-results.md`. Test 3 needs two VMs at once, which is macOS's limit.
 
 ---
 
