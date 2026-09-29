@@ -561,7 +561,9 @@ Claim B, and in one date in `com.apple.Terminal` that Terminal writes for itself
 signature verified straight after. So a half-copied app was not produced. By reading the code
 (`install-apps:166-167`), one would survive: the signal traps detach and delete the temporary
 paths, but only a failed `ditto` removes the partial app. The re-run's skip test would then
-treat it as installed. This is open in `00-followups.md`.
+treat it as installed. **Fixed on 2026-09-28** (`claude/install-apps-partial-copy`): the EXIT
+trap now removes a copy that did not finish. `tests/install-apps.sh` interrupts a stub `ditto`
+part-way and requires the app to be gone, under both bashes.
 
 ### Part 4b — injected failing write
 

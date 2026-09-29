@@ -138,7 +138,15 @@ install_github_app(){
   # paths used to return with it still set, so it fired again when
   # post-install ended — with this function's locals gone, and `set -u`
   # stopped it with "tmp_mount: unbound variable".
+  #
+  # While the app is being copied into /Applications, `copying` is 1, and
+  # _github_app_done removes what the copy left. Until 2026-09-28 only a
+  # ditto that failed removed it: a Ctrl-C part-way ran this trap, which
+  # detached the image and deleted the temporary paths, and left a partial
+  # app. The next run's skip test then took that for installed.
+  local copying=0
   _github_app_done() {
+    if (( copying )); then rm -rf "$app_path"; copying=0; fi
     hdiutil detach "$tmp_mount" -quiet 2>/dev/null || true
     rm -f "$tmp_dmg"
     rm -rf "$tmp_mount" 2>/dev/null || true
@@ -179,12 +187,14 @@ install_github_app(){
     return 1
   fi
   # ditto, not cp: on this Mac `cp` is GNU coreutils, which does not keep
-  # macOS metadata. A copy that fails part-way is removed, so the skip test
-  # above does not mistake the remains for an installed app on the next run.
+  # macOS metadata. A copy that fails or is interrupted part-way is removed
+  # by _github_app_done, so the skip test above does not mistake the remains
+  # for an installed app on the next run.
+  copying=1
   if ! ditto "$found_app" "$app_path"; then
-    rm -rf "$app_path"
     _github_app_done; log "Warning: failed to copy $name to $app_path"; return 1
   fi
+  copying=0
   _github_app_done
   if ! github_app_trusted "$app_path"; then
     rm -rf "$app_path"
@@ -222,6 +232,9 @@ install_companion_apps(){
 # directly, install the set and report.
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   mrk_help_guard "$INSTALL_APPS_USAGE" "$@"
+  # As post-install does: exit on Ctrl-C, so the EXIT trap install_github_app
+  # sets detaches the image and removes a copy cut short.
+  trap 'printf "\n[install-apps] interrupted — exiting\n" >&2; exit 1' INT TERM
   section "Apps from GitHub releases"
   install_companion_apps
   if (( COMPANION_FAILED )); then
