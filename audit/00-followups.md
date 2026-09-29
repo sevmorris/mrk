@@ -133,20 +133,6 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
 
   Rosetta is installed. → To close: decide per component, in Waves Central and iZotope's
   installer. mrk manages none of them. The list is in `18-audit-2026-09-23.md`.
-- **nvm at shell start.** `.zshrc` loads nvm eagerly. Measured 2026-09-28, five runs each, in a
-  bare zsh:
-  - **As `.zshrc` does it:** sourcing `nvm.sh` takes about 250 ms, almost all of it the default
-    `nvm use`.
-  - **With `--no-use`:** 29 ms.
-  - **With `--no-use`, then Node's `bin` put on PATH by globbing the default alias (`v24`):**
-    still 29 ms, and the same Node, v24.21.0.
-  - **Asking nvm itself** (`nvm version default`) costs 165 ms of its own.
-
-  A full `zsh -i -c exit` was not timed. oh-my-zsh auto-updates and `check-updates` runs in it,
-  so the timing run would have changed the Mac. Lazy-loading was advised against: it takes
-  `node` off the PATH for anything a shell starts. → Owner's call: switch to `--no-use` and the
-  glob (advised), or leave it. Helium's GPU caches, the other half of this entry, were settled
-  on 2026-09-28 (see Closed).
 
 **Module 17's open items (2026-09-18).** Details are in `17-audit-2026-09-18.md`.
 
@@ -299,6 +285,30 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by loading nvm with --no-use, branch `claude/zshrc-nvm-no-use`, 2026-09-28
+
+Module 18's last open half, nvm at shell start, as the owner chose.
+- **The cost.** `nvm.sh`'s closing `nvm use default` took about 220 of the 250 ms nvm cost every
+  new shell. With `--no-use` it takes 29 ms, and the default Node goes on the PATH by a glob.
+- **The glob.** It finds the newest installed version matching the alias: numeric sort,
+  directories only, so `v24` finds v24.21.0 before v24.9.0.
+- **The fallback.** An alias the glob cannot match (`lts/*`, `node`, a bare number, or none at
+  all) falls back to `nvm use default`.
+- **Why not lazy-loading.** It would take `node` off the PATH for anything a shell starts.
+- **Measured afterwards.** The whole block, nvm's completion included, run against the real
+  `~/.nvm`, read-only: about 330 ms before and 44 ms after, once warm. The first run of the new
+  block, cold, took 259 ms. It gives the same Node, v24.21.0, and `nvm current` agrees.
+- **The test.** `tests/zshrc-nvm.sh`, new, runs the block cut out of `.zshrc` in a bare zsh, the
+  system one and Homebrew's, under a throwaway HOME with a stub `nvm.sh`. ci-check runs it.
+
+| Mutation | Result |
+|---|---|
+| The old block | killed: no Node on PATH, nvm sourced without `--no-use` |
+| Versions sorted as text (v24.9.0 over v24.21.0) | killed |
+| A stray file matching the glob | killed |
+| No fallback | killed |
+| `nvm.sh` without `--no-use` | killed |
 
 ### Closed by checking assets/CLAUDE.md against the sibling repos, branch `claude/projects-claudemd-check`, 2026-09-28
 
