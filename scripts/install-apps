@@ -93,9 +93,22 @@ fetch_release_dmg(){
     log "Warning: gh could not download the latest $name release from $repo"
     return 1
   fi
-  # A failed API call used to read as "could not find the DMG".
-  if ! release_json=$(curl -sf "https://api.github.com/repos/${repo}/releases/latest"); then
-    log "Warning: could not read the latest $name release from GitHub — not installed (a private repo needs an authenticated gh)"
+  # A failed API call used to read as "could not find the DMG". And until
+  # 2026-09-28 every failure here counted, so on a new Mac, where gh is not yet
+  # logged in, Magic Backup Machine's private repo made post-install exit 1 and
+  # `make all` stop before build-tools (audit 11, R-2). A 404 is now a skip,
+  # returned as 3, with the way to finish. Anything else, a rate limit (403) or
+  # no network, is still a failure.
+  local resp code
+  resp=$(curl -s -w '\n%{http_code}' "https://api.github.com/repos/${repo}/releases/latest") || resp=$'\n000'
+  code=${resp##*$'\n'}
+  release_json=${resp%$'\n'*}
+  if [[ "$code" == 404 ]]; then
+    logskip "$name" "$repo is private, or has no release, and gh is not logged in — after gh auth login, run: make apps"
+    return 3
+  fi
+  if [[ "$code" != 200 ]]; then
+    log "Warning: could not read the latest $name release from GitHub (HTTP $code) — not installed"
     return 1
   fi
   dmg_url=$(jq -r '.assets[] | select(.name | endswith(".dmg")) | .browser_download_url' <<<"$release_json" | head -1)
@@ -133,7 +146,12 @@ install_github_app(){
   }
   trap _github_app_done EXIT
   log "Downloading $name..."
-  if ! fetch_release_dmg "$repo" "$tmp_dmg" "$name"; then
+  local fetched=0
+  fetch_release_dmg "$repo" "$tmp_dmg" "$name" || fetched=$?
+  if (( fetched == 3 )); then
+    _github_app_done; return 3
+  fi
+  if (( fetched != 0 )); then
     _github_app_done; log "Warning: failed to download $name"; return 1
   fi
   if ! hdiutil attach "$tmp_dmg" -mountpoint "$tmp_mount" -quiet -nobrowse -readonly; then
@@ -177,18 +195,25 @@ install_github_app(){
 }
 
 # install_companion_apps — install every app in COMPANION_APPS, and leave the
-# number that failed in COMPANION_FAILED. A single app failing never stops the
+# number that failed in COMPANION_FAILED, and the number skipped because a
+# private repo cannot be read without gh logged in in COMPANION_SKIPPED. A single app failing never stops the
 # rest: a GitHub outage or one unsigned release should not cost a new Mac its
 # other six apps.
 install_companion_apps(){
   COMPANION_FAILED=0
-  local entry bundle repo name
+  COMPANION_SKIPPED=0
+  local entry bundle repo name rc
   for entry in "${COMPANION_APPS[@]}"; do
     bundle="${entry%%|*}"
     repo="${entry#*|}"; repo="${repo%%|*}"
     name="${entry##*|}"
-    install_github_app "/Applications/$bundle" "$repo" "$name" \
-      || COMPANION_FAILED=$(( COMPANION_FAILED + 1 ))
+    rc=0
+    install_github_app "/Applications/$bundle" "$repo" "$name" || rc=$?
+    case "$rc" in
+      0) ;;
+      3) COMPANION_SKIPPED=$(( COMPANION_SKIPPED + 1 )) ;;
+      *) COMPANION_FAILED=$(( COMPANION_FAILED + 1 )) ;;
+    esac
   done
   return 0
 }
@@ -203,5 +228,9 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     err "$COMPANION_FAILED app(s) were not installed"
     exit 1
   fi
-  ok "All apps present"
+  if (( COMPANION_SKIPPED )); then
+    ok "All apps present, except $COMPANION_SKIPPED in a private repo — after gh auth login, run: make apps"
+  else
+    ok "All apps present"
+  fi
 fi

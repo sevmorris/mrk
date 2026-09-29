@@ -643,6 +643,19 @@ post-install counts a failed step and exits 1. `make` then stops, so `make all` 
 `build-tools`: `mrk-status`, `mrk-menu` and `mrk-picker` are not built. The manual's new-machine
 walkthrough never mentions `gh auth login`. The other six apps installed in every run.
 
+**Both fixed on 2026-09-28,** in branch `claude/r1-r2-fixes`:
+- **R-1:** the three Music keys are gone from `defaults.sh` and MRK-1, leaving 133 keys.
+- **R-2:** the walkthrough has `gh auth login`, and a private repo gh cannot reach is a skip
+  that names `make apps`, not a failure.
+
+**Re-run at `eeeba49`, in fresh VMs:**
+- **4b:** the summary reads `1 default(s) failed`, and the stub-free re-run exits 0 with
+  `Defaults applied`.
+- **2:** `make all` exits 0 in both runs and builds `mrk-picker`, `mrk-status` and `mrk-menu`.
+  It skips Magic Backup Machine with `sevmorris/magic-backup-machine is private, or has no
+  release, and gh is not logged in — after gh auth login, run: make apps`, and `diff -r` is
+  empty.
+
 **Corrections to the plan,** made in `10-test-plan.md` alongside these results:
 - `capture.sh` sets `LC_ALL=C`;
 - comparisons across VMs, and 1C's revert, treat keys macOS or an app writes for itself as named

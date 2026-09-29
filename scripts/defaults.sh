@@ -624,12 +624,13 @@ write_default com.apple.FolderActionsDispatcher folderActionsEnabled bool false 
 # Do not lower other audio for speech recognition
 # Why: ducking interrupts playback during audio work
 write_default com.apple.SpeechRecognitionCore AllowAudioDucking bool false || failed=$(( failed + 1 ))
-# Hide the Apple Music subscription content
-write_default com.apple.Music showAppleMusic bool false || failed=$(( failed + 1 ))
-# No track-change notifications
-write_default com.apple.Music userWantsPlaybackNotifications bool false || failed=$(( failed + 1 ))
-# Use error correction when importing a CD
-write_default com.apple.Music useErrorCorrection bool true || failed=$(( failed + 1 ))
+# Music's preferences are left to Music's own Settings. Until 2026-09-28 three
+# keys were written here: showAppleMusic, userWantsPlaybackNotifications and
+# useErrorCorrection. macOS 26's System Policy denies any other process
+# user-preference-write on com.apple.Music, so on a new Mac all three failed
+# and this script exited 1 every time. Full Disk Access does not lift that,
+# and opening Music first does not either. On a Mac that already had them,
+# the writes were skipped as already set. Audit 11, R-1.
 # No Develop menu in Safari
 write_default com.apple.Safari.SandboxBroker ShowDevelopMenu bool false || failed=$(( failed + 1 ))
 
