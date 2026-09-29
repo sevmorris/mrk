@@ -46,6 +46,7 @@ GUARDS=(
   "notary|NOTARY_PROFILE"
   "notary-lock|screen_locked"
   "py3-subproc|cannot start a subprocess"
+  "main-only|Releases are cut from main only"
   "remote-tags|fetch --tags"
   "ancestry|merge-base --is-ancestor"
   "atomic-push|push --atomic"

@@ -37,6 +37,7 @@ missing ones as a list, and the repo state a release would trip over.
 | `notary` | Discovering a missing keychain profile after a clean build. A profile cannot be exported, so every new Mac hits this. | every app |
 | `notary-lock` | A locked screen reported as a missing profile. notarytool's credentials live in the data-protection keychain, which locks with the screen; on 2026-09-24 a 4 a.m. release went looking for a profile that was there all along. | every app |
 | `py3-subproc` | dmgbuild importing fine and then segfaulting on its first subprocess, shipping an unstyled DMG. | dmgbuild only |
+| `main-only` | Publishing unmerged code as "latest" from a work branch. Work reaches main when the owner merges it, and no other guard asks which branch a release comes from; a branch that merely tracks main would push its own commits straight onto it. Both the branch checked out and the branch pushed to must be main. | every app |
 | `remote-tags` | A clone that never saw a release passing a local-only tag check, then being refused after notarizing. | every app |
 | `ancestry` | A remote branch ahead of HEAD failing the push *after* the build. | every app |
 | `atomic-push` | A refused tag leaving the release commit on main with nothing tagging it. | every app |
