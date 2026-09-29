@@ -172,33 +172,64 @@ Closed, and `15-audit-2026-09-16.md` under each item.
 agents were listed as disabled and were running anyway, so they are off `trim-services`' list
 (see Closed). **T-7**'s state half, the Safari settings, was done by the owner the same day.
 
-**Tests 1C, 2, 3 and 4 — the plan is refreshed; the tests have not run.** `audit/10-test-plan.md`
-was re-derived on 2026-09-28 against `0309878`, from the scripts as they are. Seven corrections
-change a test, not just a line number:
-- Test 1C's baseline would have included the defaults `setup` applies.
-- Test 4a's leak check looked in `/Volumes`, where the installer never mounts.
-- The imports need fixture preferences in the VM.
-- `make harden` changed completely.
-- `defaults.sh` exits 1 on a failed write.
-- Homebrew's installer runs unattended given passwordless `sudo`.
-- post-install grew.
+**Tests 1C, 2, 3 and 4 — run on 2026-09-28.** Each ran in its own Tart VM, at `be0ef6a`, on
+macOS 26.6.2. The verdicts and the evidence are in `11-test-results.md`.
 
-The capture script ran twice on the host, identically, in under two seconds. It is no longer
-tied to coreutils.
+| Test | Result |
+|---|---|
+| 1C | FAIL by the plan's rule, only on Finder's own `FXDesktopVolumePositions`; every key mrk wrote reverted |
+| 2 | PASS |
+| 3 | Claim A differs, as the README warns. Claim B converges, apart from five values macOS writes itself |
+| 4a | PASS |
+| 4b | Every N-1 and W-19 check holds; its counts were upset by R-1 |
 
-The plan was first written on 2026-08-07. Its two corrections to the earlier 1C prediction,
-and the fix to the cross-references that pointed at `docs/audit/`, are recorded in
-`12-fresh-audit-2026-08.md` (N-19) and in the plan itself.
+Two findings from the run are open under their own entries below, R-1 and R-2. The plan's eight
+corrections are made in `10-test-plan.md`.
 
-What the run still needs:
-- Tart installed on this Mac: `brew install cirruslabs/cli/tart`. Tart and `~/.tart` did not
-  survive the migration.
-- A macOS 26 base image, built as the plan's Environment section says, with fixture preferences
-  and passwordless `sudo`.
-- The owner's one-time Automation and Full Disk Access grants in it.
+**What stays on this Mac, for re-runs:**
+- **Tart 2.40.0,** in `~/Applications/tart.app`, not through Homebrew: the `cirruslabs/cli`
+  tap's formula fails under Homebrew 7.0.7.
+- **`~/.tart`:** the 29 GB base image `mrk-audit-clean-prepared`, the VM key
+  `mrk-vm_ed25519` with its `known_hosts`, and `share-mrk/`, which holds only the public key's
+  installer.
+- **To remove it all:** delete `~/Applications/tart.app` and `~/.tart`.
 
-→ To close: build the image, run the four tests per the plan, and record the results in
-`11-test-results.md`. Test 3 needs two VMs at once, which is macOS's limit.
+→ To close: fix R-1 and R-2, then re-run 4b and 2 in a clone of the base image. Each takes
+minutes. The plan's first-run notes say what else to expect.
+
+**R-1 — three Music keys can't be written on macOS 26 (from the VM tests).**
+- **What happens.** `defaults.sh:628-632` writes three keys to `com.apple.Music`. macOS's
+  System Policy denies every other process `user-preference-write` there
+  (`deny(1) user-preference-write com.apple.music`). Full Disk Access does not lift it, and
+  opening Music first does not either.
+- **On a new Mac,** `make defaults` reports three failures and exits 1 every time, and setup
+  warns during every `make all`.
+- **On this Mac** the keys arrived with the migration, already at mrk's values, so they are
+  skipped and never written.
+
+→ To close: drop the three keys, as T-3 dropped the Software Update keys, with a comment
+saying why; or keep them and have `defaults.sh` skip a domain that refuses writes, with a note
+rather than a failure.
+
+**R-2 — Magic Backup Machine's repository is private (from the VM tests).**
+- **What happens.** `install-apps` cannot read its release without an authenticated `gh`, so
+  post-install counts a failed step and exits 1. `make all` then stops before `build-tools`,
+  and `mrk-status`, `mrk-menu` and `mrk-picker` are never built.
+- **The docs don't cover it.** The manual's new-machine walkthrough never says to run
+  `gh auth login` first.
+
+→ To close: add `gh auth login` to the walkthrough before `make all`; or make `install-apps`
+treat a private repository it cannot read as a skip with a note, not a failure; or both.
+
+**A half-copied app would survive (from reading `install-apps`, not shown).**
+- **The gap.** An interrupt during `ditto` (`install-apps:166`) runs the traps. They detach the
+  image and delete the temporary paths, but only a failed `ditto` removes the partial app. The
+  re-run's skip test would then take it for installed.
+- **Why it's unproven.** Test 4a interrupted a copy of ClipHack, but the copy had already
+  finished, and its signature verified.
+
+→ To close: remove `$app_path` in `_github_app_done` when the copy did not finish, and prove it
+with a stub `ditto` that is killed part-way.
 
 ---
 
