@@ -2,15 +2,27 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-# mrk weekly update checker
-# Runs silently unless updates are available.
-# Zero blocking network I/O on shell startup — compares against the last
-# fetched remote, then refreshes origin in a disowned background fetch.
+# mrk update checker, run from .zshrc at every interactive shell start.
+# Silent unless origin has commits this checkout has not seen asked about.
+# Zero blocking network I/O on shell startup: it compares against the last
+# fetched remote, then refreshes origin in a disowned background fetch, at most
+# once a day.
+#
+# Until 2026-09-30 the whole check ran at most once every 7 days: a commit
+# pushed the day after a check waited up to a week to be offered, and a "no"
+# was forgotten a week later only because the interval had passed. Now the
+# compare runs at every shell start, which costs a few local git calls; the
+# fetch is what is rate-limited, and the prompt is asked once per remote head.
 
 # Configuration
 CACHE_DIR="${HOME}/.cache/mrk"
+# When the last background fetch started, in epoch seconds. The name is the one
+# the weekly check used for its timestamp, which marked a fetch too, so a Mac
+# that ran the weekly check carries straight on.
 TIMESTAMP_FILE="${CACHE_DIR}/last-update-check"
-CHECK_INTERVAL_DAYS=7
+FETCH_INTERVAL=86400  # one day
+# asked-<sha>: the remote head check-updates last asked about.
+ASKED_PREFIX="${CACHE_DIR}/asked-"
 
 # Inline rather than sourced from scripts/lib.sh: this runs on every
 # interactive shell start, and the header above promises zero blocking work
@@ -18,22 +30,24 @@ CHECK_INTERVAL_DAYS=7
 # what this script exists to avoid.
 #
 # It sits above the first side effect. check-updates is not inert: before it
-# reaches its prompt it writes the rate-limit timestamp and disowns a background
+# reaches its prompt it may write the fetch timestamp and disown a background
 # git fetch, and answering that prompt runs `make pull`. Until 2026-09-10 the
 # flag was discarded and `check-updates --help` did all of that.
 usage() {
   cat <<'EOF'
-check-updates — tell me, at most weekly, when mrk has upstream commits
+check-updates — tell me when mrk has upstream commits
 
 Usage:
   check-updates [--help | -h]
 
 check-updates takes no options other than --help, and is meant to run from
-shell startup. It exits silently when the shell is not interactive, when it
-has already run in the last 7 days, or when there is nothing new. Otherwise it
-offers to run `make pull`. It never blocks on the network: it compares against
-the last fetched remote and then refreshes origin in a disowned background
-fetch.
+shell startup. At every start it compares the checkout with the last fetched
+origin, and when the checkout is behind it offers to run `make pull`, once for
+each new remote head: answer no and it stays quiet until origin moves again.
+It exits silently when the shell is not interactive, when the checkout is not
+on the default branch, or when there is nothing new. It never blocks on the
+network: it refreshes origin in a disowned background fetch, at most once a
+day.
 EOF
 }
 
@@ -58,63 +72,94 @@ REPO_DIR="$(cd "$REPO_DIR" && pwd)"
 # Exit silently if not in an interactive shell
 [[ -t 0 ]] || exit 0
 
-mkdir -p "$CACHE_DIR"
-
-# Check if enough time has passed since last check
-if [[ -f "$TIMESTAMP_FILE" ]]; then
-  last_check=$(cat "$TIMESTAMP_FILE" 2>/dev/null || echo 0)
-  now=$(date +%s)
-  elapsed_days=$(( (now - last_check) / 86400 ))
-  if (( elapsed_days < CHECK_INTERVAL_DAYS )); then
-    exit 0
-  fi
-fi
-
 # Verify repo directory exists and is a git repo
 if [[ ! -d "$REPO_DIR/.git" ]]; then
   exit 0
 fi
 
-# Rate-limit before compare so new shells don't re-enter this week
-date +%s > "$TIMESTAMP_FILE"
+[[ -d "$CACHE_DIR" ]] || mkdir -p "$CACHE_DIR"
 
-# Detect default branch name. symbolic-ref, and `|| true`: this used to be
-# `rev-parse --abbrev-ref origin/HEAD | cut`, and with pipefail a missing
-# origin/HEAD failed the assignment, so set -e ended the script silently — every
-# week, after the timestamp above, before any fetch that could restore the ref.
-# The fallback below was unreachable. (rev-parse also prints "origin/HEAD" when
-# it fails, so it cannot simply be made to succeed.)
-default_branch=$(git -C "$REPO_DIR" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)
-default_branch="${default_branch#origin/}"
-default_branch="${default_branch:-main}"
-
-# Compare local HEAD with last fetched remote (no blocking fetch)
-local_head=$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null) || exit 0
-remote_head=$(git -C "$REPO_DIR" rev-parse "origin/$default_branch" 2>/dev/null) || {
-  # No remote ref yet — kick off a background fetch for next week's check
+# fetch_if_due — refresh origin in a disowned background fetch, unless one
+# started less than a day ago. The timestamp is written first, so the shells
+# that start while the fetch runs do not start their own.
+fetch_if_due() {
+  local now last=0
+  # EPOCHSECONDS is bash 5; under the 3.2 a new Mac has, date.
+  now=${EPOCHSECONDS:-$(date +%s)}
+  [[ -f "$TIMESTAMP_FILE" ]] && last=$(<"$TIMESTAMP_FILE")
+  [[ "$last" =~ ^[0-9]+$ ]] || last=0
+  # A timestamp in the future, from a clock set back, counts as due.
+  if (( now - last < FETCH_INTERVAL && last <= now )); then
+    return 0
+  fi
+  printf '%s\n' "$now" > "$TIMESTAMP_FILE"
   { git -C "$REPO_DIR" fetch --quiet 2>/dev/null || true; } & disown
-  exit 0
 }
 
-if [[ "$local_head" == "$remote_head" ]]; then
-  { git -C "$REPO_DIR" fetch --quiet 2>/dev/null || true; } & disown
-  exit 0
-fi
+# offer_pull — ask to run make pull when the checkout is behind a remote head it
+# has not asked about. Returns 0 whenever there is nothing to ask.
+offer_pull() {
+  local default_branch branch local_head remote_head marker f n what
 
-# Local has diverged or is ahead; don't prompt
-if ! git -C "$REPO_DIR" merge-base --is-ancestor "$local_head" "$remote_head" 2>/dev/null; then
-  { git -C "$REPO_DIR" fetch --quiet 2>/dev/null || true; } & disown
-  exit 0
-fi
+  # Detect default branch name. symbolic-ref, and `|| true`: this used to be
+  # `rev-parse --abbrev-ref origin/HEAD | cut`, and with pipefail a missing
+  # origin/HEAD failed the assignment, so set -e ended the script silently —
+  # every week, after the timestamp, before any fetch that could restore the
+  # ref. The fallback below was unreachable. (rev-parse also prints
+  # "origin/HEAD" when it fails, so it cannot simply be made to succeed.)
+  default_branch=$(git -C "$REPO_DIR" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)
+  default_branch="${default_branch#origin/}"
+  default_branch="${default_branch:-main}"
 
-# Prompt user for update
-printf '\033[33mmrk updates available.\033[0m Update now? [y/N] '
-read -r response </dev/tty
-case "$response" in
-  [yY]|[yY][eE][sS])
-    make -C "$REPO_DIR" pull
-    ;;
-esac
+  # Only on the default branch. make pull fast-forwards the branch that is
+  # checked out, so on any other one "yes" would pull that branch's upstream,
+  # not the commits the prompt was about.
+  branch=$(git -C "$REPO_DIR" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+  [[ "$branch" == "$default_branch" ]] || return 0
 
-# Refresh remote refs for next session (non-blocking)
-{ git -C "$REPO_DIR" fetch --quiet 2>/dev/null || true; } & disown
+  # Compare local HEAD with last fetched remote (no blocking fetch)
+  local_head=$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null) || return 0
+  remote_head=$(git -C "$REPO_DIR" rev-parse --verify --quiet "origin/$default_branch^{commit}" 2>/dev/null) || return 0
+  [[ "$local_head" != "$remote_head" ]] || return 0
+
+  # Local has diverged or is ahead; don't prompt
+  git -C "$REPO_DIR" merge-base --is-ancestor "$local_head" "$remote_head" 2>/dev/null || return 0
+
+  # Once per remote head. noclobber makes creating the marker the test: of the
+  # shells a restored terminal session starts at once, one creates it and asks,
+  # and the rest find it there. It is written before the prompt, so a Ctrl-C
+  # there counts as the answer.
+  marker="${ASKED_PREFIX}${remote_head}"
+  ( set -o noclobber; : > "$marker" ) 2>/dev/null || return 0
+  for f in "$ASKED_PREFIX"*; do
+    [[ "$f" == "$marker" ]] || rm -f -- "$f"
+  done
+
+  n=$(git -C "$REPO_DIR" rev-list --count "$local_head..$remote_head" 2>/dev/null || echo '')
+  case "$n" in
+    '') what="new commits" ;;
+    1)  what="1 new commit" ;;
+    *)  what="$n new commits" ;;
+  esac
+  printf '\033[33mmrk: %s on origin/%s.\033[0m Update now? [y/N] ' "$what" "$default_branch"
+  local response=""
+  read -r response </dev/tty || response=""
+  case "$response" in
+    [yY]|[yY][eE][sS])
+      make -C "$REPO_DIR" pull
+      ;;
+    *)
+      # Spelt out: bash 3.2 and 5 disagree on a ~ in ${REPO_DIR/#$HOME/~}.
+      local shown="$REPO_DIR"
+      [[ "$REPO_DIR" == "$HOME"/* ]] && shown="~${REPO_DIR#"$HOME"}"
+      printf '  Not asking again until origin/%s moves. To update: make -C %s pull\n' \
+        "$default_branch" "$shown"
+      ;;
+  esac
+}
+
+offer_pull
+
+# After the prompt, not before: a fetch still running when "yes" starts make
+# pull would contend with the pull's own fetch for the same refs.
+fetch_if_due

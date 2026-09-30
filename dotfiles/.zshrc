@@ -62,7 +62,7 @@ if [ -s "$NVM_DIR/nvm.sh" ]; then
 fi
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
-# --- mrk Update Check (weekly) ---
+# --- mrk Update Check (every shell; fetches at most daily) ---
 [[ -x "$HOME/bin/check-updates" ]] && "$HOME/bin/check-updates" || true
 
 # --- Shell Welcome ---
