@@ -77,7 +77,7 @@ var categories = []category{
 	{
 		name: "Maintenance",
 		items: []item{
-			{"make pull", "git pull mrk repo (fast-forward only)", cmdMake, "pull", nil, false},
+			{"make pull", "pull mrk, rebuild and relink what changed", cmdMake, "pull", nil, false},
 			{"make update", "upgrade packages (topgrade or brew upgrade)", cmdMake, "update", nil, false},
 			{"make updates", "install macOS updates, never a major upgrade", cmdMake, "updates", nil, false},
 			{"make updates ARGS=-n", "list macOS updates, install nothing", cmdMake, "updates", []string{"ARGS=-n"}, false},

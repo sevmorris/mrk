@@ -168,7 +168,9 @@ fi
 # ── 1. Pull mrk ───────────────────────────────────────────────────────────────
 if [[ -d "$MRK_ROOT/.git" ]]; then
   info "Pulling mrk repo..."
-  make -C "$MRK_ROOT" pull || warn "mrk pull failed — continuing."
+  # PULL_BUILD=0: step 5 rebuilds the Go tools, after the package updates,
+  # which can bring a new Go. make pull still relinks scripts and dotfiles.
+  make -C "$MRK_ROOT" pull PULL_BUILD=0 || warn "mrk pull failed — continuing."
 else
   warn "Skipping mrk pull — not a git repo: $MRK_ROOT"
 fi
