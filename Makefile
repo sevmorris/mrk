@@ -128,8 +128,41 @@ trackpad: ## Apply macOS defaults including trackpad settings
 uninstall: ## Remove symlinks and undo setup
 	@"$(SCRIPTS)/uninstall"
 
-pull: ## Fast-forward the mrk repo to origin (git pull --ff-only)
-	@git -C "$(REPO_ROOT)" pull --ff-only
+# pull fast-forwards, then brings the install up to the commits it pulled.
+# Until 2026-09-30 it only fast-forwarded: a pull that changed tools/ left the
+# old Go binaries in ~/bin, one that added a script left it off the PATH, and
+# one that added a dotfile left it unlinked, each until someone remembered the
+# matching make target. Each step runs only when the pulled range touched what
+# it serves, so a pull that changed only docs rebuilds and links nothing:
+#   tools/             make build-tools
+#   scripts/ or bin/   fix-exec, then setup --only tools
+#   dotfiles/          setup --only dotfiles
+# Linking and building keep their own rules: from a checkout ~ is not linked
+# to, setup links nothing and build-tools builds without linking.
+# PULL_BUILD=0 skips the rebuild; update-full passes it, because it rebuilds
+# after its package updates, which can bring a new Go.
+pull: ## Fast-forward the mrk repo to origin, then rebuild and relink what the pulled commits changed
+	@old=$$(git -C "$(REPO_ROOT)" rev-parse HEAD) || exit 1; \
+	git -C "$(REPO_ROOT)" pull --ff-only || exit 1; \
+	new=$$(git -C "$(REPO_ROOT)" rev-parse HEAD) || exit 1; \
+	[ "$$old" != "$$new" ] || exit 0; \
+	changed=$$(git -C "$(REPO_ROOT)" diff --name-only "$$old" "$$new"); \
+	touched() { printf '%s\n' "$$changed" | grep -Eq "$$1"; }; \
+	rc=0; \
+	if touched '^tools/'; then \
+		if [ "$(PULL_BUILD)" = 0 ]; then \
+			printf '  \033[2mtools/ changed; rebuild skipped (PULL_BUILD=0)\033[0m\n'; \
+		else \
+			$(MAKE) --no-print-directory -C "$(REPO_ROOT)" build-tools || rc=1; \
+		fi; \
+	fi; \
+	if touched '^(scripts|bin)/'; then \
+		"$(SCRIPTS)/fix-exec" && "$(SCRIPTS)/setup" --only tools || rc=1; \
+	fi; \
+	if touched '^dotfiles/'; then \
+		"$(SCRIPTS)/setup" --only dotfiles || rc=1; \
+	fi; \
+	exit $$rc
 
 update: ## Upgrade all packages (topgrade or brew)
 	@if command -v topgrade >/dev/null 2>&1; then topgrade; else brew update && brew upgrade; fi

@@ -28,7 +28,7 @@ check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
 check-picker-desc, topgrade-npm, picard-settings, plist-import-order, setup-safety, undo-files,
-dock-setup, clear-app-caches, zshrc-nvm, install-apps and docs-drift tests in tests/, shellcheck over every tracked bash script,
+dock-setup, clear-app-caches, zshrc-nvm, install-apps, make-pull and docs-drift tests in tests/, shellcheck over every tracked bash script,
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
@@ -214,6 +214,13 @@ log "zshrc nvm"
 # build-tools. Audit 11, R-2.
 log "install apps"
 "$REPO_ROOT/tests/install-apps.sh"
+
+# make pull against a scratch origin, under a throwaway HOME with go stubbed:
+# each pulled change to tools/, scripts/, bin/ or dotfiles/ rebuilt or relinked,
+# and a docs-only pull left alone. Until 2026-09-30 make pull only fast-forwarded,
+# and new tools, scripts and dotfiles waited for a make target run by hand.
+log "make pull"
+"$REPO_ROOT/tests/make-pull.sh"
 
 # The hand-written lists of commands, targets and tests, against the repository:
 # until 2026-09-28 the manual listed three ~/Makefile targets that did not
