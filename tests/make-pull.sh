@@ -12,8 +12,15 @@
 # under a throwaway HOME, the checkout MRK_ROOT names, so setup links from it.
 # go is a stub that records the build and writes a placeholder binary; sudo,
 # defaults, osascript, launchctl, chsh and open are stubs that run nothing, and
-# uname says Darwin.
+# uname says Darwin. MRK_BREW names a brew that does not exist, so the Makefile's
+# brew-env finds no Homebrew to put ahead of the stubs.
 # Nothing reaches the real HOME, ~/bin, the network or any preferences.
+#
+# When this file landed it did not set MRK_BREW. On Linux, where it was written,
+# that made no difference; on a Mac, brew-env found /opt/homebrew/bin/brew, put
+# Homebrew first on PATH, and the real go built all three tools, fetching their
+# modules from the network into a read-only cache that the cleanup could not
+# remove. The tools/ case failed, with "builds were: none".
 # setup runs under /bin/bash and under the bash running this file; make runs
 # every recipe under /bin/bash. ci-check runs it.
 
@@ -46,7 +53,9 @@ REAL_MAKE="$(command -v make)" || { fail "make not found"; exit 1; }
 
 W=$(mrk_mktemp_d) || exit 1
 W=$(cd "$W" && pwd -P)
-trap 'rm -rf "$W"' EXIT
+# u+w first: Go makes its module cache read-only, so were a real go ever to run
+# here again, a plain rm -rf would leave the scratch directory behind.
+trap 'chmod -R u+w "$W" 2>/dev/null; rm -rf "$W"' EXIT
 H="$W/home"       # the throwaway HOME
 S="$W/stubs"      # first on PATH
 ORIGIN="$W/origin.git"
@@ -87,6 +96,7 @@ ln -s "$REAL_MAKE" "$S/make"
 
 run_env() {
   env -i HOME="$H" MRK_ROOT="$CLONE" PATH="$S:/usr/bin:/bin:/usr/sbin:/sbin" \
+    MRK_BREW="$W/no-homebrew/bin/brew" \
     TMPDIR="${TMPDIR:-/tmp}" TERM=dumb \
     GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
     GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@test.invalid \
