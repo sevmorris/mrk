@@ -1,0 +1,346 @@
+#!/usr/bin/env bash
+# defaults-watch — name the key a System Settings change writes.
+#
+# A setting changed in System Settings is the one change on this Mac that no
+# mrk command records: SMAC-2's "After You Change Something" says to find the
+# key with `defaults read` and add it to scripts/defaults.sh by hand. Finding
+# it meant guessing a domain. This snapshots every preferences domain, waits
+# while the setting is changed, snapshots again, and names what changed, with
+# the line defaults.sh needs to keep it.
+#
+# Read only: it exports and compares, and writes nothing but its own scratch
+# directory. Runs under the bash 3.2 macOS ships.
+set -euo pipefail
+
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+usage() {
+  cat <<'EOF'
+defaults-watch — name the key a System Settings change writes
+
+Usage:
+  defaults-watch [--seconds N]
+
+Options:
+      --seconds N  Wait N seconds between the two snapshots instead of for
+                   Return, for a change made by a script or without a terminal
+  -h, --help       Show this help
+
+defaults-watch snapshots every preferences domain: yours, as `defaults
+domains` lists them with NSGlobalDomain, the ones for this Mac alone
+(-currentHost), and the readable files in /Library/Preferences, which hold
+settings for all users. It waits while you change one setting, snapshots
+again, and prints each key that changed, with its old and new value.
+
+For a key scripts/defaults.sh already writes, it says whether the new value
+is the one defaults.sh sets. For any other, it prints the write_default line
+that would keep it, and names the description check-defaults-desc will then
+want in docs/defaults/script.js. Window positions, timestamps and launch
+counters are listed apart, as probably not the setting. It changes nothing.
+EOF
+}
+
+WAIT=""
+while (($#)); do
+  case "$1" in
+    --seconds)
+      [[ $# -ge 2 && "$2" =~ ^[0-9]+$ ]] || { usage >&2; printf '\n--seconds needs a whole number\n' >&2; exit 2; }
+      WAIT=$2; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; printf '\nunknown argument: %s\n' "$1" >&2; exit 2 ;;
+  esac
+done
+
+check_macos
+for cmd in defaults python3; do
+  command -v "$cmd" >/dev/null 2>&1 || { err "$cmd not found"; exit 1; }
+done
+if [[ -z "$WAIT" && ! -t 0 ]]; then
+  err "No terminal to wait at for Return. Give --seconds N to wait that long instead."
+  exit 2
+fi
+
+DEFAULTS_SH="$REPO_ROOT/scripts/defaults.sh"
+SYSTEM_PREFS="${DEFAULTS_WATCH_SYSTEM_DIR:-/Library/Preferences}"
+
+W=$(mrk_mktemp_d) || exit 1
+trap 'rm -rf "$W"' EXIT
+
+# domains [-currentHost] — one domain per line, as `defaults domains` lists
+# them. Returns 1 when defaults fails, which is not the same as listing none.
+domains() {
+  local out
+  out=$(defaults "$@" domains) || return 1
+  printf '%s\n' "$out" | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -v '^$' || true
+}
+
+# export_all DIR KIND [-currentHost] — export each domain DIR/KIND.names lists
+# to DIR/KIND/<line>.plist, eight at a time: one at a time, 700 domains take
+# over ten seconds, and a setting is easier to change with the snapshot done.
+# Numbered, not named, so a domain with a / in it cannot write elsewhere.
+export_all() {
+  local dir=$1 kind=$2 host=${3:-} n=0 d
+  mkdir -p "$dir/$kind"
+  # shellcheck disable=SC2016  # $1 to $4 are expanded by the sh xargs starts
+  while IFS= read -r d; do
+    n=$((n + 1))
+    printf '%s\0%s\0' "$n" "$d"
+  done < "$dir/$kind.names" |
+    xargs -0 -n 2 -P 8 sh -c '
+      if [ -n "$1" ]; then defaults -currentHost export "$4" "$2/$3.plist"
+      else defaults export "$4" "$2/$3.plist"; fi 2>/dev/null || true' sh "$host" "$dir/$kind"
+}
+
+# snapshot DIR — your domains, this Mac's, and the readable system ones.
+snapshot() {
+  local dir=$1 f list
+  mkdir -p "$dir/system"
+  if ! list=$(domains); then
+    err "defaults domains failed, so there is nothing to compare. Nothing was changed."
+    return 1
+  fi
+  { echo NSGlobalDomain; [[ -z "$list" ]] || printf '%s\n' "$list"; } > "$dir/user.names"
+  domains -currentHost > "$dir/host.names" || : > "$dir/host.names"
+  export_all "$dir" user
+  export_all "$dir" host -currentHost
+  for f in "$SYSTEM_PREFS"/*.plist; do
+    [[ -f "$f" && -r "$f" ]] && cp "$f" "$dir/system/" 2>/dev/null || true
+  done
+  return 0
+}
+
+log "Snapshotting your preferences…"
+snapshot "$W/before" || exit 1
+users=$(wc -l < "$W/before/user.names" | tr -d ' ')
+hosts=$(wc -l < "$W/before/host.names" | tr -d ' ')
+info "$users domains of yours, $hosts for this Mac alone, and the readable ones in $SYSTEM_PREFS"
+
+if [[ -n "$WAIT" ]]; then
+  log "Waiting $WAIT second(s) for the change…"
+  sleep "$WAIT"
+else
+  printf '\n  Change the setting in System Settings now, then press Return. ' >&2
+  read -r _ </dev/tty || true
+  printf '\n' >&2
+fi
+
+log "Snapshotting again, and comparing…"
+snapshot "$W/after" || exit 1
+
+python3 - "$W/before" "$W/after" "$DEFAULTS_SH" "$SYSTEM_PREFS" <<'PYEOF'
+import datetime, fnmatch, os, plistlib, re, shlex, sys
+
+before, after, defaults_sh, system_dir = sys.argv[1:5]
+
+# Keys an app or System Settings itself rewrites, not settings: the same kinds
+# snapshot-prefs leaves out of a commit (PREFS_NOISE there).
+NOISE = ["NSWindow Frame *", "NSSplitView Subview Frames *", "NSStatusItem Preferred Position *",
+         "NSNav*", "NSOSP*", "NSToolbar Configuration *", "SU*Time", "SU*Date",
+         "launchCount", "*LaunchCount", "*RunCount", "*[wW]indowFrame"]
+WRITABLE = (bool, int, float, str)
+
+
+def load(root, kind):
+    out = {}
+    if kind == "system":
+        d = os.path.join(root, "system")
+        for f in sorted(os.listdir(d)):
+            if f.endswith(".plist"):
+                v = read(os.path.join(d, f))
+                if v is not None:
+                    out[f[:-len(".plist")]] = v
+        return out
+    path = os.path.join(root, kind + ".names")
+    names = open(path, encoding="utf-8").read().splitlines() if os.path.exists(path) else []
+    for i, name in enumerate(names, 1):
+        v = read(os.path.join(root, kind, f"{i}.plist"))
+        if v is not None:
+            out[name] = v
+    return out
+
+
+def read(path):
+    try:
+        with open(path, "rb") as f:
+            v = plistlib.load(f)
+    except Exception:
+        return None
+    return v if isinstance(v, dict) else None
+
+
+def written_by_defaults_sh(path):
+    """(domain, key) -> (line, type, value) for each write_default line, the
+    trackpad loop's "$domain" expanded to every domain the loop names."""
+    out, loop = {}, []
+    try:
+        lines = open(path, encoding="utf-8").read().splitlines()
+    except OSError:
+        return out
+    for no, line in enumerate(lines, 1):
+        s = line.strip()
+        m = re.match(r"for domain in ([^;]+);", s)
+        if m:
+            loop = m.group(1).split()
+        if not s.startswith("write_default "):
+            continue
+        try:
+            parts = shlex.split(s.split("||")[0])
+        except ValueError:
+            continue
+        if len(parts) < 5:
+            continue
+        _, dom, key, typ, val = parts[:5]
+        for d in (loop if dom == "$domain" else [dom]):
+            out[(d, key)] = (no, typ, val)
+    return out
+
+
+def show(v):
+    if v is None:
+        return "(absent)"
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return repr(v)
+    if isinstance(v, str):
+        return '"' + v + '"'
+    if isinstance(v, datetime.datetime):
+        return v.isoformat()
+    if isinstance(v, bytes):
+        return f"<data, {len(v)} bytes>"
+    if isinstance(v, list):
+        return f"<array of {len(v)}>"
+    if isinstance(v, dict):
+        return f"<dict of {len(v)}>"
+    return repr(v)
+
+
+def wtype(v):
+    return {bool: "bool", int: "int", float: "float", str: "string"}[type(v)]
+
+
+def wvalue(v):
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    return str(v)
+
+
+def q(s):
+    """Quote for a defaults.sh line the way it quotes: double quotes, and only
+    when the word needs them."""
+    if s and re.fullmatch(r"[A-Za-z0-9._/:@%+=-]+", s):
+        return s
+    return '"' + re.sub(r'(["\\$`])', r"\\\1", s) + '"'
+
+
+def same(written_type, written_value, v):
+    if written_type == "bool":
+        return isinstance(v, bool) and v == (written_value == "true")
+    if written_type == "int":
+        return isinstance(v, int) and not isinstance(v, bool) and str(v) == written_value
+    if written_type == "float":
+        try:
+            return isinstance(v, (int, float)) and not isinstance(v, bool) and float(written_value) == float(v)
+        except ValueError:
+            return False
+    return isinstance(v, str) and v == written_value
+
+
+def nested(a, b, path, out, limit=6):
+    if len(out) >= limit or a == b:
+        return
+    if isinstance(a, dict) and isinstance(b, dict):
+        for k in sorted(set(a) | set(b), key=str):
+            nested(a.get(k), b.get(k), path + [str(k)], out, limit)
+    elif isinstance(a, list) and isinstance(b, list) and len(a) == len(b):
+        for i, (x, y) in enumerate(zip(a, b)):
+            nested(x, y, path + [str(i)], out, limit)
+    else:
+        out.append(("/".join(path), a, b))
+
+
+def noisy(key, old, new):
+    return (any(fnmatch.fnmatchcase(str(key), p) for p in NOISE)
+            or isinstance(new, datetime.datetime) or isinstance(old, datetime.datetime))
+
+
+written = written_by_defaults_sh(defaults_sh)
+changes = []
+for kind in ("user", "host", "system"):
+    a, b = load(before, kind), load(after, kind)
+    for dom in sorted(set(a) | set(b)):
+        da, db = a.get(dom, {}), b.get(dom, {})
+        for key in sorted(set(da) | set(db), key=str):
+            old, new = da.get(key), db.get(key)
+            if old != new:
+                changes.append((kind, dom, key, old, new))
+
+real = [c for c in changes if not noisy(c[2], c[3], c[4])]
+noise = [c for c in changes if noisy(c[2], c[3], c[4])]
+
+if not changes:
+    print("\nNo preference changed. A setting that is not a preference — a login item,")
+    print("a network or account setting, a privacy permission — is not stored here.")
+    sys.exit(0)
+
+where = {"user": "", "host": "  (this Mac only: -currentHost)", "system": "  (all users: " + system_dir + ")"}
+for kind, dom, key, old, new in real:
+    print(f"\n{dom}  {key}{where[kind]}")
+    print(f"    {show(old)} → {show(new)}")
+    if isinstance(old, (dict, list)) or isinstance(new, (dict, list)):
+        paths = []
+        nested(old, new, [str(key)], paths)
+        for p, x, y in paths:
+            print(f"      {p}: {show(x)} → {show(y)}")
+    w = written.get((dom, key)) if kind == "user" else None
+    if w:
+        line, wt, wv = w
+        if new is not None and same(wt, wv, new):
+            print(f"    defaults.sh line {line} writes {show(new)}: this is the value mrk sets.")
+        else:
+            print(f"    defaults.sh line {line} writes {wt} {wv}, so make defaults would put that back.")
+            if isinstance(new, WRITABLE):
+                print(f"    To keep {show(new)} instead, change that line to:")
+                print(f"      write_default {q(dom)} {q(str(key))} {wtype(new)} {q(wvalue(new))} || failed=$(( failed + 1 ))")
+        continue
+    if new is None:
+        flag = "-currentHost " if kind == "host" else ""
+        target = os.path.join(system_dir, dom) if kind == "system" else dom
+        sudo = "sudo " if kind == "system" else ""
+        print("    Now absent. write_default cannot delete a key; to remove it on another Mac:")
+        print(f"      {sudo}defaults {flag}delete {q(target)} {q(str(key))}")
+        continue
+    if not isinstance(new, WRITABLE):
+        print(f"    A {show(new)}: write_default writes bool, int, float and string only, so")
+        print("    this one would have to be written with defaults write by hand.")
+        continue
+    if kind == "host":
+        print("    write_default cannot write a -currentHost key; hardening.sh writes its one with:")
+        print(f"      defaults -currentHost write {q(dom)} {q(str(key))} -{wtype(new)} {q(wvalue(new))}")
+    elif kind == "system":
+        print("    A setting for all users. defaults.sh writes only your own preferences;")
+        print("    hardening.sh writes the system ones, with:")
+        print(f"      sudo defaults write {q(os.path.join(system_dir, dom))} {q(str(key))} -{wtype(new)} {q(wvalue(new))}")
+    else:
+        print("    Not in defaults.sh. To keep it, add to scripts/defaults.sh:")
+        print(f"      write_default {q(dom)} {q(str(key))} {wtype(new)} {q(wvalue(new))} || failed=$(( failed + 1 ))")
+        print(f"    and describe '{dom}.{key}' in docs/defaults/script.js, which check-defaults-desc requires.")
+
+if noise:
+    print("\nAlso changed, and probably not the setting:")
+    for kind, dom, key, old, new in noise:
+        print(f"    {dom}  {key}{where[kind]}")
+if not real:
+    print("\nNothing but those changed. A setting that is not a preference — a login item,")
+    print("a network or account setting, a privacy permission — is not stored here.")
+PYEOF

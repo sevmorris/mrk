@@ -300,6 +300,21 @@ make dock
 
 To change the list or the order, edit `scripts/dock-setup`. The script needs `dockutil`, and it installs dockutil when dockutil is absent.
 
+## How to keep a macOS setting
+
+A setting you change in System Settings is the one change that no mrk command records. To keep it, add its key to `scripts/defaults.sh`. **`defaults-watch`** finds the key.
+
+```bash
+defaults-watch            # Snapshot, wait for Return, snapshot again, compare
+```
+
+1. Run `defaults-watch`, and wait for it to ask.
+2. Change the one setting in System Settings, and then press Return.
+3. defaults-watch prints each key that changed, with its old value and its new one. For a key that `defaults.sh` already writes, it says whether the new value is the one mrk sets. For any other key, it prints the `write_default` line to add.
+4. Add that line to `scripts/defaults.sh`, and a description of the key to `docs/defaults/script.js`. `make check` fails until the description is there.
+
+defaults-watch changes nothing. It lists window positions, timestamps and counters apart, as probably not the setting. A key for this Mac alone (`-currentHost`), a key for all users, and a dictionary are things `write_default` cannot write, and defaults-watch says what to use instead.
+
 ## How to keep the login items current
 
 **`sync-login-items`** compares the system login items against `post-install`, and then updates the repository.
