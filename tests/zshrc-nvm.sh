@@ -77,6 +77,31 @@ for z in "${ZSHES[@]}"; do
     fail "alias v24 (exit $RC): PATH starts '$FIRST'; calls: $(tr '\n' ';' < "$H/calls")"
   fi
 
+  # The alias matches a version whole, or up to a dot. Until 2026-10-01 it was
+  # a bare prefix, and v24.2 found v24.21.0 where nvm resolves it to v24.2.0
+  # (audit 20, X-10).
+  nvm_home v24.2 v24.2.0 v24.9.0 v24.21.0
+  run "$z"
+  if [[ $RC == 0 && "$FIRST" == "$H/.nvm/versions/node/v24.2.0/bin" ]] && ! grep -q '^nvm ' "$H/calls"; then
+    pass "alias v24.2: v24.2.0 first on PATH, not v24.21.0"
+  else
+    fail "alias v24.2 (exit $RC): PATH starts '$FIRST'; calls: $(tr '\n' ';' < "$H/calls")"
+  fi
+  nvm_home v24.2.0 v24.2.0 v24.2.0.1 v24.21.0
+  run "$z"
+  if [[ $RC == 0 && "$FIRST" == "$H/.nvm/versions/node/v24.2.0/bin" ]] && ! grep -q '^nvm ' "$H/calls"; then
+    pass "alias v24.2.0, a whole version: that version first on PATH"
+  else
+    fail "alias v24.2.0 (exit $RC): PATH starts '$FIRST'; calls: $(tr '\n' ';' < "$H/calls")"
+  fi
+  nvm_home v2 v22.12.0 v24.21.0
+  run "$z"
+  if [[ $RC == 0 && "$FIRST" == /usr/bin ]] && grep -qx 'nvm use default --silent' "$H/calls"; then
+    pass "alias v2, which no installed version is: falls back to nvm use default"
+  else
+    fail "alias v2 (exit $RC): PATH starts '$FIRST'; calls: $(tr '\n' ';' < "$H/calls")"
+  fi
+
   for alias in 'lts/*' ''; do
     nvm_home "$alias" v24.21.0
     run "$z"

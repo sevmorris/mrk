@@ -14,6 +14,8 @@
 # The transcripts are in the forms real runs of topgrade 17.12.2 were recorded
 # in, with no terminal and through script. Three more hold a byte that is not
 # UTF-8, and run in a UTF-8 locale, where macOS's sed stops on one.
+# A run interrupted with no terminal must leave no recording, and the verdict
+# must be on stderr alone when bin/lib/common.sh is sourced too.
 # The update shell function is run in a zsh that reads no startup file.
 # The last cases run one clean-up command of assets/topgrade.toml, pip cache
 # purge, against a stub pip3: an empty cache must be said to be normal, and
@@ -43,6 +45,8 @@ cat > "$S/topgrade" <<'EOF'
 #!/bin/sh
 cat "$TRANSCRIPT"
 [ $# -gt 0 ] && echo "topgrade args: $*"
+# HOLD: a run still under way, for the cases that interrupt it.
+[ -n "${HOLD:-}" ] && { echo "holding"; sleep 30; }
 exit "$RC"
 EOF
 cat > "$W/nobrew/brew" <<EOF
@@ -237,6 +241,90 @@ PY
   else
     fail "at a terminal: exit $rc, TMPDIR: $(find "$TMP" -mindepth 1 | tr '\n' ' ')"; show
   fi
+fi
+
+# ── 7b. Interrupted away from a terminal: the recording is removed ───────────
+
+# The command in a session of its own, with no terminal. When the stub says
+# "holding", the whole process group gets the signal, as Ctrl-C or a closed
+# window sends it. Until 2026-10-01 only run_topgrade's last line removed the
+# recording, and such a run left it in TMPDIR (audit 20, X-4).
+cat > "$W/interrupt.py" <<'PY'
+import os, signal, subprocess, sys
+sig, argv = getattr(signal, "SIG" + sys.argv[1]), sys.argv[2:]
+p = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                     stderr=subprocess.STDOUT, start_new_session=True)
+out = b""
+for line in iter(p.stdout.readline, b""):
+    out += line
+    if b"holding" in line:
+        os.killpg(p.pid, sig)
+        break
+out += p.stdout.read()
+rc = p.wait()
+sys.stdout.write(out.decode("utf-8", "replace"))
+print("ended: %d" % rc)
+PY
+# await_tidy — the trap runs as the shell ends, which can be a moment after
+# the command the driver waits for has gone
+await_tidy() {
+  local i
+  for (( i = 0; i < 30; i++ )); do
+    tidy && return 0
+    sleep 0.1
+  done
+  return 1
+}
+for sig in INT TERM HUP; do
+  "${ENV[@]}" HOLD=1 TRANSCRIPT="$T/one-failed" RC=1 python3 "$W/interrupt.py" "$sig" \
+    make --no-print-directory -C "$REPO_ROOT" update > "$W/out" 2>&1
+  if has "holding" && ! has "ended: 0" && ! has "Update finished" && await_tidy; then
+    pass "SIG$sig with no terminal: the run ends, and its recording is removed"
+  else
+    fail "SIG$sig with no terminal: left in TMPDIR: $(find "$TMP" -mindepth 1 | tr '\n' ' ')"; show
+    rm -f "$TMP"/*
+  fi
+done
+
+# The caller's own traps: one set before run_topgrade still runs when the
+# signal comes during it, and is still set after a run that ends by itself.
+# Under /bin/bash, which runs the Makefile's recipe, and the bash running this.
+BASHES=(/bin/bash)
+[[ "$BASH" -ef /bin/bash ]] || BASHES+=("$BASH")
+for b in "${BASHES[@]}"; do
+  # shellcheck disable=SC2016  # expanded by the bash under test
+  "${ENV[@]}" HOLD=1 TRANSCRIPT="$T/all-ok" RC=0 python3 "$W/interrupt.py" TERM \
+    "$b" -c '. "$1"; trap "echo the caller trap ran; exit 7" TERM; run_topgrade; echo not reached' bash "$REPO_ROOT/scripts/lib.sh" \
+    > "$W/out" 2>&1
+  # shellcheck disable=SC2016
+  after=$("${ENV[@]}" TRANSCRIPT="$T/all-ok" RC=0 "$b" -c \
+    '. "$1"; trap "echo mine" TERM; run_topgrade >/dev/null 2>&1; trap -p INT TERM HUP' bash "$REPO_ROOT/scripts/lib.sh" < /dev/null 2>&1)
+  if has "the caller trap ran" && has "ended: 7" && ! has "not reached" && await_tidy \
+     && [[ "$after" == "trap -- 'echo mine' SIGTERM" ]]; then
+    # shellcheck disable=SC2016
+    pass "the caller's trap ($("$b" -c 'echo "${BASH_VERSION%%(*}"')): it runs on a signal during the run, and is still set after one"
+  else
+    fail "the caller's trap under $b: traps after a run: '$after'"; show
+    rm -f "$TMP"/*
+  fi
+done
+
+# ── 7c. From update-full, which sources both libraries: one stream ───────────
+
+# bin/lib/common.sh's info is a line on stdout. Until 2026-10-01 the verdict
+# printed through warn and info, so in update-full its first line went to
+# stderr and its next two to stdout (audit 20, X-8).
+# shellcheck disable=SC2016  # expanded by the inner bash
+"$BASH" -c '. "$1/scripts/lib.sh"; . "$1/bin/lib/common.sh"; topgrade_verdict 1 "$2"' bash "$REPO_ROOT" "$T/one-failed" \
+  > "$W/verdict-out" 2> "$W/out"
+# shellcheck disable=SC2016
+"$BASH" -c '. "$1/scripts/lib.sh"; topgrade_verdict 1 "$2"' bash "$REPO_ROOT" "$T/one-failed" > /dev/null 2> "$W/verdict-lib"
+if [[ ! -s "$W/verdict-out" ]] && [[ "$(wc -l < "$W/out" | tr -d ' ')" == 3 ]] && cmp -s "$W/out" "$W/verdict-lib" \
+   && has "  ⚠ Update finished: every step ran. 1 of 10 failed: Brew Cask (ARM)." \
+   && has "    Nothing was interrupted: the other 9 succeeded" && has "    The exit status is 1 for the failed step alone."; then
+  pass "with common.sh sourced too: the same three lines, all on stderr, none on stdout"
+else
+  fail "with common.sh sourced too: stdout holds: $(tr '\n' '|' < "$W/verdict-out")"; show
 fi
 
 # ── 8. The update shell function ─────────────────────────────────────────────

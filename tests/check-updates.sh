@@ -11,7 +11,8 @@
 # in a pseudo-terminal, since it does nothing without one. git is the real git
 # except for fetch, which only records the call: the cases move origin/main
 # themselves, with a real fetch, which is what the background fetch would have
-# done by the next shell. make is a stub that records `make pull`.
+# done by the next shell. make is a stub that records `make pull`, and fails
+# when a case tells it to.
 # Nothing reaches the real HOME, the network, or ~/mrk.
 # It runs under /bin/bash and under the bash running this file. ci-check runs it.
 
@@ -64,7 +65,14 @@ for a in "\$@"; do
 done
 exec "$REAL_GIT" "\$@"
 EOF
-printf '#!/bin/sh\nprintf "make %%s\\n" "$*" >> "%s/makes"\n' "$W" > "$S/make"
+# make records the call, and exits with the status in $W/make-rc when that
+# file is there: a pull that fails.
+cat > "$S/make" <<EOF
+#!/bin/sh
+printf 'make %s\\n' "\$*" >> "$W/makes"
+[ -f "$W/make-rc" ] && exit "\$(cat "$W/make-rc")"
+exit 0
+EOF
 chmod +x "$S/git" "$S/make"
 ln -s "$BASH_UNDER_TEST" "$S/bash"
 
@@ -235,12 +243,32 @@ else
   fail "a new remote head: rc $RC, makes: $(tr '\n' ';' < "$W/makes"), markers: $(markers)"; show
 fi
 
+# ── 7b. A yes whose pull fails: asked again at the next shell ────────────────
+
+# The marker is written before the prompt. Until 2026-10-01 it stayed after a
+# pull that failed, so the checkout was behind and nothing asked again until
+# origin moved (audit 20, X-5).
+upstream 1
+head7b=$(remote_head)
+echo 2 > "$W/make-rc"
+check y; settle
+rc_failed=$RC
+kept=$(markers)
+said=0; grep -q 'The pull failed. The next shell asks again.' "$W/out" && said=1
+check n; settle
+rm -f "$W/make-rc"
+if (( rc_failed == 2 && said == 1 )) && [[ -z "$kept" ]] && asked && [[ "$(makes)" == 2 && "$(markers)" == "asked-$head7b " ]]; then
+  pass "a yes whose pull fails: exit 2, said so, no marker kept, and the next shell asks again"
+else
+  fail "a yes whose pull fails: rc $rc_failed, said $said, markers after it: '$kept', then: '$(markers)', $(makes) make(s)"; show
+fi
+
 # ── 8. Behind, on another branch: not asked ──────────────────────────────────
 
 upstream 1
 rg -C "$CLONE" switch -q -c feature
 check y; settle
-if (( RC == 0 )) && ! asked && [[ "$(makes)" == 1 ]]; then
+if (( RC == 0 )) && ! asked && [[ "$(makes)" == 2 ]]; then
   pass "behind, on another branch: not asked"
 else
   fail "behind, on another branch: asked, or pulled"; show
@@ -250,7 +278,7 @@ rg -C "$CLONE" switch -q main
 # ── 9. Back on main, the same head: asked; Ctrl-D counts as no ───────────────
 
 check EOF; settle
-if (( RC == 0 )) && asked && grep -q 'Not asking again' "$W/out" && [[ "$(makes)" == 1 ]]; then
+if (( RC == 0 )) && asked && grep -q 'Not asking again' "$W/out" && [[ "$(makes)" == 2 ]]; then
   pass "back on main: asked; Ctrl-D is a no, and exits 0"
 else
   fail "back on main, Ctrl-D: rc $RC, $(makes) make(s)"; show
@@ -262,7 +290,7 @@ echo local >> "$CLONE/local"
 g -C "$CLONE" add local && g -C "$CLONE" commit -qm local
 upstream 1
 check y; settle
-if (( RC == 0 )) && ! asked && [[ "$(makes)" == 1 ]]; then
+if (( RC == 0 )) && ! asked && [[ "$(makes)" == 2 ]]; then
   pass "diverged from origin: not asked"
 else
   fail "diverged from origin: asked, or pulled"; show
