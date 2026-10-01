@@ -719,7 +719,7 @@ make apps       # installs it, now that gh can reach it
 
 ## Commands you can run from anywhere (`~/Makefile`)
 
-`make setup` symlinks `~/Makefile` from `dotfiles/`. Run `make help` from `~/` to see the commands in this file and in `mrk/`.
+`make setup` symlinks `~/Makefile` from `dotfiles/`. Every target of `~/mrk/Makefile` works from `~/` through it, `ARGS` included: the ones below by name, and any other, such as `make update` or `make status`, through a rule that hands it to `~/mrk`. Until 2026-09-30 only the ones below did. Run `make help` from `~/` to see both lists.
 
 **Brewfile**
 
