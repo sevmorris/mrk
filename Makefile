@@ -209,8 +209,8 @@ sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to co
 sync-login-items: ## Sync system login items into post-install and docs  (pass ARGS=-c to commit, ARGS=-n for dry run)
 	@"$(SCRIPTS)/sync-login-items" $(ARGS)
 
-snapshot-prefs: ## Export app preferences to ~/.mrk/preferences/ and push to mrk-prefs
-	@"$(SCRIPTS)/snapshot-prefs"
+snapshot-prefs: ## Export app preferences to ~/.mrk/preferences/ and push to mrk-prefs  (ARGS=-n for dry run)
+	@"$(SCRIPTS)/snapshot-prefs" $(ARGS)
 
 pull-prefs: ## Clone or pull app preferences from mrk-prefs into ~/.mrk/preferences/
 	@"$(SCRIPTS)/pull-prefs"

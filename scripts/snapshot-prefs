@@ -31,19 +31,37 @@ usage() {
 snapshot-prefs — export app preferences to ~/.mrk/preferences and push them
 
 Usage:
-  snapshot-prefs
+  snapshot-prefs [--dry-run]
 
 Options:
+  -n, --dry-run   Export into a scratch copy of ~/.mrk/preferences and report
+                  what would be committed, with each plist's changed keys.
+                  ~/.mrk/preferences is left as it was; nothing is committed
+                  or pushed. The secret scan still runs.
   -h, --help      Show this help
 
-snapshot-prefs takes no options other than --help. It exports each app's
-preferences into ~/.mrk/preferences, and commits and pushes that tree to the
-private mrk-prefs repo. It does not quit any app: defaults export asks the
-preferences system, which has an open app's changes as soon as it makes them.
-An app with no preferences yet is skipped, and its saved copy kept.
+snapshot-prefs exports each app's preferences into ~/.mrk/preferences, and
+commits and pushes that tree to the private mrk-prefs repo. It does not quit
+any app: defaults export asks the preferences system, which has an open app's
+changes as soon as it makes them. An app with no preferences yet is skipped,
+and its saved copy kept.
+
+A plist that differs from the last commit only in keys that change on their
+own (update-check times, window and menu bar positions, launch counters, the
+versions that have run) is left out of the commit, and when nothing else
+changed there is no commit. The export itself is whole: those keys are saved
+whenever something else in the file changes.
 EOF
 }
-mrk_help_guard "$(usage)" "$@"
+
+DRY_RUN=0
+for arg in "$@"; do
+  case "$arg" in
+    -n|--dry-run) DRY_RUN=1 ;;
+    -h|--help)    usage; exit 0 ;;
+    *)            usage >&2; printf '\nunknown argument: %s\n' "$arg" >&2; exit 2 ;;
+  esac
+done
 
 : "${PREFS_REPO:=git@github.com:sevmorris/mrk-prefs.git}"
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
@@ -51,12 +69,14 @@ APP_SUPPORT="$HOME/Library/Application Support"
 
 # Apps whose export failed or timed out — reported at exit, never fatal.
 SNAPSHOT_SKIPPED=()
-report_skipped(){
+DRY_SCRATCH=""
+on_exit(){
   if (( ${#SNAPSHOT_SKIPPED[@]} > 0 )); then
     warn "Skipped ${#SNAPSHOT_SKIPPED[@]} app(s) — export failed or timed out: ${SNAPSHOT_SKIPPED[*]}"
   fi
+  if [[ -n "$DRY_SCRATCH" ]]; then rm -rf "$DRY_SCRATCH"; fi
 }
-trap report_skipped EXIT
+trap on_exit EXIT
 
 # Run `defaults ARGS...` with a timeout so a hung or sandboxed domain can't
 # stall the whole run. Prefers timeout/gtimeout (coreutils); else background-kill.
@@ -79,6 +99,26 @@ defaults_timeout(){
     return "$rc"
   fi
 }
+
+# A dry run exports into a clone of ~/.mrk/preferences instead, so the staging,
+# the comparison with HEAD and the secret scan below all run as they would for
+# real, against the same last commit, and the real tree is never written.
+# Refused, as the real run is, while a merge or rebase there is unfinished.
+if (( DRY_RUN )); then
+  if [[ -d "$LOCAL_PREFS_DIR/.git" ]] && busy=$(git_in_progress "$LOCAL_PREFS_DIR"); then
+    err "$busy in $LOCAL_PREFS_DIR — resolve it first. Nothing was exported."
+    exit 1
+  fi
+  DRY_SCRATCH=$(mrk_mktemp_d) || { err "could not create a scratch directory for the dry run"; exit 1; }
+  if [[ -d "$LOCAL_PREFS_DIR/.git" ]]; then
+    git clone -q "$LOCAL_PREFS_DIR" "$DRY_SCRATCH/preferences" 2>/dev/null \
+      || { err "could not copy $LOCAL_PREFS_DIR for the dry run"; exit 1; }
+  else
+    git init -q "$DRY_SCRATCH/preferences"
+  fi
+  log "Dry run: exporting into a scratch copy of $LOCAL_PREFS_DIR. Nothing there changes, and nothing is committed or pushed."
+  LOCAL_PREFS_DIR="$DRY_SCRATCH/preferences"
+fi
 
 # Ensure the local prefs dir is a git repo pointing at mrk-prefs
 if [[ ! -d "$LOCAL_PREFS_DIR/.git" ]]; then
@@ -522,10 +562,206 @@ fi
 
 git add -A -- "${add_specs[@]}"
 
+# ── Keys that change on their own ────────────────────────────────────────────
+
+# Until 2026-09-30 any difference from the last commit made a commit, and most
+# differences were apps writing their own bookkeeping: over the sixty snapshots
+# before then, a plist changed in nothing but the keys below 274 times, and 12
+# of the sixty commits held nothing else. A plist whose only differences are in
+# these keys is left out of the commit and put back as HEAD has it. The export
+# is not filtered: a plist with any other change is committed whole, these keys
+# included, so post-install restores what the app wrote.
+#
+# FILE|KEY, both globs. FILE is the path in mrk-prefs; KEY matches a key at any
+# depth, so one rule covers a uuid in every SoundSource model. Taken from what
+# changed in those sixty commits, not from guesses. A key earns a place by
+# changing without anyone changing a setting; a value someone moves while using
+# the app (Farrago's masterVolume) or a table an app keeps of what it has seen
+# with settings inside it (BetterSnapTool's BSTAppSettings) still counts.
+PREFS_NOISE=(
+  # Sparkle's update checks
+  '*|SU*Time' '*|SU*Date' '*|SUUpdateGroupIdentifier' '*|SUUpdateRelaunchingMarker'
+  # Where macOS put a window, a split view, a menu bar item or the file panel
+  '*|NSWindow Frame *' '*|NSSplitView Subview Frames *' '*|NSStatusItem Preferred Position *'
+  '*|NSNav*' '*|NSOSP*' '*|*[wW]indowFrame'
+  # Launch counters, and Rogue Amoeba's record of the versions that have run
+  '*|launchCount' '*|*LaunchCount' '*|*RunCount'
+  '*|versionHighestLaunched' '*|versionLastLaunched'
+  # iTerm2 marks its machine-local state NoSync itself
+  'iTerm2.plist|NoSync*' 'iTerm2.plist|iTerm Version'
+  'Raycast.plist|raycast-updates-lastAppUpdateCheckDate' 'Raycast.plist|raycast-updates-whatsNewItemDisplayDate'
+  'Raycast.plist|raycast-updates-lastTargetCommitishInstalled' 'Raycast.plist|database_lastValidAppVersion'
+  'Raycast.plist|calculator_currenciesRefresh' 'Raycast.plist|amplitudePulseAnalyticsTracker_nextHeartbeatDate'
+  'Stats.plist|updater_check_ts' 'Stats.plist|support_*' 'Stats.plist|version'
+  'BetterSnapTool.plist|BSTDidLaunchTime' 'BetterSnapTool.plist|BSTDidSucceedLaunchTime'
+  'BetterSnapTool.plist|savedWindowInformation'
+  # SoundSource gives its hotkeys and popover a new uuid and identifier at every
+  # save; nothing else in them changes. An alias or bookmark is re-encoded on
+  # its own too, and always sits beside the path it points at, which still counts.
+  'SoundSource.plist|uuid' 'SoundSource.plist|identifier' 'SoundSource.plist|mainPopoverState'
+  'SoundSource.plist|lastKnownUpdateVersion' 'SoundSource.plist|bluetoothDevicesSeen'
+  'app-support/SoundSource/*|uuid' 'app-support/SoundSource/*|popoverState' 'app-support/SoundSource/*|alias'
+  'app-support/Loopback/*|alias' 'app-support/Loopback/*|bookmark'
+  'Farrago.plist|BoardViewSplitPositionsV2' 'Farrago.plist|boardWindow'
+  'AudioHijack.plist|homeWindowState' 'AudioHijack.plist|homeWindowShown' 'AudioHijack.plist|AULastKnownViewSize'
+  'Typora.plist|savedLastOpen' 'Typora.plist|initialize_ver' 'Typora.plist|verInitTime'
+  'MacWhisper.plist|knownRanVersions' 'MacWhisper.plist|*Cache'
+  'Thaw.plist|StaleIdentifierMissCounts' 'Thaw.plist|MenuBarItemManager.knownItemIdentifiers'
+  'sevmorris-apps/io.github.sevmorris.BackupRestore.plist|MBM_lastUpdateCheckDate'
+)
+
+# plist_changes PATH... — compare each plist as staged with HEAD's copy. Prints
+# "noise<TAB>PATH" for one that differs only in PREFS_NOISE keys, and
+# "real<TAB>PATH<TAB>KEYS" otherwise, KEYS being the top-level keys that changed.
+#
+# Values are compared as what they hold, not as bytes: a value that is itself a
+# plist, an NSKeyedArchiver archive or JSON is decoded first. Ice wrote the same
+# JSON with its keys in a new order twelve times, and BetterSnapTool archives
+# the same objects in a new order. A plist either copy of which cannot be read
+# counts as changed.
+plist_changes() {
+  python3 - "$(printf '%s\n' "${PREFS_NOISE[@]}")" "$@" <<'PYEOF'
+import fnmatch, json, plistlib, subprocess, sys
+
+rules = [tuple(r.split("|", 1)) for r in sys.argv[1].splitlines() if "|" in r]
+MISSING = object()
+
+# An NSKeyedArchiver archive, its references resolved. An archived dictionary
+# is two parallel lists, NS.keys and NS.objects, and a set is one list, in
+# whatever order the app wrote them; both become order-free here, and a
+# dictionary's keys become keys the rules can match.
+def unarchive(d):
+    objs = d["$objects"]
+    def res(v, depth):
+        if depth > 100:
+            raise ValueError("archive too deep, or a cycle")
+        if isinstance(v, plistlib.UID):
+            return res(objs[v.data], depth + 1)
+        if isinstance(v, list):
+            return [res(x, depth + 1) for x in v]
+        if not isinstance(v, dict):
+            return v
+        r = {k: res(x, depth + 1) for k, x in v.items()}
+        ks, vs = r.get("NS.keys"), r.get("NS.objects")
+        cls = r.get("$class")
+        name = cls.get("$classname") if isinstance(cls, dict) else None
+        if isinstance(ks, list) and isinstance(vs, list) and len(ks) == len(vs):
+            if all(isinstance(k, str) for k in ks):
+                return {"$class": cls, "NS.dict": dict(zip(ks, vs))}
+            return {"$class": cls, "NS.pairs": sorted(([k, x] for k, x in zip(ks, vs)), key=repr)}
+        if name in ("NSSet", "NSMutableSet") and isinstance(vs, list):
+            r["NS.objects"] = sorted(vs, key=repr)
+        return r
+    return res(d.get("$top", {}), 0)
+
+def noisy(key, pats):
+    return any(fnmatch.fnmatchcase(str(key), p) for p in pats)
+
+def norm(v, pats):
+    if isinstance(v, bytes):
+        try:
+            if v.startswith(b"bplist"):
+                d = plistlib.loads(v)
+                if isinstance(d, dict) and d.get("$archiver") == "NSKeyedArchiver" and "$objects" in d:
+                    d = unarchive(d)
+                return ("plist", norm(d, pats))
+            if v[:1] in (b"{", b"["):
+                return ("json", norm(json.loads(v), pats))
+        except Exception:
+            pass
+        return v
+    if isinstance(v, dict):
+        return {k: norm(x, pats) for k, x in v.items() if not noisy(k, pats)}
+    if isinstance(v, list):
+        return [norm(x, pats) for x in v]
+    return v
+
+def load(spec):
+    r = subprocess.run(["git", "show", spec], capture_output=True)
+    if r.returncode != 0:
+        return None
+    try:
+        d = plistlib.loads(r.stdout)
+    except Exception:
+        return None
+    return d if isinstance(d, dict) else None
+
+for path in sys.argv[2:]:
+    old, new = load("HEAD:" + path), load(":" + path)
+    if old is None or new is None:
+        print("real\t" + path)
+        continue
+    pats = [k for f, k in rules if fnmatch.fnmatchcase(path, f)]
+    real = []
+    for k in sorted(set(old) | set(new), key=str):
+        a, b = old.get(k, MISSING), new.get(k, MISSING)
+        if a == b or noisy(k, pats):
+            continue
+        if a is not MISSING and b is not MISSING and norm(a, pats) == norm(b, pats):
+            continue
+        name = " ".join(str(k).split())
+        real.append(name if len(name) <= 60 else name[:59] + "…")
+    print(("real\t%s\t%s" % (path, ", ".join(real))) if real else "noise\t" + path)
+PYEOF
+}
+
+declare -A PLIST_KEYS=()   # path → the keys that changed, for the report
+left_out=()
+modified=()
+while IFS= read -r -d '' f; do
+  [[ "$f" == *.plist ]] && modified+=("$f")
+done < <(git diff --cached --name-only --diff-filter=M -z)
+if (( ${#modified[@]} > 0 )); then
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 not found — every changed plist is committed, keys that change on their own included"
+  elif changes=$(plist_changes "${modified[@]}"); then
+    while IFS=$'\t' read -r kind path keys; do
+      case "$kind" in
+        noise) left_out+=("$path") ;;
+        real)  PLIST_KEYS["$path"]="${keys:-}" ;;
+      esac
+    done <<< "$changes"
+  else
+    warn "could not compare the changed plists with the last commit — every one is committed"
+  fi
+fi
+if (( ${#left_out[@]} > 0 )); then
+  # Index and working tree both, so ~/.mrk/preferences is left clean: a file
+  # left modified there would stop pull-prefs' --ff-only pull the next time
+  # another Mac pushed the same file.
+  git checkout -q HEAD -- "${left_out[@]}"
+  log "Left out, changed only in keys that change on their own: $(printf '%s, ' "${left_out[@]}" | sed 's/, $//')"
+fi
+
 if git diff --cached --quiet; then
   log "No changes to push."
   exit 0
 fi
+
+# report_staged — each staged file, with a modified plist's changed keys
+report_staged() {
+  local status path n=0 more=0
+  while IFS=$'\t' read -r status path; do
+    if (( ++n > 20 )); then more=$(( more + 1 )); continue; fi
+    case "$status" in
+      A) printf '    %s (new)\n' "$path" ;;
+      D) printf '    %s (removed)\n' "$path" ;;
+      *) if [[ -n "${PLIST_KEYS[$path]:-}" ]]; then
+           printf '    %s: %s\n' "$path" "${PLIST_KEYS[$path]}"
+         else
+           printf '    %s\n' "$path"
+         fi ;;
+    esac
+  done < <(git -c core.quotepath=off diff --cached --name-status --no-renames)
+  if (( more > 0 )); then printf '    … and %d more\n' "$more"; fi
+}
+staged_count=$(git diff --cached --name-only | wc -l | tr -d ' ')
+if (( DRY_RUN )); then
+  log "Would commit $staged_count file(s):"
+else
+  log "Committing $staged_count file(s):"
+fi
+report_staged
 
 # Scan staged snapshot files before commit/push.
 #
@@ -550,6 +786,13 @@ for f in ${staged_paths[@]+"${staged_paths[@]}"}; do
   [[ "${f#"$prefs_top"/}" == fonts/* ]] && continue
   changed_files+=("$f")
 done
+if (( DRY_RUN )); then
+  if (( ${#changed_files[@]} > 0 )) && ! scan_for_secrets "${changed_files[@]}"; then
+    warn "The real run would stop here and ask before it committed."
+  fi
+  ok "Dry run: nothing was committed or pushed."
+  exit 0
+fi
 if (( ${#changed_files[@]} > 0 )); then
   require_clean_secrets "${changed_files[@]}" || exit 1
 fi
