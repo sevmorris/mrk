@@ -579,7 +579,7 @@ func macOSUpdateLines() []statusLine {
 		name, ver := pString(d["Display Name"]), pString(d["Display Version"])
 		switch {
 		case !isMacOSUpdate(d):
-			// Safari's name carries no version, as macOS's does.
+			// macOS's name carries its version; Safari's does not.
 			if ver != "" && !strings.Contains(name, ver) {
 				name += " " + ver
 			}
