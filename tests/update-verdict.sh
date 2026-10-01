@@ -287,7 +287,10 @@ for sig in INT TERM HUP; do
 done
 
 # The caller's own traps: one set before run_topgrade still runs when the
-# signal comes during it, and is still set after a run that ends by itself.
+# signal comes during it, and after a run that ends by itself the traps are as
+# they were before it. Compared before and after, not with a fixed list: a
+# signal ignored on entry, as INT is in a job started with &, is one bash 5
+# lists and bash 3.2 does not.
 # Under /bin/bash, which runs the Makefile's recipe, and the bash running this.
 BASHES=(/bin/bash)
 [[ "$BASH" -ef /bin/bash ]] || BASHES+=("$BASH")
@@ -298,13 +301,14 @@ for b in "${BASHES[@]}"; do
     > "$W/out" 2>&1
   # shellcheck disable=SC2016
   after=$("${ENV[@]}" TRANSCRIPT="$T/all-ok" RC=0 "$b" -c \
-    '. "$1"; trap "echo mine" TERM; run_topgrade >/dev/null 2>&1; trap -p INT TERM HUP' bash "$REPO_ROOT/scripts/lib.sh" < /dev/null 2>&1)
+    '. "$1"; trap "echo mine" TERM; before=$(trap -p INT TERM HUP); run_topgrade >/dev/null 2>&1
+     [[ "$(trap -p INT TERM HUP)" == "$before" ]] && trap -p TERM' bash "$REPO_ROOT/scripts/lib.sh" < /dev/null 2>&1)
   if has "the caller trap ran" && has "ended: 7" && ! has "not reached" && await_tidy \
      && [[ "$after" == "trap -- 'echo mine' SIGTERM" ]]; then
     # shellcheck disable=SC2016
-    pass "the caller's trap ($("$b" -c 'echo "${BASH_VERSION%%(*}"')): it runs on a signal during the run, and is still set after one"
+    pass "the caller's trap ($("$b" -c 'echo "${BASH_VERSION%%(*}"')): it runs on a signal during the run, and the traps are as they were after one"
   else
-    fail "the caller's trap under $b: traps after a run: '$after'"; show
+    fail "the caller's trap under $b: after a run the traps had changed, or TERM's was: '$after'"; show
     rm -f "$TMP"/*
   fi
 done
