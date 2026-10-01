@@ -14,6 +14,9 @@
 # The transcripts are in the forms real runs of topgrade 17.12.2 were recorded
 # in, with no terminal and through script.
 # The update shell function is run in a zsh that reads no startup file.
+# The last cases run one clean-up command of assets/topgrade.toml, pip cache
+# purge, against a stub pip3: an empty cache must be said to be normal, and
+# nothing else must.
 # ci-check runs it.
 
 set -uo pipefail
@@ -77,7 +80,7 @@ summary() { # FORM STATUS-OF-TLDR STATUS-OF-CASK
   text "$1" 'oh-my-zsh: OK' 'pipx: OK' "TLDR: $2" 'yarn: OK' 'gcloud: OK' 'GitHub CLI Extensions: OK' \
     'Git Repositories: OK' 'Brew (ARM): OK' "Brew Cask (ARM): $3" 'npm global update: OK'
   header "$1" 'pipx upgrade-all'; text "$1" 'No packages upgraded'
-  header "$1" 'pip cache purge'; text "$1" 'ERROR: No matching packages'
+  header "$1" 'pip cache purge'; text "$1" 'ERROR: No matching packages' '(the pip cache was already empty; this is normal)'
   header "$1" 'Homebrew cache scrub'; header "$1" 'npm cache verify'; header "$1" 'pyenv rehash'
   header "$1" 'go clean test cache'; header "$1" 'Refresh zsh completions'
 }
@@ -214,6 +217,73 @@ if command -v zsh >/dev/null 2>&1; then
     pass "the update function: its arguments reach topgrade, the verdict follows, and no word of make"
   else
     fail "the update function:"; show
+  fi
+fi
+
+# ── 9. The pip cache purge step: an empty cache is said to be normal ─────────
+
+# The step is taken from assets/topgrade.toml as written and run as topgrade
+# runs a custom command, through a shell's -c. It starts `bash -lc`, a login
+# shell, whose PATH puts /usr/bin, and the pip3 Xcode ships there, ahead of
+# anything handed to it; the stub pip3 gets in front through the ~/.bash_profile
+# a login shell reads, in a throwaway HOME. PIP_CASE picks what pip does:
+#   old-empty  pip 21: "ERROR: No matching packages", exit 1
+#   new-empty  pip 23 and later: a WARNING, "Files removed: 0", exit 0
+#   purged     files removed, exit 0
+#   broken     a real failure, exit 2
+PH="$W/pip-home"
+mkdir -p "$PH/stubs"
+cat > "$PH/stubs/pip3" <<'EOF'
+#!/bin/sh
+[ "$1 $2" = "cache purge" ] || { echo "pip3 stub: unexpected: $*" >&2; exit 9; }
+case "$PIP_CASE" in
+  old-empty) echo "ERROR: No matching packages" >&2; exit 1 ;;
+  new-empty) echo "WARNING: No matching packages" >&2; echo "Files removed: 0 (0 bytes)"; echo "Directories removed: 0"; exit 0 ;;
+  purged)    echo "Files removed: 14 (2.1 MB)"; exit 0 ;;
+  broken)    echo "ERROR: Exception:" >&2; echo "PermissionError: [Errno 13] Permission denied" >&2; exit 2 ;;
+esac
+EOF
+chmod +x "$PH/stubs/pip3"
+# shellcheck disable=SC2016  # $PATH is for the login shell to expand
+printf 'export PATH="%s:$PATH"\n' "$PH/stubs" > "$PH/.bash_profile"
+pip_step=$(grep -F '"pip cache purge" = ' "$REPO_ROOT/assets/topgrade.toml") || pip_step=""
+pip_step=${pip_step#*= \"}
+pip_step=$(printf '%s' "${pip_step%\"}" | sed 's/\\"/"/g')
+NOTE="(the pip cache was already empty; this is normal)"
+pip_run() { # PIP_CASE — output in $W/out, exit status in RC_SEEN
+  env -i HOME="$PH" PATH=/usr/bin:/bin TERM=dumb PIP_CASE="$1" /bin/sh -c "$pip_step" < /dev/null > "$W/out" 2>&1
+  RC_SEEN=$?
+}
+
+if [[ -z "$pip_step" ]]; then
+  fail "\"pip cache purge\" is missing from assets/topgrade.toml"
+else
+  pip_run old-empty
+  if (( RC_SEEN == 0 )) && [[ "$(cat "$W/out")" == "ERROR: No matching packages"$'\n'"$NOTE" ]]; then
+    pass "pip 21 on an empty cache: pip's own line, then the note that this is normal"
+  else
+    fail "pip 21 on an empty cache: exit $RC_SEEN"; show
+  fi
+  pip_run new-empty
+  if (( RC_SEEN == 0 )) && has "WARNING: No matching packages" && has "Files removed: 0 (0 bytes)" && [[ "$(tail -1 "$W/out")" == "$NOTE" ]]; then
+    pass "a later pip on an empty cache: its warning and its counts, then the same note"
+  else
+    fail "a later pip on an empty cache: exit $RC_SEEN"; show
+  fi
+  pip_run purged
+  if (( RC_SEEN == 0 )) && [[ "$(cat "$W/out")" == "Files removed: 14 (2.1 MB)" ]]; then
+    pass "a cache with files in it: pip's output and nothing added"
+  else
+    fail "a cache with files in it: exit $RC_SEEN"; show
+  fi
+  # A real failure keeps pip's output, is never called normal, and is said to
+  # have failed. The step still exits 0, as it did before the note existed.
+  pip_run broken
+  if (( RC_SEEN == 0 )) && has "PermissionError: [Errno 13] Permission denied" && ! has "this is normal" \
+     && has "(pip cache purge failed, exit 2)"; then
+    pass "a real pip failure: its output kept, not called normal, and said to have failed"
+  else
+    fail "a real pip failure: exit $RC_SEEN"; show
   fi
 fi
 
