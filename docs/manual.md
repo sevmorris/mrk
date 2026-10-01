@@ -805,7 +805,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 |---|---|
 | `make sync` | Sync the installed packages into the Brewfile |
 | `make sync-login-items` | Sync the system login items into post-install and the manual |
-| `make update` | Upgrade every package, with topgrade or with brew upgrade |
+| `make update` | Upgrade every package, with topgrade or with brew upgrade. topgrade runs every step even when one fails, and the run ends by saying which failed and that the others ran |
 | `make updates` | Install the macOS updates for the installed version, with `macos-updates`. It never installs a major upgrade: it names each one and leaves it alone. `ARGS=-n` lists the updates and installs nothing |
 | `make uninstall` | Delete the symlinks, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |

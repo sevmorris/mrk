@@ -34,6 +34,10 @@ while [[ -L "$_src" ]]; do
   [[ "$_src" != /* ]] && _src="$_dir/$_src"
 done
 SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
+# scripts/lib.sh for run_topgrade, which make update shares; then
+# lib/common.sh, whose ok, warn and info this script prints with.
+# shellcheck source=../scripts/lib.sh
+source "$SCRIPT_DIR/../scripts/lib.sh"
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
 
@@ -226,7 +230,8 @@ info "Running macOS software updates..."
 
 # ── 4. Package updates ────────────────────────────────────────────────────────
 if command -v topgrade >/dev/null 2>&1; then
-  topgrade || warn "topgrade reported errors — continuing."
+  # run_topgrade says which steps failed, and that the others ran.
+  run_topgrade || warn "Continuing with the rest of update-full."
 else
   warn "topgrade not installed — skipping package updates."
 fi

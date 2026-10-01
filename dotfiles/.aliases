@@ -108,7 +108,14 @@ if command -v topgrade >/dev/null 2>&1; then
       update-full "$@"
       return
     fi
-    topgrade "$@"
+    # run_topgrade, from mrk's lib.sh, ends the run by saying which steps
+    # failed and that the others ran; without mrk, plain topgrade.
+    local lib="${MRK_ROOT:-$HOME/mrk}/scripts/lib.sh"
+    if [[ -r "$lib" ]]; then
+      bash -c '. "$1" && shift && run_topgrade "$@"' bash "$lib" "$@"
+    else
+      topgrade "$@"
+    fi
   }
 
   # update-full moved to bin/update-full (linted; refuses to run without a TTY).
