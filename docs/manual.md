@@ -262,10 +262,11 @@ snapshot-prefs
 2. snapshot-prefs copies the config directories that are not defaults domains into `config/`. Calibre is one example: its settings and conversion presets live in `~/Library/Preferences/calibre/`. It does not copy the plugin code, which reinstalls from Calibre's plugin manager. It copies only `plugins/*.json` (the per-plugin settings) and `plugins/*/account` (the DeACSM Adobe activation, which cannot be recreated without a re-authorization).
 3. snapshot-prefs keeps MusicBrainz Picard's settings in `config/picard/settings.ini`. Picard writes its OAuth tokens into the same file as its settings, `~/.config/MusicBrainz/Picard.ini`, so snapshot-prefs keeps the settings sections only and replaces each credential with `<redacted>`. The copy is history to compare, not a backup: post-install never restores it, and Magic Backup Machine keeps the real file.
 4. snapshot-prefs converts each binary plist to xml1, and then scans every file for secrets.
-5. snapshot-prefs commits the changes in `~/.mrk/preferences/` with a timestamped message.
-6. snapshot-prefs pushes to `sevmorris/mrk-prefs` on GitHub.
+5. snapshot-prefs leaves out a plist that changed only in keys the app rewrites on its own: update-check times, window and menu bar positions, launch counters, the versions that have run. It puts that plist back as the last commit has it, and names it. A plist with any other change is committed whole, those keys included.
+6. snapshot-prefs commits the changes in `~/.mrk/preferences/` with a timestamped message, and lists each file it commits with the keys that changed.
+7. snapshot-prefs pushes to `sevmorris/mrk-prefs` on GitHub.
 
-You can run snapshot-prefs more than once. When nothing changed, it reports "No changes to push."
+You can run snapshot-prefs more than once. When nothing changed, or nothing but those keys, it reports "No changes to push." To see what it would commit first, run `snapshot-prefs --dry-run`: it exports into a scratch copy, reports, and leaves `~/.mrk/preferences/` as it was.
 
 > **Caution:** `config/calibre/plugins/DeACSM/account/` holds real key material. It is kept deliberately — it cannot be
 > regenerated without a re-authorization — and the secret scanner does not flag it, because its XML element names match none
@@ -714,7 +715,7 @@ make apps       # installs it, now that gh can reach it
 
 | Command | Description |
 |---|---|
-| `make snapshot-prefs` | Export the app preferences, and push them to mrk-prefs |
+| `make snapshot-prefs` | Export the app preferences, and push them to mrk-prefs (`ARGS=-n` dry run) |
 | `make pull-prefs` | Clone or pull the app preferences from mrk-prefs |
 
 > `snapshot-prefs` writes to the private mrk-prefs repository, and it pushes. `pull-prefs` and `post-install` use that data to restore your preferences on a new machine. A separate `snapshot` command, which exported plists into the public repository where nothing read them, was retired on 2026-09-28.

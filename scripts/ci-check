@@ -27,7 +27,7 @@ ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
-check-picker-desc, topgrade-npm, picard-settings, plist-import-order, setup-safety, undo-files,
+check-picker-desc, topgrade-npm, picard-settings, snapshot-prefs, plist-import-order, setup-safety, undo-files,
 dock-setup, clear-app-caches, zshrc-nvm, check-updates, install-apps, make-pull and docs-drift tests in tests/, shellcheck over every tracked bash script,
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
@@ -163,6 +163,13 @@ log "topgrade npm steps"
 # names fanart.tv's client_key — so this test does.
 log "Picard settings"
 "$REPO_ROOT/tests/picard-settings.sh"
+
+# snapshot-prefs under a throwaway HOME, with defaults stubbed and a scratch
+# mrk-prefs: a plist that changed only in keys that change on their own is left
+# out, a commit holding nothing else is not made, and --dry-run writes nothing.
+# Until 2026-09-30 every such difference made a commit.
+log "snapshot-prefs"
+"$REPO_ROOT/tests/snapshot-prefs.sh"
 
 # post-install whole, on a copy of the repository with defaults stubbed to keep
 # every domain in a scratch directory: until 2026-09-27 its app-defaults scripts
