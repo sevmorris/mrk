@@ -161,11 +161,19 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
 
 **Module 18's open items (2026-09-23).** Details are in `18-audit-2026-09-23.md`.
 
-- **Startup Security (your action).** The five casks removed from the Brewfile are gone from
-  the Mac too. On 2026-09-28 none was installed, and no macFUSE or Samsung kernel extension was
-  loaded. If either kext was ever approved, this Mac is still at Reduced Security. → To close:
-  check it in recoveryOS (Startup Security Utility), and set it back to Full Security if nothing
-  else needs it.
+- **Startup Security: checked 2026-10-01, and it is Full Security.** The five casks removed
+  from the Brewfile are gone from the Mac too. On 2026-09-28 none was installed, and no macFUSE
+  or Samsung kernel extension was loaded. The question left was whether a kext approved earlier
+  had left this Mac at Reduced Security. It had not. `system_profiler SPiBridgeDataType`
+  reads the boot policy without a restart into recoveryOS, and on 2026-10-01 it said:
+  - Secure Boot: Full Security
+  - Allow All Kernel Extensions: No
+  - System Integrity Protection: Enabled, and `csrutil status` agrees
+  - Signed System Volume, Kernel CTRR and Boot Arguments Filtering: Enabled
+
+  `kmutil showloaded` lists no kernel extension that is not Apple's. Nothing to change, and
+  nothing of this item is open. System Information › Hardware › Controller shows the same
+  policy in a window.
 - **Intel-only apps and plug-ins (your decisions).** Surveyed 2026-09-28 with `lipo -archs`:
   - **Apps:** one of 98 app bundles is Intel-only, `Waves AU Reg Utility 12`.
   - **Plug-ins:** 9 of 74 audio plug-in bundles are Intel-only. They are Waves' V12 shells, its
