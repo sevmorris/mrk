@@ -199,10 +199,11 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
 
 U-7 and U-8 were decided on 2026-09-28; see Closed.
 
-**U-4's state half looks done.** Thaw replaced Ice in mrk and on this Mac. On 2026-09-28 Thaw was
-running and was a login item. Its Accessibility permission was not checked, because that would
-mean reading the privacy database. → To close: confirm that Thaw is on in System Settings ›
-Privacy & Security › Accessibility.
+**U-4's state half is done.** Thaw replaced Ice in mrk and on this Mac. On 2026-09-28 Thaw was
+running and was a login item. Its Accessibility permission was not checked then, because that
+would mean reading the privacy database. On 2026-10-01 the owner looked in System Settings ›
+Privacy & Security › Accessibility: Thaw is in the list, and its switch is on. Thaw was running
+that day too. Nothing of U-4 is open.
 
 **Module 15's decisions (2026-09-16): all settled.** All six were settled on 2026-09-28: T-3,
 T-8, T-9, T-14 and T-15 were decided, and T-11 turned out to have been done on 2026-09-18. See
