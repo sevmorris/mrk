@@ -27,8 +27,9 @@ All three were fixed the same day, in session 1 (branch `claude/fix-x1-x3-report
 them, and session 3 (branch `claude/fix-x9-x11-tests`) two more. It found X-14: a test that
 fails when another runs beside it. Session 4 (branch `claude/fix-x6-x14-docs`) fixed that and
 the three documentation items, and found X-15: the older text of the two manuals departs
-from the STE rules too. That was a decision, and the owner made it the same day. Nothing from
-module 20 is open.
+from the STE rules too. That was a decision, and the owner made it the same day. One item is
+open, found after the sessions in a from-scratch install: **X-16 (MEDIUM)**, post-install
+builds each new Python patch and leaves the pip packages in the old one.
 
 **Module 19:** 2026-09-27 against `d8a0f5a`
 (`19-audit-2026-09-27.md`), a full sweep of every module for shell correctness, idempotency,
@@ -152,6 +153,16 @@ first.
   owner chose not to rewrite it. The record now says that the rules are a target for new
   text and for text that changes, and that the older text stays as it is (branch
   `claude/x15-ste-record`).
+- **X-16 — post-install and a new Python patch (MEDIUM): open, your decision.**
+  `.python-version` holds `3.12`, and post-install's "already installed" test wants a whole
+  line, so it never passes. Each run calls `pyenv install -s 3.12`. On 2026-10-01 pyenv 2.8.7
+  knew 3.12.15, and the owner's `make all` built it. `python` is now 3.12.15 with pip alone;
+  dmgbuild, mlx-whisper, pypdf and python-docx stay in 3.12.14, and their commands stop. The
+  seven `release.sh` scripts stop at their dmgbuild preflight until it is installed again.
+  The run printed three ✓ lines and no warning. → To close: choose whether post-install keeps
+  the installed patch or moves to each new one and says so; then one fix session. To recover
+  now: `python3 -m pip install dmgbuild mlx-whisper pypdf python-docx`. Evidence and both
+  options are in `20-audit-2026-10-01.md`.
 
 **Module 19's findings (2026-09-27): all fixed.** Module 19 fixed nothing itself, and its 30
 findings went to seven fix sessions on 2026-09-27 and 2026-09-28. The W-1 session found a
