@@ -602,14 +602,23 @@ git_in_progress() {
 # the Summary is the evidence: with it, this names the steps that failed and
 # says the rest ran; without it, it says the run stopped short, and never that
 # everything ran.
+#
+# topgrade draws a step's header two ways: "── 20:04:24 - Summary ────" at a
+# terminal, in U+2500, and "―― 20:04:24 - Summary ――" away from one, in
+# U+2015. Until 2026-10-01 only the first was read, so a run with no terminal
+# was told that topgrade had stopped before its summary when it had not. A
+# command after the Summary that fails is not in it: topgrade runs the ones
+# after it and exits 1, which is the "though its summary shows" case below.
 topgrade_verdict() {
   local rc=$1 log=$2 found n=0 failed=0 after=0 names="" cleanup=""
-  found=$(sed $'s/\x1b\\[[0-9;?]*[A-Za-z]//g' "$log" 2>/dev/null | tr -d '\r' | awk '
-    /^── (.* - )?Summary ─/ { insum = 1; seen = 1; n = 0; f = 0; post = 0; names = ""; next }
-    insum && /^── /         { insum = 0 }
+  # Colour codes, and the window title topgrade sets before each header, which
+  # shares the header's line when the terminal reports no width.
+  found=$(sed -e $'s/\x1b\\[[0-9;?]*[A-Za-z]//g' -e $'s/\x1b][^\x07]*\x07//g' "$log" 2>/dev/null | tr -d '\r' | awk '
+    /^(──|――) (.* - )?Summary (─|―)/ { insum = 1; seen = 1; n = 0; f = 0; post = 0; names = ""; next }
+    insum && /^(──|――) /    { insum = 0 }
     insum && /: OK$/        { n++; next }
     insum && /: FAILED$/    { n++; f++; sub(/: FAILED$/, ""); names = names (names == "" ? "" : ", ") $0; next }
-    seen && !insum && /^── / { post++ }
+    seen && !insum && /^(──|――) / { post++ }
     END { if (seen) printf "%d\t%d\t%d\t%s\n", n, f, post, names }')
   if [[ -z "$found" ]]; then
     if (( rc != 0 )); then
@@ -633,7 +642,9 @@ topgrade_verdict() {
       info "The exit status is $rc for the failed step alone."
     fi
   elif (( rc != 0 )); then
-    warn "topgrade exited $rc, though its summary shows all $n steps OK: a command after the summary failed. See above."
+    warn "topgrade exited $rc, though its summary shows no failed step: a command after the summary failed. See above."
+  elif (( n == 1 )); then
+    ok "Update finished: its one step succeeded."
   else
     ok "Update finished: all $n steps succeeded."
   fi

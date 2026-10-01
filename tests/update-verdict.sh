@@ -11,6 +11,8 @@
 # and exits RC; nothing is upgraded. The real Makefile's update recipe runs it,
 # under a throwaway HOME: through tee, as it does with no terminal, and on
 # macOS inside a pseudo-terminal too, where it records the run with script(1).
+# The transcripts are in the forms real runs of topgrade 17.12.2 were recorded
+# in, with no terminal and through script.
 # The update shell function is run in a zsh that reads no startup file.
 # ci-check runs it.
 
@@ -46,21 +48,44 @@ EOF
 chmod +x "$S/topgrade" "$W/nobrew/brew"
 
 # The transcripts: a run's last step, topgrade's Summary, and the clean-up
-# commands that follow it. ESC and CR are as script(1) records them.
-summary() { # STATUS-OF-TLDR STATUS-OF-CASK
-  printf '%s\r\n' '── 20:04:21 - npm global update ──────────' 'changed 12 packages in 3s' '' \
-    $'\033[1m── 20:04:24 - Summary ──────────\033[0m' \
-    'oh-my-zsh: OK' 'pipx: OK' "TLDR: $1" 'yarn: OK' 'gcloud: OK' 'GitHub CLI Extensions: OK' \
-    'Git Repositories: OK' 'Brew (ARM): OK' "Brew Cask (ARM): $2" 'npm global update: OK' '' \
-    '── 20:04:24 - pipx upgrade-all ──────' 'No packages upgraded' \
-    '── 20:04:24 - pip cache purge ──────' 'ERROR: No matching packages' \
-    '── 20:04:25 - Homebrew cache scrub ──────' '── 20:04:28 - npm cache verify ──────' \
-    '── 20:04:29 - pyenv rehash ──────' '── 20:04:29 - go clean test cache ──────' \
-    '── 20:04:29 - Refresh zsh completions ──────'
+# commands that follow it, in each of the three ways topgrade 17 draws a step's
+# header, taken from recordings of real runs:
+#   plain   no terminal: "―― 20:04:24 - Summary ――", in U+2015
+#   wide    a terminal, as script(1) records it: the window title on a line of
+#           its own, then "── 20:04:24 - Summary ────", in U+2500, CRLF
+#   narrow  a terminal that reports no width: the title and a U+2015 header on
+#           one line, CRLF
+# Until 2026-10-01 these were all written here in a form made up from a pasted
+# terminal, and the verdict read no other: with no terminal it said topgrade
+# had stopped before its summary.
+header() { # FORM TITLE
+  case "$1" in
+    plain)  printf '―― 20:04:24 - %s ――\n' "$2" ;;
+    wide)   printf '\033]0;Topgrade - %s\a\r\n── 20:04:24 - %s ──────────────────────────\r\n' "$2" "$2" ;;
+    narrow) printf '\033]0;Topgrade - %s\a―― 20:04:24 - %s ――\r\n' "$2" "$2" ;;
+  esac
 }
-summary OK $'\033[31mFAILED\033[0m' > "$T/one-failed"
-summary FAILED FAILED > "$T/two-failed"
-summary OK OK > "$T/all-ok"
+text() { # FORM LINE...
+  local form=$1 eol=$'\n'
+  shift
+  [[ "$form" == plain ]] || eol=$'\r\n'
+  printf "%s$eol" "$@"
+}
+summary() { # FORM STATUS-OF-TLDR STATUS-OF-CASK
+  header "$1" 'npm global update'; text "$1" 'changed 12 packages in 3s'
+  header "$1" Summary
+  text "$1" 'oh-my-zsh: OK' 'pipx: OK' "TLDR: $2" 'yarn: OK' 'gcloud: OK' 'GitHub CLI Extensions: OK' \
+    'Git Repositories: OK' 'Brew (ARM): OK' "Brew Cask (ARM): $3" 'npm global update: OK'
+  header "$1" 'pipx upgrade-all'; text "$1" 'No packages upgraded'
+  header "$1" 'pip cache purge'; text "$1" 'ERROR: No matching packages'
+  header "$1" 'Homebrew cache scrub'; header "$1" 'npm cache verify'; header "$1" 'pyenv rehash'
+  header "$1" 'go clean test cache'; header "$1" 'Refresh zsh completions'
+}
+summary plain OK FAILED > "$T/one-failed"
+summary wide OK $'\033[31mFAILED\033[0m' > "$T/one-failed-wide"
+summary narrow OK FAILED > "$T/one-failed-narrow"
+summary plain FAILED FAILED > "$T/two-failed"
+summary plain OK OK > "$T/all-ok"
 printf '%s\n' 'Error: Configuration error' 'unknown field nope, expected one of ...' > "$T/no-summary"
 
 ENV=(env -i HOME="$W/home" PATH="$S:/usr/bin:/bin:/usr/sbin:/sbin" TMPDIR="$TMP" TERM=dumb)
@@ -88,6 +113,18 @@ if (( RC_SEEN != 0 )) && has "Update finished: every step ran. 1 of 10 failed: B
 else
   fail "one failed step: exit $RC_SEEN, lines $last_step/$verdict/$make_err"; show
 fi
+
+# ── 1b. The other two ways topgrade draws its headers ───────────────────────
+
+for form in wide narrow; do
+  update "one-failed-$form" 1
+  if has "Update finished: every step ran. 1 of 10 failed: Brew Cask (ARM)." \
+     && has "the other 9 succeeded, and the 7 clean-up commands after them ran."; then
+    pass "the $form header form is read the same"
+  else
+    fail "the $form header form:"; show
+  fi
+done
 
 # ── 2. Two failed ────────────────────────────────────────────────────────────
 
@@ -119,7 +156,7 @@ fi
 # ── 5. Every step OK, and still a failure status ─────────────────────────────
 
 update all-ok 3
-if (( RC_SEEN != 0 )) && has "topgrade exited 3, though its summary shows all 10 steps OK" && ! has "all 10 steps succeeded"; then
+if (( RC_SEEN != 0 )) && has "topgrade exited 3, though its summary shows no failed step" && ! has "all 10 steps succeeded"; then
   pass "a failure after the summary: reported as that, not as success"
 else
   fail "a failure after the summary: exit $RC_SEEN"; show
@@ -156,7 +193,7 @@ _, status = os.waitpid(pid, 0)
 sys.stdout.write(out.decode("utf-8", "replace").replace("\r", ""))
 sys.exit(os.WEXITSTATUS(status) if os.WIFEXITED(status) else 1)
 PY
-  "${ENV[@]}" TRANSCRIPT="$T/one-failed" RC=1 python3 "$W/at-a-terminal.py" \
+  "${ENV[@]}" TRANSCRIPT="$T/one-failed-wide" RC=1 python3 "$W/at-a-terminal.py" \
     make --no-print-directory -C "$REPO_ROOT" update > "$W/out" 2>&1; rc=$?
   if (( rc != 0 )) && has "Update finished: every step ran. 1 of 10 failed: Brew Cask (ARM)." && tidy; then
     pass "at a terminal: the run is recorded through script, read, and its recording removed"
