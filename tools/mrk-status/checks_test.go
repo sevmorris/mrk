@@ -13,8 +13,8 @@ import (
 // as arguments, which makes them exercisable against a constructed directory
 // rather than against whatever this machine happens to look like.
 //
-// checkHomebrew and the live half of checkBrewfile are not covered here — they
-// read the real system by design. So does checkShell, but its remediation
+// checkHomebrew is not covered here — it reads the real system by design. The
+// daily panels, and the Brewfile against Homebrew, are in daily_test.go. So does checkShell, but its remediation
 // branch is driven at the end of this file with a fake zsh first on PATH.
 
 func texts(g group) string {
@@ -234,7 +234,7 @@ func TestUnreadableFilesAreReportedNotMiscounted(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, g := range []group{checkDefaults(dir), checkHardening(dir), checkBrewfile(dir)} {
+	for _, g := range []group{checkDefaults(dir), checkHardening(dir), brewfileSummary(dir, brewDrift{})} {
 		if g.sev != sevWarn || !strings.Contains(texts(g), "Cannot read") {
 			t.Errorf("%s: a file that cannot be read to the end should warn, got sev=%v:\n%s", g.name, g.sev, texts(g))
 		}

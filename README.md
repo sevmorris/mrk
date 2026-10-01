@@ -76,11 +76,11 @@ Run `make all` to execute all three phases at once. On a fresh machine, run them
 | Target | Description |
 |--------|-------------|
 | `mrk-menu` | Open the hierarchical tool launcher |
-| `make status` | Print the installation checks as a plain-text report (the `status` command opens the mrk-status dashboard) |
+| `make status` | Print the dashboard's panels as text: what is unrecorded, upkeep, Time Machine, the installation (the `status` command opens them in the mrk-status dashboard) |
 | `make doctor` | Check `~/bin` is on PATH; `make doctor ARGS=--fix` adds it to `.zshrc` |
 | `make build-tools` | Build all Go TUI binaries (mrk-picker + mrk-status + mrk-menu) |
 | `make picker` | Build mrk-picker only |
-| `make mrk-status` | Build mrk-status TUI health dashboard |
+| `make mrk-status` | Build the mrk-status daily dashboard |
 | `make mrk-menu` | Build mrk-menu TUI launcher |
 | `make uninstall` | Remove symlinks, optionally rollback defaults |
 | `make fix-exec` | Fix executable permissions on scripts, and prune dead `~/bin` links |

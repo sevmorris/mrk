@@ -6,7 +6,8 @@
 # description at all, so each add turned the gate red until someone described
 # the package by hand: `sync: add prismlauncher`, then `picker: describe
 # prismlauncher`. sync now reads Homebrew's description, and files a cask by the
-# category its app declares in its Info.plist.
+# category its app declares in its Info.plist. It also proves that sync --check,
+# which mrk-status reads, prints the drift and nothing else.
 #
 # Everything runs against a copy of the repository, under a throwaway HOME whose
 # ~/Applications holds fake apps. brew is a stub named by MRK_BREW that prints
@@ -325,6 +326,46 @@ if [[ "$(git -C "$R" rev-parse HEAD)" != "$before" && "$subject" == "sync: remov
 else
   fail "sync -p -c, the additions declined: last commit '$subject'; uncommitted: $(git -C "$R" diff --name-only | tr '\n' ' ')"
   grep -E 'No packages|Committed|stale|Stale' "$W/out" | sed 's/^/      /' >&2
+fi
+
+# 6. sync --check: the drift alone, for mrk-status. A new formula and cask, one
+#    package sync-ignore names, and a Brewfile entry no longer installed. Only
+#    the list on stdout, sorted within each kind, the ignored package absent,
+#    and nothing written. Then a failing brew list: exit 1 and no list, never
+#    an empty one, which mrk-status would read as "no drift".
+git -C "$R" reset -q --hard
+STALE="$(sed -nE 's/^brew "([^"]+)".*/\1/p' "$R/Brewfile" | head -1)"
+{ sed -nE 's/^brew "([^"]+)".*/\1/p' "$R/Brewfile" | grep -vxF "$STALE"; printf 'zq-check-two\nzq-check-one\nzq-ignored-tool\n'; } > "$FIX/leaves"
+cp "$FIX/leaves" "$FIX/formulae"
+{ sed -nE 's/^cask "([^"]+)".*/\1/p' "$R/Brewfile"; echo zq-check-cask; } > "$FIX/casks"
+mkdir -p "$W/home/.mrk"
+printf '# test\nzq-ignored-tool\n' > "$W/home/.mrk/sync-ignore"
+check_sync() {
+  (cd "$W/home" && env HOME="$W/home" PATH="$W/stubs:$PATH" MRK_BREW="$W/stubs/brew" FIX="$FIX" \
+    bash "$R/scripts/sync" --check "$@" > "$W/check.out" 2> "$W/check.err")
+}
+check_sync; rc=$?
+want="$(printf 'add\tformula\tzq-check-one\nadd\tformula\tzq-check-two\nadd\tcask\tzq-check-cask\nprune\tformula\t%s' "$STALE")"
+if (( rc == 0 )) && [[ "$(cat "$W/check.out")" == "$want" ]] && git -C "$R" diff --quiet \
+   && grep -q 'Scanning installed Homebrew packages' "$W/check.err"; then
+  pass "sync --check prints the drift alone, sync-ignore honoured, and changes nothing"
+else
+  fail "sync --check: rc $rc, stdout:"; sed 's/^/      /' "$W/check.out" >&2
+  git -C "$R" diff --stat | sed 's/^/      /' >&2
+fi
+check_sync -c -p; rc=$?
+if (( rc == 0 )) && [[ "$(cat "$W/check.out")" == "$want" ]] && git -C "$R" diff --quiet; then
+  pass "--check takes precedence: with -c and -p it still writes and commits nothing"
+else
+  fail "sync --check -c -p: rc $rc, uncommitted: $(git -C "$R" diff --name-only | tr '\n' ' ')"
+fi
+mv "$FIX/formulae" "$FIX/formulae.ok"
+check_sync; rc=$?
+mv "$FIX/formulae.ok" "$FIX/formulae"
+if (( rc == 1 )) && [[ ! -s "$W/check.out" ]] && grep -q 'brew list --formula failed' "$W/check.err"; then
+  pass "sync --check with a failing brew list: exit 1, no list, and the reason on stderr"
+else
+  fail "sync --check with a failing brew list: rc $rc, stdout: $(tr '\n' ';' < "$W/check.out")"
 fi
 
 if (( fails > 0 )); then

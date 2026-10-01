@@ -338,16 +338,17 @@ sync-login-items only adds to the file. It keeps your comments, your blank lines
 
 > **Note:** sync-login-items drops the ignored names from the new items only. A name in the ignore list does not delete an item that `post-install` already tracks. If an app is both tracked and in the ignore list, `post-install` still adds the app at install time. sync-login-items shows these apps under "Ignored, but still tracked", and it offers to delete them from `scripts/post-install`.
 
-## How to check the installation health
+## How to check the day's work and the installation
 
-**`mrk-status`** is a TUI. It shows the health of your mrk installation. The `status` command runs the same binary.
+**`mrk-status`** is a TUI dashboard. It shows what this Mac holds that is not recorded yet, what has fallen behind, Time Machine, and then the installation. The `status` command runs the same binary.
 
 ```bash
 mrk-status                # Start the TUI dashboard
 status                    # The same binary
+make status               # The same panels, printed as text
 ```
 
-The checks are in the left pane, and the details are in the right pane. Press `f` to run the suggested fix for the selected check. Press `r` to run all the checks again.
+The panels are in the left pane, and their lines are in the right pane, each with its fix beside it. Press `f` to run the selected panel's first fix. Press `r` to run all the checks again. [What `make status` checks](#what-make-status-checks) lists the panels.
 
 ## mrk-menu
 
@@ -679,7 +680,7 @@ make restore-keys ARGS="--projects ~/Desktop/mrk-keys-<timestamp>.asc"
 ## Step 7 — Check the installation
 
 ```bash
-make status     # Check the dotfiles, tools, shell, Homebrew and Brewfile packages
+make status     # Check the installation, and what is unrecorded
 make doctor     # Check that ~/bin is on the PATH
 ```
 
@@ -803,7 +804,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | Command | Description |
 |---|---|
 | `mrk-menu` | Start the TUI launcher (see [mrk-menu](#mrk-menu) above for the keys) |
-| `make status` | Print the installation checks as a plain-text report. The `status` command is the mrk-status TUI dashboard, a separate program |
+| `make status` | Print the dashboard's panels as text: `mrk-status --plain`. The `status` command opens the same panels in the mrk-status dashboard |
 | `make doctor` | Check that `~/bin` is on the PATH. `make doctor ARGS=--fix` adds it to `.zshrc` |
 | `make fix-exec` | Set the executable bit on the scripts and the `~/bin` symlinks, and remove a `~/bin` symlink whose script is gone from the repository |
 
@@ -811,17 +812,23 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 
 # What `make status` checks
 
-`make status` checks the whole installation and shows eight results, plus Backups when there is a backup to report. It prints them as text. The `status` command runs the same checks in the mrk-status dashboard, where **f** runs the suggested fix; the two are separate programs:
+`make status` prints four panels as text. The `status` command shows the same panels in the mrk-status dashboard, where **f** runs a panel's fix. Both are one program: until 2026-09-30 `make status` ran a separate bash copy of the checks, and the two kept drifting apart. The daily panels come first:
 
-- **Dotfiles** — The files that mrk symlinked into `~/`, and the files that are absent.
-- **Tools** — The `~/bin` symlinks that work, and the symlinks that are broken.
-- **macOS Defaults** — Whether mrk applied the defaults. The rollback script is the evidence.
-- **Security Hardening** — Whether mrk applied the hardening.
-- **Backups** — Shown *only when backups exist*: how many, where, and the most recent. This is a report, not a health check — it can neither fail nor be fixed — so with nothing to report it is omitted rather than shown empty. See [What the backups are](#what-the-backups-are).
-- **Shell** — Your login shell. It must be zsh.
-- **PATH** — Whether `~/bin` is on the PATH.
-- **Homebrew** — The installed version.
-- **Brewfile packages** — Each formula and cask, marked ✓ installed or ✗ absent.
+- **Unrecorded** — What the next Mac would not get. Homebrew packages that are installed but not in the Brewfile, and Brewfile entries that are not installed, as `sync` itself counts them. Uncommitted changes and unpushed commits in `~/mrk` and in each repository in `~/Projects`. The repositories that the manifest does not record, and those with no origin remote.
+- **Upkeep** — `~/mrk` behind `origin/main`, as of the last fetch. The Go tools that are older than their source. The outdated Homebrew packages. The macOS updates for the installed version; a major upgrade is named, and never counted.
+- **Time Machine Backups** — Whether Time Machine has a destination, and how old the last backup is: a warning after a day, an error after seven.
+- **Installation** — The installation checks, as one panel:
+  - **Dotfiles** — The files that mrk symlinked into `~/`, and the files that are absent.
+  - **Tools** — The `~/bin` symlinks that work, and the symlinks that are broken.
+  - **Shell** — Your login shell. It must be zsh.
+  - **PATH** — Whether `~/bin` is on the PATH.
+  - **Homebrew** — The installed version.
+  - **Brewfile** — How many formulae and casks it tracks. What is installed against it is under Unrecorded.
+  - **macOS Defaults** — Whether mrk applied the defaults. The rollback script is the evidence.
+  - **Security Hardening** — Whether mrk applied the hardening.
+  - **Displaced files** — Shown *only when backups exist*: how many, and the most recent. This is a report, not a health check, so with nothing to report it is left out. See [What the backups are](#what-the-backups-are).
+
+Each line carries its fix where it has one, such as `make sync ARGS=-c` for a package the Brewfile lacks, or `bin/pushall` for a project with commits not pushed.
 
 ---
 

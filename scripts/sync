@@ -30,12 +30,14 @@ check_macos
 DRY_RUN=0
 COMMIT=0
 PRUNE=0
+CHECK=0
 
 while (("$#")); do
   case "$1" in
     --dry-run|-n) DRY_RUN=1 ;;
     --commit|-c)  COMMIT=1 ;;
     --prune|-p)   PRUNE=1 ;;
+    --check)      CHECK=1 ;;
     -h|--help)
       cat <<'USAGE'
 mrk sync — Snapshot installed Homebrew packages into the Brewfile
@@ -44,6 +46,11 @@ Usage: scripts/sync [options]
   --dry-run, -n   Show what would be added without modifying the Brewfile
   --commit, -c    Auto-commit the Brewfile after updating
   --prune, -p     Remove Brewfile entries for packages that are no longer installed
+  --check         Print what --dry-run would add and --prune would remove, one
+                  line each, tab-separated: add or prune, formula or cask, name.
+                  Nothing else on stdout, nothing changed, no picker. Exits 0
+                  when it could tell, drift or none; 1 when brew failed.
+                  mrk-status reads it. Takes precedence over the other options.
 USAGE
       exit 0
       ;;
@@ -298,6 +305,19 @@ if (( ${#stale_casks_arr[@]} > 0 )); then
 fi
 
 n_stale=$(( ${#stale_formulae_arr[@]} + ${#stale_casks_arr[@]} ))
+
+# --check stops here: the drift as the dashboard reads it, from the same
+# comparison and the same sync-ignore that an add or a prune would use, so the
+# two cannot disagree about what is unrecorded. Until 2026-09-30 mrk-status
+# compared the Brewfile with `brew list` itself, which knows nothing of
+# sync-ignore or of the difference between a leaf and a dependency.
+if (( CHECK )); then
+  for pkg in ${new_formulae_arr[@]+"${new_formulae_arr[@]}"};     do printf 'add\tformula\t%s\n' "$pkg"; done
+  for pkg in ${new_casks_arr[@]+"${new_casks_arr[@]}"};           do printf 'add\tcask\t%s\n' "$pkg"; done
+  for pkg in ${stale_formulae_arr[@]+"${stale_formulae_arr[@]}"}; do printf 'prune\tformula\t%s\n' "$pkg"; done
+  for pkg in ${stale_casks_arr[@]+"${stale_casks_arr[@]}"};       do printf 'prune\tcask\t%s\n' "$pkg"; done
+  exit 0
+fi
 
 declare -A prune_formulae=()
 declare -A prune_casks=()
