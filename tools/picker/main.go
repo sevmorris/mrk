@@ -73,7 +73,6 @@ var descriptions = map[string]string{
 	"paperkey":          "Extract GnuPG secret keys for offline paper backup",
 	"pinentry-mac":      "PIN/passphrase entry dialog for GnuPG on macOS",
 	"pwgen":             "Secure, memorable password generator",
-	"qemu":              "Generic machine emulator and virtualizer",
 	"qrencode":          "Generate QR codes from text strings",
 	"rclone":            "Cloud storage sync tool (S3, Dropbox, GDrive, and more)",
 	"deno":              "Secure JavaScript/TypeScript runtime by the Deno team",
