@@ -533,10 +533,31 @@ func orDetached(branch string) string {
 	return branch
 }
 
+// isMacOSUpdate is macos-updates' is_macos, for an entry of RecommendedUpdates:
+// the update is macOS itself when one of its names says so, anywhere in it. An
+// entry with no name at all is taken for macOS, and judged by its version.
+func isMacOSUpdate(d map[string]any) bool {
+	if pString(d["Display Name"]) == "" {
+		return true
+	}
+	for _, k := range []string{"Display Name", "Identifier", "Product Key"} {
+		if strings.Contains(strings.ToLower(pString(d[k])), "macos") {
+			return true
+		}
+	}
+	return false
+}
+
 // macOSUpdateLines reads the updates macOS found at its last check, from its
-// own record, which costs no network and no softwareupdate run. An update
+// own record, which costs no network and no softwareupdate run. A macOS update
 // whose major version is not the running one is a major upgrade: named, never
 // counted, as macos-updates treats it.
+//
+// The version test is for macOS alone, as it is there. Safari and the Command
+// Line Tools carry versions ahead of the OS, 27.0 for both on macOS 26, and
+// are not upgrades: make updates installs them. Until 2026-10-01 every entry
+// took the test, so those two were named as major upgrades that mrk never
+// installs, under "No macOS update" (audit 20, X-3).
 func macOSUpdateLines() []statusLine {
 	v, err := readPlist(sysVersionPlist)
 	current := pString(pDict(v)["ProductVersion"])
@@ -552,22 +573,32 @@ func macOSUpdateLines() []statusLine {
 	if t, ok := pTime(pDict(su)["LastSuccessfulDate"]); ok {
 		as = ", as of its check " + ago(now().Sub(t))
 	}
-	var minor, majors []string
+	var updates, majors []string
 	for _, u := range pArray(pDict(su)["RecommendedUpdates"]) {
 		d := pDict(u)
 		name, ver := pString(d["Display Name"]), pString(d["Display Version"])
-		if name == "" {
-			name = "macOS " + ver
-		}
-		if strings.SplitN(ver, ".", 2)[0] == major {
-			minor = append(minor, name)
-		} else {
+		switch {
+		case !isMacOSUpdate(d):
+			// Safari's name carries no version, as macOS's does.
+			if ver != "" && !strings.Contains(name, ver) {
+				name += " " + ver
+			}
+			updates = append(updates, name)
+		case strings.SplitN(ver, ".", 2)[0] == major:
+			if name == "" {
+				name = "macOS " + ver
+			}
+			updates = append(updates, name)
+		default:
+			if name == "" {
+				name = "macOS " + ver
+			}
 			majors = append(majors, name)
 		}
 	}
 	var lines []statusLine
-	if len(minor) > 0 {
-		lines = append(lines, slFix(sevWarn, plural(len(minor), "macOS update", "macOS updates")+" for macOS "+major+as+": "+names(minor), fixUpdates))
+	if len(updates) > 0 {
+		lines = append(lines, slFix(sevWarn, plural(len(updates), "macOS update", "macOS updates")+" for macOS "+major+as+": "+names(updates), fixUpdates))
 	} else {
 		lines = append(lines, sl(sevOK, "No macOS update for macOS "+major+as))
 	}

@@ -327,6 +327,61 @@ func TestUpkeepMacOSUpdates(t *testing.T) {
 	}
 }
 
+// Safari and the Command Line Tools carry versions ahead of the OS, and make
+// updates installs them: macos-updates applies its version test to macOS
+// alone. Until 2026-10-01 this panel applied it to every entry, said "No macOS
+// update", and named both as major upgrades that mrk never installs (audit 20,
+// X-3).
+func TestUpkeepOnlyMacOSIsEverAMajorUpgrade(t *testing.T) {
+	upkeepFixtures(t, "") // macOS 26.0.1 is installed
+	entry := func(name, ver, id string) string {
+		s := `<dict><key>Display Version</key><string>` + ver + `</string><key>Identifier</key><string>` + id + `</string>`
+		if name != "" {
+			s += `<key>Display Name</key><string>` + name + `</string>`
+		}
+		return s + `</dict>`
+	}
+	record := func(entries ...string) {
+		t.Helper()
+		write(t, suPlist, plistXML(`<dict><key>RecommendedUpdates</key><array>`+strings.Join(entries, "")+`</array></dict>`))
+	}
+	safari := entry("Safari", "27.0", "Safari27.0TahoeAuto-27.0")
+	clt := entry("Command Line Tools for Xcode", "27.0", "Command Line Tools for Xcode-27.0")
+	// The entry this Mac's record held on 2026-10-01.
+	upgrade := entry("macOS 27.0.1", "27.0.1", "MSU_UPDATE_26A5434_full_27.0.1_major")
+
+	record(safari, clt, upgrade)
+	lines := macOSUpdateLines()
+	g := group{"x", linesSev(lines), lines, ""}
+	if l, ok := line(g, "2 macOS updates for macOS 26"); !ok || l.sev != sevWarn || l.fix != fixUpdates ||
+		!strings.Contains(l.text, "Safari 27.0") || !strings.Contains(l.text, "Command Line Tools for Xcode 27.0") {
+		t.Errorf("Safari and the Command Line Tools should be counted as updates, with %q:\n%s", fixUpdates, texts(g))
+	}
+	if l, ok := line(g, "being a major upgrade:"); !ok || l.text != "  offered, and never installed by mrk, being a major upgrade: macOS 27.0.1" {
+		t.Errorf("only macOS 27.0.1 should be named as a major upgrade:\n%s", texts(g))
+	}
+
+	// Safari alone: an update, and no major upgrade to name.
+	record(safari)
+	lines = macOSUpdateLines()
+	g = group{"x", linesSev(lines), lines, ""}
+	if _, ok := line(g, "1 macOS update for macOS 26"); !ok || len(lines) != 1 {
+		t.Errorf("Safari alone should be one update and nothing else:\n%s", texts(g))
+	}
+
+	// macOS is known by its identifier too, and an entry with no name is taken
+	// for macOS: each is judged by its version.
+	record(entry("Tahoe 27.0", "27.0", "macOS 27-26A428"), entry("", "27.1", "x"), entry("", "26.1", "y"))
+	lines = macOSUpdateLines()
+	g = group{"x", linesSev(lines), lines, ""}
+	if l, ok := line(g, "1 macOS update for macOS 26"); !ok || !strings.HasSuffix(l.text, ": macOS 26.1") {
+		t.Errorf("a nameless 26.1 should be the one update:\n%s", texts(g))
+	}
+	if l, ok := line(g, "being a major upgrade:"); !ok || !strings.HasSuffix(l.text, ": Tahoe 27.0, macOS 27.1") {
+		t.Errorf("an entry whose identifier says macOS, and a nameless 27.1, should be the major upgrades:\n%s", texts(g))
+	}
+}
+
 // ── Time Machine ────────────────────────────────────────────────────────────
 
 func TestTimeMachine(t *testing.T) {

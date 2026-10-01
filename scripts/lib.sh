@@ -613,7 +613,15 @@ topgrade_verdict() {
   local rc=$1 log=$2 found n=0 failed=0 after=0 names="" cleanup=""
   # Colour codes, and the window title topgrade sets before each header, which
   # shares the header's line when the terminal reports no width.
-  found=$(sed -e $'s/\x1b\\[[0-9;?]*[A-Za-z]//g' -e $'s/\x1b][^\x07]*\x07//g' "$log" 2>/dev/null | tr -d '\r' | awk '
+  #
+  # In the C locale, set for this pipeline alone: the recording is read as
+  # bytes. It holds the output of every package manager topgrade ran, and in a
+  # UTF-8 locale macOS's sed stops at the first byte that is not UTF-8, one
+  # file name in Latin-1 say, with "illegal byte sequence". awk then never saw
+  # the Summary below that line, and until 2026-10-01 a run in which every step
+  # had run was told that topgrade had stopped before its summary (audit 20,
+  # X-2). The header patterns are byte strings and match the same.
+  found=$(export LC_ALL=C; sed -e $'s/\x1b\\[[0-9;?]*[A-Za-z]//g' -e $'s/\x1b][^\x07]*\x07//g' "$log" 2>/dev/null | tr -d '\r' | awk '
     /^(──|――) (.* - )?Summary (─|―)/ { insum = 1; seen = 1; n = 0; f = 0; post = 0; names = ""; next }
     insum && /^(──|――) /    { insum = 0 }
     insum && /: OK$/        { n++; next }

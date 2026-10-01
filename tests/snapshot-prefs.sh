@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # snapshot-prefs.sh — prove that snapshot-prefs leaves out a plist that changed
 # only in keys that change on their own, makes no commit when that is all that
-# changed, and that --dry-run commits, pushes and writes nothing.
+# changed, and that --dry-run commits, pushes and writes nothing. And that a
+# commit whose push failed is pushed by the next run, also when that run finds
+# nothing new: "No changes to push." must mean the remote has the last commit.
 #
 # Until 2026-09-30 any difference from the last commit made a commit, and in
 # the sixty snapshots before then a plist had changed in nothing but update
@@ -252,7 +254,79 @@ else
   fail "the saved KeyVault copy: rc $RC, last commit: $(last_files | tr '\n' ' ')"; show
 fi
 
-# ── 11. An unknown argument: refused before any export ───────────────────────
+# ── 11. A push that fails: the commit stays here, and is not called pushed ───
+
+# Cases 11 to 14 are audit 20's X-1. Until 2026-10-01 the run after a failed
+# push, when it found nothing new to commit, said "No changes to push." and
+# exited 0 with the commit still absent from the remote.
+ahead() { "$REAL_GIT" -C "$P" rev-list --count '@{upstream}..HEAD'; }
+n_pushed=$(pushed)
+fixtures dark b 7 0 gamma
+mv "$ORIGIN" "$ORIGIN.away"
+snap
+mv "$ORIGIN.away" "$ORIGIN"
+if (( RC != 0 )) && [[ "$(pushed)" == "$n_pushed" && "$(ahead)" == 1 ]] && ! grep -q 'Pushed to' "$W/out"; then
+  pass "a push that fails: exit $RC, the commit kept here, and nothing said to be pushed"
+else
+  fail "a push that fails: rc $RC, $(pushed) commit(s) on the remote, $(ahead) ahead"; show
+fi
+
+# ── 12. -n after it, with only self-changing keys since: says what would go ──
+
+fixtures dark b 8 1 gamma
+before=$(fingerprint)
+snap -n
+if (( RC == 0 )) && [[ "$(pushed)" == "$n_pushed" && "$(fingerprint)" == "$before" ]] \
+   && grep -q 'The real run would push 1 commit(s) that an earlier run left unpushed' "$W/out" \
+   && ! grep -q 'No changes to push' "$W/out"; then
+  pass "-n with a commit unpushed: says the real run would push it, and pushes nothing"
+else
+  fail "-n with a commit unpushed: rc $RC, $(pushed) commit(s) on the remote"; show
+fi
+
+# ── 13. The real run after it: nothing to commit, and the commit is pushed ───
+
+snap
+if (( RC == 0 )) && [[ "$(pushed)" == $(( n_pushed + 1 )) && "$(ahead)" == 0 ]] \
+   && [[ "$(pushed_value io.github.sevmorris.Alpha.plist theme)" == dark ]] \
+   && grep -q 'Pushing 1 commit(s) that an earlier run left unpushed' "$W/out" \
+   && tail -1 "$W/out" | grep -q 'Pushed to' && ! grep -q 'No changes to push' "$W/out" && clean; then
+  pass "nothing new to commit, one commit unpushed: it is pushed, and the run ends on \"Pushed to\""
+else
+  fail "an unpushed commit: rc $RC, $(pushed) commit(s) on the remote, $(ahead) ahead, theme $(pushed_value io.github.sevmorris.Alpha.plist theme)"; show
+fi
+snap
+if (( RC == 0 )) && [[ "$(pushed)" == $(( n_pushed + 1 )) ]] && tail -1 "$W/out" | grep -q 'No changes to push'; then
+  pass "and the run after that: \"No changes to push.\", which now means the remote has the last commit"
+else
+  fail "the run after the push: rc $RC, $(pushed) commit(s) on the remote"; show
+fi
+
+# ── 14. The same on a branch with no upstream: a first push that failed ──────
+
+# A second home, whose ~/.mrk/preferences is a plain directory: snapshot-prefs
+# makes it a repository and adds the remote, and a first push that fails leaves
+# the branch with no upstream to be ahead of.
+H2="$W/home2"
+ORIGIN2="$W/prefs2.git"
+mkdir -p "$H2/.mrk/preferences"
+snap2() {
+  "${ENV[@]}" HOME="$H2" PREFS_REPO="$ORIGIN2" "$REPO_ROOT/scripts/snapshot-prefs" > "$W/out" 2>&1
+  RC=$?
+}
+pushed2() { "$REAL_GIT" -C "$ORIGIN2" rev-list --count --all 2>/dev/null || echo 0; }
+snap2
+rc_first=$RC
+"$REAL_GIT" init -q --bare "$ORIGIN2"
+snap2
+if (( rc_first != 0 && RC == 0 )) && [[ "$(pushed2)" == 1 ]] \
+   && grep -q 'Pushing 1 commit(s) that an earlier run left unpushed' "$W/out" && tail -1 "$W/out" | grep -q 'Pushed to'; then
+  pass "a first push that failed, so no upstream: the next run pushes the commit"
+else
+  fail "a first push that failed: first rc $rc_first, then rc $RC, $(pushed2) commit(s) on the remote"; show
+fi
+
+# ── 15. An unknown argument: refused before any export ───────────────────────
 
 n_calls=$(wc -l < "$W/calls")
 snap --bogus
@@ -262,7 +336,7 @@ else
   fail "an unknown argument: rc $RC, or defaults was called"; show
 fi
 
-# ── 12. defaults was only ever asked to read, and never about KeyVault ───────
+# ── 16. defaults was only ever asked to read, and never about KeyVault ───────
 
 if grep -vE '^(read|export|domains)( |$)' "$W/calls" | grep -q .; then
   fail "defaults was asked for more than read, export and domains:"; sed 's/^/    /' "$W/calls"
