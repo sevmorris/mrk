@@ -124,6 +124,7 @@ cask "typora", greedy: true
 ## Casks - Utilities
 cask "a-better-finder-rename", greedy: true
 cask "aldente", greedy: true
+cask "android-platform-tools", greedy: true
 cask "appcleaner", greedy: true
 cask "balenaetcher", greedy: true
 cask "cryptomator", greedy: true
