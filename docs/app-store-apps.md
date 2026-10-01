@@ -13,9 +13,7 @@ Each name links to its App Store page.
 | [BetterSnapTool](https://apps.apple.com/app/id417375580) | `post-install` restores its preferences and registers its login item — run `make post-install` again after installing it |
 | [Chrono Plus - Time Tracker](https://apps.apple.com/app/id946047238) | `post-install` registers its login item — same re-run applies |
 | [Final Cut Pro](https://apps.apple.com/app/id424389933) | Large download |
-| [GarageBand](https://apps.apple.com/app/id682658836) | |
 | [Hush \| AI for Spoken Audio](https://apps.apple.com/app/id1664181766) | |
-| [iMovie](https://apps.apple.com/app/id408981434) | |
 | [Keynote](https://apps.apple.com/app/id361285480) | Installed as `Keynote Creator Studio.app` |
 | [Logic Pro](https://apps.apple.com/app/id634148309) | Large download; its sound library downloads separately, inside the app |
 | [Numbers](https://apps.apple.com/app/id361304891) | Installed as `Numbers Creator Studio.app` |
@@ -55,3 +53,7 @@ Until 2026-09-28 it also listed Blackmagic Disk Speed Test, Code of War Mobile S
 Compressor, DM1 - The Drum Machine, Encrypto, Mactracker and Speedtest by Ookla. None of them
 was installed after the 2026-09-15 migration, so they were taken off the list (audit 15, T-15).
 They are still in the App Store's Purchased list if you want one back.
+
+GarageBand and iMovie were removed from this Mac on 2026-10-01, and taken off the list the
+same day. GarageBand's sounds were left in `/Library/Application Support/GarageBand` and
+`/Library/Audio/Apple Loops`: Logic Pro reads the loops and the instrument library.
