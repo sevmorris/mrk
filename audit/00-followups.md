@@ -235,13 +235,17 @@ macOS 26.6.2. The verdicts and the evidence are in `11-test-results.md`.
 Both findings from the run were fixed the same day; see Closed. The plan's eight corrections
 are made in `10-test-plan.md`.
 
-**What stays on this Mac, for re-runs:**
+**What stayed on this Mac, for re-runs, until 2026-10-01:**
 - **Tart 2.40.0,** in `~/Applications/tart.app`, not through Homebrew: the `cirruslabs/cli`
-  tap's formula fails under Homebrew 7.0.7.
-- **`~/.tart`:** the 29 GB base image `mrk-audit-clean-prepared`, the VM key
-  `mrk-vm_ed25519` with its `known_hosts`, and `share-mrk/`, which holds only the public key's
-  installer.
-- **To remove it all:** delete `~/Applications/tart.app` and `~/.tart`.
+  tap's formula fails under Homebrew 7.0.7. It is still there, 75 MB.
+- **`~/.tart`:** the base image `mrk-audit-clean-prepared`, the VM key `mrk-vm_ed25519` with
+  its `known_hosts`, and `share-mrk/`, which holds only the public key's installer. The owner
+  had it removed on 2026-10-01: it went to the Trash, whole. It was 53 GB, not the 29 GB this
+  note gave: 27 GB for the VM, and 26 GB in `cache/` for the `macos-tahoe-vanilla` image the
+  VM was made from, which the note did not count.
+- **To run the VM tests again:** pull the base image and prepare the VM again, as
+  `10-test-plan.md` describes. Nothing of the tests' results depends on the old image.
+- **To remove the rest:** delete `~/Applications/tart.app`.
 
 Both fixes were re-run in fresh VMs on 2026-09-28, at `eeeba49`, and hold (see Closed). The
 half-copied-app gap the run could not produce was fixed the same day (see Closed). Nothing from
