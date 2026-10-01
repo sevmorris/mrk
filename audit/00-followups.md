@@ -195,17 +195,9 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
 **Module 17's items (2026-09-18): all settled.** The last, Homebrew's installer, was decided on
 2026-09-28: it keeps running from `HEAD` (see Closed). Details are in `17-audit-2026-09-18.md`.
 
-**Module 16's items (2026-09-17).** Evidence and options for each are in
-`16-audit-2026-09-17.md`.
-
-- **U-5 — no Time Machine destination (HIGH, your action).** This Mac has not been backed up
-  since the migration. `tmutil destinationinfo` still said "No destinations configured" on
-  2026-09-28. `raspi` advertises a Time Machine share on the network. → To close: add it in
-  System Settings › General › Time Machine (it asks for the share's password), let the first
-  backup finish, and check `tmutil destinationinfo`. mrk cannot do this for you. T-9 no longer
-  waits on it: `hide_tm.sh` was deleted.
-
-U-7 and U-8 were decided on 2026-09-28; see Closed.
+**Module 16's items (2026-09-17): all settled.** The last, U-5, was closed on 2026-10-01: the
+owner added the Pi's share as the Time Machine destination, and the first backup finished (see
+Closed). U-7 and U-8 were decided on 2026-09-28. Details are in `16-audit-2026-09-17.md`.
 
 **U-4's state half is done.** Thaw replaced Ice in mrk and on this Mac. On 2026-09-28 Thaw was
 running and was a login item. Its Accessibility permission was not checked then, because that
@@ -337,6 +329,22 @@ still describes code that no longer exists.
 
 Items that were on the punch list and have been closed. Pointers to commits only;
 the audit artifacts have the full detail.
+
+### Closed by the first Time Machine backup, branch `claude/ledger-u5-time-machine`, 2026-10-01
+
+- **U-5 (HIGH)** — this Mac had no Time Machine destination, and no backup since the
+  2026-09-15 migration. The owner did the work; mrk manages none of it, and nothing in mrk
+  changed.
+  - **The old backup:** the Pi's disk held the old Mac's backup, 544 GB, last written on
+    2026-09-13. It left 325 GB free, less than this Mac needs. The owner deleted it. An empty
+    folder of its name is still on the share.
+  - **The destination:** the owner added the share in System Settings › General › Time
+    Machine. `tmutil destinationinfo` now gives `smb://sev@raspi._smb._tcp.local./TimeMachine`,
+    kind Network.
+  - **The first backup:** it started at 12:22 and finished at 14:12, over Wi-Fi. Its `RESULT`
+    is 0, and `tmutil listbackups` shows one backup, `2026-10-01-141239`. It is 463 GB on the
+    Pi, which leaves 407 GB of the 916 GB disk free.
+  - **After that:** `AutoBackup` is 1, so backups run each hour while the share can be reached.
 
 ### Closed by removing a copy cut short, branch `claude/install-apps-partial-copy`, 2026-09-28
 
