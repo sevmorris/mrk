@@ -161,7 +161,6 @@ var descriptions = map[string]string{
 	"the-unarchiver":         "Archive extractor supporting many formats",
 	"timemachineeditor":      "Schedule and control Time Machine backup frequency",
 	"typora":                 "Minimal Markdown editor with live preview",
-	"utm":                    "Virtual machine host using QEMU for macOS and iOS",
 	"vlc":                    "Free, open-source media player for any format",
 	"waves-central":          "Waves audio plugin installer and license manager",
 	"whatsapp":               "WhatsApp desktop messaging client",

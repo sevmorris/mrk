@@ -102,7 +102,6 @@ cask "github", greedy: true
 cask "iterm2", greedy: true
 cask "pulsar", greedy: true
 cask "temurin@21", greedy: true
-cask "utm", greedy: true
 
 ## Casks - Games
 cask "prismlauncher", greedy: true
