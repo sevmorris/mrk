@@ -28,7 +28,7 @@ check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
 check-picker-desc, topgrade-npm, picard-settings, snapshot-prefs, plist-import-order, setup-safety, undo-files,
-dock-setup, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, install-apps, make-pull and docs-drift tests in tests/, shellcheck over every tracked bash script,
+dock-setup, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, install-apps, make-pull and docs-drift tests in tests/, shellcheck over every tracked bash script,
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
@@ -234,6 +234,12 @@ log "defaults watch"
 # `make update` from ~ found no rule.
 log "home Makefile"
 "$REPO_ROOT/tests/home-makefile.sh"
+
+# make update against a stub topgrade: its last word says which steps failed and
+# that the rest ran, or that the run stopped before its summary. Until
+# 2026-09-30 a run with one failed cask ended on "make: *** [update] Error 1".
+log "update verdict"
+"$REPO_ROOT/tests/update-verdict.sh"
 
 # install-apps with curl, gh and hdiutil stubbed: a private repo gh cannot
 # reach yet is a skip, not a failure; a 403 or no network still fails. Until

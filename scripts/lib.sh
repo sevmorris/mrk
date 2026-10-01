@@ -589,6 +589,81 @@ git_in_progress() {
   fi
 }
 
+# topgrade_verdict RC LOG — say what topgrade's exit status RC means, from the
+# Summary it printed into LOG, a recording of the run.
+#
+# topgrade exits 1 when any step failed, and with no_retry and assume_yes, as
+# assets/topgrade.toml sets them, it runs every step first and stops for none.
+# So a run that upgraded everything but one cask ends, after its last clean-up
+# command, on a bare failure status, and make reports "*** [update] Error 1",
+# which reads as though the run broke off. On 2026-09-30 that was MacWhisper's
+# download returning 404: sixteen casks, eight formulae and every other step
+# had completed. topgrade prints its Summary only once every step has run, so
+# the Summary is the evidence: with it, this names the steps that failed and
+# says the rest ran; without it, it says the run stopped short, and never that
+# everything ran.
+topgrade_verdict() {
+  local rc=$1 log=$2 found n=0 failed=0 after=0 names="" cleanup=""
+  found=$(sed $'s/\x1b\\[[0-9;?]*[A-Za-z]//g' "$log" 2>/dev/null | tr -d '\r' | awk '
+    /^── (.* - )?Summary ─/ { insum = 1; seen = 1; n = 0; f = 0; post = 0; names = ""; next }
+    insum && /^── /         { insum = 0 }
+    insum && /: OK$/        { n++; next }
+    insum && /: FAILED$/    { n++; f++; sub(/: FAILED$/, ""); names = names (names == "" ? "" : ", ") $0; next }
+    seen && !insum && /^── / { post++ }
+    END { if (seen) printf "%d\t%d\t%d\t%s\n", n, f, post, names }')
+  if [[ -z "$found" ]]; then
+    if (( rc != 0 )); then
+      warn "topgrade stopped before its summary (exit $rc): not every step ran. Its last output is above."
+    fi
+    return 0
+  fi
+  IFS=$'\t' read -r n failed after names <<< "$found"
+  if (( failed > 0 )); then
+    warn "Update finished: every step ran. $failed of $n failed: $names."
+    if (( after == 1 )); then
+      cleanup=", and the clean-up command after them ran"
+    elif (( after > 1 )); then
+      cleanup=", and the $after clean-up commands after them ran"
+    fi
+    info "Nothing was interrupted: the other $(( n - failed )) succeeded$cleanup."
+    # make sets MAKELEVEL for a recipe: only there does an "Error" line follow.
+    if [[ -n "${MAKELEVEL:-}" ]]; then
+      info "The exit status is $rc for the failed step alone, which make reports next as \"Error $rc\"."
+    else
+      info "The exit status is $rc for the failed step alone."
+    fi
+  elif (( rc != 0 )); then
+    warn "topgrade exited $rc, though its summary shows all $n steps OK: a command after the summary failed. See above."
+  else
+    ok "Update finished: all $n steps succeeded."
+  fi
+}
+
+# run_topgrade [ARGS...] — run topgrade, then say what its exit status means
+# (topgrade_verdict). Returns topgrade's status. make update, the update shell
+# function and update-full all run it.
+#
+# At a terminal the run is recorded through script(1), which gives topgrade a
+# terminal of its own, so its colours, progress bars and sudo prompt are as
+# they were; script returns the command's status. Without a terminal it is a
+# plain tee. The recording is removed afterwards.
+run_topgrade() {
+  local log rc=0
+  if ! log=$(mrk_mktemp); then
+    topgrade "$@"
+    return
+  fi
+  if [[ -t 0 && -t 1 && "$(uname -s)" == Darwin ]] && command -v script >/dev/null 2>&1; then
+    script -q "$log" topgrade "$@" || rc=$?
+  else
+    topgrade "$@" 2>&1 | tee "$log"
+    rc=${PIPESTATUS[0]}
+  fi
+  topgrade_verdict "$rc" "$log"
+  rm -f "$log"
+  return "$rc"
+}
+
 # tool_freshness REPO BINDIR — for each Go tool mrk builds, print its name and
 # its state, tab-separated: "ok"; "stale", when a source under tools/<dir> or
 # tools/theme — go.mod and go.sum included, since a dependency bump changes the

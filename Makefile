@@ -164,8 +164,12 @@ pull: ## Fast-forward the mrk repo to origin, then rebuild and relink what the p
 	fi; \
 	exit $$rc
 
-update: ## Upgrade all packages (topgrade or brew)
-	@if command -v topgrade >/dev/null 2>&1; then topgrade; else brew update && brew upgrade; fi
+# run_topgrade (lib.sh) ends the run by saying what its exit status means: when
+# a step failed, that every step ran, and which ones failed. Until 2026-09-30 a
+# run with one failed cask ended on "make: *** [update] Error 1" and nothing
+# else, which reads as though it had stopped there.
+update: ## Upgrade all packages (topgrade or brew), and say which steps failed
+	@. "$(SCRIPTS)/lib.sh" && if command -v topgrade >/dev/null 2>&1; then run_topgrade; else brew update && brew upgrade; fi
 
 updates: ## Install macOS updates for the installed version, never a major upgrade  (ARGS=-n for dry run)
 	@"$(BIN_DIR)/macos-updates" $(ARGS)
