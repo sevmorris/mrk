@@ -26,8 +26,9 @@ All three were fixed the same day, in session 1 (branch `claude/fix-x1-x3-report
 (branch `claude/fix-x4-x13-shell`) fixed five of the LOW items, the one session 1 found among
 them, and session 3 (branch `claude/fix-x9-x11-tests`) two more. It found X-14: a test that
 fails when another runs beside it. Session 4 (branch `claude/fix-x6-x14-docs`) fixed that and
-the three documentation items. One item is open, X-15, and it is a decision: see Deferred
-decisions.
+the three documentation items, and found X-15: the older text of the two manuals departs
+from the STE rules too. That was a decision, and the owner made it the same day. Nothing from
+module 20 is open.
 
 **Module 19:** 2026-09-27 against `d8a0f5a`
 (`19-audit-2026-09-27.md`), a full sweep of every module for shell correctness, idempotency,
@@ -144,12 +145,13 @@ first.
 | 3 | X-9, X-11: two noise lists, and seven pieces of new behaviour no test holds | fixed 2026-10-01, branch `claude/fix-x9-x11-tests` |
 | 4 | X-6, X-7, X-12, X-14: SMAC-1's `make snapshot` row and Stats login item, a stale SMAC-2 sentence, STE drift in new text; `tests/restore-keys.sh` taking another test's scratch directory for a leftover | fixed 2026-10-01, branch `claude/fix-x6-x14-docs`; sevmac `claude/audit-20-docs` |
 
-- **X-15 — the older text and the STE rules (LOW, your decision).** Session 4 brought the
-  text added since 2026-09-28 back to the rules of `docs/STE-CONVERSION.md`. The same count
-  over the whole of each file still reports long sentences, perfect tenses and glossary words
-  in the older text: 50, 4 and 22 in the manual, and 194, 31 and 119 in BIN-1. The counter
-  over-reads, but the drift is real. → To close: either a pass over the whole of both files,
-  or a line in the record saying that the rules are a target for new text.
+- **X-15 — the older text and the STE rules (LOW): decided 2026-10-01.** Session 4 brought
+  the text added since 2026-09-28 back to the rules of `docs/STE-CONVERSION.md`. The same
+  count over the whole of each file still reports long sentences, perfect tenses and glossary
+  words in the older text: 50, 4 and 22 in the manual, and 194, 31 and 119 in BIN-1. The
+  owner chose not to rewrite it. The record now says that the rules are a target for new
+  text and for text that changes, and that the older text stays as it is (branch
+  `claude/x15-ste-record`).
 
 **Module 19's findings (2026-09-27): all fixed.** Module 19 fixed nothing itself, and its 30
 findings went to seven fix sessions on 2026-09-27 and 2026-09-28. The W-1 session found a
