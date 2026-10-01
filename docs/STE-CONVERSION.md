@@ -15,6 +15,27 @@ Technical accuracy outranks style. Where an STE rewrite would have made an instr
 wrong, or would have dropped a safety caveat, the meaning was kept and the deviation is
 recorded in "Deviations" below.
 
+**The rules are a target for new text, not a claim about every sentence.** The files were
+converted in August 2026, and the text added to them after that drifted from the rules.
+On 2026-10-01 audit 20 counted the whole of both files against three of the rules, after
+that day's pass over the newest text:
+
+| File | Sentences | Over 25 words | Perfect tense | Words the glossary replaces |
+|---|---|---|---|---|
+| `docs/manual.md` | 866 | 50 | 4 | 22 |
+| `docs/bin/mrk-usage.html` | 1,588 | 194 | 31 | 119 |
+
+The counter is mechanical and reads high: it joins two sentences when the second starts
+with a lowercase command name, and a table cell or a caution may run long by deviations 3
+and 4. The drift is real all the same. The text added from 2026-09-28 to 2026-10-01 was
+brought back to the rules that day (deviation 16). The older text stays as it is, by the
+owner's decision of 2026-10-01: it is accurate, and a rewrite of a few hundred correct
+sentences risks more than it gains.
+
+So the rules apply to what is written from here on. Write new text to them, and text you
+change. Then run the checks under "How to check this work", because nothing runs them for
+you.
+
 ---
 
 ## Ruleset applied
