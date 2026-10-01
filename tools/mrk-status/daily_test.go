@@ -268,6 +268,27 @@ func TestUpkeepToolFreshness(t *testing.T) {
 		t.Errorf("binaries newer than every source should be OK:\n%s", texts(checkUpkeep(repo, t.TempDir(), bin)))
 	}
 
+	// Each tool is held to its own directory, and mrk-picker's is tools/picker.
+	// A go.mod or a go.sum counts as a source: a dependency bump changes the
+	// binary without touching a .go file. Until 2026-10-01 this test changed
+	// only the shared theme, and held neither rule (audit 20, X-11).
+	for _, c := range []struct{ file, stale string }{
+		{"picker/go.mod", "mrk-picker"},
+		{"mrk-menu/go.sum", "mrk-menu"},
+		{"mrk-status/extra.go", "mrk-status"},
+	} {
+		changed := filepath.Join(repo, "tools", c.file)
+		write(t, changed, "changed\n")
+		g := checkUpkeep(repo, t.TempDir(), bin)
+		want := "Older than their source: " + c.stale
+		if l, ok := line(g, "Older than their source"); !ok || l.text != want || l.fix != fixBuildTools {
+			t.Errorf("a newer tools/%s should make %s stale, and it alone:\n%s", c.file, c.stale, texts(g))
+		}
+		if err := os.Remove(changed); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	// A change to the shared theme makes every tool stale.
 	write(t, filepath.Join(repo, "tools", "theme", "main.go"), "package main // changed\n")
 	g := checkUpkeep(repo, t.TempDir(), bin)

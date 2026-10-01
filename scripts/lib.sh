@@ -744,6 +744,31 @@ tool_freshness() {
   done
 }
 
+# MRK_SELF_CHANGING_KEYS — the preference keys an app, or macOS for it, rewrites
+# without anyone changing a setting, in any domain: globs for a key's name.
+# snapshot-prefs leaves a plist out of its commit when nothing but such keys
+# changed, and defaults-watch lists a change to one apart from the settings.
+#
+# One list, read by both. Until 2026-10-01 each kept its own, and the two had
+# parted: defaults-watch lacked the last four names here, so it showed a change
+# of versionLastLaunched as a setting (audit 20, X-9). Each adds what is its
+# own: snapshot-prefs its per-app keys, PREFS_NOISE there, and defaults-watch
+# the toolbar layout, which it only lists apart and never drops.
+#
+# A key earns a place by changing on its own in the snapshots, not by a guess:
+# snapshot-prefs has the count.
+# shellcheck disable=SC2034  # read by the scripts that source this file
+MRK_SELF_CHANGING_KEYS=(
+  # Sparkle's update checks
+  'SU*Time' 'SU*Date' 'SUUpdateGroupIdentifier' 'SUUpdateRelaunchingMarker'
+  # Where macOS put a window, a split view, a menu bar item or the file panel
+  'NSWindow Frame *' 'NSSplitView Subview Frames *' 'NSStatusItem Preferred Position *'
+  'NSNav*' 'NSOSP*' '*[wW]indowFrame'
+  # Launch counters, and Rogue Amoeba's record of the versions that have run
+  'launchCount' '*LaunchCount' '*RunCount'
+  'versionHighestLaunched' 'versionLastLaunched'
+)
+
 # prefs_source ID — print the domain to hand `defaults export` so that it reads
 # the preferences app ID really uses: the path of ~/Library/Preferences/ID.plist
 # when that file exists, and otherwise ID itself.

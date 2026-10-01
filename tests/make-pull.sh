@@ -13,7 +13,8 @@
 # go is a stub that records the build and writes a placeholder binary; sudo,
 # defaults, osascript, launchctl, chsh and open are stubs that run nothing, and
 # uname says Darwin. MRK_BREW names a brew that does not exist, so the Makefile's
-# brew-env finds no Homebrew to put ahead of the stubs.
+# brew-env finds no Homebrew to put ahead of the stubs. The last cases make a
+# build fail, and the pull itself: make pull must exit non-zero for each.
 # Nothing reaches the real HOME, ~/bin, the network or any preferences.
 #
 # When this file landed it did not set MRK_BREW. On Linux, where it was written,
@@ -70,9 +71,11 @@ for cmd in sudo defaults osascript launchctl chsh open; do
   printf '#!/bin/sh\nprintf "%%s %%s\\n" "%s" "$*" >> "%s/calls"\n' "$cmd" "$W" > "$S/$cmd"
   chmod +x "$S/$cmd"
 done
-# go build -ldflags ... -o BINARY . — record the build, write BINARY.
+# go build -ldflags ... -o BINARY . — record the build, write BINARY. With
+# $W/go-fails there, the build fails instead.
 cat > "$S/go" <<EOF
 #!/bin/sh
+[ -f "$W/go-fails" ] && { echo "go: stub build failure" >&2; exit 1; }
 out=""
 while [ \$# -gt 0 ]; do
   [ "\$1" = -o ] && { out="\$2"; shift; }
@@ -219,7 +222,38 @@ else
   fail "dotfile added: ~/.pulltestrc not linked"; sed 's/^/    /' "$W/out"
 fi
 
-# ── 8. Nothing ran for real ──────────────────────────────────────────────────
+# ── 8. A step that fails: exit non-zero, and the other steps still run ───────
+
+# BIN-1 says make pull "exits 1 when the pull or any step fails". Until
+# 2026-10-01 no case made one fail, and a recipe that ended in `exit 0` passed
+# every check here (audit 20, X-11).
+printf '\n// A third.\n' >> "$UP/tools/mrk-menu/main.go"
+printf '#!/usr/bin/env bash\necho again\n' > "$UP/scripts/pull-test-cmd2"
+chmod +x "$UP/scripts/pull-test-cmd2"
+commit_upstream "tools, and a script"
+: > "$W/go-fails"
+pull; rc=$?
+rm -f "$W/go-fails"
+if (( rc != 0 )) && [[ "$(readlink "$H/bin/pull-test-cmd2")" == "$CLONE/scripts/pull-test-cmd2" ]]; then
+  pass "a build that fails: make pull exits $rc, and the script the same pull added is still linked"
+else
+  fail "a build that fails: make pull exited $rc; ~/bin/pull-test-cmd2 $([[ -L "$H/bin/pull-test-cmd2" ]] && echo linked || echo "not linked")"; sed 's/^/    /' "$W/out"
+fi
+
+# ── 9. A pull that cannot fast-forward: exit non-zero, nothing built ─────────
+
+echo local > "$CLONE/local-only"
+run_env git -C "$CLONE" add local-only && run_env git -C "$CLONE" commit -qm "a local commit"
+printf '\n// A fourth.\n' >> "$UP/tools/mrk-menu/main.go"
+commit_upstream "tools once more"
+pull; rc=$?
+if (( rc != 0 )) && [[ "$(builds)" == 0 ]]; then
+  pass "a pull that cannot fast-forward: make pull exits $rc, and nothing is built"
+else
+  fail "a pull that cannot fast-forward: make pull exited $rc, $(builds) build(s)"; sed 's/^/    /' "$W/out"
+fi
+
+# ── 10. Nothing ran for real ─────────────────────────────────────────────────
 
 if grep -vE '^sudo -n -v ?$' "$W/calls" | grep -q .; then
   fail "a stub other than sudo -n -v was called:"; sed 's/^/    /' "$W/calls"
