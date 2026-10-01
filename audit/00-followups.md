@@ -1,7 +1,7 @@
 # Followups
 
 This file indexes every deferred item, known limitation, and explicitly-out-of-scope
-finding from the mrk audit (modules 1–19, six fix sessions, runtime verification).
+finding from the mrk audit (modules 1–20, the fix sessions, runtime verification).
 It is not a punch list of unfixed bugs — most items here were explicitly chosen to defer,
 accept as a known limitation, or scope out. The value of the file is that "what's still
 open?" has a single answer without grepping the whole audit directory.
@@ -9,7 +9,22 @@ open?" has a single answer without grepping the whole audit directory.
 For each item: what it is, where it's documented, why it was deferred, what action
 would close it.
 
-**Last re-verified:** 2026-09-27 against `d8a0f5a` by module 19
+**Last re-verified:** 2026-10-01 against `70092e2` by module 20
+(`20-audit-2026-10-01.md`), a pass over what changed since module 19: 57 commits, PRs #31 to
+#72. It read how the changes fit together, the new shell and Go code, the tests by mutation, and
+BIN-1, the manual, SMAC-1 and SMAC-2. `ci-check`, `go vet`, `gofmt`, shellcheck, staticcheck and
+govulncheck were green beforehand. It found 12 items, none HIGH. Three are MEDIUM, and each is a
+report that can say something false with exit 0:
+- **X-1.** snapshot-prefs says "No changes to push" while a commit whose push failed is still
+  unpushed. Since 2026-09-30 a run that finds only self-changing keys stops there.
+- **X-2.** One byte that is not UTF-8 in topgrade's output makes `make update` end on "topgrade
+  stopped before its summary" when every step ran.
+- **X-3.** The dashboard calls a Safari or Command Line Tools update a major upgrade that mrk
+  never installs. `make updates` installs it.
+
+The nine LOW items, and the four fix sessions proposed, are listed under Deferred decisions.
+
+**Module 19:** 2026-09-27 against `d8a0f5a`
 (`19-audit-2026-09-27.md`), a full sweep of every module for shell correctness, idempotency,
 rollback fidelity, the Go code, documentation drift and cruft. It is a findings pass: it fixed
 nothing itself. Its 30 items, and a 31st found while fixing W-1, were fixed by seven sessions on
@@ -112,6 +127,17 @@ Nothing. W-1 and N-1 are fixed — see Closed below.
 ## Deferred decisions
 
 Items that require a real choice before they can be closed in either direction.
+
+**Module 20's findings (2026-10-01).** Evidence, the suggested fix and the mutation runs for
+each are in `20-audit-2026-10-01.md`. Four fix sessions are proposed there, highest severity
+first.
+
+| Session | Findings | State |
+|---|---|---|
+| 1 | X-1, X-2, X-3: the three reports that can be wrong | open |
+| 2 | X-4, X-5, X-8, X-10: the recording left on a signal, the marker left after a failed pull, the verdict on two streams, the nvm alias boundary | open |
+| 3 | X-9, X-11: two noise lists, and seven pieces of new behaviour no test holds | open |
+| 4 | X-6, X-7, X-12: SMAC-1's `make snapshot` row and Stats login item, a stale SMAC-2 sentence, STE drift in new text | open |
 
 **Module 19's findings (2026-09-27): all fixed.** Module 19 fixed nothing itself, and its 30
 findings went to seven fix sessions on 2026-09-27 and 2026-09-28. The W-1 session found a
