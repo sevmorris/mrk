@@ -232,7 +232,10 @@ func (m model) viewMenu(winW, innerW, paneH int) string {
 		}
 	}
 
-	leftRendered := paneCatStyle(m.state == stateFocusCat, leftPaneW, paneH).Render(leftPane.String())
+	// No newline after the last category, as the right pane writes none after
+	// its last item: with nine categories the trailing one made the pane ten
+	// lines in the nine a 22-line terminal leaves it.
+	leftRendered := paneCatStyle(m.state == stateFocusCat, leftPaneW, paneH).Render(strings.TrimSuffix(leftPane.String(), "\n"))
 	rightRendered := paneItemStyle(rightW, paneH).Render(rightPane.String())
 	s.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, rightRendered) + "\n\n")
 

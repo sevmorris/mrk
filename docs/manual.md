@@ -352,7 +352,7 @@ The panels are in the left pane, and their lines are in the right pane, each wit
 
 ## mrk-menu
 
-**`mrk-menu`** starts any mrk task. It groups the commands into categories: Brewfile, Login items, Preferences, System state, Diagnostics, Maintenance, and Nuclear options. It runs each command in the same terminal.
+**`mrk-menu`** starts any mrk task. It groups the commands into categories: Daily, Brewfile, Login items, Preferences, Diagnostics, Maintenance, Setup, Migration, and Nuclear options. Daily comes first, with the three commands that record a change: `sync -c`, `sync-login-items -c` and `mrk-push`. Setup and Migration, which a Mac runs once, come last. It runs each command in the same terminal.
 
 ```bash
 mrk-menu

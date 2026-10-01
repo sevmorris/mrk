@@ -21,7 +21,21 @@ type category struct {
 	items []item
 }
 
+// The order is the point. Until 2026-09-30 the menu opened on Brewfile, with
+// the commands of the day spread through Brewfile, Login items and
+// Maintenance, and the setup phases and the migration steps in the middle.
+// Daily comes first now: the three commands that record a change into mrk,
+// the first column of SMAC-2's "After You Change Something". Setup and
+// Migration, which a Mac runs once, come last, before Nuclear options.
 var categories = []category{
+	{
+		name: "Daily",
+		items: []item{
+			{"sync -c", "add new Homebrew packages to the Brewfile, and commit", cmdBin, "sync", []string{"-c"}, false},
+			{"sync-login-items -c", "track new login items in post-install, and commit", cmdBin, "sync-login-items", []string{"-c"}, false},
+			{"mrk-push", "commit and push ~/mrk (asks for the message)", cmdBin, "mrk-push", nil, false},
+		},
+	},
 	{
 		name: "Brewfile",
 		items: []item{
@@ -40,30 +54,7 @@ var categories = []category{
 		name: "Preferences",
 		items: []item{
 			{"snapshot-prefs", "export and push app prefs to mrk-prefs", cmdBin, "snapshot-prefs", nil, false},
-			{"pull-prefs", "clone or update app prefs from mrk-prefs", cmdBin, "pull-prefs", nil, false},
-			{"restore-repos", "clone the repos listed in the mrk-prefs manifest", cmdBin, "restore-repos", nil, false},
-			{"restore-repos --dry-run", "show which repos would be cloned", cmdBin, "restore-repos", []string{"--dry-run"}, false},
-		},
-	},
-	{
-		name: "Keys",
-		// restore-keys is deliberately absent. It takes the archive path as a
-		// required argument, and the menu runs a command with a fixed argument
-		// list and no prompt, so the entry could only ever exit 1 on the usage
-		// text. Run it as `make restore-keys ARGS=<archive>`.
-		items: []item{
-			{"snapshot-keys", "bundle ~/.ssh, ~/.gnupg and signing identities", cmdBin, "snapshot-keys", nil, false},
-			{"snapshot-keys --dry-run", "show what would be bundled, write nothing", cmdBin, "snapshot-keys", []string{"--dry-run"}, false},
-		},
-	},
-	{
-		name: "System state",
-		items: []item{
-			{"make defaults", "apply macOS defaults", cmdMake, "defaults", nil, false},
-			{"make harden", "apply security hardening (Touch ID sudo, firewall)", cmdMake, "harden", nil, false},
-			{"make trackpad", "apply defaults including trackpad", cmdMake, "trackpad", nil, false},
-			{"make dotfiles", "relink dotfiles", cmdMake, "dotfiles", nil, false},
-			{"make tools", "relink scripts and bin into ~/bin", cmdMake, "tools", nil, false},
+			{"snapshot-prefs --dry-run", "show what snapshot-prefs would commit, push nothing", cmdBin, "snapshot-prefs", []string{"--dry-run"}, false},
 		},
 	},
 	{
@@ -91,6 +82,30 @@ var categories = []category{
 			{"clean-ds --dry-run", "list .DS_Store files, delete nothing", cmdBin, "clean-ds", []string{"--dry-run"}, false},
 			{"prune-deployments --dry-run", "list old Pages deployments, delete nothing", cmdBin, "prune-deployments", []string{"--dry-run"}, false},
 			{"prune-deployments", "delete old Pages deployments, keep the live one", cmdBin, "prune-deployments", nil, false},
+		},
+	},
+	{
+		name: "Setup",
+		items: []item{
+			{"make defaults", "apply macOS defaults", cmdMake, "defaults", nil, false},
+			{"make harden", "apply security hardening (Touch ID sudo, firewall)", cmdMake, "harden", nil, false},
+			{"make trackpad", "apply defaults including trackpad", cmdMake, "trackpad", nil, false},
+			{"make dotfiles", "relink dotfiles", cmdMake, "dotfiles", nil, false},
+			{"make tools", "relink scripts and bin into ~/bin", cmdMake, "tools", nil, false},
+		},
+	},
+	{
+		name: "Migration",
+		// restore-keys is deliberately absent. It takes the archive path as a
+		// required argument, and the menu runs a command with a fixed argument
+		// list and no prompt, so the entry could only ever exit 1 on the usage
+		// text. Run it as `make restore-keys ARGS=<archive>`.
+		items: []item{
+			{"snapshot-keys", "bundle ~/.ssh, ~/.gnupg and signing identities", cmdBin, "snapshot-keys", nil, false},
+			{"snapshot-keys --dry-run", "show what would be bundled, write nothing", cmdBin, "snapshot-keys", []string{"--dry-run"}, false},
+			{"pull-prefs", "clone or update app prefs from mrk-prefs", cmdBin, "pull-prefs", nil, false},
+			{"restore-repos", "clone the repos listed in the mrk-prefs manifest", cmdBin, "restore-repos", nil, false},
+			{"restore-repos --dry-run", "show which repos would be cloned", cmdBin, "restore-repos", []string{"--dry-run"}, false},
 		},
 	},
 	{
