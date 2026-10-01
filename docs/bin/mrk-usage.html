@@ -1003,7 +1003,7 @@ sync --check</code></pre>
           <h3>mrk-menu <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">mrk-menu starts any mrk task. It is a two-pane TUI, and it groups the commands into categories: Brewfile, Login items, Preferences, System state, Diagnostics, Maintenance, and Nuclear options. mrk-menu is a Go binary.</p>
+          <p class="desc">mrk-menu starts any mrk task. It is a two-pane TUI, and it groups the commands into categories: Daily, Brewfile, Login items, Preferences, Diagnostics, Maintenance, Setup, Migration, and Nuclear options. Daily is first and opens selected: <code>sync -c</code>, <code>sync-login-items -c</code> and <code>mrk-push</code>, the three commands that record a change into mrk. Setup (the macOS defaults, hardening and links) and Migration (<code>snapshot-keys</code>, <code>pull-prefs</code>, <code>restore-repos</code>), which a Mac runs once, come last. Until 2026-09-30 the menu opened on Brewfile, and the setup steps sat in the middle as System state. mrk-menu is a Go binary.</p>
           <pre><code>mrk-menu [--help | -h]</code></pre>
           <ul>
             <li><code>-h</code>, <code>--help</code> — Show the usage summary and the key list, then exit. Added 2026-09-10; before that mrk-menu was the only one of the three TUIs without it, and <code>mrk-menu --help</code> tried to open a TTY, failed, and exited 1.</li>

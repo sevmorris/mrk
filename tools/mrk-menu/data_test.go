@@ -145,3 +145,37 @@ func TestOnlyNukeMrkIsGated(t *testing.T) {
 }
 
 func exists(p string) bool { _, err := os.Stat(p); return err == nil }
+
+// The order is what the menu is for: the commands that record a change come
+// first, and what a Mac runs once comes last.
+func TestDailyComesFirstAndSetupLast(t *testing.T) {
+	var names []string
+	for _, c := range categories {
+		names = append(names, c.name)
+	}
+	if names[0] != "Daily" {
+		t.Fatalf("the first category is %q, want Daily: %v", names[0], names)
+	}
+	var daily []string
+	for _, it := range categories[0].items {
+		daily = append(daily, it.commandLine())
+	}
+	if got, want := strings.Join(daily, ", "), "sync -c, sync-login-items -c, mrk-push"; got != want {
+		t.Errorf("Daily runs %q, want %q", got, want)
+	}
+	n := len(names)
+	if got := strings.Join(names[n-3:], ", "); got != "Setup, Migration, Nuclear options" {
+		t.Errorf("the last three categories are %q, want Setup, Migration, Nuclear options", got)
+	}
+}
+
+// Every category must have a digit to jump to it, and fit the left pane at the
+// smallest terminal the menu draws in.
+func TestEveryCategoryFitsAndHasAJumpKey(t *testing.T) {
+	if n := len(categories); n > 9 {
+		t.Errorf("%d categories, and the jump keys are 1-9", n)
+	}
+	if n, room := len(categories), minTermH-chromeLines; n > room {
+		t.Errorf("%d categories, and a %d-line terminal leaves the left pane %d lines", n, minTermH, room)
+	}
+}
