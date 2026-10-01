@@ -646,14 +646,10 @@ git add -A -- "${add_specs[@]}"
 # the app (Farrago's masterVolume) or a table an app keeps of what it has seen
 # with settings inside it (BetterSnapTool's BSTAppSettings) still counts.
 PREFS_NOISE=(
-  # Sparkle's update checks
-  '*|SU*Time' '*|SU*Date' '*|SUUpdateGroupIdentifier' '*|SUUpdateRelaunchingMarker'
-  # Where macOS put a window, a split view, a menu bar item or the file panel
-  '*|NSWindow Frame *' '*|NSSplitView Subview Frames *' '*|NSStatusItem Preferred Position *'
-  '*|NSNav*' '*|NSOSP*' '*|*[wW]indowFrame'
-  # Launch counters, and Rogue Amoeba's record of the versions that have run
-  '*|launchCount' '*|*LaunchCount' '*|*RunCount'
-  '*|versionHighestLaunched' '*|versionLastLaunched'
+  # In every file: Sparkle's update checks, window and file-panel positions,
+  # launch counters. The list is MRK_SELF_CHANGING_KEYS in lib.sh, which
+  # defaults-watch reads too.
+  "${MRK_SELF_CHANGING_KEYS[@]/#/*|}"
   # iTerm2 marks its machine-local state NoSync itself
   'iTerm2.plist|NoSync*' 'iTerm2.plist|iTerm Version'
   'Raycast.plist|raycast-updates-lastAppUpdateCheckDate' 'Raycast.plist|raycast-updates-whatsNewItemDisplayDate'

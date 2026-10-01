@@ -28,7 +28,7 @@ check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
 check-picker-desc, topgrade-npm, picard-settings, snapshot-prefs, plist-import-order, setup-safety, undo-files,
-dock-setup, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, install-apps, make-pull and docs-drift tests in tests/, shellcheck over every tracked bash script,
+dock-setup, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, update-full, maintain, install-apps, make-pull and docs-drift tests in tests/, shellcheck over every tracked bash script,
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
@@ -240,6 +240,19 @@ log "home Makefile"
 # 2026-09-30 a run with one failed cask ended on "make: *** [update] Error 1".
 log "update verdict"
 "$REPO_ROOT/tests/update-verdict.sh"
+
+# update-full with every command it reaches stubbed: its eight steps in order,
+# step 1 pulling with PULL_BUILD=0 and step 4 through run_topgrade. Until
+# 2026-10-01 no test ran it, and a copy that ran plain topgrade again passed
+# every gate here. Audit 20, X-11.
+log "update-full"
+"$REPO_ROOT/tests/update-full.sh"
+
+# maintain --dry-run: its build check names each Go tool as up to date, older
+# than its source or not installed, by tool_freshness in lib.sh, and a dry run
+# calls neither gh, git nor make. Audit 20, X-11.
+log "maintain"
+"$REPO_ROOT/tests/maintain.sh"
 
 # install-apps with curl, gh and hdiutil stubbed: a private repo gh cannot
 # reach yet is a skip, not a failure; a 403 or no network still fails. Until

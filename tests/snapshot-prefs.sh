@@ -345,6 +345,31 @@ else
   fail "a first push that failed: first rc $rc_first, then rc $RC, $(pushed2) commit(s) on the remote"; show
 fi
 
+# ── 14b. A merge left unfinished in ~/.mrk/preferences: both runs refuse ─────
+
+# The dry run exports into a clone, and a clone of a repository stopped
+# mid-merge is not mid-merge. So the dry run has a check of its own, made in
+# the real directory, and until 2026-10-01 no case here reached it (audit 20,
+# X-11): without it a dry run reported a commit the real run would refuse.
+: > "$P/.git/MERGE_HEAD"
+n_calls=$(wc -l < "$W/calls")
+before=$(fingerprint)
+snap -n
+if (( RC == 1 )) && grep -q 'merge in progress in .*/.mrk/preferences' "$W/out" && grep -q 'Nothing was exported' "$W/out" \
+   && [[ "$(wc -l < "$W/calls")" == "$n_calls" && "$(fingerprint)" == "$before" ]]; then
+  pass "-n with a merge unfinished there: refused, exit 1, before any export"
+else
+  fail "-n with a merge unfinished: rc $RC, defaults calls $(wc -l < "$W/calls" | tr -d ' ') (were $(echo "$n_calls" | tr -d ' '))"; show
+fi
+snap
+if (( RC == 1 )) && grep -q 'merge in progress in .*/.mrk/preferences' "$W/out" && grep -q 'Nothing was exported or pushed' "$W/out" \
+   && [[ "$(wc -l < "$W/calls")" == "$n_calls" && "$(fingerprint)" == "$before" ]]; then
+  pass "the real run with a merge unfinished there: refused the same way"
+else
+  fail "the real run with a merge unfinished: rc $RC"; show
+fi
+rm -f "$P/.git/MERGE_HEAD"
+
 # ── 15. An unknown argument: refused before any export ───────────────────────
 
 n_calls=$(wc -l < "$W/calls")

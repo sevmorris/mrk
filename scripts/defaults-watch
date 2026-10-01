@@ -137,16 +137,17 @@ fi
 log "Snapshotting again, and comparing…"
 snapshot "$W/after" || exit 1
 
-python3 - "$W/before" "$W/after" "$DEFAULTS_SH" "$SYSTEM_PREFS" <<'PYEOF'
+python3 - "$W/before" "$W/after" "$DEFAULTS_SH" "$SYSTEM_PREFS" "$(printf '%s\n' "${MRK_SELF_CHANGING_KEYS[@]}")" <<'PYEOF'
 import datetime, fnmatch, os, plistlib, re, shlex, sys
 
 before, after, defaults_sh, system_dir = sys.argv[1:5]
 
-# Keys an app or System Settings itself rewrites, not settings: the same kinds
-# snapshot-prefs leaves out of a commit (PREFS_NOISE there).
-NOISE = ["NSWindow Frame *", "NSSplitView Subview Frames *", "NSStatusItem Preferred Position *",
-         "NSNav*", "NSOSP*", "NSToolbar Configuration *", "SU*Time", "SU*Date",
-         "launchCount", "*LaunchCount", "*RunCount", "*[wW]indowFrame"]
+# Keys an app or System Settings itself rewrites, not settings. The first part
+# is MRK_SELF_CHANGING_KEYS in lib.sh, the list snapshot-prefs leaves out of a
+# commit. A toolbar's layout is this script's own addition, as it was before
+# the two lists became one: here a key is only listed apart, never dropped, so
+# the bar for calling one noise is lower than it is there.
+NOISE = sys.argv[5].splitlines() + ["NSToolbar Configuration *"]
 WRITABLE = (bool, int, float, str)
 
 

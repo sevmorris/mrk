@@ -11,7 +11,8 @@
 # one change of each kind defaults-watch tells apart: a key defaults.sh writes,
 # at its value and at another, a quoted key, a key of the trackpad loop's second
 # domain, a key defaults.sh lacks, a nested dictionary, a deleted key, a new
-# domain, a -currentHost key, a key for all users, and window frames and dates.
+# domain, a -currentHost key, a key for all users, and window frames, dates
+# and the other keys that change on their own.
 # The real scripts/defaults.sh is read, never run. uname says Darwin.
 # Nothing reaches the real HOME or any preferences.
 # It runs under /bin/bash and under the bash running this file. ci-check runs it.
@@ -96,6 +97,11 @@ for phase, on in ((1, False), (2, True)):
     put("changes", phase, "user", "com.example.watch", {"Answer": 42 if on else 41, **({} if on else {"Gone": "soon"})})
     put("changes", phase, "user", "com.apple.symbolichotkeys", {"AppleSymbolicHotKeys": {"64": {"enabled": not on, "value": {"type": "standard"}}}})
     put("changes", phase, "user", "com.apple.systempreferences", {"NSWindow Frame Main Window": f"{phase} 0 800 600", "LastSeen": t1 if on else t0})
+    # versionLastLaunched and SUUpdateGroupIdentifier are in lib.sh's list of
+    # keys that change on their own, which snapshot-prefs reads too; the toolbar
+    # layout is defaults-watch's own addition to it.
+    put("changes", phase, "user", "com.example.noisy", {"versionLastLaunched": f"4.{phase}", "SUUpdateGroupIdentifier": phase,
+                                                        "NSToolbar Configuration Main": f"layout {phase}"})
     if on:
         put("changes", phase, "user", "com.example.fresh", {"Fresh": True})
     put("changes", phase, "host", "com.apple.screensaver", {"idleTime": 600 if on else 0})
@@ -185,6 +191,17 @@ if grep -q 'com.apple.systempreferences  NSWindow Frame Main Window' <<<"$noise"
   pass "a window frame and a date: listed apart, as probably not the setting"
 else
   fail "the noise:"; show
+fi
+
+# The list of such keys is lib.sh's, the one snapshot-prefs leaves out of a
+# commit, and the toolbar layout besides. Until 2026-10-01 defaults-watch kept
+# a list of its own, which lacked versionLastLaunched and
+# SUUpdateGroupIdentifier and showed each as a setting (audit 20, X-9).
+if grep -q 'com.example.noisy  versionLastLaunched' <<<"$noise" && grep -q 'com.example.noisy  SUUpdateGroupIdentifier' <<<"$noise" \
+   && grep -q 'com.example.noisy  NSToolbar Configuration Main' <<<"$noise" && ! grep -q '^com.example.noisy' "$W/out"; then
+  pass "keys from lib.sh's list, and a toolbar layout: listed apart too"
+else
+  fail "the shared list of keys that change on their own:"; show
 fi
 
 # ── 2. Nothing changed ───────────────────────────────────────────────────────

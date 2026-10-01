@@ -65,11 +65,14 @@ for a in "\$@"; do
 done
 exec "$REAL_GIT" "\$@"
 EOF
-# make records the call, and exits with the status in $W/make-rc when that
-# file is there: a pull that fails.
+# make records the call, and how many fetches had started by then, after a
+# pause when $W/make-waits is there. It exits with the status in $W/make-rc
+# when that file is there: a pull that fails.
 cat > "$S/make" <<EOF
 #!/bin/sh
 printf 'make %s\\n' "\$*" >> "$W/makes"
+[ -f "$W/make-waits" ] && sleep 0.3
+wc -l < "$W/fetches" | tr -d ' ' > "$W/fetches-at-make"
 [ -f "$W/make-rc" ] && exit "\$(cat "$W/make-rc")"
 exit 0
 EOF
@@ -263,12 +266,30 @@ else
   fail "a yes whose pull fails: rc $rc_failed, said $said, markers after it: '$kept', then: '$(markers)', $(makes) make(s)"; show
 fi
 
+# ── 7c. A yes with a fetch due: make pull first, the fetch after it ──────────
+
+# check-updates fetches after the prompt, because a fetch still running when a
+# yes starts make pull would contend with the pull's own fetch for the same
+# refs. Until 2026-10-01 nothing held that order (audit 20, X-11). The make stub
+# waits a moment, then records how many fetches had started.
+upstream 1
+echo $(( $(now) - 90000 )) > "$STAMP"
+n=$(fetches)
+: > "$W/make-waits"
+check y
+rm -f "$W/make-waits"
+if (( RC == 0 )) && asked && [[ "$(makes)" == 3 && "$(cat "$W/fetches-at-make")" == "$n" ]] && await_fetches $(( n + 1 )); then
+  pass "a yes with a fetch due: make pull runs first, and the fetch starts after it"
+else
+  fail "a yes with a fetch due: rc $RC, $(makes) make(s), fetches when make ran: $(cat "$W/fetches-at-make" 2>/dev/null) (were $n), now $(fetches)"; show
+fi
+
 # ── 8. Behind, on another branch: not asked ──────────────────────────────────
 
 upstream 1
 rg -C "$CLONE" switch -q -c feature
 check y; settle
-if (( RC == 0 )) && ! asked && [[ "$(makes)" == 2 ]]; then
+if (( RC == 0 )) && ! asked && [[ "$(makes)" == 3 ]]; then
   pass "behind, on another branch: not asked"
 else
   fail "behind, on another branch: asked, or pulled"; show
@@ -278,7 +299,7 @@ rg -C "$CLONE" switch -q main
 # ── 9. Back on main, the same head: asked; Ctrl-D counts as no ───────────────
 
 check EOF; settle
-if (( RC == 0 )) && asked && grep -q 'Not asking again' "$W/out" && [[ "$(makes)" == 2 ]]; then
+if (( RC == 0 )) && asked && grep -q 'Not asking again' "$W/out" && [[ "$(makes)" == 3 ]]; then
   pass "back on main: asked; Ctrl-D is a no, and exits 0"
 else
   fail "back on main, Ctrl-D: rc $RC, $(makes) make(s)"; show
@@ -290,7 +311,7 @@ echo local >> "$CLONE/local"
 g -C "$CLONE" add local && g -C "$CLONE" commit -qm local
 upstream 1
 check y; settle
-if (( RC == 0 )) && ! asked && [[ "$(makes)" == 2 ]]; then
+if (( RC == 0 )) && ! asked && [[ "$(makes)" == 3 ]]; then
   pass "diverged from origin: not asked"
 else
   fail "diverged from origin: asked, or pulled"; show
