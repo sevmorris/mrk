@@ -264,11 +264,22 @@ n_pushed=$(pushed)
 fixtures dark b 7 0 gamma
 mv "$ORIGIN" "$ORIGIN.away"
 snap
+rc_first=$RC
+cp "$W/out" "$W/out-first"
+# Again with the remote still out of reach, and nothing new to commit: the
+# push of the earlier commit fails too, and must not pass for a push.
+snap
 mv "$ORIGIN.away" "$ORIGIN"
-if (( RC != 0 )) && [[ "$(pushed)" == "$n_pushed" && "$(ahead)" == 1 ]] && ! grep -q 'Pushed to' "$W/out"; then
-  pass "a push that fails: exit $RC, the commit kept here, and nothing said to be pushed"
+if (( rc_first != 0 )) && [[ "$(pushed)" == "$n_pushed" && "$(ahead)" == 1 ]] && ! grep -q 'Pushed to' "$W/out-first"; then
+  pass "a push that fails: exit $rc_first, the commit kept here, and nothing said to be pushed"
 else
-  fail "a push that fails: rc $RC, $(pushed) commit(s) on the remote, $(ahead) ahead"; show
+  fail "a push that fails: rc $rc_first, $(pushed) commit(s) on the remote, $(ahead) ahead"; sed 's/^/    /' "$W/out-first"
+fi
+if (( RC != 0 )) && grep -q 'Pushing 1 commit(s) that an earlier run left unpushed' "$W/out" \
+   && ! grep -q 'Pushed to\|No changes to push' "$W/out"; then
+  pass "the run after it, the remote still out of reach: exit $RC, and neither \"Pushed to\" nor \"No changes\""
+else
+  fail "the run after a failed push, the remote still out of reach: rc $RC"; show
 fi
 
 # ── 12. -n after it, with only self-changing keys since: says what would go ──
