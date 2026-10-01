@@ -78,10 +78,14 @@ Spaces · Force Touch · Taptic Engine · Notification Centre · Quick Look · T
 GitHub · GitHub Pages · git · gum · dockutil · shellcheck · API key · token
 
 Product and script names are also Technical Names and appear verbatim: `mrk`,
-`mrk-picker`, `mrk-menu`, `mrk-status`, `bf`, `maintain`, `snapshot`, `snapshot-prefs`,
-`pull-prefs`, `sync`, `sync-login-items`, `nuke-mrk`, `audio-mode`, `zoom-mode`,
-`Barkeep`, `KeyVault`, `Calibre`, `Raycast`, `MacWhisper`, and the rest of the managed app
-list. `Keychain` and `OpenPGP` are Technical Names too.
+`mrk-picker`, `mrk-menu`, `mrk-status`, `maintain`, `snapshot-prefs`, `pull-prefs`, `sync`,
+`sync-login-items`, `nuke-mrk`, `defaults-watch`, `Barkeep`, `KeyVault`, `Calibre`,
+`Raycast`, `MacWhisper`, and the rest of the managed app list. `Keychain` and `OpenPGP` are
+Technical Names too.
+
+Until 2026-10-01 this list also named `bf`, `snapshot`, `audio-mode` and `zoom-mode`. None
+of the four is in the repository now: `bf` and `snapshot` were retired, and no file or page
+names the other two.
 
 ### Technical Verbs — the approved domain set
 
@@ -93,7 +97,8 @@ These verbs are allowed in their technical sense, and are used consistently:
 
 `pause` and `resume` were added to the published set because they are the actual domain
 operations of `audio-mode` and `zoom-mode`, and no approved general word carries the
-meaning without loss.
+meaning without loss. Those two commands are no longer in the repository, and BIN-1 uses
+neither verb now.
 
 ---
 
@@ -101,8 +106,8 @@ meaning without loss.
 
 | File | Degree | State |
 |---|---|---|
-| `docs/bin/mrk-usage.html` | Full STE on all prose. HTML structure and callout classes kept. | Done — commit `89fd1af`; ignore-list and self-populate prose added in the `login-items-ignore` work |
-| `docs/manual.md` | Full STE. Procedures strict; descriptions STE-descriptive. | Done — commit `292485f`; ignore-list and self-populate prose added in the `login-items-ignore` work |
+| `docs/bin/mrk-usage.html` | Full STE on all prose. HTML structure and callout classes kept. | Done — commit `89fd1af`; ignore-list and self-populate prose added in the `login-items-ignore` work; the text added from 2026-09-28 to 2026-10-01 brought back to the rules on 2026-10-01 |
+| `docs/manual.md` | Full STE. Procedures strict; descriptions STE-descriptive. | Done — commit `292485f`; ignore-list and self-populate prose added in the `login-items-ignore` work; the text added from 2026-09-28 to 2026-10-01 brought back to the rules on 2026-10-01 |
 | `scripts/sync-login-items` | The doc-emitting template only. | Done — commit `292485f` |
 | `docs/defaults/script.js` | Data reconcile + full STE on all 77 entries. | Done — reconcile `7f3d8de`; the 59 legacy entries split across five batches |
 | `README.md`, `docs/index.html` | Optional, low priority. | Not started |
@@ -185,8 +190,10 @@ Every deliberate departure from the ruleset.
    label, and the git command `git fetch --prune` keep the word. The chosen verb for
    the act itself is "delete" everywhere in prose.
 
-7. **`snapshot` is both a Technical Name and an action in one place.** The command is
-   named `snapshot`. Where the act is described, the prose says "exports".
+7. **`snapshot` was both a Technical Name and an action in one place.** The command was
+   named `snapshot`, and where the act was described the prose said "exports". The command
+   was retired on 2026-09-28, so this deviation has no text left to apply to. Its number is
+   kept, because other notes cite the deviations by number.
 
 8. **British spelling "Centre" in one new entry.** `Notification Centre` follows the
    surrounding entries' existing style. The rest of the documentation uses US spelling.
@@ -213,6 +220,29 @@ Every deliberate departure from the ruleset.
     `skip-verify-locked` points at that entry rather than repeating it a second and third
     time.
 
+12. **"skip" and "refuse" survive for what a tool does.** The glossary gives "drop" for an
+    ignore list that holds a name back, and "decline" for the user's answer to an offer.
+    Neither fits a tool that passes over an app that is not installed, or that stops on a
+    wrong command line. The converted text already said "skips" and "refuses" there, 35 and
+    28 times in BIN-1 at the 2026-09-27 audit, and the 2026-10-01 pass kept them.
+
+13. **"launch counter" names a key.** The glossary gives "start" for "launch". Apps keep keys
+    named `launchCount`, and the prose calls them launch counters after the key.
+
+14. **Quoted program output keeps its words.** BIN-1 quotes what a command shows, as in
+    nuke-mrk's "nothing has been deleted". The quotation is the program's text, not prose,
+    and it stays as the program has it. The tense check below reports that one line.
+
+15. **"setting" in a heading is a noun.** "How to keep a macOS setting" ends in -ing and is
+    not a gerund. The heading check below reports it beside "Troubleshooting".
+
+16. **The 2026-10-01 pass was by sentence, not by page.** Audit 20 (X-12) counted, in the text
+    added since 2026-09-28, 56 sentences over 25 words, 10 in a perfect tense and 39 uses of
+    "print", "remove", "folder" and the like for the chosen words. The pass rewrote those
+    sentences. It left the older text as it was, apart from four sentences that the checks
+    below reported. A comment inside one code block of the manual changed with it: "printed
+    as text" became "shown as text".
+
 ---
 
 ## How to check this work
@@ -226,7 +256,14 @@ grep -rniE '\b(has been|have been|had been|is being|are being)\b' docs/manual.md
 grep -rnE '^#{1,3} .*\b[A-Za-z]+ing\b' docs/manual.md
 ```
 
-All three are clean, except the "Troubleshooting" heading recorded as deviation 2.
+As of 2026-10-01 the first is clean. The second reports one line, the quoted output of
+deviation 14. The third reports two headings, "Troubleshooting" (deviation 2) and "How to
+keep a macOS setting" (deviation 15).
+
+Before that date this section said all three were clean, and audit 20 found that they
+were not: the first reported "sufficient" in BIN-1's prune-deployments entry, and the second
+reported five lines. Nothing runs these checks for you, so run them after a change to either
+file.
 
 Widening the first grep to all of `docs/` is now clean too. It previously reported hits
 from the 59 unconverted descriptions in `docs/defaults/script.js` — the note here named

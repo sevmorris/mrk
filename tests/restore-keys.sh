@@ -93,20 +93,31 @@ stub_dir() {
   printf '%s' "$d"
 }
 
-# scratch_dirs — the mrk.* directories in $TMPDIR, where mrk_mktemp_d puts them.
-scratch_dirs() { find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'mrk.*' 2>/dev/null | sort; }
+# restore-keys makes its scratch directories with mrk_mktemp_d, in TMPDIR. Each
+# run here gets a TMPDIR of the test's own, and what the run leaves in it is
+# what restore-keys did not clean up.
+#
+# Until 2026-10-01 the runs used the shared TMPDIR, and the check listed every
+# mrk.* there before and after. Every test in this repository makes its scratch
+# directory there under that name, so the check failed whenever another test
+# started one in between: two ci-check runs at once, say (audit 20, X-14). The
+# name is short because a scratch GnuPG home under it holds sockets, and a
+# socket's path has a length limit.
+RUN_TMP="$ROOT/t"
+mkdir -p "$RUN_TMP"
 
 # restore BASH HOME PASSPHRASE ARGS... — run restore-keys in that HOME. Leaves
 # the scratch directories it did not clean up in LEFTOVER.
 LEFTOVER=""
 restore() {
-  local sh="$1" home="$2" pw="$3" before rc
+  local sh="$1" home="$2" pw="$3" rc
   shift 3
-  before=$(scratch_dirs)
-  HOME="$home" GNUPGHOME="" PATH="$(stub_dir "$pw"):$PATH" \
+  HOME="$home" GNUPGHOME="" TMPDIR="$RUN_TMP" PATH="$(stub_dir "$pw"):$PATH" \
     "$sh" "$SCRIPT" "$@" >"$home.log" 2>&1
   rc=$?
-  LEFTOVER=$(comm -13 <(printf '%s\n' "$before") <(scratch_dirs))
+  LEFTOVER=$(find "$RUN_TMP" -mindepth 1 -maxdepth 1 2>/dev/null | sort)
+  # Removed, so that one run's leftover is not counted against the next.
+  [[ -z "$LEFTOVER" ]] || find "$RUN_TMP" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
   return "$rc"
 }
 
