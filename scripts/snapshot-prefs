@@ -52,9 +52,10 @@ versions that have run) is left out of the commit, and when nothing else
 changed there is no commit. The export itself is whole: those keys are saved
 whenever something else in the file changes.
 
-A commit that an earlier run made and could not push is pushed by the next
-run, also when that run finds nothing new to commit. "No changes to push."
-means the remote has the last commit.
+When a push fails, snapshot-prefs says that the commit is kept, and exits
+with git's status. The next run pushes that commit, also when it finds
+nothing new to commit. "No changes to push." means the remote has the last
+commit.
 EOF
 }
 
@@ -124,6 +125,26 @@ unpushed_count() {
 # LOCAL_PREFS_DIR at a scratch clone, whose upstream is this directory and not
 # mrk-prefs.
 REAL_PREFS_DIR="$LOCAL_PREFS_DIR"
+
+# push_snapshot — push HEAD to mrk-prefs. When the push fails, say what became
+# of the commit, and exit with git's status.
+#
+# -u origin HEAD: the init path (git init + remote add) has no upstream yet; on
+# the clone path this is equivalent to a plain push.
+#
+# Until 2026-10-01 a push that failed ended the run, under set -e, on git's own
+# last line, "...and the repository exists.", and nothing from mrk said that the
+# commit had been made and was kept, or what would push it (audit 20, X-13).
+push_snapshot() {
+  local rc=0
+  git push -u origin HEAD || rc=$?
+  if (( rc != 0 )); then
+    err "The push failed (git exit $rc): mrk-prefs does not have the last commit."
+    info "The commit is kept in $REAL_PREFS_DIR. The next run of snapshot-prefs pushes it."
+    exit "$rc"
+  fi
+  ok "Pushed to $PREFS_REPO"
+}
 
 # A dry run exports into a clone of ~/.mrk/preferences instead, so the staging,
 # the comparison with HEAD and the secret scan below all run as they would for
@@ -798,8 +819,7 @@ if git diff --cached --quiet; then
     exit 0
   fi
   log "No changes to commit. Pushing $unpushed commit(s) that an earlier run left unpushed."
-  git push -u origin HEAD
-  ok "Pushed to $PREFS_REPO"
+  push_snapshot
   exit 0
 fi
 
@@ -863,7 +883,4 @@ if (( ${#changed_files[@]} > 0 )); then
 fi
 
 git commit -m "snapshot: $(date '+%Y-%m-%d %H:%M')"
-# -u origin HEAD: the init path (git init + remote add) has no upstream yet;
-# on the clone path this is equivalent to a plain push.
-git push -u origin HEAD
-ok "Pushed to $PREFS_REPO"
+push_snapshot

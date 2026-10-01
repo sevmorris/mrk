@@ -258,7 +258,8 @@ fi
 
 # Cases 11 to 14 are audit 20's X-1. Until 2026-10-01 the run after a failed
 # push, when it found nothing new to commit, said "No changes to push." and
-# exited 0 with the commit still absent from the remote.
+# exited 0 with the commit still absent from the remote. And a push that failed
+# ended on git's error alone, with nothing to say the commit was kept (X-13).
 ahead() { "$REAL_GIT" -C "$P" rev-list --count '@{upstream}..HEAD'; }
 n_pushed=$(pushed)
 fixtures dark b 7 0 gamma
@@ -270,13 +271,20 @@ cp "$W/out" "$W/out-first"
 # push of the earlier commit fails too, and must not pass for a push.
 snap
 mv "$ORIGIN.away" "$ORIGIN"
-if (( rc_first != 0 )) && [[ "$(pushed)" == "$n_pushed" && "$(ahead)" == 1 ]] && ! grep -q 'Pushed to' "$W/out-first"; then
-  pass "a push that fails: exit $rc_first, the commit kept here, and nothing said to be pushed"
+# said_kept FILE RC — mrk's own last word on a failed push, after git's, and
+# RC the status git gave, which the line names (X-13)
+said_kept() {
+  grep -q "The push failed (git exit $2): mrk-prefs does not have the last commit" "$1" \
+    && grep -q 'The commit is kept in .*/.mrk/preferences. The next run of snapshot-prefs pushes it' "$1"
+}
+if (( rc_first != 0 )) && [[ "$(pushed)" == "$n_pushed" && "$(ahead)" == 1 ]] && ! grep -q 'Pushed to' "$W/out-first" \
+   && said_kept "$W/out-first" "$rc_first"; then
+  pass "a push that fails: git's exit $rc_first, the commit kept here and said to be, and nothing said to be pushed"
 else
   fail "a push that fails: rc $rc_first, $(pushed) commit(s) on the remote, $(ahead) ahead"; sed 's/^/    /' "$W/out-first"
 fi
-if (( RC != 0 )) && grep -q 'Pushing 1 commit(s) that an earlier run left unpushed' "$W/out" \
-   && ! grep -q 'Pushed to\|No changes to push' "$W/out"; then
+if (( RC != 0 && RC == rc_first )) && grep -q 'Pushing 1 commit(s) that an earlier run left unpushed' "$W/out" \
+   && ! grep -q 'Pushed to\|No changes to push' "$W/out" && said_kept "$W/out" "$RC"; then
   pass "the run after it, the remote still out of reach: exit $RC, and neither \"Pushed to\" nor \"No changes\""
 else
   fail "the run after a failed push, the remote still out of reach: rc $RC"; show

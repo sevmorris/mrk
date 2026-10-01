@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # lib.sh — shared helpers for mrk scripts
 # Source this file; do not execute directly.
-# Scope: mrk install-phase scripts (scripts/) — standalone bin/ tools use bin/lib/common.sh
+# Scope: the scripts in scripts/, and each bin/ tool that needs a function from
+# here. A bin/ tool that also sources bin/lib/common.sh sources this file first:
+# both define ok, warn, err and info, and the tool prints with common.sh's.
+# A function here that such a tool calls then prints with common.sh's too. One
+# whose lines must stay together on one stream prints with printf, as
+# topgrade_verdict does.
 
 # Guard against multiple sourcing
 [[ -n "${_LIB_SH_LOADED:-}" ]] && return 0
@@ -609,8 +614,16 @@ git_in_progress() {
 # was told that topgrade had stopped before its summary when it had not. A
 # command after the Summary that fails is not in it: topgrade runs the ones
 # after it and exits 1, which is the "though its summary shows" case below.
+#
+# Every line goes to stderr through printf, in this file's own marks, and not
+# through warn, info and ok. update-full sources bin/lib/common.sh after this
+# file, and that file's info is a "→" line on stdout: until 2026-10-01 the
+# verdict's first line went to stderr there and its next two to stdout, so
+# `update-full 2>/dev/null` showed the two without the one they belong to
+# (audit 20, X-8).
 topgrade_verdict() {
   local rc=$1 log=$2 found n=0 failed=0 after=0 names="" cleanup=""
+  local _w="${_YLW}  ⚠${_R}" _g="${_GRN}  ✓${_R}" _i="   "
   # Colour codes, and the window title topgrade sets before each header, which
   # shares the header's line when the terminal reports no width.
   #
@@ -630,31 +643,31 @@ topgrade_verdict() {
     END { if (seen) printf "%d\t%d\t%d\t%s\n", n, f, post, names }')
   if [[ -z "$found" ]]; then
     if (( rc != 0 )); then
-      warn "topgrade stopped before its summary (exit $rc): not every step ran. Its last output is above."
+      printf '%s %s\n' "$_w" "topgrade stopped before its summary (exit $rc): not every step ran. Its last output is above." >&2
     fi
     return 0
   fi
   IFS=$'\t' read -r n failed after names <<< "$found"
   if (( failed > 0 )); then
-    warn "Update finished: every step ran. $failed of $n failed: $names."
+    printf '%s %s\n' "$_w" "Update finished: every step ran. $failed of $n failed: $names." >&2
     if (( after == 1 )); then
       cleanup=", and the clean-up command after them ran"
     elif (( after > 1 )); then
       cleanup=", and the $after clean-up commands after them ran"
     fi
-    info "Nothing was interrupted: the other $(( n - failed )) succeeded$cleanup."
+    printf '%s %s\n' "$_i" "Nothing was interrupted: the other $(( n - failed )) succeeded$cleanup." >&2
     # make sets MAKELEVEL for a recipe: only there does an "Error" line follow.
     if [[ -n "${MAKELEVEL:-}" ]]; then
-      info "The exit status is $rc for the failed step alone, which make reports next as \"Error $rc\"."
+      printf '%s %s\n' "$_i" "The exit status is $rc for the failed step alone, which make reports next as \"Error $rc\"." >&2
     else
-      info "The exit status is $rc for the failed step alone."
+      printf '%s %s\n' "$_i" "The exit status is $rc for the failed step alone." >&2
     fi
   elif (( rc != 0 )); then
-    warn "topgrade exited $rc, though its summary shows no failed step: a command after the summary failed. See above."
+    printf '%s %s\n' "$_w" "topgrade exited $rc, though its summary shows no failed step: a command after the summary failed. See above." >&2
   elif (( n == 1 )); then
-    ok "Update finished: its one step succeeded."
+    printf '%s %s\n' "$_g" "Update finished: its one step succeeded." >&2
   else
-    ok "Update finished: all $n steps succeeded."
+    printf '%s %s\n' "$_g" "Update finished: all $n steps succeeded." >&2
   fi
 }
 
@@ -666,12 +679,28 @@ topgrade_verdict() {
 # terminal of its own, so its colours, progress bars and sudo prompt are as
 # they were; script returns the command's status. Without a terminal it is a
 # plain tee. The recording is removed afterwards.
+#
+# It is removed on INT, TERM and HUP too. Until 2026-10-01 only the last line
+# removed it, and a run interrupted away from a terminal, `make update | tee
+# log` and Ctrl-C say, left the run's output so far in $TMPDIR (audit 20, X-4).
+# The trap removes the file, puts the caller's traps back, and sends the signal
+# again, so the shell still ends as the signal ends it, or as the caller's own
+# trap decides. At a terminal Ctrl-C reaches topgrade through script, and the
+# run ends by the last lines here.
 run_topgrade() {
-  local log rc=0
+  local log rc=0 saved sig
   if ! log=$(mrk_mktemp); then
     topgrade "$@"
     return
   fi
+  saved=$(trap -p INT TERM HUP)
+  for sig in INT TERM HUP; do
+    # shellcheck disable=SC2064  # the path, the traps and the signal as they are now
+    trap "rm -f $(printf '%q' "$log")
+trap - INT TERM HUP
+$saved
+kill -s $sig \$\$" "$sig"
+  done
   if [[ -t 0 && -t 1 && "$(uname -s)" == Darwin ]] && command -v script >/dev/null 2>&1; then
     script -q "$log" topgrade "$@" || rc=$?
   else
@@ -680,6 +709,8 @@ run_topgrade() {
   fi
   topgrade_verdict "$rc" "$log"
   rm -f "$log"
+  trap - INT TERM HUP
+  eval "$saved"
   return "$rc"
 }
 

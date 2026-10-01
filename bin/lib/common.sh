@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # common.sh — shared library for ~/bin scripts
 # Source this file: source "$(dirname "$0")/lib/common.sh"
-# Scope: standalone bin/ tools (bin/) — mrk install-phase scripts use scripts/lib.sh
+# Scope: the bin/ tools. The scripts in scripts/ use scripts/lib.sh. A bin/ tool
+# that needs a function from there sources it first and this file second, so
+# that ok, warn, err and info are the ones defined here.
 
 # Prevent double-sourcing
 [[ -n "${_COMMON_SH_LOADED:-}" ]] && return 0

@@ -22,9 +22,10 @@ report that can say something false with exit 0:
 - **X-3.** The dashboard calls a Safari or Command Line Tools update a major upgrade that mrk
   never installs. `make updates` installs it.
 
-All three were fixed the same day, in session 1 (branch `claude/fix-x1-x3-reports`). The LOW
-items, ten with the one session 1 found, and the three sessions still proposed, are listed under
-Deferred decisions.
+All three were fixed the same day, in session 1 (branch `claude/fix-x1-x3-reports`). Session 2
+(branch `claude/fix-x4-x13-shell`) fixed five of the LOW items, the one session 1 found among
+them. The five still open, and the two sessions proposed for them, are listed under Deferred
+decisions.
 
 **Module 19:** 2026-09-27 against `d8a0f5a`
 (`19-audit-2026-09-27.md`), a full sweep of every module for shell correctness, idempotency,
@@ -137,7 +138,7 @@ first.
 | Session | Findings | State |
 |---|---|---|
 | 1 | X-1, X-2, X-3: the three reports that can be wrong | fixed 2026-10-01, branch `claude/fix-x1-x3-reports`; sevmac `claude/audit-20-reports` |
-| 2 | X-4, X-5, X-8, X-10, X-13: the recording left on a signal, the marker left after a failed pull, the verdict on two streams, the nvm alias boundary, a failed push that ends on git's error alone | open |
+| 2 | X-4, X-5, X-8, X-10, X-13: the recording left on a signal, the marker left after a failed pull, the verdict on two streams, the nvm alias boundary, a failed push that ends on git's error alone | fixed 2026-10-01, branch `claude/fix-x4-x13-shell`; sevmac `claude/check-updates-failed-pull` |
 | 3 | X-9, X-11: two noise lists, and seven pieces of new behaviour no test holds | open |
 | 4 | X-6, X-7, X-12: SMAC-1's `make snapshot` row and Stats login item, a stale SMAC-2 sentence, STE drift in new text | open |
 

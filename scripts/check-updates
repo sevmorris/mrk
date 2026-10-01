@@ -44,6 +44,7 @@ check-updates takes no options other than --help, and is meant to run from
 shell startup. At every start it compares the checkout with the last fetched
 origin, and when the checkout is behind it offers to run `make pull`, once for
 each new remote head: answer no and it stays quiet until origin moves again.
+Answer yes, and if the pull fails, the next shell asks again.
 It exits silently when the shell is not interactive, when the checkout is not
 on the default branch, or when there is nothing new. It never blocks on the
 network: it refreshes origin in a disowned background fetch, at most once a
@@ -99,7 +100,7 @@ fetch_if_due() {
 # offer_pull — ask to run make pull when the checkout is behind a remote head it
 # has not asked about. Returns 0 whenever there is nothing to ask.
 offer_pull() {
-  local default_branch branch local_head remote_head marker f n what
+  local default_branch branch local_head remote_head marker f n what rc
 
   # Detect default branch name. symbolic-ref, and `|| true`: this used to be
   # `rev-parse --abbrev-ref origin/HEAD | cut`, and with pipefail a missing
@@ -144,14 +145,25 @@ offer_pull() {
   printf '\033[33mmrk: %s on origin/%s.\033[0m Update now? [y/N] ' "$what" "$default_branch"
   local response=""
   read -r response </dev/tty || response=""
+  # Spelt out: bash 3.2 and 5 disagree on a ~ in ${REPO_DIR/#$HOME/~}.
+  local shown="$REPO_DIR"
+  [[ "$REPO_DIR" == "$HOME"/* ]] && shown="~${REPO_DIR#"$HOME"}"
   case "$response" in
     [yY]|[yY][eE][sS])
-      make -C "$REPO_DIR" pull
+      # A pull that fails is not an answer. The marker is written above, before
+      # the prompt, and until 2026-10-01 it stayed after a failed pull: the
+      # checkout was still behind, and nothing asked again until origin moved
+      # (audit 20, X-5). Without the marker the next shell asks again. The
+      # status is make's, as before.
+      rc=0
+      make -C "$REPO_DIR" pull || rc=$?
+      if (( rc != 0 )); then
+        rm -f -- "$marker"
+        printf '  The pull failed. The next shell asks again. To update: make -C %s pull\n' "$shown"
+        return "$rc"
+      fi
       ;;
     *)
-      # Spelt out: bash 3.2 and 5 disagree on a ~ in ${REPO_DIR/#$HOME/~}.
-      local shown="$REPO_DIR"
-      [[ "$REPO_DIR" == "$HOME"/* ]] && shown="~${REPO_DIR#"$HOME"}"
       printf '  Not asking again until origin/%s moves. To update: make -C %s pull\n' \
         "$default_branch" "$shown"
       ;;
