@@ -130,7 +130,7 @@ It can run in the same shell as Phase 2, whether that is `make all`'s or one ope
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
 - **Plist imports (17 apps):** Imports your preference plists. Phase 3 skips an app that already has preferences — in `~/Library/Preferences`, or in its sandbox container for a sandboxed app such as Keka — so it never overwrites a live configuration. It also skips an app that is not installed yet. The imports run before any step that writes app defaults, the browser defaults included, because one key is enough to make an app look configured. Until 2026-09-27 they ran after, and the keys the Rogue Amoeba, Helium and Audio Hijack scripts wrote made six apps look configured: Loopback, SoundSource, Audio Hijack, Farrago, Piezo and Helium were never imported on the 2026-09-15 migration.
 - **My own applications:** Imports every `io.github.sevmorris.*` plist that `snapshot-prefs` captured. This one does not check that the application is installed: several are tools with no bundle in `/Applications`, and on a new machine the preferences usually arrive before the application does, so an early import means the app finds its settings on first launch.
-- **Dev runtimes:** Links Homebrew's openjdk into `/Library/Java/JavaVirtualMachines/`. Clones nvm into `~/.nvm` at a pinned commit, refusing the release tag if it has been moved, then installs the current Node LTS as nvm's default — only when nvm has no default yet, so an existing Node is never replaced. `.zshrc` then loads nvm in each shell without its own `nvm use`, and puts the newest installed Node that matches the default alias on the PATH itself. That takes about 30 ms, where `nvm use` took about 250; since 2026-09-28. Installs the Python version in `.python-version` with pyenv, and checks that it can run a subprocess.
+- **Dev runtimes:** Links Homebrew's openjdk into `/Library/Java/JavaVirtualMachines/`. Clones nvm into `~/.nvm` at a pinned commit, and refuses the release tag if the tag moved. It then installs the current Node LTS as nvm's default — only when nvm has no default yet, so an existing Node is never replaced. `.zshrc` then loads nvm in each shell without its own `nvm use`, and puts the newest installed Node that matches the default alias on the PATH itself. That takes about 30 ms, where `nvm use` took about 250; since 2026-09-28. Installs the Python version in `.python-version` with pyenv, and checks that it can run a subprocess.
 - **My own applications, installed:** Installs Barkeep, ClipHack, DoublEnder, FilmStrip, KeyVault, Magic Backup Machine and WaxOn/WaxOff from the most recent GitHub release of each, and only when the app in that release's DMG verifies, is signed by my Developer ID team, and is accepted by Gatekeeper as notarized; anything else is refused and counted as a failed step. Phase 3 skips an app that is already in `/Applications` — this bootstraps a Mac, it does not manage updates, and each of these apps checks GitHub for its own updates once it is running. To update one, use the app, or delete it and run `make apps`. The list lives in `scripts/install-apps`, which `make apps` also runs on its own. Two apps are not in it, both retired: **Cypher/FL2601** (2026-09-23), which never came from here, since being sandboxed with no network entitlement it could not check for its own updates and was a Homebrew cask, and **WireHack**, superseded by ClipHack. Magic Backup Machine's repository is private, which is why the download prefers `gh` and its token; an unauthenticated request for a private release returns 404, indistinguishable from "no such release". Without `gh` logged in, Phase 3 now skips that app with a note — run `gh auth login`, then `make apps` — rather than counting a failed step. Until 2026-09-28 it counted, so on a new Mac `make all` stopped at Phase 3 and never built the TUI binaries.
 - **Application Support restore:** Restores the Loopback and SoundSource configuration files. Phase 3 skips a file that exists.
 - **Fonts:** Restores the fonts captured by `snapshot-prefs` into `~/Library/Fonts`. Phase 3 skips a font that is already installed.
@@ -262,7 +262,7 @@ snapshot-prefs
 2. snapshot-prefs copies the config directories that are not defaults domains into `config/`. Calibre is one example: its settings and conversion presets live in `~/Library/Preferences/calibre/`. It does not copy the plugin code, which reinstalls from Calibre's plugin manager. It copies only `plugins/*.json` (the per-plugin settings) and `plugins/*/account` (the DeACSM Adobe activation, which cannot be recreated without a re-authorization).
 3. snapshot-prefs keeps MusicBrainz Picard's settings in `config/picard/settings.ini`. Picard writes its OAuth tokens into the same file as its settings, `~/.config/MusicBrainz/Picard.ini`, so snapshot-prefs keeps the settings sections only and replaces each credential with `<redacted>`. The copy is history to compare, not a backup: post-install never restores it, and Magic Backup Machine keeps the real file.
 4. snapshot-prefs converts each binary plist to xml1, and then scans every file for secrets.
-5. snapshot-prefs leaves out a plist that changed only in keys the app rewrites on its own: update-check times, window and menu bar positions, launch counters, the versions that have run. It puts that plist back as the last commit has it, and names it. A plist with any other change is committed whole, those keys included.
+5. snapshot-prefs leaves out a plist that changed only in keys the app rewrites on its own. Those keys are update-check times, window and menu bar positions, launch counters, and the versions that ran. It puts that plist back as the last commit has it, and names it. It commits a plist with any other change whole, those keys included.
 6. snapshot-prefs commits the changes in `~/.mrk/preferences/` with a timestamped message, and lists each file it commits with the keys that changed.
 7. snapshot-prefs pushes to `sevmorris/mrk-prefs` on GitHub.
 
@@ -310,10 +310,10 @@ defaults-watch            # Snapshot, wait for Return, snapshot again, compare
 
 1. Run `defaults-watch`, and wait for it to ask.
 2. Change the one setting in System Settings, and then press Return.
-3. defaults-watch prints each key that changed, with its old value and its new one. For a key that `defaults.sh` already writes, it says whether the new value is the one mrk sets. For any other key, it prints the `write_default` line to add.
+3. defaults-watch shows each key that changed, with its old value and its new one. For a key that `defaults.sh` already writes, it says whether the new value is the one mrk sets. For any other key, it shows the `write_default` line to add.
 4. Add that line to `scripts/defaults.sh`, and a description of the key to `docs/defaults/script.js`. `make check` fails until the description is there.
 
-defaults-watch changes nothing. It lists window positions, timestamps and counters apart, as probably not the setting. A key for this Mac alone (`-currentHost`), a key for all users, and a dictionary are things `write_default` cannot write, and defaults-watch says what to use instead.
+defaults-watch changes nothing. It lists window positions, timestamps and counters apart, as probably not the setting. `write_default` cannot write a key for this Mac alone (`-currentHost`), a key for all users, or a dictionary. For those, defaults-watch says what to use instead.
 
 ## How to keep the login items current
 
@@ -355,12 +355,12 @@ sync-login-items only adds to the file. It keeps your comments, your blank lines
 
 ## How to check the day's work and the installation
 
-**`mrk-status`** is a TUI dashboard. It shows what this Mac holds that is not recorded yet, what has fallen behind, Time Machine, and then the installation. The `status` command runs the same binary.
+**`mrk-status`** is a TUI dashboard. It shows what this Mac holds that is not recorded yet, what is behind, Time Machine, and then the installation. The `status` command runs the same binary.
 
 ```bash
 mrk-status                # Start the TUI dashboard
 status                    # The same binary
-make status               # The same panels, printed as text
+make status               # The same panels, shown as text
 ```
 
 The panels are in the left pane, and their lines are in the right pane, each with its fix beside it. Press `f` to run the selected panel's first fix. Press `r` to run all the checks again. [What `make status` checks](#what-make-status-checks) lists the panels.
@@ -413,7 +413,7 @@ A KeyVault backup goes out as one passphrase-encrypted OpenPGP archive. Any `gpg
 
 > **Caution:** The KeyVault archive holds the API keys, the notes and the stored files only. It does not hold your SSH keys, and it does not hold your GPG keys. Use `make snapshot-keys` for those. See "How to prepare for a new machine".
 
-> **Caution:** `snapshot-prefs` does not export the KeyVault preferences, and it must not: they are a manifest of what the vault holds. From 2026-09-02 until 2026-09-30 it did, because the export of every `io.github.sevmorris.*` domain took KeyVault's with the rest. It now leaves KeyVault out, and removes a saved copy it finds. Use the KeyVault export for the API keys, the notes and the stored files. Use `make snapshot-keys` for the key files.
+> **Caution:** `snapshot-prefs` does not export the KeyVault preferences, and it must not: they are a manifest of what the vault holds. From 2026-09-02 until 2026-09-30 it did, because the export of every `io.github.sevmorris.*` domain took KeyVault's with the rest. It now leaves KeyVault out, and deletes a saved copy that it finds. Use the KeyVault export for the API keys, the notes and the stored files. Use `make snapshot-keys` for the key files.
 
 ## Standalone Utilities
 
@@ -426,7 +426,7 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 | `mrk-push` | Commits and pushes `~/mrk`, then deletes the old GitHub Pages deployments. Scans every file the commit carries for secrets first, from whichever directory you run it in. Refuses to run while a merge or rebase in `~/mrk` is unfinished. When `check-picker-desc` fails, runs it with `--fix` first, so a package added in Barkeep goes in with its description |
 | `prune-deployments` | Deletes the old GitHub Pages deployments and keeps the ten newest. It finds the repository from the origin remote, or use `--repo OWNER/NAME`. It always protects the deployment that serves the site, so a failed deploy cannot cause it to delete the live one. Use `--dry-run` first |
 | `pushall` | Commits and pushes each repository in `~/Projects`, and then syncs `~/mrk`. Scans the staged files for secrets before each commit. It stages only the tracked files. It leaves a repository alone, and reports it as failed, while a merge, rebase or cherry-pick in it is unfinished. When `check-picker-desc` fails in mrk, runs it with `--fix` before it commits mrk. Use `pushall --dry-run` to run the scan and change nothing |
-| `update-full` | Full update pass: pulls mrk (relinking any scripts and dotfiles the pull changed), quits the applications, installs the macOS updates for the installed version and the package updates, builds the Go tools again, runs `clean-ds` and `brew doctor`, and then offers a reboot. It never installs a major macOS upgrade. It stops with an error when there is no terminal, unless you give `--yes`. The `update --full` command is the same command |
+| `update-full` | Full update pass. It pulls mrk, and relinks any scripts and dotfiles the pull changed. It quits the applications, and installs the macOS updates for the installed version and the package updates. It builds the Go tools again, runs `clean-ds` and `brew doctor`, and then offers a reboot. It never installs a major macOS upgrade. It stops with an error when there is no terminal, unless you give `--yes`. The `update --full` command is the same command |
 | `clean-ds` | Removes the `.DS_Store` files from the local disk. It does not examine `~/Library`, `~/Desktop`, the network volumes, or the external volumes. Use `clean-ds --dry-run` to see the files first |
 | `nuke-mrk` | Moves `~/mrk` and `~/.mrk` to the Trash, deletes the `~/bin` symlinks, the dotfile symlinks, the `~/Projects/CLAUDE.md` link, the two Claude Code skill links and the SessionStart hook post-install added to `~/.claude/settings.json`, and offers the rollbacks. It does NOT change Homebrew. `mrk-menu` lists it under Nuclear options |
 
@@ -719,7 +719,7 @@ make apps       # installs it, now that gh can reach it
 
 ## Commands you can run from anywhere (`~/Makefile`)
 
-`make setup` symlinks `~/Makefile` from `dotfiles/`. Every target of `~/mrk/Makefile` works from `~/` through it, `ARGS` included: the ones below by name, and any other, such as `make update` or `make status`, through a rule that hands it to `~/mrk`. Until 2026-09-30 only the ones below did. Run `make help` from `~/` to see both lists.
+`make setup` symlinks `~/Makefile` from `dotfiles/`. Every target of `~/mrk/Makefile` works from `~/` through it, `ARGS` included. The ones below work by name. Any other, such as `make update` or `make status`, works through a rule that hands it to `~/mrk`. Until 2026-09-30 only the ones below did. Run `make help` from `~/` to see both lists.
 
 **Brewfile**
 
@@ -805,11 +805,11 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 |---|---|
 | `make sync` | Sync the installed packages into the Brewfile |
 | `make sync-login-items` | Sync the system login items into post-install and the manual |
-| `make update` | Upgrade every package, with topgrade or with brew upgrade. topgrade runs every step even when one fails, and the run ends by saying which failed and that the others ran |
+| `make update` | Upgrade every package, with topgrade or with brew upgrade. topgrade runs every step even when one fails. The run ends by saying which failed and that the others ran |
 | `make updates` | Install the macOS updates for the installed version, with `macos-updates`. It never installs a major upgrade: it names each one and leaves it alone. `ARGS=-n` lists the updates and installs nothing |
 | `make uninstall` | Delete the symlinks, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |
-| `make pull` | Fast-forward the mrk repository to origin, then rebuild and relink what the pulled commits changed: the Go tools when `tools/` changed, the `~/bin` links when `scripts/` or `bin/` did, the dotfile links when `dotfiles/` did. A pull that changed none of these does nothing more. `PULL_BUILD=0` skips the rebuild. The check-updates prompt at shell start and `update-full` both pull this way |
+| `make pull` | Fast-forward the mrk repository to origin, then rebuild and relink what the pulled commits changed. That is the Go tools when `tools/` changed, the `~/bin` links when `scripts/` or `bin/` did, and the dotfile links when `dotfiles/` did. A pull that changed none of these does nothing more. `PULL_BUILD=0` skips the rebuild. The check-updates prompt at shell start and `update-full` both pull this way |
 | `make check` | Run every gate in `scripts/ci-check`: the picker and defaults descriptions, a secret scan over every tracked file, the commit gates, each test in `tests/`, shellcheck over every tracked bash script, and go test. BIN-1 §2.21 names each test and what it guards |
 | `make ci` | Run the local validation, and build the TUI binaries |
 | `make tidy` | Run `go mod tidy` in every Go tool directory |
@@ -819,7 +819,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | Command | Description |
 |---|---|
 | `mrk-menu` | Start the TUI launcher (see [mrk-menu](#mrk-menu) above for the keys) |
-| `make status` | Print the dashboard's panels as text: `mrk-status --plain`. The `status` command opens the same panels in the mrk-status dashboard |
+| `make status` | Show the dashboard's panels as text: `mrk-status --plain`. The `status` command opens the same panels in the mrk-status dashboard |
 | `make doctor` | Check that `~/bin` is on the PATH. `make doctor ARGS=--fix` adds it to `.zshrc` |
 | `make fix-exec` | Set the executable bit on the scripts and the `~/bin` symlinks, and remove a `~/bin` symlink whose script is gone from the repository |
 
@@ -827,11 +827,11 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 
 # What `make status` checks
 
-`make status` prints four panels as text. The `status` command shows the same panels in the mrk-status dashboard, where **f** runs a panel's fix. Both are one program: until 2026-09-30 `make status` ran a separate bash copy of the checks, and the two kept drifting apart. The daily panels come first:
+`make status` shows four panels as text. The `status` command shows the same panels in the mrk-status dashboard, where **f** runs a panel's fix. Both are one program: until 2026-09-30 `make status` ran a separate bash copy of the checks, and the two kept drifting apart. The daily panels come first:
 
 - **Unrecorded** — What the next Mac would not get. Homebrew packages that are installed but not in the Brewfile, and Brewfile entries that are not installed, as `sync` itself counts them. Uncommitted changes and unpushed commits in `~/mrk` and in each repository in `~/Projects`. The repositories that the manifest does not record, and those with no origin remote.
 - **Upkeep** — `~/mrk` behind `origin/main`, as of the last fetch. The Go tools that are older than their source. The outdated Homebrew packages. The macOS updates for the installed version; a major upgrade is named, and never counted. Safari and the Command Line Tools count as updates, whatever their version.
-- **Time Machine Backups** — Whether Time Machine has a destination, and how old the last backup is: a warning after a day, an error after seven.
+- **Time Machine Backups** — Whether Time Machine has a destination, and how old the last backup is. The panel warns after a day, and shows an error after seven.
 - **Installation** — The installation checks, as one panel:
   - **Dotfiles** — The files that mrk symlinked into `~/`, and the files that are absent.
   - **Tools** — The `~/bin` symlinks that work, and the symlinks that are broken.
@@ -843,7 +843,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
   - **Security Hardening** — Whether mrk applied the hardening.
   - **Displaced files** — Shown *only when backups exist*: how many, and the most recent. This is a report, not a health check, so with nothing to report it is left out. See [What the backups are](#what-the-backups-are).
 
-Each line carries its fix where it has one, such as `make sync ARGS=-c` for a package the Brewfile lacks, or `bin/pushall` for a project with commits not pushed.
+Each line carries its fix where it has one. Examples are `make sync ARGS=-c` for a package the Brewfile lacks, and `bin/pushall` for a project with commits not pushed.
 
 ---
 

@@ -25,8 +25,9 @@ report that can say something false with exit 0:
 All three were fixed the same day, in session 1 (branch `claude/fix-x1-x3-reports`). Session 2
 (branch `claude/fix-x4-x13-shell`) fixed five of the LOW items, the one session 1 found among
 them, and session 3 (branch `claude/fix-x9-x11-tests`) two more. It found X-14: a test that
-fails when another runs beside it. That and the three documentation items are still open, and
-are listed with session 4 under Deferred decisions.
+fails when another runs beside it. Session 4 (branch `claude/fix-x6-x14-docs`) fixed that and
+the three documentation items. One item is open, X-15, and it is a decision: see Deferred
+decisions.
 
 **Module 19:** 2026-09-27 against `d8a0f5a`
 (`19-audit-2026-09-27.md`), a full sweep of every module for shell correctness, idempotency,
@@ -141,7 +142,14 @@ first.
 | 1 | X-1, X-2, X-3: the three reports that can be wrong | fixed 2026-10-01, branch `claude/fix-x1-x3-reports`; sevmac `claude/audit-20-reports` |
 | 2 | X-4, X-5, X-8, X-10, X-13: the recording left on a signal, the marker left after a failed pull, the verdict on two streams, the nvm alias boundary, a failed push that ends on git's error alone | fixed 2026-10-01, branch `claude/fix-x4-x13-shell`; sevmac `claude/check-updates-failed-pull` |
 | 3 | X-9, X-11: two noise lists, and seven pieces of new behaviour no test holds | fixed 2026-10-01, branch `claude/fix-x9-x11-tests` |
-| 4 | X-6, X-7, X-12, X-14: SMAC-1's `make snapshot` row and Stats login item, a stale SMAC-2 sentence, STE drift in new text; `tests/restore-keys.sh` taking another test's scratch directory for a leftover | open |
+| 4 | X-6, X-7, X-12, X-14: SMAC-1's `make snapshot` row and Stats login item, a stale SMAC-2 sentence, STE drift in new text; `tests/restore-keys.sh` taking another test's scratch directory for a leftover | fixed 2026-10-01, branch `claude/fix-x6-x14-docs`; sevmac `claude/audit-20-docs` |
+
+- **X-15 — the older text and the STE rules (LOW, your decision).** Session 4 brought the
+  text added since 2026-09-28 back to the rules of `docs/STE-CONVERSION.md`. The same count
+  over the whole of each file still reports long sentences, perfect tenses and glossary words
+  in the older text: 50, 4 and 22 in the manual, and 194, 31 and 119 in BIN-1. The counter
+  over-reads, but the drift is real. → To close: either a pass over the whole of both files,
+  or a line in the record saying that the rules are a target for new text.
 
 **Module 19's findings (2026-09-27): all fixed.** Module 19 fixed nothing itself, and its 30
 findings went to seven fix sessions on 2026-09-27 and 2026-09-28. The W-1 session found a
