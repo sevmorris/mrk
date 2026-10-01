@@ -24,8 +24,8 @@ report that can say something false with exit 0:
 
 All three were fixed the same day, in session 1 (branch `claude/fix-x1-x3-reports`). Session 2
 (branch `claude/fix-x4-x13-shell`) fixed five of the LOW items, the one session 1 found among
-them. The five still open, and the two sessions proposed for them, are listed under Deferred
-decisions.
+them, and session 3 (branch `claude/fix-x9-x11-tests`) two more. The three still open are
+documentation, and are listed with session 4 under Deferred decisions.
 
 **Module 19:** 2026-09-27 against `d8a0f5a`
 (`19-audit-2026-09-27.md`), a full sweep of every module for shell correctness, idempotency,
@@ -139,7 +139,7 @@ first.
 |---|---|---|
 | 1 | X-1, X-2, X-3: the three reports that can be wrong | fixed 2026-10-01, branch `claude/fix-x1-x3-reports`; sevmac `claude/audit-20-reports` |
 | 2 | X-4, X-5, X-8, X-10, X-13: the recording left on a signal, the marker left after a failed pull, the verdict on two streams, the nvm alias boundary, a failed push that ends on git's error alone | fixed 2026-10-01, branch `claude/fix-x4-x13-shell`; sevmac `claude/check-updates-failed-pull` |
-| 3 | X-9, X-11: two noise lists, and seven pieces of new behaviour no test holds | open |
+| 3 | X-9, X-11: two noise lists, and seven pieces of new behaviour no test holds | fixed 2026-10-01, branch `claude/fix-x9-x11-tests` |
 | 4 | X-6, X-7, X-12: SMAC-1's `make snapshot` row and Stats login item, a stale SMAC-2 sentence, STE drift in new text | open |
 
 **Module 19's findings (2026-09-27): all fixed.** Module 19 fixed nothing itself, and its 30
