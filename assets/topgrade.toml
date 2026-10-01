@@ -30,7 +30,14 @@ notify_each_step = false
 
 [post_commands]
 "pipx upgrade-all" = "bash -lc 'command -v pipx >/dev/null && pipx upgrade-all || true'"
-"pip cache purge" = "bash -lc 'command -v pip3 >/dev/null && pip3 cache purge || true'"
+# pip says "ERROR: No matching packages" and exits 1 when its cache is already
+# empty (pip 21, which /usr/bin/pip3 is and which bash -lc finds), or "WARNING:
+# No matching packages" and exits 0 (pip 23 and later). Either way nothing is
+# wrong, and the first reads like a failure, so the step says so beneath pip's
+# own output. Any other failure gets a line saying it failed. The step exits 0
+# whatever pip did, as it always has: a clean-up command that fails makes
+# topgrade exit 1 after the whole run.
+"pip cache purge" = "bash -lc 'command -v pip3 >/dev/null || exit 0; out=$(pip3 cache purge 2>&1); rc=$?; [ -z \"$out\" ] || echo \"$out\"; case \"$out\" in \"ERROR: No matching packages\"|\"WARNING: No matching packages\"*) echo \"(the pip cache was already empty; this is normal)\" ;; *) [ \"$rc\" -eq 0 ] || echo \"(pip cache purge failed, exit $rc)\" ;; esac; true'"
 "Homebrew cache scrub" = "bash -lc 'command -v brew >/dev/null && brew cleanup -s --prune=30 || true'"
 "npm cache verify" = "bash -lc 'export NVM_DIR=\"$HOME/.nvm\"; [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"; command -v npm >/dev/null && npm cache verify || true'"
 "pyenv rehash" = "bash -lc 'command -v pyenv >/dev/null && pyenv rehash || true'"
