@@ -51,6 +51,10 @@ own (update-check times, window and menu bar positions, launch counters, the
 versions that have run) is left out of the commit, and when nothing else
 changed there is no commit. The export itself is whole: those keys are saved
 whenever something else in the file changes.
+
+A commit that an earlier run made and could not push is pushed by the next
+run, also when that run finds nothing new to commit. "No changes to push."
+means the remote has the last commit.
 EOF
 }
 
@@ -99,6 +103,27 @@ defaults_timeout(){
     return "$rc"
   fi
 }
+
+# unpushed_count DIR — print how many commits DIR's branch holds that its
+# upstream lacks, as of the last fetch or push: nothing asks the network. When
+# the branch has no upstream yet, every commit counts; that is how a new clone
+# is left when its first push fails. 0 when DIR is no repository, or holds no
+# commit.
+unpushed_count() {
+  local dir=$1 n
+  if [[ ! -d "$dir/.git" ]] || ! git -C "$dir" rev-parse --verify --quiet HEAD >/dev/null; then
+    echo 0
+    return 0
+  fi
+  n=$(git -C "$dir" rev-list --count '@{upstream}..HEAD' 2>/dev/null) \
+    || n=$(git -C "$dir" rev-list --count HEAD 2>/dev/null) || n=0
+  echo "$n"
+}
+
+# The real ~/.mrk/preferences, kept for unpushed_count: a dry run points
+# LOCAL_PREFS_DIR at a scratch clone, whose upstream is this directory and not
+# mrk-prefs.
+REAL_PREFS_DIR="$LOCAL_PREFS_DIR"
 
 # A dry run exports into a clone of ~/.mrk/preferences instead, so the staging,
 # the comparison with HEAD and the secret scan below all run as they would for
@@ -755,7 +780,26 @@ if (( ${#left_out[@]} > 0 )); then
 fi
 
 if git diff --cached --quiet; then
-  log "No changes to push."
+  # Nothing to commit is not always nothing to push. A run whose push fails
+  # leaves its commit here. Until 2026-10-01 the next run that found nothing new
+  # stopped at "No changes to push.", exit 0, with that commit still absent from
+  # mrk-prefs, which is what the next Mac restores from. Since 2026-09-30 that
+  # is the usual run: a plist that changed only in PREFS_NOISE keys is left out
+  # above, where before it made a commit whose push carried the earlier one
+  # (audit 20, X-1).
+  unpushed=$(unpushed_count "$REAL_PREFS_DIR")
+  if (( unpushed == 0 )); then
+    log "No changes to push."
+    exit 0
+  fi
+  if (( DRY_RUN )); then
+    log "No changes to commit. The real run would push $unpushed commit(s) that an earlier run left unpushed."
+    ok "Dry run: nothing was committed or pushed."
+    exit 0
+  fi
+  log "No changes to commit. Pushing $unpushed commit(s) that an earlier run left unpushed."
+  git push -u origin HEAD
+  ok "Pushed to $PREFS_REPO"
   exit 0
 fi
 

@@ -12,7 +12,8 @@
 # under a throwaway HOME: through tee, as it does with no terminal, and on
 # macOS inside a pseudo-terminal too, where it records the run with script(1).
 # The transcripts are in the forms real runs of topgrade 17.12.2 were recorded
-# in, with no terminal and through script.
+# in, with no terminal and through script. Three more hold a byte that is not
+# UTF-8, and run in a UTF-8 locale, where macOS's sed stops on one.
 # The update shell function is run in a zsh that reads no startup file.
 # The last cases run one clean-up command of assets/topgrade.toml, pip cache
 # purge, against a stub pip3: an empty cache must be said to be normal, and
@@ -90,12 +91,18 @@ summary narrow OK FAILED > "$T/one-failed-narrow"
 summary plain FAILED FAILED > "$T/two-failed"
 summary plain OK OK > "$T/all-ok"
 printf '%s\n' 'Error: Configuration error' 'unknown field nope, expected one of ...' > "$T/no-summary"
+# The same runs with one byte that is not UTF-8 above the Summary: a file name
+# in Latin-1, as a package manager can print one.
+{ printf 'Downloading caf\xe9.dmg\n'; cat "$T/one-failed"; } > "$T/one-failed-latin1"
+{ printf 'Downloading caf\xe9.dmg\r\n'; cat "$T/one-failed-wide"; } > "$T/one-failed-wide-latin1"
+{ printf 'Downloading caf\xe9.dmg\n'; cat "$T/all-ok"; } > "$T/all-ok-latin1"
 
 ENV=(env -i HOME="$W/home" PATH="$S:/usr/bin:/bin:/usr/sbin:/sbin" TMPDIR="$TMP" TERM=dumb)
 RC_SEEN=0
-# update TRANSCRIPT RC — make update with no terminal. Output in $W/out.
+# update TRANSCRIPT RC [LOCALE] — make update with no terminal, in the C locale
+# env -i leaves, or in LOCALE. Output in $W/out.
 update() {
-  "${ENV[@]}" TRANSCRIPT="$T/$1" RC="$2" make --no-print-directory -C "$REPO_ROOT" update < /dev/null > "$W/out" 2>&1
+  "${ENV[@]}" ${3:+LC_ALL="$3"} TRANSCRIPT="$T/$1" RC="$2" make --no-print-directory -C "$REPO_ROOT" update < /dev/null > "$W/out" 2>&1
   RC_SEEN=$?
 }
 has() { grep -qF -- "$1" "$W/out"; }
@@ -128,6 +135,33 @@ for form in wide narrow; do
     fail "the $form header form:"; show
   fi
 done
+
+# ── 1c. A byte that is not UTF-8 in the recording, in a UTF-8 locale ────────
+
+# Every case above runs in the C locale, which env -i leaves, and a shell at a
+# terminal runs in a UTF-8 one. There macOS's sed stops at the first byte that
+# is not UTF-8, and until 2026-10-01 the verdict then never saw the Summary: it
+# said topgrade had stopped before it, or with exit 0 said nothing (audit 20,
+# X-2). Where sed does not stop on such a byte, the cases still run, and cannot
+# fail for this reason; the note says so.
+UTF8=en_US.UTF-8
+if printf 'caf\xe9\n' | "${ENV[@]}" LC_ALL="$UTF8" sed 's/x/y/' >/dev/null 2>&1; then
+  logskip "a byte that is not UTF-8" "this sed reads it in $UTF8, so the next three checks cannot fail here"
+fi
+for t in one-failed-latin1 one-failed-wide-latin1; do
+  update "$t" 1 "$UTF8"
+  if has "Update finished: every step ran. 1 of 10 failed: Brew Cask (ARM)." && ! has "stopped before its summary"; then
+    pass "a byte that is not UTF-8 above the Summary ($t): the Summary is still read"
+  else
+    fail "a byte that is not UTF-8 above the Summary ($t):"; show
+  fi
+done
+update all-ok-latin1 0 "$UTF8"
+if (( RC_SEEN == 0 )) && has "Update finished: all 10 steps succeeded."; then
+  pass "the same with nothing failed: still says all 10 succeeded"
+else
+  fail "a byte that is not UTF-8, nothing failed: exit $RC_SEEN"; show
+fi
 
 # ── 2. Two failed ────────────────────────────────────────────────────────────
 

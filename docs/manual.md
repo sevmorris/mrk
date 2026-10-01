@@ -266,7 +266,7 @@ snapshot-prefs
 6. snapshot-prefs commits the changes in `~/.mrk/preferences/` with a timestamped message, and lists each file it commits with the keys that changed.
 7. snapshot-prefs pushes to `sevmorris/mrk-prefs` on GitHub.
 
-You can run snapshot-prefs more than once. When nothing changed, or nothing but those keys, it reports "No changes to push." To see what it would commit first, run `snapshot-prefs --dry-run`: it exports into a scratch copy, reports, and leaves `~/.mrk/preferences/` as it was.
+You can run snapshot-prefs more than once. When nothing changed, or nothing but those keys, it reports "No changes to push." If the push of an earlier run failed, the next run pushes that commit, and the output ends with "Pushed to". "No changes to push." thus means that mrk-prefs has the last commit. To see what it would commit first, run `snapshot-prefs --dry-run`: it exports into a scratch copy, reports, and leaves `~/.mrk/preferences/` as it was.
 
 > **Caution:** `config/calibre/plugins/DeACSM/account/` holds real key material. It is kept deliberately — it cannot be
 > regenerated without a re-authorization — and the secret scanner does not flag it, because its XML element names match none
@@ -494,7 +494,7 @@ This command adds the packages that you installed since the last sync. It then c
 make snapshot-prefs
 ```
 
-This command exports the 17 app preference plists, the Application Support files, the config directories, your installed fonts and a manifest of your git repositories. It then pushes them. Check that the push succeeded: the output ends with "Pushed to git@github.com:sevmorris/mrk-prefs.git".
+This command exports the 17 app preference plists, the Application Support files, the config directories, your installed fonts and a manifest of your git repositories. It then pushes them. Check that the push succeeded: the output ends with "Pushed to git@github.com:sevmorris/mrk-prefs.git". If nothing changed since the last snapshot, the output ends with "No changes to push." instead, and mrk-prefs is current. Any other last line is a failure: correct the cause, then run the command again.
 
 **5. Capture the login items**
 
@@ -830,7 +830,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 `make status` prints four panels as text. The `status` command shows the same panels in the mrk-status dashboard, where **f** runs a panel's fix. Both are one program: until 2026-09-30 `make status` ran a separate bash copy of the checks, and the two kept drifting apart. The daily panels come first:
 
 - **Unrecorded** — What the next Mac would not get. Homebrew packages that are installed but not in the Brewfile, and Brewfile entries that are not installed, as `sync` itself counts them. Uncommitted changes and unpushed commits in `~/mrk` and in each repository in `~/Projects`. The repositories that the manifest does not record, and those with no origin remote.
-- **Upkeep** — `~/mrk` behind `origin/main`, as of the last fetch. The Go tools that are older than their source. The outdated Homebrew packages. The macOS updates for the installed version; a major upgrade is named, and never counted.
+- **Upkeep** — `~/mrk` behind `origin/main`, as of the last fetch. The Go tools that are older than their source. The outdated Homebrew packages. The macOS updates for the installed version; a major upgrade is named, and never counted. Safari and the Command Line Tools count as updates, whatever their version.
 - **Time Machine Backups** — Whether Time Machine has a destination, and how old the last backup is: a warning after a day, an error after seven.
 - **Installation** — The installation checks, as one panel:
   - **Dotfiles** — The files that mrk symlinked into `~/`, and the files that are absent.
