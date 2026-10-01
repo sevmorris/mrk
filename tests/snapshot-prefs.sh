@@ -8,7 +8,7 @@
 # check times, window positions, launch counters and the like 274 times.
 #
 # Each case runs the real snapshot-prefs under a throwaway HOME, with defaults
-# a stub first on PATH: it knows three io.github.sevmorris.* domains, written
+# a stub first on PATH: it knows four io.github.sevmorris.* domains, written
 # here as plists, and answers read, export and domains for those alone, so
 # every named app is skipped as having no preferences, here or on a Mac that
 # has it installed. PREFS_REPO is a scratch bare repository, cloned into the
@@ -93,6 +93,7 @@ domains = {
         "blob": json.dumps(blob).encode(), "archive": archive(pairs)},
     "io.github.sevmorris.BackupRestore": {"BackupSettings": "kept", "MBM_lastUpdateCheckDate": t},
     "io.github.sevmorris.Beta": {"mode": mode},
+    "io.github.sevmorris.KeyVault": {"CollapsedNoteCategories": ["Work"]},
 }
 if gamma:
     domains["io.github.sevmorris.Gamma"] = {"SULastCheckTime": t}
@@ -223,7 +224,35 @@ else
   fail "a new plist: rc $RC, last commit: $(last_files | tr '\n' ' ')"; show
 fi
 
-# ── 9. An unknown argument: refused before any export ────────────────────────
+# ── 9. -n with a KeyVault copy saved: reported as a removal, nothing written ─
+
+# The state every Mac was in from 2026-09-02 until 2026-09-30, when the group
+# export took KeyVault's domain with the rest.
+cp "$D/io.github.sevmorris.KeyVault.plist" "$P/sevmorris-apps/"
+"${ENV[@]}" git -C "$P" add sevmorris-apps/io.github.sevmorris.KeyVault.plist
+"${ENV[@]}" git -C "$P" commit -qm "a KeyVault copy, as the group export saved one"
+"${ENV[@]}" git -C "$P" push -q origin HEAD 2>/dev/null
+n_pushed=$(pushed)
+before=$(fingerprint)
+snap -n
+if (( RC == 0 )) && [[ "$(pushed)" == "$n_pushed" && "$(fingerprint)" == "$before" ]] \
+   && grep -q 'the real run removes it' "$W/out" && grep -q 'io.github.sevmorris.KeyVault.plist (removed)' "$W/out"; then
+  pass "-n with a KeyVault copy saved: reported as a removal, and nothing written"
+else
+  fail "-n with a KeyVault copy saved: rc $RC"; show
+fi
+
+# ── 10. The saved KeyVault copy removed, and the removal pushed ──────────────
+
+snap
+if (( RC == 0 )) && [[ "$(pushed)" == $(( n_pushed + 1 )) && "$(last_files)" == "sevmorris-apps/io.github.sevmorris.KeyVault.plist" ]] \
+   && ! "$REAL_GIT" -C "$ORIGIN" ls-tree -r --name-only HEAD | grep -q KeyVault && clean; then
+  pass "a KeyVault copy saved before is removed, and the removal pushed"
+else
+  fail "the saved KeyVault copy: rc $RC, last commit: $(last_files | tr '\n' ' ')"; show
+fi
+
+# ── 11. An unknown argument: refused before any export ───────────────────────
 
 n_calls=$(wc -l < "$W/calls")
 snap --bogus
@@ -233,12 +262,20 @@ else
   fail "an unknown argument: rc $RC, or defaults was called"; show
 fi
 
-# ── 10. defaults was only ever asked to read ─────────────────────────────────
+# ── 12. defaults was only ever asked to read, and never about KeyVault ───────
 
 if grep -vE '^(read|export|domains)( |$)' "$W/calls" | grep -q .; then
   fail "defaults was asked for more than read, export and domains:"; sed 's/^/    /' "$W/calls"
 else
   pass "defaults was asked for read, export and domains, nothing else"
+fi
+kv_added=$("$REAL_GIT" -C "$ORIGIN" log --all --diff-filter=A --format=%s -- sevmorris-apps/io.github.sevmorris.KeyVault.plist)
+if grep -q 'io.github.sevmorris.KeyVault' "$W/calls"; then
+  fail "defaults was asked about KeyVault's domain:"; grep KeyVault "$W/calls" | sed 's/^/    /'
+elif [[ "$kv_added" != "a KeyVault copy, as the group export saved one" ]]; then
+  fail "a KeyVault plist was added by: $(tr '\n' ';' <<<"$kv_added")"
+else
+  pass "KeyVault's domain was never read or exported, and only the test ever committed a copy"
 fi
 
 if (( fails )); then

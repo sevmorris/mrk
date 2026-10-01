@@ -29,7 +29,7 @@ Keep both repositories current. You can then restore the full setup on a new mac
 > 2. Replace the dotfiles in `dotfiles/` with your own.
 > 3. Edit the `Brewfile`. Keep the `##` section headers, because the sync tools read them.
 > 4. Edit the `add_login_item` list in `scripts/post-install`. It adds eight applications.
-> 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 17 named plist domains, plus every `io.github.sevmorris.*` domain as a group.
+> 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 17 named plist domains, plus every `io.github.sevmorris.*` domain but KeyVault's as a group.
 > 6. Edit `DOCK_APPS` and `DOCK_FOLDER` in `scripts/dock-setup`. The script clears the Dock before it adds the applications.
 > 7. Read `scripts/defaults.sh` before you run it. It writes 133 preference keys, and each key is a personal choice.
 > 8. Edit `COMPANION_APPS` in `scripts/install-apps` — it is my own applications, and a fork wants none of them. Empty the list, or replace it with yours and set `GITHUB_APP_TEAM_ID` to your Developer ID team: the installer refuses any app not signed by that team.
@@ -397,7 +397,7 @@ A KeyVault backup goes out as one passphrase-encrypted OpenPGP archive. Any `gpg
 
 > **Caution:** The KeyVault archive holds the API keys, the notes and the stored files only. It does not hold your SSH keys, and it does not hold your GPG keys. Use `make snapshot-keys` for those. See "How to prepare for a new machine".
 
-> **Caution:** `snapshot-prefs` does not export the KeyVault preferences, and it must not. Use the KeyVault export for the API keys, the notes and the stored files. Use `make snapshot-keys` for the key files.
+> **Caution:** `snapshot-prefs` does not export the KeyVault preferences, and it must not: they are a manifest of what the vault holds. From 2026-09-02 until 2026-09-30 it did, because the export of every `io.github.sevmorris.*` domain took KeyVault's with the rest. It now leaves KeyVault out, and removes a saved copy it finds. Use the KeyVault export for the API keys, the notes and the stored files. Use `make snapshot-keys` for the key files.
 
 ## Standalone Utilities
 

@@ -214,6 +214,13 @@ snapshot_plist "org.musicbrainz.Picard"                 "Picard.plist"          
 # The key files have their own script — snapshot-keys — which writes one
 # encrypted archive to a path outside every directory a wipe deletes, and
 # pushes nowhere. Same call already made for Bitwarden, NordPass and 1Password.
+#
+# Leaving it out of the named list was not enough. The group export below takes
+# every io.github.sevmorris.* domain, and from the 2026-09-02 migration until
+# 2026-09-30 it took KeyVault's with the rest: seven snapshots pushed its note
+# categories, its last folder and its window state to mrk-prefs. So the group
+# names what it leaves out, and removes a copy it finds saved.
+OWN_APPS_EXCLUDED=(io.github.sevmorris.KeyVault)
 
 # ── My own applications ───────────────────────────────────────────────────────
 
@@ -232,11 +239,22 @@ snapshot_plist "org.musicbrainz.Picard"                 "Picard.plist"          
 # itself. prefs_source then decides which copy to read, which matters for the
 # five apps that kept a container from a sandboxed build. Empty domains are not
 # worth a file — ClipHack's tests leave one behind per test process, and ten of
-# them had been saved.
+# them had been saved. OWN_APPS_EXCLUDED, above, is never read, and a copy of
+# one found in the tree is deleted, so the commit removes it from mrk-prefs.
 snapshot_own_apps(){
   local dest="$LOCAL_PREFS_DIR/sevmorris-apps"
-  local list domain src found=0
+  local list domain src x found=0
   mkdir -p "$dest"
+  for x in "${OWN_APPS_EXCLUDED[@]}"; do
+    if [[ -e "$dest/$x.plist" ]]; then
+      rm -f "$dest/$x.plist"
+      if (( DRY_RUN )); then
+        warn "$x.plist is in the saved preferences, and must not be: the real run removes it"
+      else
+        warn "$x.plist was in the saved preferences, and must not be: removed"
+      fi
+    fi
+  done
   if ! list=$(defaults_timeout domains); then
     warn "could not list the defaults domains — my own apps skipped"
     SNAPSHOT_SKIPPED+=("my own apps")
@@ -244,6 +262,9 @@ snapshot_own_apps(){
   fi
   while IFS= read -r domain; do
     [[ "$domain" == io.github.sevmorris.* && "$domain" != */* ]] || continue
+    for x in "${OWN_APPS_EXCLUDED[@]}"; do
+      [[ "$domain" == "$x" ]] && continue 2
+    done
     src=$(prefs_source "$domain")
     defaults_timeout read "$src" >/dev/null 2>&1 || continue
     if ! defaults_timeout export "$src" "$dest/$domain.plist"; then
