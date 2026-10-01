@@ -27,8 +27,10 @@ All three were fixed the same day, in session 1 (branch `claude/fix-x1-x3-report
 them, and session 3 (branch `claude/fix-x9-x11-tests`) two more. It found X-14: a test that
 fails when another runs beside it. Session 4 (branch `claude/fix-x6-x14-docs`) fixed that and
 the three documentation items, and found X-15: the older text of the two manuals departs
-from the STE rules too. That was a decision, and the owner made it the same day. Nothing from
-module 20 is open.
+from the STE rules too. That was a decision, and the owner made it the same day. The owner's
+from-scratch install that evening found **X-16 (MEDIUM)**: post-install built each new Python
+patch and left the pip packages in the old one. It was fixed the same day (branch
+`claude/audit-x16-pyenv-prefix`). Nothing from module 20 is open.
 
 **Module 19:** 2026-09-27 against `d8a0f5a`
 (`19-audit-2026-09-27.md`), a full sweep of every module for shell correctness, idempotency,
@@ -144,6 +146,7 @@ first.
 | 2 | X-4, X-5, X-8, X-10, X-13: the recording left on a signal, the marker left after a failed pull, the verdict on two streams, the nvm alias boundary, a failed push that ends on git's error alone | fixed 2026-10-01, branch `claude/fix-x4-x13-shell`; sevmac `claude/check-updates-failed-pull` |
 | 3 | X-9, X-11: two noise lists, and seven pieces of new behaviour no test holds | fixed 2026-10-01, branch `claude/fix-x9-x11-tests` |
 | 4 | X-6, X-7, X-12, X-14: SMAC-1's `make snapshot` row and Stats login item, a stale SMAC-2 sentence, STE drift in new text; `tests/restore-keys.sh` taking another test's scratch directory for a leftover | fixed 2026-10-01, branch `claude/fix-x6-x14-docs`; sevmac `claude/audit-20-docs` |
+| 5 | X-16: post-install built each new Python patch pyenv learned of, and the pip packages stayed in the old one | fixed 2026-10-01, branch `claude/audit-x16-pyenv-prefix`; sevmac `claude/x16-pyenv-prefix` |
 
 - **X-15 — the older text and the STE rules (LOW): decided 2026-10-01.** Session 4 brought
   the text added since 2026-09-28 back to the rules of `docs/STE-CONVERSION.md`. The same
@@ -152,6 +155,16 @@ first.
   owner chose not to rewrite it. The record now says that the rules are a target for new
   text and for text that changes, and that the older text stays as it is (branch
   `claude/x15-ste-record`).
+- **X-16 — post-install and a new Python patch (MEDIUM): fixed 2026-10-01.**
+  `.python-version` holds `3.12`, and post-install's "already installed" test wanted a whole
+  line, so it never passed. Each run called `pyenv install -s 3.12`. On 2026-10-01 pyenv 2.8.7
+  knew 3.12.15, and the owner's `make all` built it. `python` became 3.12.15 with pip alone;
+  dmgbuild, mlx-whisper, pypdf and python-docx stayed in 3.12.14, and the seven `release.sh`
+  scripts would stop at their dmgbuild preflight. The run printed three ✓ lines and no warning.
+  The owner chose to keep the installed patch. post-install now asks `pyenv latest` for an
+  installed match, keeps it, and names a newer patch with the command that builds it (branch
+  `claude/audit-x16-pyenv-prefix`; sevmac `claude/x16-pyenv-prefix`). The owner installed the
+  four packages again the same day. 3.12.14 is still on the disk, 1.5 GB.
 
 **Module 19's findings (2026-09-27): all fixed.** Module 19 fixed nothing itself, and its 30
 findings went to seven fix sessions on 2026-09-27 and 2026-09-28. The W-1 session found a

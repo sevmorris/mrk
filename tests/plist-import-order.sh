@@ -347,13 +347,33 @@ printf 'brew %s\n' "$*" >> "$CALLS"
 bin="$(cd "$(dirname "$0")" && pwd)"
 printf 'export HOMEBREW_PREFIX=%q; export PATH=%q:"$PATH";\n' "${bin%/bin}" "$bin"
 EOF
-# pyenv keeps the versions it has "installed" in the machine's HOME
+# pyenv keeps the versions it has "installed" in the machine's HOME, in
+# .pyenv-stub, and the versions it "knows" in .pyenv-known. It answers a pin
+# as pyenv 2.8.7 did on 2026-10-01, where a pin is a version or a prefix of one:
+#   latest PIN      the newest installed version the pin matches; exit 1 when none
+#   latest -k PIN   the same, over the known versions
+#   install PIN     installs what `latest -k PIN` gives, when it is not installed
+#   exec            fails when the machine holds .pyenv-broken: a Python that
+#                   cannot start a subprocess
 cat > "$HB/pyenv" <<'EOF'
 #!/bin/bash
 printf 'pyenv %s\n' "$*" >> "$CALLS"
+newest() {  # newest FILE PIN
+  local v best=""
+  while IFS= read -r v; do
+    [[ "$v" == "$2" || "$v" == "$2".* ]] && best="$v"
+  done < <(sort -t. -k1,1n -k2,2n -k3,3n "$1" 2>/dev/null)
+  [[ -n "$best" ]] && printf '%s\n' "$best"
+}
 case "${1:-}" in
   versions) cat "$HOME/.pyenv-stub" 2>/dev/null ;;
-  install)  printf '%s\n' "${!#}" >> "$HOME/.pyenv-stub" ;;
+  latest)
+    if [[ "${2:-}" == -k ]]; then newest "$HOME/.pyenv-known" "${3:-}"; else newest "$HOME/.pyenv-stub" "${2:-}"; fi
+    exit $? ;;
+  exec) [[ ! -e "$HOME/.pyenv-broken" ]] || exit 1 ;;
+  install)
+    v=$(newest "$HOME/.pyenv-known" "${!#}") || exit 1
+    grep -qxF "$v" "$HOME/.pyenv-stub" 2>/dev/null || printf '%s\n' "$v" >> "$HOME/.pyenv-stub" ;;
 esac
 exit 0
 EOF
@@ -367,12 +387,18 @@ chmod +x "$HB"/*
 
 P2="$W/after-phase-2"
 machine "$P2"; apps all
+# What pyenv knows there: the repository's own pin, or its fourteenth patch
+# when the pin is a prefix.
+want_py=$(tr -d '[:space:]' < "$R/.python-version")
+case "$want_py" in
+  *.*.*) printf '%s\n' "$want_py" ;;
+  *)     printf '%s.14\n' "$want_py" ;;
+esac > "$P2/home/.pyenv-known"
 if run_pi "$P2"; then
   pass "after Phase 2, Homebrew not on PATH: post-install exits 0"
 else
   fail "after Phase 2, Homebrew not on PATH: post-install exited non-zero"; show_out "$P2"
 fi
-want_py=$(tr -d '[:space:]' < "$R/.python-version")
 skipped=$(grep -oE '(topgrade|pyenv|pinentry-mac) not installed' "$P2/out" | tr '\n' ' ')
 if [[ "$(readlink "$P2/home/.config/topgrade.toml")" == "$R/assets/topgrade.toml" ]] \
    && grep -qxF "pinentry-program $HB/pinentry-mac" "$P2/home/.gnupg/gpg-agent.conf" 2>/dev/null \
@@ -388,6 +414,99 @@ if (( $(grep -c '^brew shellenv$' "$P2/calls.log") == 1 )); then
 else
   fail "after Phase 2: brew shellenv run $(grep -c '^brew shellenv$' "$P2/calls.log") times"
 fi
+
+# ── 6. The Python that is installed is kept ──────────────────────────────────
+
+# Until 2026-10-01 post-install took a pin for installed only when
+# `pyenv versions` held that whole line. The repository pins a prefix, 3.12,
+# which no line of it is, so every run went on to `pyenv install`. That built
+# each new patch pyenv learned of, and it became the default with pip alone:
+# on 2026-10-01 dmgbuild stayed in 3.12.14 and python was 3.12.15 (audit 20,
+# X-16). The runs below are on the machine above, which holds 3.12.14 now.
+py_calls()  { grep -c "^pyenv $1" "$P2/calls.log"; }                     # py_calls WORDS
+py_lines()  { grep -E 'pyenv|Python' "$P2/out" | sed 's/^/      /' >&2; }
+py_has()    { grep -qF -- "$1" "$P2/out"; }                              # py_has TEXT
+set_pin()   { printf '%s\n' "$1" > "$R/.python-version"; }
+installed() { tr '\n' ' ' < "$P2/home/.pyenv-stub"; }
+
+if (( $(py_calls 'global ') == 1 )) && [[ "$(installed)" == "$(tr '\n' ' ' < "$P2/home/.pyenv-known")" ]]; then
+  pass "no Python installed: the pin is installed, and made the default once"
+else
+  fail "no Python installed: pyenv global ran $(py_calls 'global ') times, installed: $(installed)"
+fi
+
+# The pin is a prefix from here on, whatever the repository's own is.
+set_pin 3.12
+printf '3.12.14\n' > "$P2/home/.pyenv-known"
+printf '3.12.14\n' > "$P2/home/.pyenv-stub"
+before_install=$(py_calls 'install ')
+before_global=$(py_calls 'global ')
+before_smoke=$(py_calls 'exec python')
+
+# 6a. A prefix pin, and its newest patch is installed.
+run_pi "$P2" || { fail "prefix pin, patch installed: post-install exited non-zero"; show_out "$P2"; }
+if (( $(py_calls 'install ') == before_install )) \
+   && py_has 'pyenv Python 3.12 (already installed: 3.12.14)' \
+   && ! py_has 'Installing Python' && ! py_has 'pyenv Python 3.12 installed' && ! py_has 'pyenv knows'; then
+  pass "prefix pin, patch installed: says which patch, and pyenv install is not run"
+else
+  fail "prefix pin, patch installed: not skipped by name (pyenv install ran $(( $(py_calls 'install ') - before_install )) more time(s))"; py_lines
+fi
+if (( $(py_calls 'exec python') == before_smoke + 1 )) && py_has 'can run a subprocess'; then
+  pass "prefix pin, patch installed: the installed Python is still smoke-tested"
+else
+  fail "prefix pin, patch installed: the smoke test did not run"; py_lines
+fi
+
+# 6b. pyenv learns a newer patch. This is the 2026-10-01 run.
+printf '3.12.14\n3.12.15\n' > "$P2/home/.pyenv-known"
+run_pi "$P2" || { fail "newer patch known: post-install exited non-zero"; show_out "$P2"; }
+if (( $(py_calls 'install ') == before_install )) && [[ "$(installed)" == "3.12.14 " ]] \
+   && (( $(py_calls 'global ') == before_global )); then
+  pass "newer patch known: it is not built, and the default does not move"
+else
+  fail "newer patch known: installed is now: $(installed); pyenv global ran $(( $(py_calls 'global ') - before_global )) more time(s)"; py_lines
+fi
+if py_has 'pyenv knows Python 3.12.15. mrk keeps 3.12.14' \
+   && py_has 'pyenv install 3.12.15, then install the packages again' \
+   && py_has 'without the pip packages of the old one'; then
+  pass "newer patch known: the run names it, says why it is not built, and gives the command"
+else
+  fail "newer patch known: the run does not name 3.12.15 and the command that builds it"; py_lines
+fi
+
+# 6c. The installed patch cannot start a subprocess. The rebuild line names
+# that patch: with the prefix, `pyenv install --force 3.12` builds 3.12.15.
+: > "$P2/home/.pyenv-broken"
+if run_pi "$P2"; then
+  fail "installed patch broken: post-install exited 0"; py_lines
+elif py_has 'cannot run a subprocess' && py_has 'pyenv install --force 3.12.14'; then
+  pass "installed patch broken: non-zero exit, and the rebuild line names 3.12.14"
+else
+  fail "installed patch broken: the rebuild line does not name 3.12.14"; py_lines
+fi
+rm -f "$P2/home/.pyenv-broken"
+
+# 6d. A full pin that is installed: no newer patch is a match for it.
+set_pin 3.12.14
+run_pi "$P2" || { fail "full pin, installed: post-install exited non-zero"; show_out "$P2"; }
+if (( $(py_calls 'install ') == before_install )) \
+   && py_has 'pyenv Python 3.12.14 (already installed)' && ! py_has 'pyenv knows'; then
+  pass "full pin, installed: skipped, and 3.12.15 is not offered"
+else
+  fail "full pin, installed: not skipped cleanly"; py_lines
+fi
+
+# 6e. A full pin that is not installed is built: the owner moved the pin.
+set_pin 3.12.15
+run_pi "$P2" || { fail "full pin, not installed: post-install exited non-zero"; show_out "$P2"; }
+if (( $(py_calls 'install -s 3.12.15') == 1 )) && [[ "$(installed)" == "3.12.14 3.12.15 " ]] \
+   && (( $(py_calls 'global 3.12.15') == 1 )) && py_has 'pyenv Python 3.12.15 installed'; then
+  pass "full pin, not installed: built and made the default"
+else
+  fail "full pin, not installed: installed is now: $(installed)"; py_lines
+fi
+set_pin "$want_py"
 
 # ── Nothing escaped the stubs ────────────────────────────────────────────────
 

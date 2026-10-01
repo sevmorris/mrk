@@ -668,13 +668,32 @@ if command -v pyenv >/dev/null 2>&1 && [[ -f "$PYENV_VERSION_FILE" ]]; then
       pyenv_sdk="/Library/Developer/CommandLineTools/SDKs/MacOSX${os_major}.sdk"
       [[ -d "$pyenv_sdk" ]] || pyenv_sdk=""
     fi
-    pyenv_rebuild="pyenv install --force ${pyenv_wanted}"
-    [[ -n "$pyenv_sdk" ]] && pyenv_rebuild="CC=/usr/bin/clang SDKROOT=${pyenv_sdk} ${pyenv_rebuild}"
+    pyenv_build_env=""
+    [[ -n "$pyenv_sdk" ]] && pyenv_build_env="CC=/usr/bin/clang SDKROOT=${pyenv_sdk} "
 
+    # .python-version may hold a prefix: "3.12" is any 3.12 patch. `pyenv latest`
+    # gives the newest installed version the pin matches, and fails when none
+    # does. Until 2026-10-01 this was a whole-line grep of `pyenv versions`,
+    # which a prefix never passes, so every run went on to `pyenv install -s`.
+    # That built each new patch pyenv learned of, and the new patch became the
+    # default with pip alone: the packages installed with pip stayed in the old
+    # one, dmgbuild among them (audit 20, X-16). A version that matches is
+    # kept, and a newer one is named, not built. A pyenv too old to have
+    # `latest` answers nothing, and the run installs as before.
     pyenv_installed=0
-    if pyenv versions --bare 2>/dev/null | grep -qxF "$pyenv_wanted"; then
-      logskip "pyenv Python ${pyenv_wanted}" "already installed"
+    pyenv_have="$(pyenv latest "$pyenv_wanted" 2>/dev/null || true)"
+    if [[ -n "$pyenv_have" ]]; then
+      if [[ "$pyenv_have" == "$pyenv_wanted" ]]; then
+        logskip "pyenv Python ${pyenv_wanted}" "already installed"
+      else
+        logskip "pyenv Python ${pyenv_wanted}" "already installed: ${pyenv_have}"
+      fi
       pyenv_installed=1
+      pyenv_known="$(pyenv latest -k "$pyenv_wanted" 2>/dev/null || true)"
+      if [[ -n "$pyenv_known" && "$pyenv_known" != "$pyenv_have" ]]; then
+        info "pyenv knows Python ${pyenv_known}. mrk keeps ${pyenv_have}: a new version starts without the pip packages of the old one"
+        info "to move to it: ${pyenv_build_env}pyenv install ${pyenv_known}, then install the packages again"
+      fi
     else
       log "Installing Python ${pyenv_wanted} via pyenv..."
       [[ -n "$pyenv_sdk" ]] && info "building against the macOS ${os_major} SDK — Xcode's is macOS ${sdk_major}"
@@ -688,10 +707,14 @@ if command -v pyenv >/dev/null 2>&1 && [[ -f "$PYENV_VERSION_FILE" ]]; then
           ok "pyenv global → ${pyenv_wanted}"
         fi
       else
-        warn "pyenv install ${pyenv_wanted} failed — run: ${pyenv_rebuild}"
+        warn "pyenv install ${pyenv_wanted} failed — run: ${pyenv_build_env}pyenv install --force ${pyenv_wanted}"
         ((++failed))
       fi
     fi
+
+    # The rebuild names the version that is installed. With a prefix,
+    # `pyenv install --force 3.12` builds the newest patch pyenv knows instead.
+    pyenv_rebuild="${pyenv_build_env}pyenv install --force ${pyenv_have:-$pyenv_wanted}"
 
     if (( pyenv_installed )); then
       if PYENV_VERSION="$pyenv_wanted" pyenv exec python -c \
