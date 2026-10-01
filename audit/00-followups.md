@@ -161,11 +161,19 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
 
 **Module 18's open items (2026-09-23).** Details are in `18-audit-2026-09-23.md`.
 
-- **Startup Security (your action).** The five casks removed from the Brewfile are gone from
-  the Mac too. On 2026-09-28 none was installed, and no macFUSE or Samsung kernel extension was
-  loaded. If either kext was ever approved, this Mac is still at Reduced Security. → To close:
-  check it in recoveryOS (Startup Security Utility), and set it back to Full Security if nothing
-  else needs it.
+- **Startup Security: checked 2026-10-01, and it is Full Security.** The five casks removed
+  from the Brewfile are gone from the Mac too. On 2026-09-28 none was installed, and no macFUSE
+  or Samsung kernel extension was loaded. The question left was whether a kext approved earlier
+  had left this Mac at Reduced Security. It had not. `system_profiler SPiBridgeDataType`
+  reads the boot policy without a restart into recoveryOS, and on 2026-10-01 it said:
+  - Secure Boot: Full Security
+  - Allow All Kernel Extensions: No
+  - System Integrity Protection: Enabled, and `csrutil status` agrees
+  - Signed System Volume, Kernel CTRR and Boot Arguments Filtering: Enabled
+
+  `kmutil showloaded` lists no kernel extension that is not Apple's. Nothing to change, and
+  nothing of this item is open. System Information › Hardware › Controller shows the same
+  policy in a window.
 - **Intel-only apps and plug-ins (your decisions).** Surveyed 2026-09-28 with `lipo -archs`:
   - **Apps:** one of 98 app bundles is Intel-only, `Waves AU Reg Utility 12`.
   - **Plug-ins:** 9 of 74 audio plug-in bundles are Intel-only. They are Waves' V12 shells, its
@@ -199,10 +207,11 @@ settled on 2026-09-28: it is retired (see Closed). Nothing from module 19 is ope
 
 U-7 and U-8 were decided on 2026-09-28; see Closed.
 
-**U-4's state half looks done.** Thaw replaced Ice in mrk and on this Mac. On 2026-09-28 Thaw was
-running and was a login item. Its Accessibility permission was not checked, because that would
-mean reading the privacy database. → To close: confirm that Thaw is on in System Settings ›
-Privacy & Security › Accessibility.
+**U-4's state half is done.** Thaw replaced Ice in mrk and on this Mac. On 2026-09-28 Thaw was
+running and was a login item. Its Accessibility permission was not checked then, because that
+would mean reading the privacy database. On 2026-10-01 the owner looked in System Settings ›
+Privacy & Security › Accessibility: Thaw is in the list, and its switch is on. Thaw was running
+that day too. Nothing of U-4 is open.
 
 **Module 15's decisions (2026-09-16): all settled.** All six were settled on 2026-09-28: T-3,
 T-8, T-9, T-14 and T-15 were decided, and T-11 turned out to have been done on 2026-09-18. See
