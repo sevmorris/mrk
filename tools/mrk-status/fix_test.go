@@ -41,8 +41,9 @@ func makeTargets(t *testing.T) map[string]bool {
 }
 
 func TestEveryFixCommandResolves(t *testing.T) {
-	// An empty directory drives each check into its remediation branch, which
-	// is where the fix commands live.
+	// An empty directory drives each installation check into its remediation
+	// branch, which is where its fix lives. The daily panels' fixes are the
+	// constants in dailyFixes, each of which a line can carry.
 	tmp := t.TempDir()
 	bin := filepath.Join(tmp, "bin")
 
@@ -52,39 +53,58 @@ func TestEveryFixCommandResolves(t *testing.T) {
 		checkDefaults(tmp),
 		checkHardening(tmp),
 		checkPATH(tmp, bin),
-		checkBrewfile(tmp),
 		checkShell(),
 		checkHomebrew(),
 	}
-
-	targets := makeTargets(t)
-	checked := 0
+	type fix struct{ from, cmd string }
+	var fixes []fix
 	for _, g := range groups {
-		if g.fix == "" {
-			continue
+		if g.fix != "" {
+			fixes = append(fixes, fix{g.name, g.fix})
 		}
-		checked++
-		fields := strings.Fields(g.fix)
-		if fields[0] == "make" {
+		for _, l := range g.lines {
+			if l.fix != "" {
+				fixes = append(fixes, fix{g.name, l.fix})
+			}
+		}
+	}
+	for _, f := range dailyFixes {
+		fixes = append(fixes, fix{"daily panels", f})
+	}
+
+	repo, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	targets := makeTargets(t)
+	for _, f := range fixes {
+		fields := strings.Fields(f.cmd)
+		switch {
+		case fields[0] == "make":
 			if len(fields) < 2 {
-				t.Errorf("%s: fix %q is a bare \"make\"", g.name, g.fix)
-				continue
-			}
-			if !targets[fields[1]] {
+				t.Errorf("%s: fix %q is a bare \"make\"", f.from, f.cmd)
+			} else if !targets[fields[1]] {
 				t.Errorf("%s: fix %q names Make target %q, which the Makefile does not define",
-					g.name, g.fix, fields[1])
+					f.from, f.cmd, fields[1])
 			}
-			continue
-		}
-		if _, err := exec.LookPath(fields[0]); err != nil {
-			t.Errorf("%s: fix %q starts with %q, which does not resolve on the PATH — "+
-				"the f key would fail with \"command not found\"", g.name, g.fix, fields[0])
+		case strings.Contains(fields[0], "/"):
+			// A path runs from the repo root, after the f key's cd.
+			p := filepath.Join(repo, fields[0])
+			if fi, err := os.Stat(p); err != nil || fi.Mode()&0o111 == 0 {
+				t.Errorf("%s: fix %q names %s, which is not an executable in the repository",
+					f.from, f.cmd, fields[0])
+			}
+		default:
+			if _, err := exec.LookPath(fields[0]); err != nil {
+				t.Errorf("%s: fix %q starts with %q, which does not resolve on the PATH — "+
+					"the f key would fail with \"command not found\"", f.from, f.cmd, fields[0])
+			}
 		}
 	}
-	if checked == 0 {
-		t.Fatal("no fix commands were examined — the gate passed vacuously")
+	if len(fixes) < len(dailyFixes)+3 {
+		t.Fatalf("only %d fix commands were examined — the gate is passing on too little", len(fixes))
 	}
-	t.Logf("checked %d fix command(s)", checked)
+	t.Logf("checked %d fix command(s)", len(fixes))
 }
 
 // Resolving is not the same as working. Until 2026-09-11 the Tools fix was

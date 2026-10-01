@@ -69,7 +69,7 @@ var categories = []category{
 	{
 		name: "Diagnostics",
 		items: []item{
-			{"mrk-status", "health dashboard", cmdBin, "mrk-status", nil, false},
+			{"mrk-status", "daily dashboard", cmdBin, "mrk-status", nil, false},
 			{"make doctor", "check ~/bin is on PATH", cmdMake, "doctor", nil, false},
 			{"make doctor ARGS=--fix", "also fix PATH if missing", cmdMake, "doctor", []string{"ARGS=--fix"}, false},
 		},

@@ -238,14 +238,11 @@ else
   show
 fi
 
-# status reads the same rule: the planted two are neither linked nor missing
-HOME_ROOT="$R" run "$R/scripts/status"
-dots_section="$(sed -n '/^Dotfiles:/,/^$/p' "$W/out")"
-if grep -q "All dotfiles linked" <<<"$dots_section" && ! grep -qE '\.claude|\.DS_Store' <<<"$dots_section"; then
-  pass "status agrees: all dotfiles linked, neither .claude nor .DS_Store reported"
-else
-  fail "status's Dotfiles section:"; printf '      %s\n' "$dots_section" >&2
-fi
+# status reads the same rule. Until 2026-09-30 this ran scripts/status, then a
+# bash twin of the dashboard's checks, here; status is now mrk-status --plain,
+# a binary this sandbox does not build, and the rule's Go side is held by
+# TestCheckDotfilesIgnoresDirectoriesAndDSStore in tools/mrk-status, against
+# the same two: a dotfiles/.claude/ directory and a .DS_Store.
 rm -rf "$R/dotfiles/.claude" "$R/dotfiles/.DS_Store"
 
 # ── Things in a dotfile's place (audit 17) ───────────────────────────────────

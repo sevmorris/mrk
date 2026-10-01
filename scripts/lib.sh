@@ -589,6 +589,36 @@ git_in_progress() {
   fi
 }
 
+# tool_freshness REPO BINDIR — for each Go tool mrk builds, print its name and
+# its state, tab-separated: "ok"; "stale", when a source under tools/<dir> or
+# tools/theme — go.mod and go.sum included, since a dependency bump changes the
+# binary without touching a .go file — is newer than BINDIR/NAME; or "missing".
+# All three tools import the shared theme module, so a change there makes each
+# one stale.
+#
+# maintain and mrk-status both read it. Until 2026-09-30 this was maintain's
+# own loop, using `find -newer` on the ~/bin link, which compares with the
+# target only on BSD find; -nt follows the link with either.
+tool_freshness() {
+  local repo=$1 bindir=$2 name dir bin f state
+  for name in mrk-picker mrk-status mrk-menu; do
+    case "$name" in
+      mrk-picker) dir=picker ;;
+      *)          dir=$name ;;
+    esac
+    bin="$bindir/$name"
+    if [[ ! -e "$bin" ]]; then
+      state=missing
+    else
+      state=ok
+      while IFS= read -r -d '' f; do
+        if [[ "$f" -nt "$bin" ]]; then state=stale; break; fi
+      done < <(find "$repo/tools/$dir" "$repo/tools/theme" \( -name '*.go' -o -name go.mod -o -name go.sum \) -print0 2>/dev/null)
+    fi
+    printf '%s\t%s\n' "$name" "$state"
+  done
+}
+
 # prefs_source ID — print the domain to hand `defaults export` so that it reads
 # the preferences app ID really uses: the path of ~/Library/Preferences/ID.plist
 # when that file exists, and otherwise ID itself.

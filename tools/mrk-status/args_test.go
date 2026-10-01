@@ -13,25 +13,27 @@ func TestParseArgs(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		args []string
-		help bool
+		want options
 		bad  string
 	}{
-		{"no arguments runs the TUI", nil, false, ""},
-		{"empty slice runs the TUI", []string{}, false, ""},
-		{"--help", []string{"--help"}, true, ""},
-		{"-h", []string{"-h"}, true, ""},
-		{"an unknown flag is refused", []string{"--bogus"}, false, "--bogus"},
-		{"a bare word is refused", []string{"status"}, false, "status"},
-		{"-help is not -h", []string{"-help"}, false, "-help"},
-		{"case matters", []string{"--HELP"}, false, "--HELP"},
-		{"an extra argument after --help is refused", []string{"--help", "extra"}, false, "extra"},
-		{"an extra argument after a flag is refused", []string{"--bogus", "extra"}, false, "extra"},
+		{"no arguments runs the TUI", nil, options{}, ""},
+		{"empty slice runs the TUI", []string{}, options{}, ""},
+		{"--help", []string{"--help"}, options{help: true}, ""},
+		{"-h", []string{"-h"}, options{help: true}, ""},
+		{"--plain prints the panels", []string{"--plain"}, options{plain: true}, ""},
+		{"an unknown flag is refused", []string{"--bogus"}, options{}, "--bogus"},
+		{"a bare word is refused", []string{"status"}, options{}, "status"},
+		{"-help is not -h", []string{"-help"}, options{}, "-help"},
+		{"case matters", []string{"--HELP"}, options{}, "--HELP"},
+		{"an extra argument after --help is refused", []string{"--help", "extra"}, options{}, "extra"},
+		{"an extra argument after --plain is refused", []string{"--plain", "extra"}, options{}, "extra"},
+		{"an extra argument after a flag is refused", []string{"--bogus", "extra"}, options{}, "extra"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			help, bad := parseArgs(tc.args)
-			if help != tc.help || bad != tc.bad {
-				t.Errorf("parseArgs(%q) = (help=%v, bad=%q), want (help=%v, bad=%q)",
-					tc.args, help, bad, tc.help, tc.bad)
+			got, bad := parseArgs(tc.args)
+			if got != tc.want || bad != tc.bad {
+				t.Errorf("parseArgs(%q) = (%+v, bad=%q), want (%+v, bad=%q)",
+					tc.args, got, bad, tc.want, tc.bad)
 			}
 		})
 	}
@@ -42,10 +44,10 @@ func TestParseArgs(t *testing.T) {
 // had asked for help on stdout.
 func TestRefusalAndHelpAreExclusive(t *testing.T) {
 	for _, args := range [][]string{
-		nil, {}, {"--help"}, {"-h"}, {"--bogus"}, {"x"}, {"--help", "extra"},
+		nil, {}, {"--help"}, {"-h"}, {"--plain"}, {"--bogus"}, {"x"}, {"--help", "extra"},
 	} {
-		if help, bad := parseArgs(args); help && bad != "" {
-			t.Errorf("parseArgs(%q) returned both help and bad=%q", args, bad)
+		if opts, bad := parseArgs(args); (opts.help || opts.plain) && bad != "" {
+			t.Errorf("parseArgs(%q) returned both %+v and bad=%q", args, opts, bad)
 		}
 	}
 }

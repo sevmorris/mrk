@@ -1,5 +1,7 @@
-// mrk-status — interactive installation health dashboard
-// Two-pane Bubble Tea TUI: checks (left) | detail (right)
+// mrk-status — the daily dashboard: what is unrecorded, what has fallen
+// behind, Time Machine, and the installation, folded into one panel.
+// Two-pane Bubble Tea TUI: panels (left) | detail (right); --plain prints the
+// same panels as text, for scripts/status and make status.
 package main
 
 import (
@@ -53,6 +55,7 @@ func (s severity) icon() string {
 type statusLine struct {
 	sev  severity
 	text string
+	fix  string // this line's own fix, shown beside it, or ""
 }
 
 type group struct {
@@ -62,7 +65,7 @@ type group struct {
 	fix   string // shell command to run, or ""
 }
 
-func sl(sev severity, text string) statusLine { return statusLine{sev, text} }
+func sl(sev severity, text string) statusLine { return statusLine{sev: sev, text: text} }
 
 func worst(lines []statusLine) severity {
 	s := sevOK
@@ -382,108 +385,14 @@ func checkHomebrew() group {
 		[]statusLine{sl(sevOK, ver)}, ""}
 }
 
+// A Brewfile entry, for brewfileSummary's count. What is installed against it
+// is sync --check's answer (daily.go): until 2026-09-30 checkBrewfile compared
+// the Brewfile with `brew list` here, a twin of sync's comparison that knew
+// nothing of sync-ignore.
 var (
 	reBrewPkg = regexp.MustCompile(`^brew\s+"([^"]+)"`)
 	reCaskPkg = regexp.MustCompile(`^cask\s+"([^"]+)"`)
 )
-
-func checkBrewfile(repoRoot string) group {
-	path := filepath.Join(repoRoot, "Brewfile")
-	f, err := os.Open(path)
-	if err != nil {
-		return group{"Brewfile", sevWarn,
-			[]statusLine{sl(sevWarn, "Brewfile not found at "+path)}, ""}
-	}
-	defer f.Close()
-
-	var formulae, casks []string
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		l := strings.TrimSpace(sc.Text())
-		if m := reBrewPkg.FindStringSubmatch(l); m != nil {
-			formulae = append(formulae, m[1])
-		} else if m := reCaskPkg.FindStringSubmatch(l); m != nil {
-			casks = append(casks, m[1])
-		}
-	}
-	// A read that fails part way would otherwise check half a Brewfile as the
-	// whole of it (audit 19, W-23).
-	if err := sc.Err(); err != nil {
-		return group{"Brewfile", sevWarn,
-			[]statusLine{sl(sevWarn, "Cannot read "+path+": "+err.Error())}, ""}
-	}
-
-	if _, err := exec.LookPath("brew"); err != nil {
-		return group{"Brewfile", sevInfo, []statusLine{
-			sl(sevInfo, fmt.Sprintf("%d formulae, %d casks (brew unavailable — skipping checks)",
-				len(formulae), len(casks))),
-		}, ""}
-	}
-
-	// A failed `brew list` must not be folded into the per-package results. The
-	// old code swallowed the error and left the map empty, so every lookup below
-	// missed and all of the Brewfile rendered as "(missing)" — a screen of
-	// fabricated failures with nothing saying the check itself never ran. brew
-	// being absent is already handled above via LookPath; this is brew present
-	// and failing, which a broken prefix or a half-finished upgrade produces.
-	//
-	// scripts/sync:190 guards the identical call for the same reason, where the
-	// consequence was worse: --prune would have read the empty set as "every
-	// tracked entry is stale".
-	instF, instC := map[string]bool{}, map[string]bool{}
-	outF, errF := exec.Command("brew", "list", "--formula").Output()
-	outC, errC := exec.Command("brew", "list", "--cask").Output()
-	if errF != nil || errC != nil {
-		which, e := "brew list --formula", errF
-		if errF == nil {
-			which, e = "brew list --cask", errC
-		}
-		return group{"Brewfile", sevWarn, []statusLine{
-			sl(sevWarn, fmt.Sprintf("%d formulae, %d casks tracked", len(formulae), len(casks))),
-			sl(sevWarn, fmt.Sprintf("cannot check what is installed — %s failed: %v", which, e)),
-		}, "brew doctor"}
-	}
-	for _, p := range strings.Fields(string(outF)) {
-		instF[p] = true
-	}
-	for _, p := range strings.Fields(string(outC)) {
-		instC[p] = true
-	}
-
-	var lines []statusLine
-	installed, missing := 0, 0
-	for _, pkg := range formulae {
-		if instF[pkg] {
-			installed++
-			lines = append(lines, sl(sevOK, pkg))
-		} else {
-			missing++
-			lines = append(lines, sl(sevErr, pkg+" (missing)"))
-		}
-	}
-	for _, pkg := range casks {
-		if instC[pkg] {
-			installed++
-			lines = append(lines, sl(sevOK, pkg+" (cask)"))
-		} else {
-			missing++
-			lines = append(lines, sl(sevErr, pkg+" (cask, missing)"))
-		}
-	}
-
-	total := installed + missing
-	summary := fmt.Sprintf("%d/%d installed", installed, total)
-	if missing > 0 {
-		summary += fmt.Sprintf(", %d missing", missing)
-	}
-	all := append([]statusLine{sl(sevInfo, summary)}, lines...)
-	sev, fix := sevOK, ""
-	if missing > 0 {
-		sev = sevWarn
-		fix = "make brew"
-	}
-	return group{"Brewfile", sev, all, fix}
-}
 
 // ── Messages & commands ───────────────────────────────────────────────────
 
@@ -491,25 +400,7 @@ type checksMsg []group
 type fixDoneMsg struct{ err error }
 
 func runChecks(repoRoot, home, binDir string) tea.Cmd {
-	return func() tea.Msg {
-		stateDir := filepath.Join(home, ".mrk")
-		groups := []group{
-			checkDotfiles(repoRoot, home),
-			checkTools(repoRoot, binDir),
-			checkDefaults(stateDir),
-			checkHardening(stateDir),
-		}
-		if g, ok := checkBackups(stateDir); ok {
-			groups = append(groups, g)
-		}
-		groups = append(groups,
-			checkShell(),
-			checkPATH(home, binDir),
-			checkHomebrew(),
-			checkBrewfile(repoRoot),
-		)
-		return checksMsg(groups)
-	}
+	return func() tea.Msg { return checksMsg(collect(repoRoot, home, binDir)) }
 }
 
 // ── Model ─────────────────────────────────────────────────────────────────
@@ -750,27 +641,13 @@ func (m model) View() string {
 }
 
 func (m model) viewHeader() string {
-	left := styleTitle.Render("mrk-status") + styleFooter.Render("  Installation Health")
+	left := styleTitle.Render("mrk-status") + styleFooter.Render("  Daily status")
 	var right string
 	if m.loading {
 		right = styleLoading.Render("checking…")
 	} else {
-		warns, errs := 0, 0
-		for _, g := range m.groups {
-			switch g.sev {
-			case sevWarn:
-				warns++
-			case sevErr:
-				errs++
-			}
-		}
-		if errs > 0 {
-			right = styleErr.Render(fmt.Sprintf("%d error(s)", errs))
-		} else if warns > 0 {
-			right = styleWarn.Render(fmt.Sprintf("%d warning(s)", warns))
-		} else {
-			right = styleOK.Render("all clear")
-		}
+		verdict, sev := summary(m.groups)
+		right = sevStyle(sev).Render(verdict)
 	}
 	gap := m.width - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 1 {
@@ -814,7 +691,7 @@ func (m model) viewBody() string {
 	if m.loading && len(m.groups) == 0 {
 		inner := m.width - 4
 		return stylePaneOn.Width(inner).Height(paneH).
-			Render(styleLoading.Render("Checking installation…"))
+			Render(styleLoading.Render("Running the checks…"))
 	}
 
 	const leftInner = 26
@@ -890,8 +767,17 @@ func (m model) viewRight(inner, height int) string {
 	sb.WriteString(header + "\n")
 	for _, l := range g.lines[start:end] {
 		icon := sevStyle(l.sev).Render(l.sev.icon())
-		text := theme.Truncate(l.text, inner-3)
-		sb.WriteString(icon + " " + styleNorm.Render(text) + "\n")
+		text, fix := l.text, ""
+		if l.fix != "" {
+			fix = "  → " + l.fix
+		}
+		// The fix is cut before the text is: it is the line's suggestion, and
+		// the text is what is wrong.
+		room := max(inner-3, 1)
+		if lipgloss.Width(text)+lipgloss.Width(fix) > room {
+			fix = ""
+		}
+		sb.WriteString(icon + " " + styleNorm.Render(theme.Truncate(text, room)) + styleDim.Render(fix) + "\n")
 	}
 	content := strings.TrimRight(sb.String(), "\n")
 	return pane.Width(inner).Height(height).Render(content)
@@ -906,11 +792,25 @@ func shellQuote(s string) string {
 // ── Main ──────────────────────────────────────────────────────────────────
 
 func usage(w io.Writer) {
-	fmt.Fprint(w, `mrk-status — interactive installation health dashboard
+	fmt.Fprint(w, `mrk-status — the daily dashboard
 
 Usage:
   mrk-status          Open the TUI dashboard
+  mrk-status --plain  Print the same panels as text, and exit
   mrk-status --help   Show this help
+
+Panels, daily work first:
+  Unrecorded            What the next Mac would not get: Homebrew packages
+                        the Brewfile lacks or no longer has, work in ~/mrk
+                        and ~/Projects not committed or pushed, repositories
+                        the manifest does not record
+  Upkeep                ~/mrk behind origin, Go tools older than their source,
+                        outdated Homebrew packages, macOS updates
+  Time Machine Backups  A destination, and the age of the last backup
+  Installation          Dotfiles, ~/bin links, shell, PATH, Homebrew, the
+                        Brewfile, macOS defaults, hardening
+
+A line's fix is shown beside it; f runs the panel's first one.
 
 TUI keys:
   ↑/↓  k/j           Navigate checks (left) or scroll detail (right)
@@ -923,37 +823,43 @@ TUI keys:
 `)
 }
 
-// parseArgs decides what to do with the command line. It returns help=true when
-// usage was asked for, and bad set to the argument to refuse. Extracted from
-// main so the decision is testable without os.Exit.
+// options is what the command line asked for.
+type options struct {
+	help, plain bool
+}
+
+// parseArgs decides what to do with the command line. bad is the argument to
+// refuse. Extracted from main so the decision is testable without os.Exit.
 //
 // The default arm is the point. main used to compare os.Args[1] against
 // "--help" and "-h" and fall straight through on anything else, so
 // `mrk-status --bogus` opened the TUI with the flag discarded — the same shape
 // as the eight commands in audit/14 P-9. An extra argument was dropped too.
-func parseArgs(args []string) (help bool, bad string) {
+func parseArgs(args []string) (opts options, bad string) {
 	if len(args) == 0 {
-		return false, ""
+		return options{}, ""
 	}
 	if len(args) > 1 {
-		return false, args[1]
+		return options{}, args[1]
 	}
 	switch args[0] {
 	case "--help", "-h":
-		return true, ""
+		return options{help: true}, ""
+	case "--plain":
+		return options{plain: true}, ""
 	default:
-		return false, args[0]
+		return options{}, args[0]
 	}
 }
 
 func main() {
-	help, bad := parseArgs(os.Args[1:])
+	opts, bad := parseArgs(os.Args[1:])
 	switch {
 	case bad != "":
 		usage(os.Stderr)
 		fmt.Fprintf(os.Stderr, "\nunknown argument: %s\n", bad)
 		os.Exit(2)
-	case help:
+	case opts.help:
 		usage(os.Stdout)
 		os.Exit(0)
 	}
@@ -969,6 +875,11 @@ func main() {
 		repoRoot = r
 	}
 	binDir := filepath.Join(home, "bin")
+
+	if opts.plain {
+		renderPlain(os.Stdout, collect(repoRoot, home, binDir))
+		return
+	}
 
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {

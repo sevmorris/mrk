@@ -179,7 +179,7 @@ trim-services: ## Disable background launchd agents this Mac does not need  (ARG
 harden: ## Apply macOS security hardening
 	@"$(SCRIPTS)/hardening.sh" $(ARGS)
 
-status: ## Show installation status
+status: ## Print the dashboard's panels as text: unrecorded work, upkeep, Time Machine, the installation
 	@"$(SCRIPTS)/status"
 
 doctor: ## Run diagnostics
@@ -189,7 +189,7 @@ picker: ## Build the mrk-picker TUI binary
 	$(call go-build,mrk-picker,picker)
 	$(call link-home-bin,mrk-picker,mrk-picker)
 
-mrk-status: ## Build the mrk-status TUI health dashboard binary
+mrk-status: ## Build the mrk-status daily dashboard binary
 	$(call go-build,mrk-status,mrk-status)
 	$(call link-home-bin,mrk-status,mrk-status status)
 
