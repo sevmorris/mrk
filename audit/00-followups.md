@@ -9,7 +9,22 @@ open?" has a single answer without grepping the whole audit directory.
 For each item: what it is, where it's documented, why it was deferred, what action
 would close it.
 
-**Last re-verified:** 2026-10-01 against `70092e2` by module 20
+**Last re-verified:** 2026-10-04 against `03fb729` by module 21
+(`21-audit-2026-10-04.md`), a sweep of the whole tree for cruft alone: code with no caller,
+configuration that matches nothing, comments and READMEs that are false today, assets nothing
+uses, and the live Mac, read-only. `ci-check` (702 checks), `go vet`, `gofmt`, staticcheck with
+every check on, and `go mod tidy -diff` were clean beforehand. It is a findings pass, and fixed
+nothing. It found eight LOW items and two decisions. One LOW item is a fault as well as cruft:
+- **Y-1.** The git alias `local-branches` lists branches that have an upstream, because
+  `.gitconfig` sets `color.ui = always` and the alias parses `git branch -vv` through a pipe.
+
+The rest is dead material. A topgrade step removes Homebrew Node shims on a Mac with no
+Homebrew Node. `docs/assets/` holds 527 KB that no page loads. The defaults reference shows a
+"?" status dot on every entry. Ignore rules, shellcheck disables and git settings match nothing.
+Four comments, a help line and the README's login-item list are false. All eight are open; see
+Deferred decisions.
+
+**Module 20:** 2026-10-01 against `70092e2` by module 20
 (`20-audit-2026-10-01.md`), a pass over what changed since module 19: 57 commits, PRs #31 to
 #72. It read how the changes fit together, the new shell and Go code, the tests by mutation, and
 BIN-1, the manual, SMAC-1 and SMAC-2. `ci-check`, `go vet`, `gofmt`, shellcheck, staticcheck and
@@ -135,6 +150,24 @@ Nothing. W-1 and N-1 are fixed — see Closed below.
 ## Deferred decisions
 
 Items that require a real choice before they can be closed in either direction.
+
+**Module 21's findings (2026-10-04).** Evidence and the suggested fix for each are in
+`21-audit-2026-10-04.md`. Each item is a deletion or a one-line correction, and one session
+can take all eight, in the order below.
+
+| Order | Findings | State |
+|---|---|---|
+| 1 | Y-1, Y-7: `.gitconfig`'s colour block and the `local-branches` alias; `.shellcheckrc`'s SC1090 and SC2059; eight inline shellcheck directives that hide nothing; the `.mrk/` and `Brewfile.lock.json` ignore rules; three `.gitattributes` lines | open |
+| 2 | Y-2, Y-8: topgrade's "Clean Node global shims" step; `err` in `doctor`; the `zmount`, `art` and `fixbrewperms` aliases; the `~/.local/bin` clean-up in uninstall and nuke-mrk (owner's choice) | open |
+| 3 | Y-3, Y-4: `docs/assets/`; the defaults reference's "?" status dot and five dead CSS rule sets | open |
+| 4 | Y-5, Y-6: four false comments and `setup --help`'s "scripts/bin"; the README's login items, which still name Stats | open |
+
+- **D-1 — browser extension lists (decision).** post-install reads lists that `.gitignore`
+  keeps out of the repository and that mrk-prefs does not hold, so they never reach a new Mac.
+  This Mac has none. Move them to mrk-prefs, or remove the feature.
+- **D-2 — history in BIN-1 (decision).** About 15% of BIN-1's words say what a command used to
+  do. The defaults reference keeps such text in a labelled Background block. Separately, nothing
+  links to `docs/STE-CONVERSION.md`, although X-15 made its rules the target for new text.
 
 **Module 20's findings (2026-10-01).** Evidence, the suggested fix and the mutation runs for
 each are in `20-audit-2026-10-01.md`. Four fix sessions are proposed there, highest severity
