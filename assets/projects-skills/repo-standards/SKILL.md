@@ -52,6 +52,7 @@ protect there: a repo with no Pages site cannot need `.nojekyll`.
 | `licence` | Public code nobody may legally reuse: no licence means all rights reserved. | public repos | the owner's choice; see §3 |
 | `readme` | A repository that does not say what it is. | all, except exemptions | write one |
 | `tests-in-ci` | Tests that exist and never run, so they rot. `release.sh` running them counts. | repos with tests | port WaxOnWaxOff's `build-and-test` job |
+| `ci-matrix` | CI passing on images users have left, never compiling what ships, or never running a slice that ships. On 2026-10-04 four repos tested on macos-15 alone, none built with Xcode 27 (which every release uses), two universal apps had never run their Intel slice, and two jobs sat on macos-14, which GitHub fails in brownouts through October 2026 and retires on 2026-11-02. | repos whose CI runs Xcode or Swift tests | a leg per gap the note names: WaxOnWaxOff's `ci.yml` for the matrix, DoublEnder's for the Intel leg |
 | `ci-current` | CI breaking when GitHub removes an action's runtime. The Node 20 warning was in every mrk run. | repos with workflows | bump each `uses:` to its current major, after reading its release notes |
 
 ## 3. Applying fixes
@@ -143,6 +144,12 @@ from reopening it.
   a routine push from looking like a pile-up. The tool always keeps the
   deployment serving the site, and with `--repo` it needs no clone. `mrk-push`
   already prunes mrk's; the other repos grow until someone runs it.
+- **ci-matrix's runner lists are dated.** `CI_MACOS_LEGS`, `CI_TOOLCHAIN_LEG`,
+  `CI_RETIRED` and `CI_INTEL_LEG` at the top of `scripts/audit.sh` name GitHub's
+  images as of 2026-10-04. Each autumn a new macOS image arrives and the oldest
+  is deprecated; update the lists and every workflow together, then re-run the
+  audit. `xcode-27` is a public preview, so a red leg there can be GitHub's
+  rather than the code's: re-run it before debugging.
 - **In zsh, `path` is `$PATH`.** A loop that assigns `path=…` empties the
   command search path for the rest of the line. Name it anything else.
 - **The user's gitconfig sets `color.grep = always`**, so anything parsing git

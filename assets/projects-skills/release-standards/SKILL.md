@@ -48,6 +48,7 @@ missing ones as a list, and the repo state a release would trip over.
 | `v-tag-filter` | A dependency or checkpoint tag being read as the previous release and truncating the notes. | every app |
 | `exit-trap` / `signal-trap` | A failed *or interrupted* release stranding a version bump in the working tree. zsh does not run an EXIT trap on a signal. | every app |
 | `shared-files` | Byte-identical files drifting between repos. The siblings are looked for beside the repo's main checkout, so a release from a worktree compares too: on 2026-09-24 one looked beside the worktree, compared nothing, and still reported the files in sync. Comparing nothing now fails when siblings are checked out, and only warns in a lone clone. | repos with siblings |
+| `tests` | Releasing a build whose tests never ran with the Xcode that built it. CI pins Xcode 26.3, and its `xcode-27` leg is a preview with no uptime promise; this runs the suite on the release Mac, before the version bump, so a failure leaves nothing to undo. Until 2026-10-04 only FilmStrip and Magic Backup Machine did. `--skip-tests` is the emergency override. | apps with a test target |
 
 `n/a` in the matrix means the guard has nothing to protect: a script building a
 plain image with `hdiutil create` has no dmgbuild to crash and no installer
@@ -67,7 +68,8 @@ superseding it, has no clone here any more and so does not appear.
    the same prose. The gate refuses to release without it. Reaching for
    `--generated-notes` should feel like a decision, because it is one.
 2. Commit and push everything, and let CI go green. The scripts that check CI
-   check `HEAD`.
+   check `HEAD`. Every script then runs the test suite itself, with this Mac's
+   Xcode, before the version bump; `--skip-tests` is for an emergency only.
 3. Run it under `caffeinate`, because notarization is long and a sleeping Mac
    fails it:
 

@@ -58,6 +58,7 @@ GUARDS=(
   "exit-trap|trap cleanup EXIT"
   "signal-trap|trap 'exit 143' TERM"
   "shared-files|check-shared"
+  "tests|xcodebuild test"
 )
 
 h "Guards by repo  (yes = present, -- = missing)"
@@ -78,12 +79,18 @@ for d in "${REPOS[@]}"; do
   # which is exactly the set that carries scripts/check-shared.sh.
   sibling=0
   [[ -f "$d/scripts/check-shared.sh" ]] && sibling=1
+  # Running the tests only means something for a repo that has some: KeyVault
+  # has no test target yet.
+  hastests=0
+  [[ -n $(find "$d" -maxdepth 3 -type d -name '*Tests' -not -path '*/build/*' -not -path '*/.build/*' 2>/dev/null | head -1) ]] && hastests=1
   printf '%-24s' "$name"
   for g in "${GUARDS[@]}"; do
     label="${g%%|*}"; pat="${g#*|}"
     if [[ $styled -eq 0 && ( "$label" == "dmg-verify" || "$label" == "py3-subproc" ) ]]; then
       printf '%-13s' "n/a"
     elif [[ $sibling -eq 0 && "$label" == "shared-files" ]]; then
+      printf '%-13s' "n/a"
+    elif [[ $hastests -eq 0 && "$label" == "tests" ]]; then
       printf '%-13s' "n/a"
     elif $GREP -q -- "$pat" "$d/release.sh" 2>/dev/null; then
       printf '%-13s' "yes"
