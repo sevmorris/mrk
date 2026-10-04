@@ -57,7 +57,7 @@ Usage: scripts/setup [options]
   --only <phase>        Run a single phase: xcode|dotfiles|tools|defaults|shell
   --no-dotfiles         Skip dotfiles linking
   --no-defaults        Skip macOS defaults
-  --no-link-tools       Skip linking scripts/bin into ~/bin
+  --no-link-tools       Skip linking scripts/ and bin/ into ~/bin
   --dry-run             Preview changes without applying them
   --validate            Validate configuration before installing
   --continue-on-error   Continue with remaining phases if one fails

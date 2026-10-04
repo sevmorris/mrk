@@ -78,11 +78,12 @@ trap cleanup EXIT INT TERM
 # The file is created when the user accepts the offer to ignore a declined
 # item (section 5b), and can also be written by hand.
 #
-# This mirrors ~/.mrk/sync-ignore (scripts/sync:86-117) in format, load and
-# match, with one deliberate difference: sync strips *all* whitespace from a
-# rule, which is right for Brewfile tokens but would turn "Chrono Plus" into
-# "ChronoPlus" and never match. Login-item names are app names and contain
-# interior spaces, so only leading and trailing whitespace is stripped here.
+# This mirrors ~/.mrk/sync-ignore ("Load persistent ignore list" in
+# scripts/sync) in format, load and match, with one deliberate difference: sync
+# strips *all* whitespace from a rule, which is right for Brewfile tokens but
+# would turn "Chrono Plus" into "ChronoPlus" and never match. Login-item names
+# are app names and contain interior spaces, so only leading and trailing
+# whitespace is stripped here.
 
 _LOGIN_ITEM_IGNORE=()
 if [[ -f "${STATE_DIR}/login-items-ignore" ]]; then
