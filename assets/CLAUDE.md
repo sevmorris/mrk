@@ -9,7 +9,7 @@ This is a collection of independent macOS-focused projects, not a monorepo. Each
 ## Projects
 
 ### macOS apps (Swift/SwiftUI, Xcode)
-- **WaxOnWaxOff** — Podcast audio prep: WaxOn (raw recording prep) + WaxOff (delivery/mastering). `io.github.sevmorris.WaxOnWaxOff`, macOS 14.0+. Bundles a pinned LGPL FFmpeg fetched at build time.
+- **WaxOnWaxOff** — Podcast audio prep: WaxOn (raw recording prep) + WaxOff (delivery/mastering). `io.github.sevmorris.WaxOnWaxOff`, macOS 15.0+. Bundles a pinned LGPL FFmpeg fetched at build time.
 - **ClipHack** — Prepares third-party audio clips (news, promos, broadcast) for use in a show. Logic lives in a `ClipHackKit` framework; bundles FFmpeg and yt-dlp. DMGs publish to a separate `ClipHack-releases` repo.
 - **FilmStrip** — Extracts audio from video for an audio-only viewing workflow. Bundles a pinned LGPL FFmpeg fetched at build time.
 - **DoublEnder** — Double-ended remote recording. Has a **private Cloud overlay** (`project.cloud.yml`, `DoublEnderCloud/`, `scripts/`) that is gitignored; the public tree builds without it. MIT.
@@ -75,7 +75,7 @@ npm ci && npx vitest run
 
 ### Swift apps
 - SwiftUI + AVFoundation for the audio apps; KeyVault uses the Security framework (Keychain).
-- Deployment targets: 14.0 for WaxOnWaxOff, ClipHack, FilmStrip and Barkeep; 13.0 for DoublEnder; 15.0 for KeyVault and Magic Backup Machine.
+- Deployment targets: 15.0 for every app, including the DoublEnder Cloud overlay and PasswordGen (`.macOS("15.0")`; `.v15` would need swift-tools-version 6.0 and Swift 6 mode). That is the oldest macOS GitHub's runners test once `macos-14` retires on 2026-11-02; until 2026-10 the floor was 14.0, and 13.0 for DoublEnder and PasswordGen.
 - MVVM with `@Observable` / `@MainActor`, actor-based services.
 - WaxOnWaxOff, ClipHack and FilmStrip build with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so a value type or pure helper reached from an actor, a function value or a default-argument closure needs `nonisolated` — Swift 6.4 (Xcode 27) warns on each one, and it is an error in Swift 6 mode.
 - `PBXFileSystemSynchronizedRootGroup` in WaxOnWaxOff, ClipHack, FilmStrip, KeyVault and Magic Backup Machine — new files in a synced folder are picked up with no project edit. Barkeep and DoublEnder do **not** use it, so adding or removing a file there means editing `project.pbxproj` (or `project.yml`, for DoublEnder).
