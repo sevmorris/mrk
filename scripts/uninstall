@@ -92,15 +92,7 @@ remove_symlinks_from() {
   done < <(find "$dir" -maxdepth 1 -type l -print0 2>/dev/null || true)
 }
 
-# Remove from current location (~/bin)
 remove_symlinks_from "$INSTALL_BIN"
-
-# Also clean up old ~/.local/bin links from previous installations
-LEGACY_BIN="$HOME/.local/bin"
-if [[ -d "$LEGACY_BIN" ]]; then
-  log "Cleaning up old symlinks from $LEGACY_BIN..."
-  remove_symlinks_from "$LEGACY_BIN"
-fi
 
 if (( removed > 0 )); then
   log "Removed $removed symlink(s)"
@@ -111,8 +103,8 @@ if (( failed > 0 )); then
 fi
 
 if (( removed == 0 && failed == 0 )); then
-  if [[ ! -d "$INSTALL_BIN" ]] && [[ ! -d "$LEGACY_BIN" ]]; then
-    warn "Neither $INSTALL_BIN nor $LEGACY_BIN found (nothing to unlink)"
+  if [[ ! -d "$INSTALL_BIN" ]]; then
+    warn "$INSTALL_BIN not found (nothing to unlink)"
   fi
 fi
 
