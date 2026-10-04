@@ -59,6 +59,7 @@ GUARDS=(
   "signal-trap|trap 'exit 143' TERM"
   "shared-files|check-shared"
   "tests|xcodebuild test"
+  "min-macos|minimum-macos:"
 )
 
 h "Guards by repo  (yes = present, -- = missing)"
