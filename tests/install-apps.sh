@@ -143,7 +143,6 @@ fi
 
 # ── install_github_app passes the skip up, and cleans up after it ────────────
 
-# shellcheck disable=SC2218  # the sourced install-apps defines it; a stub replaces it further down
 OUT=$(CURL_CODE=404 install_github_app "$W/Applications/Example.app" sevmorris/example Example 2>&1); RC=$?
 left=$(find "$W/tmp" -mindepth 1 -maxdepth 1 | tr '\n' ' ')
 if [[ $RC == 3 ]] && ! grep -q 'failed to download' <<<"$OUT" && [[ -z "$left" ]] \
@@ -152,7 +151,6 @@ if [[ $RC == 3 ]] && ! grep -q 'failed to download' <<<"$OUT" && [[ -z "$left" ]
 else
   fail "install_github_app on a 404: exit $RC, left in TMPDIR: '${left}', said: $OUT"
 fi
-# shellcheck disable=SC2218  # as above
 OUT=$(CURL_CODE=403 install_github_app "$W/Applications/Example.app" sevmorris/example Example 2>&1); RC=$?
 if [[ $RC == 1 ]] && grep -q 'failed to download' <<<"$OUT"; then
   pass "install_github_app on a 403 fails, as before"

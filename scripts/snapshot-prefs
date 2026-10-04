@@ -212,8 +212,7 @@ snapshot_plist(){
     SNAPSHOT_SKIPPED+=("$name")
     return 0
   fi
-  # Convert to xml1 (as bin/snapshot does) so the secret scan reads text,
-  # not binary plist data.
+  # Convert to xml1 so the secret scan reads text, not binary plist data.
   if ! plutil -convert xml1 "$LOCAL_PREFS_DIR/$filename" 2>/dev/null; then
     warn "failed to convert $name export to xml1 — skipped"
     SNAPSHOT_SKIPPED+=("$name")

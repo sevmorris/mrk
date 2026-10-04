@@ -28,7 +28,7 @@ check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
 check-picker-desc, topgrade-npm, picard-settings, snapshot-prefs, plist-import-order, setup-safety, undo-files,
-dock-setup, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, update-full, maintain, install-apps, make-pull and docs-drift tests in tests/, shellcheck over every tracked bash script,
+dock-setup, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, update-full, maintain, install-apps, make-pull, gitconfig, dead-functions and docs-drift tests in tests/, shellcheck over every tracked bash script,
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
@@ -267,6 +267,20 @@ log "install apps"
 # and new tools, scripts and dotfiles waited for a make target run by hand.
 log "make pull"
 "$REPO_ROOT/tests/make-pull.sh"
+
+# dotfiles/.gitconfig as the global config of a throwaway HOME: local-branches
+# names exactly the branches with no upstream, with colour on or off, and git
+# writes no escape codes into a pipe. Until 2026-10-04 color.ui was always, and
+# local-branches listed branches that had an upstream. Audit 21, Y-1.
+log "gitconfig"
+"$REPO_ROOT/tests/gitconfig.sh"
+
+# Every function a tracked bash script defines is named again in that file, or,
+# for lib.sh and common.sh, in another tracked file. shellcheck's SC2329 is
+# blind in most of the repository, and on 2026-10-04 doctor and post-install
+# each held a function nothing called. Audit 21, Y-8.
+log "dead functions"
+"$REPO_ROOT/tests/dead-functions.sh"
 
 # The hand-written lists of commands, targets and tests, against the repository:
 # until 2026-09-28 the manual listed three ~/Makefile targets that did not

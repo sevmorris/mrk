@@ -5,7 +5,11 @@ sudo_command = "sudo"
 
 # Modules you don't want Topgrade to touch
 # "system"      = macOS softwareupdate (handled separately)
+# "mas"         = mrk does not use mas; App Store apps are installed by hand
+#                 (docs/app-store-apps.md)
 # "pnpm"        = managed via npm, not standalone
+# "pip3"        = Python tools come from pipx, which the pipx step below upgrades
+# "node"        = the "npm global update" command below does this with nvm loaded
 # "claude_code" = step runs `claude plugin marketplace update`, which grabs the
 #                 tty and gets SIGTTOU'd, suspending the whole run; Claude Code
 #                 self-updates anyway.
@@ -19,11 +23,6 @@ no_self_update = true
 
 # Only notify at the end, not per-step
 notify_each_step = false
-
-[pre_commands]
-# corepack/yarn/pnpm install shims into Homebrew's bin/ that shadow
-# the real Node binaries. Clean them before updating.
-"Clean Node global shims" = "bash -lc 'bp=$(brew --prefix 2>/dev/null) && rm -f \"$bp\"/bin/{yarn,pnpm,corepack} && rm -rf \"$bp\"/lib/node_modules/{yarn,pnpm,corepack}'"
 
 [commands]
 "npm global update" = "bash -lc 'export NVM_DIR=\"$HOME/.nvm\"; [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"; npm update -g'"

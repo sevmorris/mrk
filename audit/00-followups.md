@@ -9,7 +9,29 @@ open?" has a single answer without grepping the whole audit directory.
 For each item: what it is, where it's documented, why it was deferred, what action
 would close it.
 
-**Last re-verified:** 2026-10-01 against `70092e2` by module 20
+**Last re-verified:** 2026-10-04 against `03fb729` by module 21
+(`21-audit-2026-10-04.md`), a sweep of the whole tree for cruft alone: code with no caller,
+configuration that matches nothing, comments and READMEs that are false today, assets nothing
+uses, and the live Mac, read-only. `ci-check` (702 checks), `go vet`, `gofmt`, staticcheck with
+every check on, and `go mod tidy -diff` were clean beforehand. It is a findings pass, and fixed
+nothing itself. It found eight LOW items and two decisions. One LOW item is a fault as well as cruft:
+- **Y-1.** The git alias `local-branches` lists branches that have an upstream, because
+  `.gitconfig` sets `color.ui = always` and the alias parses `git branch -vv` through a pipe.
+
+The rest is dead material. A topgrade step removes Homebrew Node shims on a Mac with no
+Homebrew Node. `docs/assets/` holds 527 KB that no page loads. The defaults reference shows a
+"?" status dot on every entry. Ignore rules, shellcheck disables and git settings match nothing.
+Four comments, a help line and the README's login-item list are false.
+
+The owner asked for all of it the same day. One fix session (branch `claude/audit-21-cruft`;
+sevmac `claude/audit-21-d1`) fixed the eight, carried out both decisions, and found four more.
+Three are fixed: BIN-1's stale shellcheck gate (Y-9), a Helium header that described another
+app (Y-10), and shellcheck's unused-function check, which sees 8 of the 80 bash scripts, so a
+test now does that job (Y-11). **Y-12 is open:** nothing carries Helium's profile to a new
+Mac, and Magic Backup Machine, which SMAC-1 says copies "the browser profiles", has neither
+Helium's nor Chrome's among this Mac's sources. See Deferred decisions.
+
+**Module 20:** 2026-10-01 against `70092e2` by module 20
 (`20-audit-2026-10-01.md`), a pass over what changed since module 19: 57 commits, PRs #31 to
 #72. It read how the changes fit together, the new shell and Go code, the tests by mutation, and
 BIN-1, the manual, SMAC-1 and SMAC-2. `ci-check`, `go vet`, `gofmt`, shellcheck, staticcheck and
@@ -135,6 +157,36 @@ Nothing. W-1 and N-1 are fixed — see Closed below.
 ## Deferred decisions
 
 Items that require a real choice before they can be closed in either direction.
+
+**Module 21's findings (2026-10-04).** Evidence, the fixes, the tests and their mutation
+tables are in `21-audit-2026-10-04.md`. One fix session, branch `claude/audit-21-cruft`,
+took everything; sevmac's part is on `claude/audit-21-d1`.
+
+| Findings | State |
+|---|---|
+| Y-1, Y-7, Y-9: `.gitconfig`'s colour block and `local-branches`; SC1090, SC2059 and SC2329 in `.shellcheckrc`; eight dead inline directives; two dead ignore rules; three `.gitattributes` lines; BIN-1's shellcheck gate | fixed; `tests/gitconfig.sh` |
+| Y-2, Y-8: topgrade's shim step; `err` in `doctor`; `zmount`, `art`, `fixbrewperms`; the `~/.local/bin` clean-up | fixed |
+| Y-3, Y-4: `docs/assets/`; the defaults reference's "?" dot and its dead CSS | fixed |
+| Y-5, Y-6: four false comments, a help line, `dotfiles/README.md`; the README's login items | fixed |
+| Y-11: shellcheck's SC2329 sees 8 of 80 scripts | fixed; `tests/dead-functions.sh` |
+
+- **D-1 — browser extension lists: decided 2026-10-04, removed.** The lists never reached a
+  new Mac. The feature is gone from post-install, with `ask_yes`, which only it used. The
+  manual and SMAC-1 say so, and Y-10's Helium header is corrected.
+- **D-2 — history in BIN-1: decided 2026-10-04.** BIN-1 and the manual say what a command does
+  now. A fix adds no "Until 2026-…" sentence; the commit message and `audit/` keep that. The
+  rule is in `docs/STE-CONVERSION.md`, and CLAUDE.md now names the record. The existing
+  sentences stay, as X-15 decided.
+- **Y-12 — Helium's profile is in no backup (LOW): open, the owner's.** Helium is the
+  browser first in the Dock, and its extensions and bookmarks are in
+  `~/Library/Application Support/net.imput.helium`. snapshot-prefs saves only its plist.
+  Magic Backup Machine's built-in sources take Safari, Chrome and Brave profiles, and for
+  Helium only the plist. This Mac's saved sources have the Safari and Brave profiles, and
+  neither Helium's nor Chrome's. The migration checklist now says so, in the manual and in
+  SMAC-1. To close it:
+  - add the Helium folder, and Chrome's if wanted, to Magic Backup Machine's sources on this Mac
+  - correct SMAC-1 §4.1 and Table 4.1-1, which say Magic Backup Machine copies "the browser
+    profiles", or add Helium to its built-in sources in that repository
 
 **Module 20's findings (2026-10-01).** Evidence, the suggested fix and the mutation runs for
 each are in `20-audit-2026-10-01.md`. Four fix sessions are proposed there, highest severity

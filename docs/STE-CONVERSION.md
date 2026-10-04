@@ -36,6 +36,16 @@ So the rules apply to what is written from here on. Write new text to them, and 
 change. Then run the checks under "How to check this work", because nothing runs them for
 you.
 
+**Say what the software does now.** BIN-1 and the manual describe current behaviour. When
+a change fixes or alters a command, write what it does now, and do not add a sentence that
+starts "Until 2026-…" to say what it did before: the commit message and `audit/` keep that
+record. On 2026-10-04 audit 21 counted 131 such sentences in BIN-1, and about one word in
+seven there described past behaviour (D-2). If the old behaviour still matters to a reader,
+because an older install can still show it, keep the note short and set it apart, as the
+defaults reference does with its labelled Background block (deviation 1). This applies to
+new text and text you change, as the rules above do. Code comments are not in scope: a
+comment that says why the code is as it is, and what went wrong before, stays.
+
 ---
 
 ## Ruleset applied

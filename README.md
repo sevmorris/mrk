@@ -99,7 +99,7 @@ data in them is not.
 |---|---|---|
 | Preferences repo | `PREFS_REPO` in `scripts/snapshot-prefs` | Points at `sevmorris/mrk-prefs`, which is private. Nothing else works until you repoint it. |
 | Packages | `Brewfile` | My formulae and casks, with `##` section headers the sync tooling relies on. |
-| Login items | `add_login_item` block in `scripts/post-install` | AlDente, BetterSnapTool, Chrono Plus, Dropbox, Raycast, Stats, Thaw. |
+| Login items | `add_login_item` block in `scripts/post-install` | The apps that open at login. The [manual](docs/manual.md#phase-3--post-install-make-post-install) lists them, and `make sync-login-items` keeps that list and the block in step with System Settings. |
 | Snapshotted apps | `scripts/snapshot-prefs` | The 17 plist domains and the Application Support trees I care about. |
 | Dock | `DOCK_APPS` and `DOCK_FOLDER` in `scripts/dock-setup` | Wipes the Dock before it rebuilds it. |
 | macOS defaults | `scripts/defaults.sh` | 133 keys, each one a preference of mine. Documented in the [defaults reference](https://sevmorris.github.io/mrk/defaults/). |

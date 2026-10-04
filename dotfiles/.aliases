@@ -60,16 +60,12 @@ v() {
   return 1
 }
 
-# Only define if ZFS is present
-command -v zfs >/dev/null 2>&1 && alias zmount='sudo zfs mount -a'
-
 # ==============================================================================
 #  Productivity & Fun Aliases
 # ==============================================================================
 
 alias shrug="printf '¯\\_(ツ)_/¯' | pbcopy"
 command -v pwgen >/dev/null 2>&1 && alias pw='pwgen -s -1 19 | pbcopy' # Generate a password → clipboard.
-command -v ascii-image-converter >/dev/null 2>&1 && alias art='ascii-image-converter'
 alias decrypt='gpg --decrypt ' # Trailing space enables filename completion.
 
 # ==============================================================================
@@ -87,16 +83,6 @@ alias decrypt='gpg --decrypt ' # Trailing space enables filename completion.
 if command -v brew >/dev/null 2>&1; then
   alias brewses='brew uses --installed'
 fi
-
-# Safer Homebrew permission fixer
-fixbrewperms() {
-  local prefix
-  prefix="$(brew --prefix 2>/dev/null)" || { echo "Homebrew not found."; return 1; }
-  echo "Fixing Homebrew permissions at $prefix..."
-  sudo chown -R "$(whoami)":admin "$prefix"
-  sudo chmod -R g+rwx "$prefix"
-  brew doctor
-}
 
 if command -v topgrade >/dev/null 2>&1; then
   # Lightweight update: just run topgrade, no app closing or reboot prompt.

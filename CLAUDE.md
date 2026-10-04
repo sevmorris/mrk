@@ -81,3 +81,14 @@ checklist — the page whose whole job is to stop you wiping a Mac before you ha
 what cannot be recovered — did not mention them for two days. Following it would have
 lost the Developer ID signing key, which Apple cannot reissue. The gap was found in the
 2026-08-31 audit and closed; see `audit/13-audit-2026-08-31.md`.
+
+## How to write them
+
+New and changed text in BIN-1 and `docs/manual.md` follows `docs/STE-CONVERSION.md`: a
+reduced Simplified Technical English with short sentences, simple tenses, and one word
+for one meaning, with a glossary and the checks to run. The older text stays as it is
+(audit 20, X-15). The record does not cover sevmac.
+
+The same record has the rule for history: **describe what a command does now.** Do not
+add an "Until 2026-…, it did X" sentence to BIN-1 or the manual. The commit message and
+`audit/` keep that record (audit 21, D-2).

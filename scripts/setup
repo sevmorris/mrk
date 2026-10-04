@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2329  # phase functions run through run_phase, cleanup through the EXIT trap
 
 # mrk setup — Phase 1: idempotent bootstrap for macOS (with Strap-inspired improvements)
 #
@@ -56,7 +57,7 @@ Usage: scripts/setup [options]
   --only <phase>        Run a single phase: xcode|dotfiles|tools|defaults|shell
   --no-dotfiles         Skip dotfiles linking
   --no-defaults        Skip macOS defaults
-  --no-link-tools       Skip linking scripts/bin into ~/bin
+  --no-link-tools       Skip linking scripts/ and bin/ into ~/bin
   --dry-run             Preview changes without applying them
   --validate            Validate configuration before installing
   --continue-on-error   Continue with remaining phases if one fails

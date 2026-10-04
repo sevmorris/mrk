@@ -124,8 +124,9 @@ replace_brewfile() {
 #     nvm
 #     python@3.12
 #
-# The file is not auto-created — add it manually when you want to keep a
-# package installed but never have it suggested by `sync`.
+# sync appends a package to it when you choose to ignore one, and creates the
+# file if it is absent (_append_sync_ignore, below). You can also write it by
+# hand, to keep a package installed but never have sync suggest it.
 
 _SYNC_IGNORE=()
 if [[ -f "${STATE_DIR}/sync-ignore" ]]; then

@@ -4,7 +4,6 @@ IFS=$'\n\t'
 
 ok() { printf '\033[32m✓ %s\033[0m\n' "$*"; }
 warn() { printf '\033[33m⚠ %s\033[0m\n' "$*"; }
-err() { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; }
 
 usage() {
   cat <<'EOF'
@@ -51,7 +50,6 @@ fix_bin() {
   mkdir -p "$HOME/bin"
   # shellcheck disable=SC2016  # Intentionally looking for literal $HOME
   if ! grep -q '\$HOME/bin' "${HOME}/.zshrc" 2>/dev/null; then
-    # shellcheck disable=SC2016
     cat >> "${HOME}/.zshrc" <<'EOF'
 
 # Added by mrk doctor

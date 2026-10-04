@@ -142,7 +142,6 @@ ln -s "$BASH_UNDER_TEST" "$STUBS/bash"
 # One line per import_plist call: app path, bundle id, plist file name, name.
 ENTRIES="$W/entries"
 grep -E '^[[:space:]]*import_plist "' "$R/scripts/post-install" > "$W/calls.sh"
-# shellcheck disable=SC2016  # expanded by the inner bash, not this one
 LOCAL_PREFS_DIR=@ bash -c \
   'import_plist() { printf "%s\t%s\t%s\t%s\n" "$1" "$2" "${3##*/}" "$4"; }; failed=0; source "$1"' \
   _ "$W/calls.sh" > "$ENTRIES"

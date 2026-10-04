@@ -21,9 +21,6 @@
 *.temp
 *.bak
 
-# State directories (user-specific)
-.mrk/
-
 # Claude Code runtime data — but not the skills, which are versioned here
 .claude/*
 !.claude/skills/
@@ -33,12 +30,6 @@ dotfiles/.claude/
 # that a script under tests/ named test-*.sh is never ignored without a word.
 /test-*
 *.test
-
-# Browser extension lists (user-specific)
-assets/browsers/*-extensions.txt
-
-# Homebrew
-Brewfile.lock.json
 
 # scripts/sync writes its Brewfile through a temp file in the repo root rather
 # than $TMPDIR, deliberately: mv is only atomic within one filesystem, and a
