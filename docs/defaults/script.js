@@ -1345,16 +1345,10 @@ class DefaultsDocGenerator {
     }
     
     renderEntry(entry) {
-        const statusClass = this.getEntryStatusClass(entry);
-        const statusIcon = this.getEntryStatusIcon(entry);
-        
         return `
             <div class="default-entry">
                 <div class="default-entry__header">
                     <h3 class="default-entry__title">
-                        <div class="default-entry__status default-entry__status--${statusClass}">
-                            ${statusIcon}
-                        </div>
                         ${entry.comment}
                     </h3>
                     <code class="default-entry__domain-key">${entry.domain} ${entry.key}</code>
@@ -1402,15 +1396,6 @@ class DefaultsDocGenerator {
                 </div>
             </div>
         `;
-    }
-    
-    getEntryStatusClass(entry) {
-        // For now, return unknown since we can't read current values in a static site
-        return 'unknown';
-    }
-    
-    getEntryStatusIcon(entry) {
-        return '?';
     }
     
     updateNav() {

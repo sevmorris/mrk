@@ -18,7 +18,6 @@
     --color-background-tertiary: #f1f3f4;
     --color-success: #28a745;
     --color-warning: #ffc107;
-    --color-danger: #dc3545;
     
     /* Technical Manual Typography */
     --font-family-base: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -32,7 +31,6 @@
     --space-2xl: 3rem;
     
     --sidebar-width: 300px;
-    --header-height: 60px;
 }
 
 body {
@@ -167,32 +165,6 @@ body {
     color: var(--color-text);
     letter-spacing: 0.5px;
     text-transform: uppercase;
-}
-
-.sidebar__meta {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-}
-
-.badge {
-    display: inline-flex;
-    align-items: center;
-    padding: var(--space-xs) var(--space-sm);
-    background-color: var(--color-background-secondary);
-    border: 1px solid var(--color-border);
-    border-radius: 3px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--color-text-secondary);
-    text-decoration: none;
-    transition: all 0.15s ease;
-    width: fit-content;
-}
-
-.badge--link:hover {
-    color: var(--color-primary);
-    border-color: var(--color-primary);
 }
 
 /* Search in Sidebar */
@@ -460,33 +432,6 @@ body {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
-}
-
-.default-entry__status {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    font-weight: 600;
-    flex-shrink: 0;
-}
-
-.default-entry__status--applied {
-    background-color: var(--color-success);
-    color: white;
-}
-
-.default-entry__status--unapplied {
-    background-color: var(--color-warning);
-    color: white;
-}
-
-.default-entry__status--unknown {
-    background-color: var(--color-text-tertiary);
-    color: white;
 }
 
 .default-entry__domain-key {
