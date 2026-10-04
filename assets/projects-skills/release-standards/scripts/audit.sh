@@ -81,8 +81,9 @@ for d in "${REPOS[@]}"; do
   # which is exactly the set that carries scripts/check-shared.sh.
   sibling=0
   [[ -f "$d/scripts/check-shared.sh" ]] && sibling=1
-  # Running the tests only means something for a repo that has some: KeyVault
-  # has no test target yet.
+  # Running the tests only means something for a repo that has some. Every app
+  # has had a test target since KeyVault's on 2026-10-04; this keeps a new app
+  # from showing a gap before it has tests to run.
   hastests=0
   [[ -n $(find "$d" -maxdepth 3 -type d -name '*Tests' -not -path '*/build/*' -not -path '*/.build/*' 2>/dev/null | head -1) ]] && hastests=1
   # generic-dest pins xcodebuild's destination. A Swift package has no xcodebuild
