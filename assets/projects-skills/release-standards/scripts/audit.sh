@@ -58,7 +58,7 @@ GUARDS=(
   "exit-trap|trap cleanup EXIT"
   "signal-trap|trap 'exit 143' TERM"
   "shared-files|check-shared"
-  "tests|xcodebuild test"
+  "tests|xcodebuild test\|swift test"
   "min-macos|minimum-macos:"
 )
 
@@ -84,6 +84,10 @@ for d in "${REPOS[@]}"; do
   # has no test target yet.
   hastests=0
   [[ -n $(find "$d" -maxdepth 3 -type d -name '*Tests' -not -path '*/build/*' -not -path '*/.build/*' 2>/dev/null | head -1) ]] && hastests=1
+  # generic-dest pins xcodebuild's destination. A Swift package has no xcodebuild
+  # to pin: PasswordGen runs swift build and checks the binary's architecture.
+  xcodeproj=0
+  [[ -n $(find "$d" -maxdepth 3 -name '*.xcodeproj' -not -path '*/build/*' 2>/dev/null | head -1) ]] && xcodeproj=1
   printf '%-24s' "$name"
   for g in "${GUARDS[@]}"; do
     label="${g%%|*}"; pat="${g#*|}"
@@ -92,6 +96,8 @@ for d in "${REPOS[@]}"; do
     elif [[ $sibling -eq 0 && "$label" == "shared-files" ]]; then
       printf '%-13s' "n/a"
     elif [[ $hastests -eq 0 && "$label" == "tests" ]]; then
+      printf '%-13s' "n/a"
+    elif [[ $xcodeproj -eq 0 && "$label" == "generic-dest" ]]; then
       printf '%-13s' "n/a"
     elif $GREP -q -- "$pat" "$d/release.sh" 2>/dev/null; then
       printf '%-13s' "yes"
