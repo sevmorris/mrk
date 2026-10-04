@@ -4,7 +4,7 @@
 # release-standards covers the release machinery inside each app. This covers
 # everything around it, for every repository on the account: branch rules,
 # secret push protection, vulnerability alerts, Pages, licence, README, tests in
-# CI, current CI actions, and no committed executables. It reads the published
+# CI, the runners CI tests on, current CI actions, and no committed executables. It reads the published
 # state from GitHub, so a repository with no clone here is still audited. It
 # changes nothing.
 #
@@ -85,6 +85,24 @@ EXEMPT=(
   "DoublEnder-cloud:tests-in-ci|an overlay; its code builds and is tested only inside DoublEnder's tree"
   "mrk-prefs:readme|a data store that snapshot-prefs writes and nothing reads a README from"
 )
+
+# ci-matrix's runner lists, as of 2026-10-04. GitHub keeps two GA macOS images
+# and a preview, and each autumn a new one arrives and the oldest is deprecated:
+# then update these and the workflows in the same session. CI_TOOLCHAIN_LEG
+# follows the Xcode the release Mac builds with.
+CI_MACOS_LEGS=(macos-15 macos-26)   # every GA Apple-silicon image
+CI_TOOLCHAIN_LEG=xcode-27           # macOS 27 with Xcode 27.0, the release toolchain
+CI_RETIRED=(macos-13 macos-14)      # macos-14: brownouts through Oct 2026, gone 2026-11-02
+CI_INTEL_LEG=macos-26-intel         # Intel Macs stop at macOS 26
+runner_in() { $GREP -qE "(^|[^A-Za-z0-9-])$1([^A-Za-z0-9-]|\$)"; }
+ships_intel() { # repo -> true if its clone here builds an Xcode app universal
+  local d="${CLONE[$1]:-}" p
+  [[ -n $d ]] || return 1
+  p=$(find "$d" -maxdepth 3 -name project.pbxproj -not -path '*/build/*' 2>/dev/null | head -1)
+  [[ -n $p ]] || return 1
+  # A Release build's default ARCHS is universal; an arm64-only app says so.
+  ! $GREP -qE '[[:space:]]ARCHS = arm64;' "$p"
+}
 exempt() { # repo standard -> prints the reason if exempt
   local e
   for e in "${EXEMPT[@]}"; do
@@ -97,7 +115,7 @@ exempt() { # repo standard -> prints the reason if exempt
 # Each prints: yes | -- | n/a, then a tab and a note. -- always carries the note
 # that says what to do.
 
-STANDARDS=(branch-rules push-protect vuln-alerts no-binaries nojekyll pages-https homepage deploys licence readme tests-in-ci ci-current)
+STANDARDS=(branch-rules push-protect vuln-alerts no-binaries nojekyll pages-https homepage deploys licence readme tests-in-ci ci-matrix ci-current)
 
 audit_repo() { # name visibility default_branch -> one TSV line per standard
   local r="$1" vis="$2" def="$3" j tree
@@ -200,6 +218,28 @@ audit_repo() { # name visibility default_branch -> one TSV line per standard
       out tests-in-ci -- "has tests and nothing runs them: CI (Actions minutes on a private repo) or release.sh"
     fi
   else out tests-in-ci n/a "no tests"; fi
+
+  # ci-matrix: CI that runs Xcode or Swift tests needs a leg on every GA
+  # Apple-silicon image, one on the Xcode releases are built with, an Intel leg
+  # for an app that ships an x86_64 slice, and nothing on a retired image.
+  # Comments are stripped first: workflows explain why macos-14 is not used.
+  local ci_text gaps="" leg
+  ci_text=$(sed -E 's/(^|[[:space:]])#.*$//' <<<"$wftext")
+  if ! $GREP -qE 'xcodebuild[^#]*[[:space:]]test([[:space:]]|$)|swift test' <<<"$ci_text"; then
+    out ci-matrix n/a "no Xcode or Swift tests in CI"
+  else
+    for leg in "${CI_MACOS_LEGS[@]}" "$CI_TOOLCHAIN_LEG"; do
+      runner_in "$leg" <<<"$ci_text" || gaps+="no $leg leg; "
+    done
+    for leg in "${CI_RETIRED[@]}"; do
+      runner_in "$leg" <<<"$ci_text" && gaps+="runs on retired $leg; "
+    done
+    if ships_intel "$r" && ! $GREP -qE '(^|[^A-Za-z0-9-])macos-[0-9]+-intel([^A-Za-z0-9-]|$)' <<<"$ci_text"; then
+      gaps+="ships x86_64 with no $CI_INTEL_LEG leg; "
+    fi
+    if [[ -z $gaps ]]; then out ci-matrix yes
+    else out ci-matrix -- "${gaps%; } (WaxOnWaxOff's ci.yml has the matrix, DoublEnder's the Intel leg)"; fi
+  fi
 
   if [[ -z $wf ]]; then out ci-current n/a "no workflows"
   else
