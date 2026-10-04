@@ -60,6 +60,7 @@ GUARDS=(
   "shared-files|check-shared"
   "tests|xcodebuild test\|swift test"
   "min-macos|minimum-macos:"
+  "last-per-os|PROTECTED_TAGS"
 )
 
 h "Guards by repo  (yes = present, -- = missing)"
@@ -108,6 +109,38 @@ for d in "${REPOS[@]}"; do
   done
   printf '\n'
 done
+
+# DoublEnder Cloud is released by two scripts in DoublEnder's private overlay,
+# not by a release.sh, so the search above never finds it. That is how its DMG
+# went out unsigned and its app unstapled until 2026-10-04, while every
+# release.sh had both guards. It gets a row of its own. The guards about tags,
+# pushes, release notes and GitHub release pages are n/a: it uploads a DMG and
+# a manifest to Cloud Storage. Four look for the Cloud scripts' own form of the
+# same protection.
+CLOUD_LIB="$PROJECTS/DoublEnder/scripts/release-cloud-lib.sh"
+CLOUD_RUN="$PROJECTS/DoublEnder/scripts/release-cloud-from-local.sh"
+if [[ -f "$CLOUD_LIB" && -f "$CLOUD_RUN" ]]; then
+  CLOUD_TEXT=$(cat "$CLOUD_LIB" "$CLOUD_RUN")
+  printf '%-24s' "DoublEnder Cloud"
+  for g in "${GUARDS[@]}"; do
+    label="${g%%|*}"; pat="${g#*|}"
+    case "$label" in
+      notes-gate|main-only|remote-tags|ancestry|atomic-push|v-tag-filter|shared-files|last-per-os)
+        printf '%-13s' "n/a"; continue ;;
+      exit-trap)   pat="trap release_cloud_restore_on_exit EXIT" ;;
+      signal-trap) pat="EXIT INT TERM" ;;
+      tests)       pat="release_cloud_run_unit_tests" ;;
+      min-macos)   pat="minimumSystemVersion" ;;
+    esac
+    if $GREP -q -- "$pat" <<<"$CLOUD_TEXT"; then
+      printf '%-13s' "yes"
+    else
+      printf '%-13s' "--"
+      MISSING_REPORT+="  DoublEnder Cloud: $label"$'\n'
+    fi
+  done
+  printf '\n'
+fi
 
 h "Missing guards, as a list"
 if [[ -n "$MISSING_REPORT" ]]; then printf '%s' "$MISSING_REPORT"; else echo "  (none)"; fi
