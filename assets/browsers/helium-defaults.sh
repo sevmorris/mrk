@@ -3,8 +3,9 @@ set -euo pipefail
 
 # Helium defaults — automatic updates via Sparkle framework
 #
-# Applied by mrk post-install. Helium is a minimal floating browser
-# with no extension support.
+# Applied by mrk post-install. Helium (net.imput.helium) is a Chromium-based
+# browser. Its extensions, bookmarks and history are in its profile, which mrk
+# does not save; see step 10 of the manual's migration checklist.
 
 _self="${BASH_SOURCE[0]}"
 while [[ -L "$_self" ]]; do

@@ -31,9 +31,6 @@ dotfiles/.claude/
 /test-*
 *.test
 
-# Browser extension lists (user-specific)
-assets/browsers/*-extensions.txt
-
 # scripts/sync writes its Brewfile through a temp file in the repo root rather
 # than $TMPDIR, deliberately: mv is only atomic within one filesystem, and a
 # half-written Brewfile is the failure that atomicity is there to prevent. Do

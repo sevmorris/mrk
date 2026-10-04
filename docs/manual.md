@@ -125,7 +125,7 @@ It can run in the same shell as Phase 2, whether that is `make all`'s or one ope
 
 - **Topgrade:** Symlinks `assets/topgrade.toml` to `~/.config/topgrade.toml`. A link already there is replaced, even one that points nowhere, and a real file is kept as `.bak`. Until 2026-09-27 a link that pointed nowhere failed Phase 3 on every run.
 - **Links into `~` come only from `~/mrk`,** or from the checkout `MRK_ROOT` names, as in Phase 1. That covers the topgrade link and the three Claude Code links below. From any other checkout, Phase 3 skips the four with a warning, and runs the rest.
-- **Browsers:** Applies the Safari defaults and the Helium defaults. The Safari defaults need Full Disk Access for your terminal, because Safari keeps its preferences in its sandbox container. Without it, Phase 3 skips them with one log line and still reports success. It opens the extension URLs when you ask for them. It no longer installs Chrome and Brave managed policies: those were JSON files in `policies/managed/`, which is the Linux policy mechanism, and Chrome on macOS never read them.
+- **Browsers:** Applies the Safari defaults and the Helium defaults. The Safari defaults need Full Disk Access for your terminal, because Safari keeps its preferences in its sandbox container. Without it, Phase 3 skips them with one log line and still reports success. It installs no browser extensions; step 10 of "How to prepare for a new machine" says what carries them. It no longer installs Chrome and Brave managed policies: those were JSON files in `policies/managed/`, which is the Linux policy mechanism, and Chrome on macOS never read them.
 - **App defaults:** Writes the settings for Audio Hijack, Fission, AlDente, and the Rogue Amoeba update options. They are written after the plist imports, so they land on top of your restored preferences. The Rogue Amoeba update options go only to the Rogue Amoeba apps that are installed.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
 - **Plist imports (17 apps):** Imports your preference plists. Phase 3 skips an app that already has preferences — in `~/Library/Preferences`, or in its sandbox container for a sandboxed app such as Keka — so it never overwrites a live configuration. It also skips an app that is not installed yet. The imports run before any step that writes app defaults, the browser defaults included, because one key is enough to make an app look configured. Until 2026-09-27 they ran after, and the keys the Rogue Amoeba, Helium and Audio Hijack scripts wrote made six apps look configured: Loopback, SoundSource, Audio Hijack, Farrago, Piezo and Helium were never imported on the 2026-09-15 migration.
@@ -526,7 +526,7 @@ Files a repository ignores are not pushed either; Magic Backup Machine's copy ca
 
 **8. Run a Magic Backup Machine backup**
 
-Open Magic Backup Machine and run a full backup to the local and external destinations. It copies the Logic Pro projects, the audio presets, the browser profiles and the other data that mrk does not manage, and `~/Projects`. Run it after step 7: its copy of `~/Projects` is the only one of what `pushall` leaves off GitHub.
+Open Magic Backup Machine and run a full backup to the local and external destinations. It copies the Logic Pro projects, the audio presets, the browser profiles in its sources and the other data that mrk does not manage, and `~/Projects`. Run it after step 7: its copy of `~/Projects` is the only one of what `pushall` leaves off GitHub.
 
 **9. Verify SSH authentication**
 
@@ -545,6 +545,7 @@ Write down the apps, the license keys and the settings that mrk does not manage:
 - The software licenses. Export them from your license manager.
 - The system settings that `defaults write` does not cover.
 - The VPN configurations and the certificates.
+- Helium's extensions and bookmarks. They are in its profile, `~/Library/Application Support/net.imput.helium`, which mrk does not save. Magic Backup Machine copies it only if you add that folder to its sources. Otherwise, note the extensions on Helium's Extensions page, and export the bookmarks from its bookmark manager. Safari's extensions come from the App Store, and Chrome and Brave can carry theirs with their own sync.
 
 ---
 

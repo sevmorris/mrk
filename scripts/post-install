@@ -86,17 +86,6 @@ mkdir -p "$STATE_DIR"
 # what let one destructive edge case exist in two places at once.
 init_rollback "$ROLLBACK" || exit 1
 
-# ask_yes PROMPT — returns 0 for yes; skipped when NONINTERACTIVE or not a TTY
-ask_yes() {
-  if (( ${NONINTERACTIVE:-0} )) || [[ ! -t 0 ]]; then
-    return 1
-  fi
-  printf '%s' "$1"
-  local answer
-  read -r answer </dev/tty
-  [[ "$answer" =~ ^[Yy]$ ]]
-}
-
 trap 'printf "\n[post-install] interrupted — exiting\n" >&2; exit 1' INT TERM
 
 section "Phase 3 of 3: Post-install"
@@ -122,21 +111,6 @@ apply_defaults(){
 # enforcing. Removed rather than reimplemented: making them work needs a forced
 # preference from an MDM profile, which is out of scope for a personal
 # bootstrap. See audit/00-followups.md.
-
-# Open extension URLs from a list file, one per line
-open_extension_urls(){
-  local list_file="$1" name="$2"
-  local count=0 url
-  while IFS= read -r url || [[ -n "$url" ]]; do
-    url="${url%%#*}"          # strip inline comments
-    url="${url#"${url%%[![:space:]]*}"}"  # trim leading whitespace
-    url="${url%"${url##*[![:space:]]}"}"  # trim trailing whitespace
-    [[ -z "$url" ]] && continue
-    open "$url"
-    count=$(( count + 1 ))
-  done < "$list_file"
-  log "Opened $count $name extension URL(s)"
-}
 
 # Snapshot the current state of a defaults domain into PLIST_BACKUP_DIR so
 # the rollback script can restore it. `defaults export` fails when the domain
@@ -499,44 +473,17 @@ fi
 
 BROWSERS_DIR="$REPO_ROOT/assets/browsers"
 
+# No browser's extensions are installed here. Until 2026-10-04 post-install
+# opened the URLs in assets/browsers/{safari,chrome,brave}-extensions.txt. Those
+# lists were git-ignored and not in mrk-prefs, so a new Mac's fresh clone never
+# had one, and this Mac had none either (audit 21, D-1). The manual's migration
+# checklist says what carries each browser's extensions.
+
 # Safari
 if [[ -d "/Applications/Safari.app" ]]; then
   apply_defaults "$BROWSERS_DIR/safari-defaults.sh" "Safari" || failed=$(( failed + 1 ))
-  if [[ -f "$BROWSERS_DIR/safari-extensions.txt" ]]; then
-    if ask_yes "[post-install] Open Safari extension URLs? [y/N]: "; then
-      open_extension_urls "$BROWSERS_DIR/safari-extensions.txt" "Safari" || failed=$(( failed + 1 ))
-    else
-      logskip "Safari extension URLs" "skipped"
-    fi
-  fi
 else
   logskip "Safari" "not installed"
-fi
-
-# Google Chrome
-if [[ -d "/Applications/Google Chrome.app" ]]; then
-  if [[ -f "$BROWSERS_DIR/chrome-extensions.txt" ]]; then
-    if ask_yes "[post-install] Open Chrome extension URLs? [y/N]: "; then
-      open_extension_urls "$BROWSERS_DIR/chrome-extensions.txt" "Chrome" || failed=$(( failed + 1 ))
-    else
-      logskip "Chrome extension URLs" "skipped"
-    fi
-  fi
-else
-  logskip "Chrome" "not installed"
-fi
-
-# Brave
-if [[ -d "/Applications/Brave Browser.app" ]]; then
-  if [[ -f "$BROWSERS_DIR/brave-extensions.txt" ]]; then
-    if ask_yes "[post-install] Open Brave extension URLs? [y/N]: "; then
-      open_extension_urls "$BROWSERS_DIR/brave-extensions.txt" "Brave" || failed=$(( failed + 1 ))
-    else
-      logskip "Brave extension URLs" "skipped"
-    fi
-  fi
-else
-  logskip "Brave" "not installed"
 fi
 
 # Helium
