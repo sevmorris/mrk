@@ -26,7 +26,6 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [[ "${1:-}" != --inner ]]; then
   run_under() {
-    # shellcheck disable=SC2016  # expanded by the inner bash, not this one
     printf '  under bash %s\n' "$("$1" -c 'echo "${BASH_VERSION%%(*}"')"
     "$1" "${BASH_SOURCE[0]}" --inner "$1"
   }

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2329  # phase functions run through run_phase, cleanup through the EXIT trap
 
 # mrk setup — Phase 1: idempotent bootstrap for macOS (with Strap-inspired improvements)
 #

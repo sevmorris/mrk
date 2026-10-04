@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2059  # the colour codes are in the format strings, on purpose
 set -euo pipefail
 
 # nuke-mrk — Remove all mrk artifacts for a fresh test install

@@ -330,7 +330,6 @@ project_cases() {
   fi
 }
 
-# shellcheck disable=SC2016  # expanded by the inner bash, not this one
 printf '  under bash %s\n' "$(/bin/bash -c 'echo "${BASH_VERSION%%(*}"')"
 cases /bin/bash
 project_cases /bin/bash

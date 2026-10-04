@@ -1,13 +1,16 @@
 # Shellcheck configuration for mrk project
 
-# Allow sourcing files that may not exist (common in bootstrap scripts)
-disable=SC1090,SC1091
+# Allow sourcing files shellcheck cannot follow: the `source=` directives name
+# lib.sh relative to each script, and shellcheck resolves them from the
+# repository root.
+disable=SC1091
 
-# Allow printf with format strings (we control the format)
-disable=SC2059
-
-# Functions invoked indirectly (via run_phase, variable expansion, etc.)
-disable=SC2329
+# SC2059 (a variable in a printf format) is disabled in bin/nuke-mrk alone, and
+# SC2329 (a function never invoked) in scripts/setup alone, where run_phase and
+# the EXIT trap call functions indirectly. Both were disabled here for every
+# file until 2026-10-04: SC2059 hid 39 findings, all in nuke-mrk, and SC2329
+# hid an unused function in doctor. SC1090 was disabled here too, and hid
+# nothing. Audit 21, Y-7.
 
 # Note: SC2086 (unquoted variables) and SC2046 (unquoted command substitution)
 # are NOT disabled globally. Fix quoting issues in scripts instead.
