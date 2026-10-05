@@ -27,9 +27,9 @@ The owner asked for all of it the same day. One fix session (branch `claude/audi
 sevmac `claude/audit-21-d1`) fixed the eight, carried out both decisions, and found four more.
 Three are fixed: BIN-1's stale shellcheck gate (Y-9), a Helium header that described another
 app (Y-10), and shellcheck's unused-function check, which sees 8 of the 80 bash scripts, so a
-test now does that job (Y-11). **Y-12 is open:** nothing carries Helium's profile to a new
-Mac, and Magic Backup Machine, which SMAC-1 says copies "the browser profiles", has neither
-Helium's nor Chrome's among this Mac's sources. See Deferred decisions.
+test now does that job (Y-11). The fourth, Y-12, was that nothing carried Helium's profile to
+a new Mac. The owner closed it the same day by adding the folder to Magic Backup Machine's
+sources. Nothing from module 21 is open.
 
 **Module 20:** 2026-10-01 against `70092e2` by module 20
 (`20-audit-2026-10-01.md`), a pass over what changed since module 19: 57 commits, PRs #31 to
@@ -177,16 +177,16 @@ took everything; sevmac's part is on `claude/audit-21-d1`.
   now. A fix adds no "Until 2026-…" sentence; the commit message and `audit/` keep that. The
   rule is in `docs/STE-CONVERSION.md`, and CLAUDE.md now names the record. The existing
   sentences stay, as X-15 decided.
-- **Y-12 — Helium's profile is in no backup (LOW): open, the owner's.** Helium is the
+- **Y-12 — Helium's profile was in no backup (LOW): closed 2026-10-04.** Helium is the
   browser first in the Dock, and its extensions and bookmarks are in
   `~/Library/Application Support/net.imput.helium`. snapshot-prefs saves only its plist.
   Magic Backup Machine's built-in sources take Safari, Chrome and Brave profiles, and for
   Helium only the plist. This Mac's saved sources have the Safari and Brave profiles, and
   neither Helium's nor Chrome's. The migration checklist now says so, in the manual and in
-  SMAC-1. To close it:
-  - add the Helium folder, and Chrome's if wanted, to Magic Backup Machine's sources on this Mac
-  - correct SMAC-1 §4.1 and Table 4.1-1, which say Magic Backup Machine copies "the browser
-    profiles", or add Helium to its built-in sources in that repository
+  SMAC-1. The owner added the Helium folder to this Mac's sources the same day, and the saved
+  settings list it, enabled. SMAC-1 §4.1's "copies the browser profiles" now holds on this
+  Mac for Safari, Brave and Helium; Chrome's is not a source. Left to Magic Backup Machine's repository: its
+  built-in sources, used only before the app is set up, still take only Helium's plist.
 
 **Module 20's findings (2026-10-01).** Evidence, the suggested fix and the mutation runs for
 each are in `20-audit-2026-10-01.md`. Four fix sessions are proposed there, highest severity
