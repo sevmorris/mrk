@@ -103,10 +103,24 @@ done < "$TMP/tracked-leaves"
 cut -f1 "$TMP/words" | sort -u > "$TMP/patterns"
 if [[ -s "$TMP/patterns" ]]; then
   {
-    if [[ -d "$PROJECTS" ]]; then
-      $GREP -rIohwF --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=build \
-        --exclude-dir=DerivedData --exclude-dir=.build --exclude-dir=Vendor \
-        -f "$TMP/patterns" "$PROJECTS" 2>/dev/null
+    # Files of 1 MB or more are skipped: a word in a data file is not code that
+    # names a package. herzog-zwei holds hundreds of text dumps, some 19 MB, and
+    # BSD grep with this many patterns spent minutes in them. ripgrep does the
+    # same search in under a second. It reports the first pattern that matches
+    # at a place, where grep reports the longest, so the patterns go longest
+    # first: otherwise ssh-keygen is reported as ssh.
+    if [[ -d "$PROJECTS" ]] && command -v rg >/dev/null 2>&1; then
+      awk '{ print length($0) "\t" $0 }' "$TMP/patterns" | sort -t$'\t' -k1,1rn -k2 | cut -f2- \
+        > "$TMP/patterns-longest-first"
+      rg --no-ignore --hidden --no-messages --no-filename --only-matching --word-regexp \
+        --fixed-strings --max-filesize 1M -g '!.git/' -g '!node_modules/' -g '!build/' \
+        -g '!DerivedData/' -g '!.build/' -g '!Vendor/' \
+        -f "$TMP/patterns-longest-first" "$PROJECTS"
+    elif [[ -d "$PROJECTS" ]]; then
+      find "$PROJECTS" -type d \( -name .git -o -name node_modules -o -name build \
+          -o -name DerivedData -o -name .build -o -name Vendor \) -prune \
+        -o -type f -size -1048576c -print0 2>/dev/null \
+        | xargs -0 $GREP -IohwF -f "$TMP/patterns" 2>/dev/null
     fi
     # mrk's own code, minus the one file that names every package by design
     git -C "$REPO" ls-files -z -- bin scripts dotfiles assets tools Makefile 2>/dev/null \
