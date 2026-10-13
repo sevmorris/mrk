@@ -29,7 +29,10 @@ bash ~/Projects/.claude/skills/repo-standards/scripts/audit.sh -v       # plus w
 ```
 
 It lists the repositories with `gh`, skipping archived repos and forks. It
-matches local clones by their `origin` URL, not by folder name. It prints:
+matches local clones by their `origin` URL, not by folder name. It looks for
+them in `~/Projects`, `~/mrk` and `~/.mrk` (mrk-prefs is `~/.mrk/preferences`),
+and reads the bare `~/Projects/DoublEnder-cloud.git` through its working tree,
+as `decloud` does. It prints:
 - a standard-by-repo matrix
 - the gaps as a list, each with its fix
 - any clone with uncommitted or unpushed work
