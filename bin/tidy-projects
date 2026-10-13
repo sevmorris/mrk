@@ -1,0 +1,404 @@
+#!/usr/bin/env bash
+# tidy-projects — survey the git clones under ~/Projects (and ~/mrk), and clean up what is safe.
+#
+# Every Claude session works on a branch that becomes a pull request, and GitHub deletes the
+# branch when the PR merges, but the local copy stays. On 2026-10-13 that had left 14 merged
+# branches in 9 repos, a finished worktree, stale remote-tracking refs and about 1.1 GB of build
+# output, while two repos had no backup at all: herzog-zwei with no remote, and phantasy-star off
+# GitHub. Nothing else looks at any of it. This finds it, and with --apply removes what is
+# provably safe to remove. The projects-maintenance skill runs it, with the three standards
+# audits, and asks the owner before any --apply.
+#
+# What each cleanup removes, and the rule that makes it safe:
+#   ff         fast-forward the default branch: on it, nothing uncommitted, nothing unpushed
+#   refs       remote-tracking refs whose branch is gone from origin (git remote prune)
+#   worktrees  a worktree with nothing uncommitted or untracked, no process running in it, and a
+#              HEAD that is in the default branch or in a merged pull request
+#   branches   a local branch whose upstream is gone and whose tip is the head of a merged PR, or
+#              an ancestor of it, so it holds nothing the merge did not. Squash merges are not
+#              ancestors of main, so ancestry with main cannot tell. On 2026-10-13 four of five
+#              claude/macos-15 branches sat behind their PR's head, the rest pushed from a worktree.
+#   deploys    Pages deployments beyond the newest 10 (prune-deployments, which keeps the live one)
+#   build      gitignored build/ and .build/ folders with no tracked files (to the Trash), and
+#              Xcode's DerivedData (clear-derived-data); skipped while xcodebuild is running
+# It never drops a stash, deletes an unmerged or unpushed branch, discards a change, commits,
+# pushes, or changes a repository's settings, and it never prints a remote's URL: one here
+# carries an access token in its path.
+#
+# Usage: tidy-projects [--no-fetch] [--apply LIST]
+#
+# Env (tests): TIDY_ROOTS (dirs to search, default "$HOME/Projects $HOME/mrk"), TIDY_OWNER,
+# TIDY_DERIVED (DerivedData path), TIDY_TRASH, TIDY_PRUNE, TIDY_CLEAR_DD (commands).
+
+# Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2)
+if (( BASH_VERSINFO[0] < 4 )); then
+  for _brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+    [[ -x "$_brew_bash" ]] && exec "$_brew_bash" "$0" "$@"
+  done
+  echo "error: bash 4+ required (system bash is ${BASH_VERSION}; install via 'brew install bash')" >&2
+  exit 1
+fi
+
+set -uo pipefail
+
+# Resolve this script's real path (works when invoked via ~/bin symlink)
+_src="${BASH_SOURCE[0]}"
+while [[ -L "$_src" ]]; do
+  _dir="$(cd "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  [[ "$_src" != /* ]] && _src="$_dir/$_src"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+usage() {
+  cat <<'EOF'
+tidy-projects — survey the git clones under ~/Projects and ~/mrk, and clean up what is safe
+
+Usage: tidy-projects [--no-fetch] [--apply LIST]
+  (none)        Survey: fetch each clone, then report. Change nothing but the
+                remote-tracking refs.
+  --no-fetch    Survey from what the clones already know. Faster, and maybe stale.
+  --apply LIST  Survey again, then do the cleanups in LIST, a comma-separated list
+                of ff, refs, worktrees, branches, deploys and build, or all.
+  --help, -h    Show this help
+
+Cleanups:
+  ff         Fast-forward a clean default branch that is behind origin
+  refs       Prune the remote-tracking refs of branches gone from origin
+  worktrees  Remove a clean worktree that no process uses, whose work is merged
+  branches   Delete a branch gone from origin whose tip a merged pull request has
+  deploys    Prune a Pages site to its newest 10 deployments
+  build      Trash gitignored build/ and .build/ folders; clear Xcode's DerivedData
+EOF
+}
+
+for d in /opt/homebrew/bin /usr/local/bin "$HOME/bin"; do
+  [[ -d $d && ":$PATH:" != *":$d:"* ]] && PATH="$PATH:$d"
+done
+
+FETCH=1; APPLY=""
+while (( $# )); do
+  case "$1" in
+    --no-fetch) FETCH=0 ;;
+    --apply)    [[ -n ${2:-} && $2 != -* ]] || { err "--apply needs a list of cleanups"; usage >&2; exit 2; }
+                APPLY=$2; shift ;;
+    -h|--help)  usage; exit 0 ;;
+    *)          err "Unknown option: $1"; usage >&2; exit 2 ;;
+  esac
+  shift
+done
+CATS=(ff refs worktrees branches deploys build)
+[[ $APPLY == all ]] && APPLY=$(IFS=,; echo "${CATS[*]}")
+for c in ${APPLY//,/ }; do
+  [[ " ${CATS[*]} " == *" $c "* ]] || { err "Unknown cleanup: $c (use ${CATS[*]} or all)"; exit 2; }
+done
+applying() { [[ ",$APPLY," == *",$1,"* ]]; }
+
+ROOTS=${TIDY_ROOTS:-"$HOME/Projects $HOME/mrk"}
+DERIVED=${TIDY_DERIVED:-$HOME/Library/Developer/Xcode/DerivedData}
+TRASH=${TIDY_TRASH:-/usr/bin/trash}
+PRUNE=${TIDY_PRUNE:-prune-deployments}
+CLEAR_DD=${TIDY_CLEAR_DD:-clear-derived-data}
+KEEP_DEPLOYS=10
+GREP=/usr/bin/grep
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/tidy-projects.XXXXXX")
+trap 'rm -rf "$WORK"' EXIT
+
+tmo() { local t=$1; shift; if command -v gtimeout >/dev/null 2>&1; then gtimeout "$t" "$@"; else "$@"; fi; }
+human() { awk -v k="$1" 'BEGIN { split("K M G T", u); i = 1; while (k >= 1024 && i < 4) { k /= 1024; i++ } printf (k < 10 ? "%.1f%s" : "%.0f%s"), k, u[i] }'; }
+
+GH=0
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then GH=1; fi
+OWNER=${TIDY_OWNER:-}
+[[ -z $OWNER && $GH == 1 ]] && OWNER=$(gh api user --jq .login 2>/dev/null)
+
+# Every process's working directory, once: a worktree a running session sits in stays.
+lsof -a -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | sort -u > "$WORK/cwds"
+in_use() { $GREP -qxF -- "$1" "$WORK/cwds" || $GREP -qF -- "$1/" "$WORK/cwds"; }
+
+# ── Survey one clone ────────────────────────────────────────────────────────────
+# Writes lines "kind<TAB>repo<TAB>detail..." to its own file, so clones can be surveyed in
+# parallel. Kinds: row (the clone table), owner (needs a decision), kept (not removed, and why),
+# and one per cleanup (ff, refs, worktrees, branches, deploys, build), which are the candidates.
+
+survey_repo() { # dir name out-file
+  local d=$1 name=$2 out=$3 url slug="" remote def cur
+  local real; real=$(cd "$d" && pwd -P)   # git reports worktrees by their real path
+  emit() { local IFS=$'\t'; printf '%s\n' "$*" >> "$out"; }
+
+  url=$(git -C "$d" config --get remote.origin.url 2>/dev/null)
+  if [[ -z $url ]]; then remote=none
+  elif [[ $url =~ github\.com[:/]([^/]+)/([^/]+)$ ]] && [[ ${BASH_REMATCH[1],,} == "${OWNER,,}" ]]; then
+    remote=github; slug="${BASH_REMATCH[1]}/${BASH_REMATCH[2]%.git}"
+  else remote=other; fi
+
+  if (( FETCH )) && [[ $remote != none ]]; then
+    GIT_TERMINAL_PROMPT=0 tmo 30 git -C "$d" fetch --quiet origin >/dev/null 2>&1 \
+      || emit owner "$name" "could not fetch from origin; the counts below may be stale"
+  fi
+  def=$(git -C "$d" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null); def=${def#origin/}
+  if [[ -z $def ]]; then
+    for b in main master; do git -C "$d" show-ref --verify --quiet "refs/heads/$b" && { def=$b; break; }; done
+  fi
+  def=${def:-main}
+  cur=$(git -C "$d" branch --show-current 2>/dev/null)
+
+  local dirty unpushed=0 behind=0 stashes
+  dirty=$(git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+  stashes=$(git -C "$d" stash list 2>/dev/null | wc -l | tr -d ' ')
+  if git -C "$d" rev-parse --verify --quiet '@{u}' >/dev/null 2>&1; then
+    unpushed=$(git -C "$d" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)
+  fi
+  git -C "$d" rev-parse --verify --quiet "origin/$def" >/dev/null 2>&1 \
+    && behind=$(git -C "$d" rev-list --count "HEAD..origin/$def" 2>/dev/null || echo 0)
+  emit row "$name" "${cur:-(detached)}" "$def" "$dirty" "$unpushed" "$behind" "$stashes" "$remote"
+
+  case $remote in
+    none)  emit owner "$name" "no remote: this clone is the only copy" ;;
+    other) emit owner "$name" "its remote is not on GitHub, so its pull requests, Pages and backup there are not checked" ;;
+  esac
+  [[ -n $cur && $cur != "$def" ]] && emit owner "$name" "checked out on $cur, not $def"
+  [[ -z $cur ]] && emit owner "$name" "HEAD is detached"
+  (( dirty )) && emit owner "$name" "$dirty uncommitted change(s)"
+  (( unpushed )) && emit owner "$name" "$unpushed unpushed commit(s) on ${cur:-HEAD}"
+  (( stashes )) && emit owner "$name" "$stashes stash(es), never dropped here: git -C \"$d\" stash list"
+
+  # ff: a clean default branch behind origin
+  if [[ $cur == "$def" ]] && (( behind && !dirty && !unpushed )) \
+     && git -C "$d" merge-base --is-ancestor HEAD "origin/$def" 2>/dev/null; then
+    emit ff "$name" "$d" "$def" "$behind commit(s) behind origin/$def"
+  fi
+
+  # refs: remote-tracking refs whose branch origin no longer has. prune --dry-run asks origin
+  # itself, so it also names the upstreams of branches GitHub deleted when fetch.prune is off
+  # (it is, here) and git still calls them in step.
+  declare -A stale_ref=()
+  local stale="" r
+  if [[ $remote != none ]]; then
+    stale=$(git -C "$d" remote prune --dry-run origin 2>/dev/null | sed -n 's/.*would prune\] //p' | tr '\n' ' ')
+    for r in $stale; do stale_ref[$r]=1; done
+    [[ -n $stale ]] && emit refs "$name" "$d" "$(wc -w <<<"$stale" | tr -d ' ') stale: $stale"
+  fi
+
+  # GitHub: is it archived, and how many Pages deployments
+  local archived=false pages=false
+  if [[ -n $slug && $GH == 1 ]]; then
+    read -r archived pages < <(gh api "repos/$slug" --jq '"\(.archived) \(.has_pages)"' 2>/dev/null || echo "false false")
+    [[ $archived == true ]] && emit owner "$name" "the GitHub repository is archived; no GitHub cleanups"
+    if [[ $archived != true && $pages == true ]]; then
+      local n; n=$(gh api "repos/$slug/deployments?environment=github-pages&per_page=100" --jq length 2>/dev/null || echo 0)
+      (( n > KEEP_DEPLOYS )) && emit deploys "$name" "$slug" "$n Pages deployments, down to $KEEP_DEPLOYS"
+    fi
+  fi
+
+  # branches: merged ones (upstream gone, tip at or behind the head of a merged PR), and the
+  # rest kept with why
+  declare -A safe=() safe_head=()   # branch -> merged PR number, and that PR's head commit
+  local b tip track up
+  # ':' separates the fields: no ref name can contain one, and unlike a tab it is not IFS
+  # whitespace, so an empty field (no upstream, or in step with it) stays a field.
+  while IFS=: read -r b tip track up; do
+    local gone=0
+    [[ $track == "[gone]" || ( -n $up && -n ${stale_ref[$up]:-} ) ]] && gone=1
+    [[ $b == "$def" || $b == "$cur" ]] && { [[ $b == "$cur" && $b != "$def" && $gone == 1 ]] && emit owner "$name" "the checked-out branch $b is gone from origin; switch to $def"; continue; }
+    if (( gone )); then
+      if [[ -z $slug || $GH == 0 || $archived == true ]]; then
+        emit kept "$name" "branch $b: gone from origin, and its pull request can't be checked here"; continue
+      fi
+      local prs merged="" mhead="" other="" extra=""
+      prs=$(gh pr list --repo "$slug" --head "$b" --state all --json number,state,headRefOid \
+            --jq '.[] | "\(.number) \(.state) \(.headRefOid)"' 2>/dev/null)
+      while read -r num st oid; do
+        [[ -z $num || -n $merged ]] && continue
+        if [[ $st == MERGED ]]; then
+          # The PR's head may never have reached this clone: fetch it from pull/N/head, which
+          # GitHub keeps after the branch is deleted (it only lands in FETCH_HEAD).
+          if ! git -C "$d" cat-file -e "$oid^{commit}" 2>/dev/null && (( FETCH )); then
+            GIT_TERMINAL_PROMPT=0 tmo 30 git -C "$d" fetch --quiet origin "pull/$num/head" >/dev/null 2>&1
+          fi
+          if [[ $oid == "$tip" ]] || git -C "$d" merge-base --is-ancestor "$tip" "$oid" 2>/dev/null; then
+            merged=$num; mhead=$oid
+          elif [[ -z $other ]]; then
+            other="$num $st"
+            git -C "$d" cat-file -e "$oid^{commit}" 2>/dev/null && extra=$(git -C "$d" rev-list --count "$oid..$tip")
+          fi
+        elif [[ -z $other ]]; then other="$num $st"; fi
+      done <<<"$prs"
+      if [[ -n $merged ]]; then safe[$b]=$merged; safe_head[$b]=$mhead
+      elif [[ $other == *MERGED* ]]; then emit kept "$name" "branch $b: has ${extra:-some} commit(s) that PR #${other%% *} did not merge"
+      elif [[ $other == *CLOSED* ]]; then emit kept "$name" "branch $b: PR #${other%% *} was closed without merging"
+      elif [[ $other == *OPEN* ]]; then emit kept "$name" "branch $b: PR #${other%% *} is still open"
+      else emit kept "$name" "branch $b: gone from origin, and no pull request has it as its head"; fi
+    elif [[ -z $up ]] && ! git -C "$d" show-ref --verify --quiet "refs/remotes/origin/$b"; then
+      emit owner "$name" "branch $b was never pushed: this clone is its only copy"
+    fi
+  done < <(git -C "$d" for-each-ref --format='%(refname:short):%(objectname):%(upstream:track):%(upstream:short)' refs/heads)
+
+  # worktrees: clean, unused, and merged, or kept with why. A branch checked out in a worktree
+  # that stays cannot be deleted either.
+  declare -A pinned=()
+  local wt="" head="" wb="" line first=1
+  finish_wt() {
+    [[ -z $wt || $wt == "$real" ]] && return
+    if [[ ! -d $wt ]]; then emit worktrees "$name" "$d" "$wt" "its folder is gone; a stale entry"; return; fi
+    local why="" via=""
+    if [[ -n $(git -C "$wt" status --porcelain 2>/dev/null) ]]; then why="has uncommitted or untracked files"
+    elif in_use "$wt"; then why="a running process is working in it"
+    elif git -C "$d" merge-base --is-ancestor "$head" "origin/$def" 2>/dev/null; then via="in $def"
+    else
+      local sb
+      for sb in "${!safe[@]}"; do
+        git -C "$d" merge-base --is-ancestor "$head" "${safe_head[$sb]}" 2>/dev/null && { via="in merged PR #${safe[$sb]}"; break; }
+      done
+      [[ -z $via ]] && why="its HEAD is in no merged pull request"
+    fi
+    if [[ -n $why ]]; then
+      emit kept "$name" "worktree ${wt#"$real"/}: $why"
+      [[ -n $wb ]] && pinned[$wb]=1
+    else
+      emit worktrees "$name" "$d" "$wt" "clean, and its work is $via"
+    fi
+  }
+  while IFS= read -r line; do
+    case $line in
+      "worktree "*) finish_wt; wt=${line#worktree }; head=""; wb=""
+                    (( first )) && { wt=$real; first=0; } ;;   # the main worktree, always listed first
+      "HEAD "*)     head=${line#HEAD } ;;
+      "branch "*)   wb=${line#branch refs/heads/} ;;
+    esac
+  done < <(git -C "$d" worktree list --porcelain 2>/dev/null)
+  finish_wt
+
+  for b in "${!safe[@]}"; do
+    if [[ -n ${pinned[$b]:-} ]]; then emit kept "$name" "branch $b: merged in PR #${safe[$b]}, but checked out in a worktree that stays"
+    else emit branches "$name" "$d" "$b" "merged in PR #${safe[$b]}"; fi
+  done
+
+  # build: gitignored build output with nothing tracked in it
+  local sub kb
+  for sub in build .build; do
+    [[ -d "$d/$sub" ]] || continue
+    git -C "$d" check-ignore -q -- "$sub/" 2>/dev/null || continue
+    [[ -z $(git -C "$d" ls-files -- "$sub" | head -1) ]] || continue
+    kb=$(du -sk "$d/$sub" 2>/dev/null | cut -f1)
+    (( kb > 0 )) && emit build "$name" "$d/$sub" "$kb" "$sub/ $(human "$kb")"
+  done
+  return 0
+}
+
+# ── Find the clones and survey them, six at a time ─────────────────────────────
+# Each clone is named by its path under the root it was found in ("Magic Backup Machine",
+# "FloppyLetters/FloppyLetter2601"); a root that is itself a clone, like ~/mrk, by its own name.
+
+REPOS=(); NAMES=()
+for r in $ROOTS; do
+  [[ -d $r ]] || continue
+  if [[ -d $r/.git ]]; then REPOS+=("$r"); NAMES+=("${r##*/}"); continue; fi
+  while IFS= read -r g; do g=$(dirname "$g"); REPOS+=("$g"); NAMES+=("${g#"$r"/}"); done < <(
+    find "$r" -mindepth 2 -maxdepth 3 -name .git -type d -not -path '*/.claude/*' -not -path '*/node_modules/*' 2>/dev/null | sort)
+done
+(( ${#REPOS[@]} )) || { err "No git clones under $ROOTS"; exit 1; }
+
+echo "Surveying ${#REPOS[@]} clones$( (( FETCH )) && echo ", fetching each")…" >&2
+for i in "${!REPOS[@]}"; do
+  while (( $(jobs -rp | wc -l) >= 6 )); do sleep 0.2; done
+  survey_repo "${REPOS[$i]}" "${NAMES[$i]}" "$WORK/$(printf '%03d' "$i")" &
+done
+wait
+cat "$WORK"/[0-9]* 2>/dev/null > "$WORK/all"
+kind() { awk -F'\t' -v k="$1" '$1 == k' "$WORK/all"; }
+
+if [[ -d $DERIVED ]]; then
+  ddkb=$(du -sk "$DERIVED" 2>/dev/null | cut -f1)
+  (( ddkb > 1024 )) && printf 'build\tXcode\t%s\t%s\tDerivedData %s (clear-derived-data)\n' "$DERIVED" "$ddkb" "$(human "$ddkb")" >> "$WORK/all"
+fi
+(( GH )) || printf 'owner\t(all)\tgh is not logged in: no pull request or Pages checks, so no branch counts as merged\n' >> "$WORK/all"
+
+h() { printf '\n== %s\n' "$*"; }
+
+# ── Report ─────────────────────────────────────────────────────────────────────
+
+if [[ -z $APPLY ]]; then
+  h "Clones"
+  printf '  %-32s %-26s %6s %9s %7s %6s  %s\n' REPO BRANCH DIRTY UNPUSHED BEHIND STASH REMOTE
+  kind row | sort -t$'\t' -k2,2f | while IFS=$'\t' read -r _ n cur def dirty unp beh st rem; do
+    printf '  %-32s %-26s %6s %9s %7s %6s  %s\n' "$n" "$cur$([[ $cur != "$def" ]] && echo '*')" "$dirty" "$unp" "$beh" "$st" "$rem"
+  done
+  echo "  (* = not the default branch)"
+
+  h "Needs the owner (never changed here)"
+  if [[ -n $(kind owner) ]]; then kind owner | sort -t$'\t' -k2,2f | awk -F'\t' '{ printf "  %s: %s\n", $2, $3 }'; else echo "  (nothing)"; fi
+
+  h "Cleanups available"
+  any=0
+  for c in "${CATS[@]}"; do
+    rows=$(kind "$c")
+    [[ -z $rows ]] && continue
+    any=1
+    case $c in
+      ff|refs|deploys) awk -F'\t' -v c="$c" '{ printf "  %-9s %s: %s\n", c, $2, $NF }' <<<"$rows" ;;
+      worktrees)       awk -F'\t' -v c="$c" '{ sub(/^.*\.claude\/worktrees\//, "", $4); printf "  %-9s %s: %s (%s)\n", c, $2, $4, $5 }' <<<"$rows" ;;
+      branches)        awk -F'\t' -v c="$c" '{ printf "  %-9s %s: %s (%s)\n", c, $2, $4, $5 }' <<<"$rows" ;;
+      build)           awk -F'\t' -v c="$c" '{ printf "  %-9s %s: %s\n", c, $2, $5 }' <<<"$rows"
+                       tot=$(awk -F'\t' '{ s += $4 } END { print s + 0 }' <<<"$rows"); echo "            total $(human "$tot")" ;;
+    esac
+  done
+  (( any )) || echo "  (nothing to clean up)"
+
+  h "Kept, and why"
+  if [[ -n $(kind kept) ]]; then kind kept | sort -t$'\t' -k2,2f | awk -F'\t' '{ printf "  %s: %s\n", $2, $3 }'; else echo "  (nothing)"; fi
+
+  h "Next"
+  cat <<'TXT'
+  Every cleanup removes something, so list them for the owner and apply the ones they
+  agree to, in one go:  tidy-projects --apply branches,worktrees,...   (or --apply all)
+  Each rule is checked again at that moment. Re-run tidy-projects afterwards.
+TXT
+  exit 0
+fi
+
+# ── Apply ──────────────────────────────────────────────────────────────────────
+# Order matters: a worktree goes before its branch, because git will not delete a branch that
+# is checked out somewhere.
+
+done_n=0; failed=0
+act() { # label command...
+  local label=$1 msg; shift
+  if msg=$("$@" 2>&1); then echo "  ✓ $label"; done_n=$((done_n + 1))
+  else echo "  ✗ $label: $(head -1 <<<"$msg")"; failed=$((failed + 1)); fi
+}
+
+if applying ff; then h "ff"
+  while IFS=$'\t' read -r _ n d def _; do act "$n: fast-forwarded $def" git -C "$d" merge --ff-only --quiet "origin/$def"; done < <(kind ff)
+fi
+if applying refs; then h "refs"
+  while IFS=$'\t' read -r _ n d _; do act "$n: pruned stale remote-tracking refs" git -C "$d" remote prune origin; done < <(kind refs)
+fi
+if applying worktrees; then h "worktrees"
+  while IFS=$'\t' read -r _ n d wt _; do
+    if [[ -d $wt ]]; then act "$n: removed ${wt##*/}" git -C "$d" worktree remove "$wt"   # no --force: git refuses a dirty one
+    else act "$n: pruned the stale entry for ${wt##*/}" git -C "$d" worktree prune; fi
+  done < <(kind worktrees)
+fi
+if applying branches; then h "branches"
+  while IFS=$'\t' read -r _ n d b why; do act "$n: deleted $b ($why)" git -C "$d" branch -D -- "$b"; done < <(kind branches)
+fi
+if applying deploys; then h "deploys"
+  while IFS=$'\t' read -r _ n slug _; do act "$n: pruned Pages deployments to $KEEP_DEPLOYS" "$PRUNE" --repo "$slug" --keep "$KEEP_DEPLOYS"; done < <(kind deploys)
+fi
+if applying build; then h "build"
+  if pgrep -x xcodebuild >/dev/null 2>&1; then
+    echo "  skipped: xcodebuild is running"
+  else
+    while IFS=$'\t' read -r _ n path _ what; do
+      if [[ $n == Xcode ]]; then act "cleared Xcode's $what" "$CLEAR_DD"
+      else act "$n: moved $what to the Trash" "$TRASH" "$path"; fi
+    done < <(kind build)
+  fi
+fi
+h "Done"
+echo "  $done_n applied, $failed failed. Re-run tidy-projects: what was applied should be gone"
+echo "  from \"Cleanups available\"."
+(( failed == 0 ))
