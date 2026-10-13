@@ -28,14 +28,16 @@ bash ~/.claude/skills/dependency-updates/scripts/check.sh  # vendored pins and D
 ```
 
 `tidy-projects` fetches each clone first, which changes only remote-tracking refs, and takes about
-15 seconds; `--no-fetch` skips the fetch. Its report has four parts: a table of every clone,
-**Needs the owner**, **Cleanups available**, and **Kept, and why**.
+15 seconds; `--no-fetch` skips the fetch. Its report has five parts: a table of every clone,
+**Needs you**, **Cleanups available**, **Kept, and why**, and **What to run**. Each item under
+Needs you and Kept has a `→` command that shows or settles it, and each cleanup has its
+`--apply` command, so the report can be read without this skill. Piped, it has no colors.
 
 ## 2. Report, in one message
 
 In this order, because the top is what only the owner can settle:
 
-1. **Needs the owner.** No remote, a remote off GitHub, a clone on a branch other than its default,
+1. **Needs you.** No remote, a remote off GitHub, a clone on a branch other than its default,
    uncommitted changes, unpushed commits, stashes, branches never pushed. Each is a decision, and
    nothing here acts on it. Say what the obvious next step would be: for a repo with no remote,
    a private GitHub repo and a push, which only the owner can choose.
