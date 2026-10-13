@@ -207,10 +207,14 @@ fi
 # Projects Claude skills                                                      #
 ###############################################################################
 
-# Same reasoning as CLAUDE.md above: skills Claude Code loads for work under
-# ~/Projects, tracked here rather than living untracked in a directory that is
-# not a repository. The whole directory is linked, not each skill, so adding a
-# skill needs no change here.
+# Same reasoning as CLAUDE.md above: skills for work under ~/Projects, tracked
+# here rather than living untracked in a directory that is not a repository.
+# Claude Code loads a project's skills only in a session started in that
+# folder, so this link serves a session started in ~/Projects itself. The next
+# section links each skill into ~/.claude/skills, which is what loads them
+# inside each repo. The script paths the skills and CLAUDE.md give go through
+# this link. The whole directory is linked, so adding a skill needs no change
+# here.
 PSKILLS_SRC="$REPO_ROOT/assets/projects-skills"
 PSKILLS_DST="$HOME/Projects/.claude/skills"
 
@@ -234,37 +238,60 @@ else
 fi
 
 ###############################################################################
-# Claude Code, every session: dependency updates                              #
+# Claude Code, every session: the skills                                      #
 ###############################################################################
 
-# The one skill loaded in every session, wherever it starts, not only under
-# ~/Projects: its SessionStart hook reports vendored binaries (yt-dlp, FFmpeg,
-# LAME) and Dependabot alerts that have fallen behind, which nothing else
-# watches. ClipHack 1.25.7 shipped a yt-dlp two releases old for want of it.
-# settings.json is Claude Code's own file, so the hook is added once and
-# nothing else in it is touched; invalid JSON is reported, never overwritten.
-DEPS_SKILL_SRC="$PSKILLS_SRC/dependency-updates"
-DEPS_SKILL_DST="$HOME/.claude/skills/dependency-updates"
+# Each skill in assets/projects-skills is linked into ~/.claude/skills, which
+# Claude Code reads in every session, wherever it starts. Claude Code does not
+# look for skills in a parent folder, so the ~/Projects link above never
+# reaches a session started inside a repo: until 2026-10-13 a session in
+# ClipHack or DoublEnder, where releases are cut, did not have
+# release-standards or repo-standards. A link left behind by a skill taken out
+# of assets/projects-skills points at nothing, and is removed.
+#
+# dependency-updates also has a SessionStart hook. It reports vendored
+# binaries (yt-dlp, FFmpeg, LAME) and Dependabot alerts that have fallen
+# behind, which nothing else watches. ClipHack 1.25.7 shipped a yt-dlp two
+# releases old for want of it. settings.json is Claude Code's own file, so the
+# hook is added once and nothing else in it is touched; invalid JSON is
+# reported, never overwritten.
+USER_SKILLS="$HOME/.claude/skills"
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
 # shellcheck disable=SC2016  # $HOME is for the hook's shell to expand, not this one
 DEPS_HOOK='bash "$HOME/.claude/skills/dependency-updates/scripts/check.sh" --session'
 
-if [[ -d "$DEPS_SKILL_SRC" ]]; then
+if [[ -d "$PSKILLS_SRC" ]]; then
   if (( ! LINK_HOME )); then
-    not_home "dependency-updates skill"
-  elif [[ -L "$DEPS_SKILL_DST" ]] && [[ "$(readlink "$DEPS_SKILL_DST")" == "$DEPS_SKILL_SRC" ]]; then
-    logskip "dependency-updates skill" "linked"
+    not_home "Claude Code skills in ~/.claude/skills"
   else
-    mkdir -p "$HOME/.claude/skills"
-    [[ -e "$DEPS_SKILL_DST" && ! -L "$DEPS_SKILL_DST" ]] && mv "$DEPS_SKILL_DST" "${DEPS_SKILL_DST}.bak"
-    if ln -sfn "$DEPS_SKILL_SRC" "$DEPS_SKILL_DST"; then
-      ok "Linked dependency-updates skill → $DEPS_SKILL_DST"
-    else
-      log "Warning: failed to link the dependency-updates skill"
-      ((++failed))
-    fi
+    for skill_src in "$PSKILLS_SRC"/*/; do
+      skill_src=${skill_src%/}
+      [[ -f "$skill_src/SKILL.md" ]] || continue
+      skill=${skill_src##*/}
+      skill_dst="$USER_SKILLS/$skill"
+      if [[ -L "$skill_dst" ]] && [[ "$(readlink "$skill_dst")" == "$skill_src" ]]; then
+        logskip "$skill skill" "linked"
+        continue
+      fi
+      mkdir -p "$USER_SKILLS"
+      [[ -e "$skill_dst" && ! -L "$skill_dst" ]] && mv "$skill_dst" "${skill_dst}.bak"
+      if ln -sfn "$skill_src" "$skill_dst"; then
+        ok "Linked $skill skill → $skill_dst"
+      else
+        log "Warning: failed to link the $skill skill"
+        ((++failed))
+      fi
+    done
+    for skill_dst in "$USER_SKILLS"/*; do
+      [[ -L "$skill_dst" && ! -e "$skill_dst" && "$(readlink "$skill_dst")" == "$PSKILLS_SRC"/* ]] || continue
+      if rm -f "$skill_dst"; then
+        ok "Removed the ${skill_dst##*/} skill link: assets/projects-skills no longer has it"
+      fi
+    done
   fi
+fi
 
+if [[ -d "$PSKILLS_SRC/dependency-updates" ]]; then
   [[ -s "$CLAUDE_SETTINGS" ]] || { mkdir -p "$HOME/.claude"; echo '{}' > "$CLAUDE_SETTINGS"; }
   if jq -e --arg c "$DEPS_HOOK" '[.hooks.SessionStart[]?.hooks[]?.command] | index($c)' "$CLAUDE_SETTINGS" >/dev/null 2>&1; then
     logskip "dependency-updates session hook" "installed"

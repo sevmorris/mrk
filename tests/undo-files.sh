@@ -245,14 +245,17 @@ fi
 
 # ── W-20: nuke-mrk takes Claude Code's skill links and session hook ──────────
 
-# post-install links two skill folders into the repository and adds one
-# SessionStart hook to ~/.claude/settings.json. Until 2026-09-28 the nuke left
-# all three, the hook running a script that no longer existed (audit 19, W-20).
-# settings.json is Claude Code's: someone else's hook and setting must survive.
+# post-install links ~/Projects/.claude/skills and one folder per skill in
+# ~/.claude/skills into the repository, and adds one SessionStart hook to
+# ~/.claude/settings.json. Until 2026-09-28 the nuke left them all, the hook
+# running a script that no longer existed (audit 19, W-20). settings.json is
+# Claude Code's: someone else's hook, setting and skill link must survive.
 nuke_mac
 mkdir -p "$H/Projects/.claude" "$H/.claude/skills"
 ln -s "$H/mrk/assets/projects-skills" "$H/Projects/.claude/skills"
-ln -s "$H/mrk/assets/projects-skills/dependency-updates" "$H/.claude/skills/dependency-updates"
+for s in dependency-updates release-standards repo-standards; do
+  ln -s "$H/mrk/assets/projects-skills/$s" "$H/.claude/skills/$s"
+done
 ln -s /elsewhere/other-skill "$H/.claude/skills/other"
 # shellcheck disable=SC2016  # $HOME is literal in settings.json, as post-install writes it
 MRK_HOOK='bash "$HOME/.claude/skills/dependency-updates/scripts/check.sh" --session'
@@ -267,11 +270,11 @@ settings_ok=$(/usr/bin/jq -r --arg c "$MRK_HOOK" '
   ([.hooks.SessionStart[]?.hooks[]?.command] | index($c) == null)
   and ([.hooks.SessionStart[]?.hooks[]?.command] == ["echo mine"])
   and (.permissions.allow == ["Bash(ls)"])' "$H/.claude/settings.json" 2>/dev/null)
-if [[ $RC == 0 && ! -L "$H/Projects/.claude/skills" && ! -L "$H/.claude/skills/dependency-updates" \
-      && -L "$H/.claude/skills/other" && "$settings_ok" == true ]]; then
-  pass "nuke-mrk removes both skill links and mrk's session hook, and leaves the rest of settings.json"
+left=$(cd "$H" && find Projects/.claude .claude/skills -type l 2>/dev/null | tr '\n' ' ')
+if [[ $RC == 0 && $left == ".claude/skills/other " && "$settings_ok" == true ]]; then
+  pass "nuke-mrk removes every skill link and mrk's session hook, and leaves the rest of settings.json"
 else
-  fail "nuke-mrk and Claude Code (exit $RC): settings.json check '$settings_ok'; links left: $(cd "$H" && find Projects/.claude .claude/skills -type l 2>/dev/null | tr '\n' ' ')"
+  fail "nuke-mrk and Claude Code (exit $RC): settings.json check '$settings_ok'; links left: ${left:-none}"
   show
 fi
 

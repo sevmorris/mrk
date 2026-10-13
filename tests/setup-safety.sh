@@ -179,8 +179,13 @@ links_into_repo() {
     [[ "$(readlink "$l")" == "$R"/* ]] && printf '%s\n' "${l#"$H"/}"
   done
 }
-POST_LINKS=(".config/topgrade.toml" "Projects/CLAUDE.md" "Projects/.claude/skills" ".claude/skills/dependency-updates")
-POST_SRCS=("assets/topgrade.toml" "assets/CLAUDE.md" "assets/projects-skills" "assets/projects-skills/dependency-updates")
+POST_LINKS=(".config/topgrade.toml" "Projects/CLAUDE.md" "Projects/.claude/skills")
+POST_SRCS=("assets/topgrade.toml" "assets/CLAUDE.md" "assets/projects-skills")
+# and one link in ~/.claude/skills for each skill in assets/projects-skills
+for s in "$R"/assets/projects-skills/*/SKILL.md; do
+  s=${s%/SKILL.md}; s=${s##*/}
+  POST_LINKS+=(".claude/skills/$s"); POST_SRCS+=("assets/projects-skills/$s")
+done
 
 # ── W-5: setup from a checkout ~ is not linked to ────────────────────────────
 
@@ -356,8 +361,11 @@ fi
 
 fresh_home
 for_post_install
-mkdir -p "$H/.config"
+mkdir -p "$H/.config" "$H/.claude/skills"
 ln -s "$W/removed-worktree/assets/topgrade.toml" "$H/.config/topgrade.toml"
+# A link to a skill since taken out of the repository, and someone else's skill
+ln -s "$R/assets/projects-skills/retired-skill" "$H/.claude/skills/retired-skill"
+ln -s /elsewhere/other-skill "$H/.claude/skills/other"
 HOME_ROOT="$R" run "$R/scripts/post-install" --yes
 wrong=""
 for i in "${!POST_LINKS[@]}"; do
@@ -368,6 +376,12 @@ if [[ $RC == 0 && -z "$wrong" ]]; then
 else
   fail "post-install with MRK_ROOT (exit $RC): wrong or missing:${wrong:- none}"; show
 fi
+if [[ ! -L "$H/.claude/skills/retired-skill" && "$(readlink "$H/.claude/skills/other")" == /elsewhere/other-skill ]]; then
+  pass "  and removes the link to a retired skill, leaving someone else's"
+else
+  fail "  links in ~/.claude/skills after post-install: $(cd "$H/.claude/skills" && find . -type l | tr '\n' ' ')"; show
+fi
+rm -f "$H/.claude/skills/other"
 
 rm -f "$H/.config/topgrade.toml"
 echo "mine" > "$H/.config/topgrade.toml"
