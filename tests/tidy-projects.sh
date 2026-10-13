@@ -126,13 +126,14 @@ export TIDY_ROOTS="$T/Projects" TIDY_DERIVED="$T/DerivedData" TIDY_TRASH="$T/fak
 # ── 1. The survey: every case lands where it should, and nothing changes ──────
 
 bash "$S" > "$T/s1" 2>&1
+grep -q "^== What to run" "$T/s1" || { err "the survey stopped short; its output:"; sed 's/^/    /' "$T/s1" >&2; }
 has() { grep -qF -- "$1" "$T/s1"; }
-check "ff offered for Alpha (1 behind, clean)"                 'has "ff        Alpha: 1 commit(s) behind origin/main"'
-check "refs: Alpha's deleted branches found stale"             'has "refs      Alpha:"'
-check "branches: merged-ok offered (tip == merged PR head)"     'has "branches  Alpha: merged-ok (merged in PR #11)"'
+check "ff offered for Alpha (1 behind, clean), with its command" 'has "    Alpha: 1 commit(s) behind origin/main" && has "→ tidy-projects --apply ff"'
+check "refs: Alpha's deleted branches found stale"             'grep -qE "^    Alpha: [0-9]+ stale: " "$T/s1"'
+check "branches: merged-ok offered (tip == merged PR head)"     'has "    Alpha: merged-ok (merged in PR #11)"'
 check "kept: merged-extra has 1 commit in neither PR nor main"  'has "branch merged-extra: has 1 commit(s) in neither PR #12 nor main"'
-check "branches: inmain offered (its tip is in main, no PR)"   'has "branches  Alpha: inmain (in main)"'
-check "branches: behind offered (tip is an ancestor of PR head)" 'has "branches  Alpha: behind (merged in PR #15)"'
+check "branches: inmain offered (its tip is in main, no PR)"   'has "    Alpha: inmain (in main)"'
+check "branches: behind offered (tip is an ancestor of PR head)" 'has "    Alpha: behind (merged in PR #15)"'
 check "kept: closed PR"                                         'has "branch closed: PR #13 was closed without merging"'
 check "kept: no PR"                                             'has "branch nopr: gone from origin, and no pull request has it as its head"'
 check "kept: merged2 pinned by its dirty worktree"              'has "branch merged2: merged in PR #14, but checked out in a worktree that stays"'
@@ -142,25 +143,36 @@ check "worktrees: wt-missing offered as a stale entry"          'has "wt-missing
 check "kept: wt-dirty has untracked files"                      'has "worktree .claude/worktrees/wt-dirty: has uncommitted or untracked files"'
 check "kept: wt-inuse has a running process"                    'has "worktree .claude/worktrees/wt-inuse: a running process is working in it"'
 check "owner: Alpha's stash reported"                           'has "Alpha: 1 stash(es)"'
-check "build: Alpha build/ offered"                             'has "build     Alpha: build/ 1.0M"'
-check "build: Beta's tracked build/ not offered"                '! has "build     Beta"'
+check "build: Alpha build/ offered"                             'has "    Alpha: build/ 1.0M"'
+check "build: Beta's tracked build/ not offered"                '! has "Beta: build/"'
 check "build: DerivedData offered"                              'has "DerivedData 2.0M"'
-check "deploys: Alpha 12 -> 10"                                 'has "deploys   Alpha: 12 Pages deployments, down to 10"'
+check "deploys: Alpha 12 -> 10"                                 'has "    Alpha: 12 Pages deployments, down to 10"'
 check "owner: Beta has no remote"                               'has "Beta: no remote: this clone is the only copy"'
 check "owner: Gamma is off GitHub"                              'has "Gamma: its remote is not on GitHub"'
 check "the token in Gamma's URL is never printed"               '! has "secret-token-abc"'
 check "owner: Delta on dev, with 1 uncommitted change"          'has "Delta: checked out on dev, not main" && has "Delta: 1 uncommitted change(s)"'
-check "no ff offered for Delta (not on main)"                   '! has "ff        Delta"'
+check "no cleanup offered for Delta (not on main)"              '! grep -q "^    Delta:" "$T/s1"'
+# The report says what to run: a command under each item that needs the owner or is kept, a
+# heading per cleanup with whether it can be undone, and the whole run, with and without deploys.
+check "hint: Delta's switch back to main"                        'has "→ git -C \"$T/Projects/Delta\" switch main"'
+check "hint: Alpha's stash list"                                 'has "→ git -C \"$A\" stash list"'
+check "hint: Beta, a private repo to back it up"                 'has "→ gh repo create --private --source \"$T/Projects/Beta\" --push"'
+check "hint: merged-extra's commits, to look at"                 'has "→ git -C \"$A\" log --oneline merged-extra --not origin/main"'
+check "hint: the closed PR"                                      'has "→ gh pr view 13 --repo testowner/Alpha"'
+check "heading: three merged branches, and what undo means"      'has "  branches  3 local branches whose work is merged  (their work is merged)"'
+check "heading: deploys cannot be undone"                        'has "(cannot be undone)"'
+check "what to run: every cleanup, and all but deploys"          'has "Every cleanup above:" && has "tidy-projects --apply ff,refs,worktrees,branches,deploys,build" && has "tidy-projects --apply ff,refs,worktrees,branches,build"'
 check "survey changed nothing (Alpha main still behind)"        '[[ $(git -C "$A" rev-list --count HEAD..origin/main) == 1 ]]'
 
 
 # ── 2. --apply all: only what qualified goes, and everything kept stays ───────
 
 bash "$S" --apply all > "$T/s2" 2>&1
+grep -q "^== Done" "$T/s2" || { err "--apply all stopped short; its output:"; sed 's/^/    /' "$T/s2" >&2; }
 check "Alpha fast-forwarded"                          '[[ $(git -C "$A" rev-list --count HEAD..origin/main) == 0 ]]'
 check "stale refs pruned"                             '! git -C "$A" show-ref --verify --quiet refs/remotes/origin/merged-ok'
-check "merged-ok, behind and inmain deleted"          'for b in merged-ok behind inmain; do ! git -C "$A" show-ref --verify --quiet refs/heads/$b || exit 1; done'
-check "merged-extra, closed, nopr, merged2, localonly kept" 'for b in merged-extra closed nopr merged2 localonly; do git -C "$A" show-ref --verify --quiet refs/heads/$b || exit 1; done'
+check "merged-ok, behind and inmain deleted"          '( for b in merged-ok behind inmain; do ! git -C "$A" show-ref --verify --quiet refs/heads/$b || exit 1; done )'
+check "merged-extra, closed, nopr, merged2, localonly kept" '( for b in merged-extra closed nopr merged2 localonly; do git -C "$A" show-ref --verify --quiet refs/heads/$b || exit 1; done )'
 check "wt-merged removed"                             '[[ ! -d "$A/.claude/worktrees/wt-merged" ]]'
 check "wt-missing entry pruned"                       '! git -C "$A" worktree list | grep -q wt-missing'
 check "wt-dirty and its untracked file kept"          '[[ -f "$A/.claude/worktrees/wt-dirty/untracked.txt" ]]'
@@ -179,6 +191,19 @@ check "apply reported no failures"                    'grep -q " 0 failed" "$T/s
 bash "$S" > "$T/s3" 2>&1
 check "only the fakes' cleanups remain (deploys, DerivedData)" \
   '[[ $(sed -n "/^== Cleanups available/,/^== Kept/p" "$T/s3" | grep -cE "^  (ff|refs|worktrees|branches|build) ") == 1 ]] && grep -q "DerivedData" "$T/s3"'
+# Colors on a terminal only: script(1) gives the run one. NO_COLOR and a pipe turn them off.
+esc() { LC_ALL=C /usr/bin/grep -cF "$(printf '\033[')" "$1"; }
+script -q "$T/tty" env TERM=xterm-256color bash "$S" --no-fetch </dev/null >/dev/null 2>&1
+NO_COLOR=1 script -q "$T/tty-nc" env TERM=xterm-256color bash "$S" --no-fetch </dev/null >/dev/null 2>&1
+# A variable written straight before a non-ASCII character ("$CMD→") reads that character's first
+# byte as part of its name on some bash builds: on CI's 5.3.15, "CMD\xe2: unbound variable" ended
+# the survey after its first cleanup. Every such variable is braced ("${CMD}→").
+# shellcheck disable=SC2034  # read by the check below, through eval
+bare=$(LC_ALL=C /usr/bin/grep -cE '\$[A-Za-z_][A-Za-z0-9_]*'$'[\x80-\xff]' "$S")
+check "no variable written straight before a non-ASCII character" '[[ $bare == 0 ]]'
+check "colors on a terminal"                          '(( $(esc "$T/tty") > 0 ))'
+check "no colors with NO_COLOR"                       '(( $(esc "$T/tty-nc") == 0 ))'
+check "no colors when piped"                          '(( $(esc "$T/s1") == 0 ))'
 check "--no-fetch survey runs"                        'bash "$S" --no-fetch >/dev/null 2>&1'
 check "unknown cleanup refused with exit 2"           'bash "$S" --apply bogus >/dev/null 2>&1; [[ $? == 2 ]]'
 

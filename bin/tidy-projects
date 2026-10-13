@@ -73,6 +73,8 @@ Cleanups:
              or a merged pull request
   deploys    Prune a Pages site to its newest 10 deployments
   build      Trash gitignored build/ and .build/ folders; clear Xcode's DerivedData
+
+On a terminal the report is in color. Set NO_COLOR to turn the colors off.
 EOF
 }
 
@@ -138,7 +140,7 @@ survey_repo() { # dir name out-file
 
   if (( FETCH )) && [[ $remote != none ]]; then
     GIT_TERMINAL_PROMPT=0 tmo 30 git -C "$d" fetch --quiet origin >/dev/null 2>&1 \
-      || emit owner "$name" "could not fetch from origin; the counts below may be stale"
+      || emit owner "$name" "could not fetch from origin; the counts below may be stale" "git -C \"$d\" fetch origin"
   fi
   def=$(git -C "$d" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null); def=${def#origin/}
   if [[ -z $def ]]; then
@@ -158,14 +160,14 @@ survey_repo() { # dir name out-file
   emit row "$name" "${cur:-(detached)}" "$def" "$dirty" "$unpushed" "$behind" "$stashes" "$remote"
 
   case $remote in
-    none)  emit owner "$name" "no remote: this clone is the only copy" ;;
+    none)  emit owner "$name" "no remote: this clone is the only copy" "gh repo create --private --source \"$d\" --push" ;;
     other) emit owner "$name" "its remote is not on GitHub, so its pull requests, Pages and backup there are not checked" ;;
   esac
-  [[ -n $cur && $cur != "$def" ]] && emit owner "$name" "checked out on $cur, not $def"
-  [[ -z $cur ]] && emit owner "$name" "HEAD is detached"
-  (( dirty )) && emit owner "$name" "$dirty uncommitted change(s)"
-  (( unpushed )) && emit owner "$name" "$unpushed unpushed commit(s) on ${cur:-HEAD}"
-  (( stashes )) && emit owner "$name" "$stashes stash(es), never dropped here: git -C \"$d\" stash list"
+  [[ -n $cur && $cur != "$def" ]] && emit owner "$name" "checked out on $cur, not $def" "git -C \"$d\" switch $def"
+  [[ -z $cur ]] && emit owner "$name" "HEAD is detached" "git -C \"$d\" switch $def"
+  (( dirty )) && emit owner "$name" "$dirty uncommitted change(s)" "git -C \"$d\" status"
+  (( unpushed )) && emit owner "$name" "$unpushed unpushed commit(s) on ${cur:-HEAD}" "git -C \"$d\" log --oneline '@{u}..HEAD'"
+  (( stashes )) && emit owner "$name" "$stashes stash(es), never dropped here" "git -C \"$d\" stash list"
 
   # ff: a clean default branch behind origin
   if [[ $cur == "$def" ]] && (( behind && !dirty && !unpushed )) \
@@ -204,7 +206,7 @@ survey_repo() { # dir name out-file
   while IFS=: read -r b tip track up; do
     local gone=0
     [[ $track == "[gone]" || ( -n $up && -n ${stale_ref[$up]:-} ) ]] && gone=1
-    [[ $b == "$def" || $b == "$cur" ]] && { [[ $b == "$cur" && $b != "$def" && $gone == 1 ]] && emit owner "$name" "the checked-out branch $b is gone from origin; switch to $def"; continue; }
+    [[ $b == "$def" || $b == "$cur" ]] && { [[ $b == "$cur" && $b != "$def" && $gone == 1 ]] && emit owner "$name" "the checked-out branch $b is gone from origin" "git -C \"$d\" switch $def"; continue; }
     if (( gone )); then
       # A tip already in the default branch needs no pull request to prove it merged. On
       # 2026-10-13 DoublEnder's claude/zealous-darwin-46fcb0 went past its PR's head with five
@@ -213,7 +215,7 @@ survey_repo() { # dir name out-file
         safe[$b]="in $def"; safe_head[$b]="origin/$def"; continue
       fi
       if [[ -z $slug || $GH == 0 || $archived == true ]]; then
-        emit kept "$name" "branch $b: gone from origin, and its pull request can't be checked here"; continue
+        emit kept "$name" "branch $b: gone from origin, and its pull request can't be checked here" "$( (( GH )) || echo "gh auth login")"; continue
       fi
       local prs merged="" mhead="" other="" extra=""
       prs=$(gh pr list --repo "$slug" --head "$b" --state all --json number,state,headRefOid \
@@ -237,12 +239,12 @@ survey_repo() { # dir name out-file
         elif [[ -z $other ]]; then other="$num $st"; fi
       done <<<"$prs"
       if [[ -n $merged ]]; then safe[$b]="merged in PR #$merged"; safe_head[$b]=$mhead
-      elif [[ $other == *MERGED* ]]; then emit kept "$name" "branch $b: has ${extra:-some} commit(s) in neither PR #${other%% *} nor $def"
-      elif [[ $other == *CLOSED* ]]; then emit kept "$name" "branch $b: PR #${other%% *} was closed without merging"
-      elif [[ $other == *OPEN* ]]; then emit kept "$name" "branch $b: PR #${other%% *} is still open"
-      else emit kept "$name" "branch $b: gone from origin, and no pull request has it as its head"; fi
+      elif [[ $other == *MERGED* ]]; then emit kept "$name" "branch $b: has ${extra:-some} commit(s) in neither PR #${other%% *} nor $def" "git -C \"$d\" log --oneline $b --not origin/$def"
+      elif [[ $other == *CLOSED* ]]; then emit kept "$name" "branch $b: PR #${other%% *} was closed without merging" "gh pr view ${other%% *} --repo $slug"
+      elif [[ $other == *OPEN* ]]; then emit kept "$name" "branch $b: PR #${other%% *} is still open" "gh pr view ${other%% *} --repo $slug"
+      else emit kept "$name" "branch $b: gone from origin, and no pull request has it as its head" "git -C \"$d\" log --oneline $b --not origin/$def"; fi
     elif [[ -z $up ]] && ! git -C "$d" show-ref --verify --quiet "refs/remotes/origin/$b"; then
-      emit owner "$name" "branch $b was never pushed: this clone is its only copy"
+      emit owner "$name" "branch $b was never pushed: this clone is its only copy" "git -C \"$d\" log --oneline $b --not --remotes"
     fi
   done < <(git -C "$d" for-each-ref --format='%(refname:short):%(objectname):%(upstream:track):%(upstream:short)' refs/heads)
 
@@ -253,8 +255,8 @@ survey_repo() { # dir name out-file
   finish_wt() {
     [[ -z $wt || $wt == "$real" ]] && return
     if [[ ! -d $wt ]]; then emit worktrees "$name" "$d" "$wt" "its folder is gone; a stale entry"; return; fi
-    local why="" via=""
-    if [[ -n $(git -C "$wt" status --porcelain 2>/dev/null) ]]; then why="has uncommitted or untracked files"
+    local why="" via="" hint=""
+    if [[ -n $(git -C "$wt" status --porcelain 2>/dev/null) ]]; then why="has uncommitted or untracked files"; hint="git -C \"$wt\" status"
     elif in_use "$wt"; then why="a running process is working in it"
     elif git -C "$d" merge-base --is-ancestor "$head" "origin/$def" 2>/dev/null; then via="in $def"
     else
@@ -262,10 +264,10 @@ survey_repo() { # dir name out-file
       for sb in "${!safe[@]}"; do
         git -C "$d" merge-base --is-ancestor "$head" "${safe_head[$sb]}" 2>/dev/null && { via=${safe[$sb]/#merged in/in merged}; break; }
       done
-      [[ -z $via ]] && why="its HEAD is in no merged pull request"
+      [[ -z $via ]] && { why="its HEAD is in no merged pull request"; hint="git -C \"$wt\" log --oneline -5"; }
     fi
     if [[ -n $why ]]; then
-      emit kept "$name" "worktree ${wt#"$real"/}: $why"
+      emit kept "$name" "worktree ${wt#"$real"/}: $why" "$hint"
       [[ -n $wb ]] && pinned[$wb]=1
     else
       emit worktrees "$name" "$d" "$wt" "clean, and its work is $via"
@@ -324,48 +326,96 @@ if [[ -d $DERIVED ]]; then
   ddkb=$(du -sk "$DERIVED" 2>/dev/null | cut -f1)
   (( ddkb > 1024 )) && printf 'build\tXcode\t%s\t%s\tDerivedData %s (clear-derived-data)\n' "$DERIVED" "$ddkb" "$(human "$ddkb")" >> "$WORK/all"
 fi
-(( GH )) || printf 'owner\t(all)\tgh is not logged in: no pull request or Pages checks, so no branch counts as merged\n' >> "$WORK/all"
+(( GH )) || printf 'owner\t(all)\tgh is not logged in: no pull request or Pages checks, so no branch counts as merged\tgh auth login\n' >> "$WORK/all"
 
-h() { printf '\n== %s\n' "$*"; }
+# Colors on a terminal only, and never with NO_COLOR set (no-color.org). Piped output, which the
+# projects-maintenance skill and tests/tidy-projects.sh read, stays plain text.
+if [[ -t 1 && -z ${NO_COLOR:-} ]] && tput sgr0 >/dev/null 2>&1; then
+  BOLD=$(tput bold); DIM=$(tput dim 2>/dev/null); OFF=$(tput sgr0)
+  HEAD=$(tput setaf 4); CMD=$(tput setaf 6); WARN=$(tput setaf 3); BAD=$(tput setaf 1); GOOD=$(tput setaf 2)
+else
+  BOLD="" DIM="" OFF="" HEAD="" CMD="" WARN="" BAD="" GOOD=""
+fi
+h() { printf '\n%s== %s%s\n' "${BOLD}${HEAD}" "$*" "${OFF}"; }
 
 # ── Report ─────────────────────────────────────────────────────────────────────
 
+# What each cleanup is, as one line: singular, plural, and whether it can be undone.
+declare -A ONE=([ff]="default branch behind origin" [refs]="clone with stale remote-tracking refs"
+  [worktrees]="finished worktree" [branches]="local branch whose work is merged"
+  [deploys]="Pages site past $KEEP_DEPLOYS deployments" [build]="build folder")
+declare -A MANY=([ff]="default branches behind origin" [refs]="clones with stale remote-tracking refs"
+  [worktrees]="finished worktrees" [branches]="local branches whose work is merged"
+  [deploys]="Pages sites past $KEEP_DEPLOYS deployments" [build]="build folders")
+declare -A UNDO=([ff]="nothing is lost" [refs]="nothing is lost" [worktrees]="their commits stay"
+  [branches]="their work is merged" [deploys]="cannot be undone" [build]="to the Trash; the next build makes them again")
+
+# items KIND COLOR: "  repo: text", and the command that shows or settles it on the line below
+items() {
+  kind "$1" | sort -t$'\t' -k2,2f | awk -F'\t' -v c="$2" -v cmd="${CMD}" -v off="${OFF}" '
+    { printf "  %s%s:%s %s\n", c, $2, off, $3; if ($4 != "") printf "      %s→ %s%s\n", cmd, $4, off }'
+}
+
 if [[ -z $APPLY ]]; then
   h "Clones"
-  printf '  %-32s %-26s %6s %9s %7s %6s  %s\n' REPO BRANCH DIRTY UNPUSHED BEHIND STASH REMOTE
+  printf '  %s%-32s %-26s %6s %9s %7s %6s  %s%s\n' "${BOLD}" REPO BRANCH DIRTY UNPUSHED BEHIND STASH REMOTE "${OFF}"
+  num() { local s; s=$(printf "%${2}s" "$1"); [[ $1 != 0 ]] && s="${WARN}$s${OFF}"; printf '%s' "$s"; }
   kind row | sort -t$'\t' -k2,2f | while IFS=$'\t' read -r _ n cur def dirty unp beh st rem; do
-    printf '  %-32s %-26s %6s %9s %7s %6s  %s\n' "$n" "$cur$([[ $cur != "$def" ]] && echo '*')" "$dirty" "$unp" "$beh" "$st" "$rem"
+    br=$(printf '%-26s' "$cur$([[ $cur != "$def" ]] && echo '*')"); [[ $cur != "$def" ]] && br="${WARN}$br${OFF}"
+    case $rem in none) rem="${BAD}$rem${OFF}" ;; other) rem="${WARN}$rem${OFF}" ;; esac
+    printf '  %-32s %s %s %s %s %s  %s\n' "$n" "$br" "$(num "$dirty" 6)" "$(num "$unp" 9)" "$(num "$beh" 7)" "$(num "$st" 6)" "$rem"
   done
-  echo "  (* = not the default branch)"
+  echo "  ${DIM}(* = not the default branch)${OFF}"
 
-  h "Needs the owner (never changed here)"
-  if [[ -n $(kind owner) ]]; then kind owner | sort -t$'\t' -k2,2f | awk -F'\t' '{ printf "  %s: %s\n", $2, $3 }'; else echo "  (nothing)"; fi
+  h "Needs you (tidy-projects changes none of these)"
+  if [[ -n $(kind owner) ]]; then items owner "${WARN}"; else echo "  ${GOOD}Nothing.${OFF}"; fi
 
   h "Cleanups available"
-  any=0
+  AVAIL=()
   for c in "${CATS[@]}"; do
     rows=$(kind "$c")
     [[ -z $rows ]] && continue
-    any=1
+    AVAIL+=("$c")
+    n=$(wc -l <<<"$rows" | tr -d ' ')
+    what=${ONE[$c]}; (( n > 1 )) && what=${MANY[$c]}
+    if [[ $c == build ]]; then
+      folders=$(awk -F'\t' '$2 != "Xcode"' <<<"$rows" | grep -c .)
+      what="$folders ${MANY[build]}"; (( folders == 1 )) && what="1 ${ONE[build]}"
+      if (( folders == 0 )); then what="Xcode's DerivedData"
+      elif grep -q $'^build\tXcode\t' <<<"$rows"; then what+=" and Xcode's DerivedData"; fi
+      what+=", $(human "$(awk -F'\t' '{ s += $4 } END { print s + 0 }' <<<"$rows")")"
+    else
+      what="$n $what"
+    fi
+    undo=${UNDO[$c]}; ucol=${GOOD}; [[ $c == deploys ]] && ucol=${BAD}
+    printf '\n  %s%-9s%s %s  %s(%s)%s\n' "${BOLD}" "$c" "${OFF}" "$what" "$ucol" "$undo" "${OFF}"
     case $c in
-      ff|refs|deploys) awk -F'\t' -v c="$c" '{ printf "  %-9s %s: %s\n", c, $2, $NF }' <<<"$rows" ;;
-      worktrees)       awk -F'\t' -v c="$c" '{ sub(/^.*\.claude\/worktrees\//, "", $4); printf "  %-9s %s: %s (%s)\n", c, $2, $4, $5 }' <<<"$rows" ;;
-      branches)        awk -F'\t' -v c="$c" '{ printf "  %-9s %s: %s (%s)\n", c, $2, $4, $5 }' <<<"$rows" ;;
-      build)           awk -F'\t' -v c="$c" '{ printf "  %-9s %s: %s\n", c, $2, $5 }' <<<"$rows"
-                       tot=$(awk -F'\t' '{ s += $4 } END { print s + 0 }' <<<"$rows"); echo "            total $(human "$tot")" ;;
+      ff|refs|deploys) awk -F'\t' '{ printf "    %s: %s\n", $2, $NF }' <<<"$rows" ;;
+      worktrees)       awk -F'\t' '{ sub(/^.*\.claude\/worktrees\//, "", $4); printf "    %s: %s (%s)\n", $2, $4, $5 }' <<<"$rows" ;;
+      branches)        awk -F'\t' '{ printf "    %s: %s (%s)\n", $2, $4, $5 }' <<<"$rows" ;;
+      build)           awk -F'\t' '{ printf "    %s: %s\n", $2, $5 }' <<<"$rows" ;;
     esac
+    echo "    ${CMD}→ tidy-projects --apply $c${OFF}"
   done
-  (( any )) || echo "  (nothing to clean up)"
+  (( ${#AVAIL[@]} )) || echo "  ${GOOD}Nothing to clean up.${OFF}"
 
   h "Kept, and why"
-  if [[ -n $(kind kept) ]]; then kind kept | sort -t$'\t' -k2,2f | awk -F'\t' '{ printf "  %s: %s\n", $2, $3 }'; else echo "  (nothing)"; fi
+  if [[ -n $(kind kept) ]]; then items kept "${DIM}"; else echo "  ${GOOD}Nothing.${OFF}"; fi
 
-  h "Next"
-  cat <<'TXT'
-  Every cleanup removes something, so list them for the owner and apply the ones they
-  agree to, in one go:  tidy-projects --apply branches,worktrees,...   (or --apply all)
-  Each rule is checked again at that moment. Re-run tidy-projects afterwards.
-TXT
+  h "What to run"
+  if (( ${#AVAIL[@]} )); then
+    printf '  %-34s %s%s%s\n' "Every cleanup above:" "${CMD}" "tidy-projects --apply $(IFS=,; echo "${AVAIL[*]}")" "${OFF}"
+    if [[ " ${AVAIL[*]} " == *" deploys "* ]] && (( ${#AVAIL[@]} > 1 )); then
+      rest=(); for c in "${AVAIL[@]}"; do [[ $c != deploys ]] && rest+=("$c"); done
+      printf '  %-34s %s%s%s\n' "All but deploys, which is permanent:" "${CMD}" "tidy-projects --apply $(IFS=,; echo "${rest[*]}")" "${OFF}"
+    fi
+    printf '  %-34s %s\n' "One category:" "the → line under it"
+    echo "  Each --apply surveys again first, and checks every rule at that moment."
+  else
+    echo "  ${GOOD}Nothing to clean up.${OFF}"
+  fi
+  [[ -n $(kind owner) ]] && echo "  Run the → commands under \"Needs you\" yourself: tidy-projects never does."
+  echo "  ${DIM}tidy-projects --help explains each category.${OFF}"
   exit 0
 fi
 
@@ -376,8 +426,8 @@ fi
 done_n=0; failed=0
 act() { # label command...
   local label=$1 msg; shift
-  if msg=$("$@" 2>&1); then echo "  ✓ $label"; done_n=$((done_n + 1))
-  else echo "  ✗ $label: $(head -1 <<<"$msg")"; failed=$((failed + 1)); fi
+  if msg=$("$@" 2>&1); then echo "  ${GOOD}✓${OFF} $label"; done_n=$((done_n + 1))
+  else echo "  ${BAD}✗${OFF} $label: $(head -1 <<<"$msg")"; failed=$((failed + 1)); fi
 }
 
 if applying ff; then h "ff"
@@ -409,6 +459,6 @@ if applying build; then h "build"
   fi
 fi
 h "Done"
-echo "  $done_n applied, $failed failed. Re-run tidy-projects: what was applied should be gone"
+echo "  $done_n applied, $( (( failed )) && echo "${BAD}$failed failed${OFF}" || echo "0 failed"). Re-run tidy-projects: what was applied should be gone"
 echo "  from \"Cleanups available\"."
 (( failed == 0 ))
