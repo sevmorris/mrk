@@ -255,7 +255,7 @@ log "maintain"
 "$REPO_ROOT/tests/maintain.sh"
 
 # tidy-projects against throwaway clones of every case, with gh and the tools it calls stubbed:
-# only a branch at or behind a merged PR's head, a clean merged worktree nothing runs in, and
+# only a branch in main or at or behind a merged PR's head, a clean merged worktree nothing runs in, and
 # gitignored build output may go, and --apply removes exactly those.
 log "tidy-projects"
 "$REPO_ROOT/tests/tidy-projects.sh"

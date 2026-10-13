@@ -14,10 +14,11 @@
 #   refs       remote-tracking refs whose branch is gone from origin (git remote prune)
 #   worktrees  a worktree with nothing uncommitted or untracked, no process running in it, and a
 #              HEAD that is in the default branch or in a merged pull request
-#   branches   a local branch whose upstream is gone and whose tip is the head of a merged PR, or
-#              an ancestor of it, so it holds nothing the merge did not. Squash merges are not
-#              ancestors of main, so ancestry with main cannot tell. On 2026-10-13 four of five
-#              claude/macos-15 branches sat behind their PR's head, the rest pushed from a worktree.
+#   branches   a local branch whose upstream is gone and whose tip is in the default branch, or is
+#              the head of a merged PR or an ancestor of it, so it holds nothing that is not merged
+#              already. Squash merges are not ancestors of main, so for those only the PR can tell.
+#              On 2026-10-13 four of five claude/macos-15 branches sat behind their PR's head, the
+#              rest pushed from a worktree.
 #   deploys    Pages deployments beyond the newest 10 (prune-deployments, which keeps the live one)
 #   build      gitignored build/ and .build/ folders with no tracked files (to the Trash), and
 #              Xcode's DerivedData (clear-derived-data); skipped while xcodebuild is running
@@ -68,7 +69,8 @@ Cleanups:
   ff         Fast-forward a clean default branch that is behind origin
   refs       Prune the remote-tracking refs of branches gone from origin
   worktrees  Remove a clean worktree that no process uses, whose work is merged
-  branches   Delete a branch gone from origin whose tip a merged pull request has
+  branches   Delete a branch gone from origin whose tip is in the default branch
+             or a merged pull request
   deploys    Prune a Pages site to its newest 10 deployments
   build      Trash gitignored build/ and .build/ folders; clear Xcode's DerivedData
 EOF
@@ -193,9 +195,9 @@ survey_repo() { # dir name out-file
     fi
   fi
 
-  # branches: merged ones (upstream gone, tip at or behind the head of a merged PR), and the
-  # rest kept with why
-  declare -A safe=() safe_head=()   # branch -> merged PR number, and that PR's head commit
+  # branches: merged ones (upstream gone, and the tip in the default branch or at or behind the
+  # head of a merged PR), and the rest kept with why
+  declare -A safe=() safe_head=()   # branch -> why it is merged, and a commit that holds its tip
   local b tip track up
   # ':' separates the fields: no ref name can contain one, and unlike a tab it is not IFS
   # whitespace, so an empty field (no upstream, or in step with it) stays a field.
@@ -204,6 +206,12 @@ survey_repo() { # dir name out-file
     [[ $track == "[gone]" || ( -n $up && -n ${stale_ref[$up]:-} ) ]] && gone=1
     [[ $b == "$def" || $b == "$cur" ]] && { [[ $b == "$cur" && $b != "$def" && $gone == 1 ]] && emit owner "$name" "the checked-out branch $b is gone from origin; switch to $def"; continue; }
     if (( gone )); then
+      # A tip already in the default branch needs no pull request to prove it merged. On
+      # 2026-10-13 DoublEnder's claude/zealous-darwin-46fcb0 went past its PR's head with five
+      # commits that reached main without a PR of their own, and read as unmerged work.
+      if git -C "$d" merge-base --is-ancestor "$tip" "origin/$def" 2>/dev/null; then
+        safe[$b]="in $def"; safe_head[$b]="origin/$def"; continue
+      fi
       if [[ -z $slug || $GH == 0 || $archived == true ]]; then
         emit kept "$name" "branch $b: gone from origin, and its pull request can't be checked here"; continue
       fi
@@ -222,12 +230,14 @@ survey_repo() { # dir name out-file
             merged=$num; mhead=$oid
           elif [[ -z $other ]]; then
             other="$num $st"
-            git -C "$d" cat-file -e "$oid^{commit}" 2>/dev/null && extra=$(git -C "$d" rev-list --count "$oid..$tip")
+            # Only the commits in neither the PR nor the default branch are at stake
+            git -C "$d" cat-file -e "$oid^{commit}" 2>/dev/null \
+              && extra=$(git -C "$d" rev-list --count "$tip" --not "$oid" "origin/$def" 2>/dev/null)
           fi
         elif [[ -z $other ]]; then other="$num $st"; fi
       done <<<"$prs"
-      if [[ -n $merged ]]; then safe[$b]=$merged; safe_head[$b]=$mhead
-      elif [[ $other == *MERGED* ]]; then emit kept "$name" "branch $b: has ${extra:-some} commit(s) that PR #${other%% *} did not merge"
+      if [[ -n $merged ]]; then safe[$b]="merged in PR #$merged"; safe_head[$b]=$mhead
+      elif [[ $other == *MERGED* ]]; then emit kept "$name" "branch $b: has ${extra:-some} commit(s) in neither PR #${other%% *} nor $def"
       elif [[ $other == *CLOSED* ]]; then emit kept "$name" "branch $b: PR #${other%% *} was closed without merging"
       elif [[ $other == *OPEN* ]]; then emit kept "$name" "branch $b: PR #${other%% *} is still open"
       else emit kept "$name" "branch $b: gone from origin, and no pull request has it as its head"; fi
@@ -250,7 +260,7 @@ survey_repo() { # dir name out-file
     else
       local sb
       for sb in "${!safe[@]}"; do
-        git -C "$d" merge-base --is-ancestor "$head" "${safe_head[$sb]}" 2>/dev/null && { via="in merged PR #${safe[$sb]}"; break; }
+        git -C "$d" merge-base --is-ancestor "$head" "${safe_head[$sb]}" 2>/dev/null && { via=${safe[$sb]/#merged in/in merged}; break; }
       done
       [[ -z $via ]] && why="its HEAD is in no merged pull request"
     fi
@@ -272,8 +282,8 @@ survey_repo() { # dir name out-file
   finish_wt
 
   for b in "${!safe[@]}"; do
-    if [[ -n ${pinned[$b]:-} ]]; then emit kept "$name" "branch $b: merged in PR #${safe[$b]}, but checked out in a worktree that stays"
-    else emit branches "$name" "$d" "$b" "merged in PR #${safe[$b]}"; fi
+    if [[ -n ${pinned[$b]:-} ]]; then emit kept "$name" "branch $b: ${safe[$b]}, but checked out in a worktree that stays"
+    else emit branches "$name" "$d" "$b" "${safe[$b]}"; fi
   done
 
   # build: gitignored build output with nothing tracked in it
