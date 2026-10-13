@@ -268,11 +268,13 @@ if [[ -L "$claude_link" ]]; then
   fi
 fi
 
-# The two skill links and the SessionStart hook post-install adds for Claude
-# Code. Until 2026-09-28 the nuke left all three: the links pointed into a
-# repository in the Trash, and the hook ran a script that no longer existed at
-# the start of every Claude Code session (audit 19, W-20).
-for link in "$HOME/Projects/.claude/skills" "$HOME/.claude/skills/dependency-updates"; do
+# The skill links and the SessionStart hook post-install adds for Claude Code:
+# ~/Projects/.claude/skills, and one link per skill in ~/.claude/skills. Until
+# 2026-09-28 the nuke left them all: the links pointed into a repository in
+# the Trash, and the hook ran a script that no longer existed at the start of
+# every Claude Code session (audit 19, W-20). A link in ~/.claude/skills that
+# points anywhere else is someone else's, and stays.
+for link in "$HOME/Projects/.claude/skills" "$HOME/.claude/skills"/*; do
   if [[ -L "$link" ]]; then
     target=$(readlink "$link" 2>/dev/null || true)
     if [[ "$target" == "$MRK_DIR"/* ]]; then
