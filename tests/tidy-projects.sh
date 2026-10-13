@@ -4,8 +4,8 @@
 # that --apply removes exactly that.
 #
 # A throwaway HOME holds four clones: Alpha, with every branch and worktree case (a branch at
-# its merged PR's head, one behind it, one with commits the PR did not merge, a closed PR, no
-# PR, a never-pushed branch; a merged worktree, a dirty one, one a process sits in, one whose
+# its merged PR's head, one behind it, one with commits the PR did not merge, one in main with no
+# PR, a closed PR, no PR, a never-pushed branch; a merged worktree, a dirty one, one a process sits in, one whose
 # folder is gone; a stash, a build/ folder, a Pages site with 12 deployments, and main one
 # commit behind); Beta, with no remote and a build/ folder git tracks; Gamma, whose remote is
 # off GitHub with a token in its URL; Delta, on a work branch with an uncommitted change.
@@ -86,6 +86,11 @@ q -C "$A" switch merged-extra; echo extra >> "$A/merged-extra.txt"; q -C "$A" co
 branch closed;       pr closed 13 CLOSED "$(git -C "$A" rev-parse closed)"; gone closed
 branch nopr;         gone nopr
 branch merged2;      pr merged2 14 MERGED "$(git -C "$A" rev-parse merged2)"; gone merged2
+# inmain: no pull request at all. It reached main by a plain merge, then GitHub deleted it, as
+# DoublEnder's claude/zealous-darwin-46fcb0 did. Alpha's main follows, so it stays 1 behind below.
+branch inmain
+q -C "$T/seed" fetch origin inmain; q -C "$T/seed" merge --no-ff -m "merge inmain" FETCH_HEAD; q -C "$T/seed" push
+gone inmain; q -C "$A" merge --ff-only "$(git -C "$T/seed" rev-parse HEAD)" 2>/dev/null || q -C "$A" pull --ff-only
 # behind: the PR got a later commit from another clone; this clone's branch is behind its head.
 # GitHub keeps the head at refs/pull/N/head after the branch goes, and so does this remote.
 branch behind; q clone -q "$T/remotes/Alpha.git" "$T/other"; q -C "$T/other" switch behind
@@ -125,7 +130,8 @@ has() { grep -qF -- "$1" "$T/s1"; }
 check "ff offered for Alpha (1 behind, clean)"                 'has "ff        Alpha: 1 commit(s) behind origin/main"'
 check "refs: Alpha's deleted branches found stale"             'has "refs      Alpha:"'
 check "branches: merged-ok offered (tip == merged PR head)"     'has "branches  Alpha: merged-ok (merged in PR #11)"'
-check "kept: merged-extra has 1 commit the PR did not merge"    'has "branch merged-extra: has 1 commit(s) that PR #12 did not merge"'
+check "kept: merged-extra has 1 commit in neither PR nor main"  'has "branch merged-extra: has 1 commit(s) in neither PR #12 nor main"'
+check "branches: inmain offered (its tip is in main, no PR)"   'has "branches  Alpha: inmain (in main)"'
 check "branches: behind offered (tip is an ancestor of PR head)" 'has "branches  Alpha: behind (merged in PR #15)"'
 check "kept: closed PR"                                         'has "branch closed: PR #13 was closed without merging"'
 check "kept: no PR"                                             'has "branch nopr: gone from origin, and no pull request has it as its head"'
@@ -153,7 +159,7 @@ check "survey changed nothing (Alpha main still behind)"        '[[ $(git -C "$A
 bash "$S" --apply all > "$T/s2" 2>&1
 check "Alpha fast-forwarded"                          '[[ $(git -C "$A" rev-list --count HEAD..origin/main) == 0 ]]'
 check "stale refs pruned"                             '! git -C "$A" show-ref --verify --quiet refs/remotes/origin/merged-ok'
-check "merged-ok and behind deleted"                  '! git -C "$A" show-ref --verify --quiet refs/heads/merged-ok && ! git -C "$A" show-ref --verify --quiet refs/heads/behind'
+check "merged-ok, behind and inmain deleted"          'for b in merged-ok behind inmain; do ! git -C "$A" show-ref --verify --quiet refs/heads/$b || exit 1; done'
 check "merged-extra, closed, nopr, merged2, localonly kept" 'for b in merged-extra closed nopr merged2 localonly; do git -C "$A" show-ref --verify --quiet refs/heads/$b || exit 1; done'
 check "wt-merged removed"                             '[[ ! -d "$A/.claude/worktrees/wt-merged" ]]'
 check "wt-missing entry pruned"                       '! git -C "$A" worktree list | grep -q wt-missing'

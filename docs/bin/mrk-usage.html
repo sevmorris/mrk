@@ -1609,7 +1609,7 @@ mrk-push -- "-starts with a dash"</code></pre>
               <li><code>ff</code> — Fast-forward the default branch. The branch must be checked out, with no uncommitted change and no unpushed commit.</li>
               <li><code>refs</code> — Delete the remote-tracking refs of the branches that origin no longer has, with <code>git remote prune</code>.</li>
               <li><code>worktrees</code> — Delete a worktree that has no uncommitted or untracked file and that no process uses. Its HEAD must be in the default branch or in a merged pull request.</li>
-              <li><code>branches</code> — Delete a local branch that origin no longer has. Its tip must be the head of a merged pull request, or an ancestor of that head. Then the branch holds nothing that the merge did not.</li>
+              <li><code>branches</code> — Delete a local branch that origin no longer has. Its tip must be in the default branch, or it must be the head of a merged pull request or an ancestor of that head. Then the branch holds nothing that is not merged.</li>
               <li><code>deploys</code> — Run <a href="#prune-deployments">prune-deployments</a> for each GitHub Pages site with more than 10 deployments. It keeps the newest 10 and the live deployment.</li>
               <li><code>build</code> — Move to the Trash each <code>build/</code> and <code>.build/</code> directory that git ignores and that holds no tracked file. Run <a href="#clear-derived-data">clear-derived-data</a> for the Xcode DerivedData directory. tidy-projects does not do this cleanup while <code>xcodebuild</code> runs.</li>
             </ul>

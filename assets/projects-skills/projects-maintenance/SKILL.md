@@ -63,7 +63,7 @@ line it printed, with its reason.
 | `ff` | nothing: the default branch moves forward | checked out, clean, nothing unpushed | `git reset --hard ORIG_HEAD` |
 | `refs` | stale `origin/*` refs | origin no longer has the branch | nothing to undo: a fetch would not bring them back |
 | `worktrees` | the worktree directory | no uncommitted or untracked file, no process in it, HEAD merged | its commits stay in the repo |
-| `branches` | the local branch | upstream gone, tip at or behind a merged PR's head | `git branch <name> <sha>`, from the reflog |
+| `branches` | the local branch | upstream gone, tip in the default branch or at or behind a merged PR's head | `git branch <name> <sha>`, from the reflog |
 | `deploys` | Pages deployments past the newest 10 | `prune-deployments` keeps the live one | **none: permanent** |
 | `build` | `build/`, `.build/` to the Trash; DerivedData cleared | gitignored, nothing tracked, no `xcodebuild` running | the Trash, or the next build |
 
@@ -73,13 +73,15 @@ the standards skills, with their own go-ahead.
 
 ## 4. Things that are true here and surprise people
 
-- **Squash merges are not ancestors of `main`**, so ancestry cannot tell a merged branch. A branch
-  counts as merged when its tip is a merged PR's head, or behind it. Behind is common: on
-  2026-10-13 four of five `claude/macos-15` branches sat behind their PR, whose last commits came
-  from a worktree. `tidy-projects` fetches `pull/N/head` to see that head.
-- **A branch ahead of its merged PR is kept.** DoublEnder's `claude/zealous-darwin-46fcb0` carries 6
-  commits that PR #4 did not merge. They may exist nowhere else: ask the owner, and do not delete it
-  by hand.
+- **Squash merges are not ancestors of `main`**, so a branch counts as merged when its tip is in
+  the default branch, or is a merged PR's head or behind it. Behind is common: on 2026-10-13 four of
+  five `claude/macos-15` branches sat behind their PR, whose last commits came from a worktree.
+  `tidy-projects` fetches `pull/N/head` to see that head.
+- **A branch can go past its merged PR and still be merged.** DoublEnder's
+  `claude/zealous-darwin-46fcb0` carried five commits after PR #4, and all five reached `main`
+  without a PR of their own. The first version of the rule checked only the PR, and kept it as
+  unmerged work. A branch kept now has commits in neither its PR nor the default branch: those may
+  exist nowhere else, so ask the owner, and do not delete it by hand.
 - **`fetch.prune` is off here**, so a plain fetch keeps the refs of deleted branches and git still
   calls those branches in step. `tidy-projects` asks origin itself (`git remote prune --dry-run`).
 - **Desktop worktrees** sit in `<repo>/.claude/worktrees/<name>`, on a branch `claude/<name>`. One
