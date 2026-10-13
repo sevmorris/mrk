@@ -58,15 +58,37 @@ fi
 [[ -s "$WORK/repos" ]] || { echo "audit.sh: no repositories to audit" >&2; exit 1; }
 
 # Local clones, matched to repositories by their origin URL rather than by
-# folder name: PasswordGen is ppg, and some sit one folder down.
-declare -A CLONE=()
+# folder name: PasswordGen is ppg, and some sit one folder down. CLONE holds
+# each one's working tree. mrk-prefs is cloned at ~/.mrk/preferences, and
+# DoublEnder-cloud is a bare repository whose working tree is DoublEnder's
+# (core.worktree), read the way decloud reads it; GITDIR holds that one's
+# repository. Until 2026-10-13 the search missed both, so the two private
+# repositories most likely to hold unpushed work were never checked for it.
+declare -A CLONE=() GITDIR=()
+add_clone() { # working-tree [bare-repository]
+  local url
+  if [[ -n ${2:-} ]]; then url=$(git --git-dir="$2" remote get-url origin 2>/dev/null) || return 0
+  else url=$(git -C "$1" remote get-url origin 2>/dev/null) || return 0; fi
+  [[ "$url" =~ github\.com[:/]([^/]+)/([^/]+)$ ]] || return 0
+  [[ "${BASH_REMATCH[1],,}" == "${OWNER,,}" ]] || return 0
+  local r=${BASH_REMATCH[2]%.git}
+  CLONE[$r]=$1
+  [[ -n ${2:-} ]] && GITDIR[$r]=$2
+  return 0
+}
 while IFS= read -r -d '' g; do
-  d=$(dirname "$g")
-  url=$(git -C "$d" remote get-url origin 2>/dev/null) || continue
-  [[ "$url" =~ github\.com[:/]([^/]+)/([^/]+)$ ]] || continue
-  [[ "${BASH_REMATCH[1],,}" == "${OWNER,,}" ]] || continue
-  CLONE["${BASH_REMATCH[2]%.git}"]=$d
-done < <(find "$HOME/Projects" "$HOME/mrk" -maxdepth 3 -name .git -not -path '*/node_modules/*' -print0 2>/dev/null)
+  add_clone "$(dirname "$g")"
+done < <(find "$HOME/Projects" "$HOME/mrk" "$HOME/.mrk" -maxdepth 3 -name .git -not -path '*/node_modules/*' -print0 2>/dev/null)
+while IFS= read -r -d '' g; do
+  [[ $(git --git-dir="$g" rev-parse --is-bare-repository 2>/dev/null) == true ]] || continue
+  wt=$(git --git-dir="$g" config --get core.worktree 2>/dev/null) && [[ -d $wt ]] || continue
+  add_clone "$wt" "$g"
+done < <(find "$HOME/Projects" -mindepth 1 -maxdepth 1 -type d -name '*.git' -print0 2>/dev/null)
+in_clone() { # repo git-arguments... -> git run in that repository's clone, bare or not
+  local r=$1; shift
+  if [[ -n ${GITDIR[$r]:-} ]]; then git --git-dir="${GITDIR[$r]}" --work-tree="${CLONE[$r]}" "$@"
+  else git -C "${CLONE[$r]}" "$@"; fi
+}
 
 # Latest major version of each CI action, looked up once per action.
 declare -A LATEST=()
@@ -159,7 +181,7 @@ audit_repo() { # name visibility default_branch -> one TSV line per standard
   local d="${CLONE[$r]:-}"
   if [[ -z $d ]]; then out no-binaries n/a "no clone here"
   else
-    local bins; bins=$(cd "$d" && git ls-files -z | xargs -0 file 2>/dev/null | $GREP -E ': .*(Mach-O|ELF|PE32)' | cut -d: -f1 | head -3 | tr '\n' ' ')
+    local bins; bins=$(cd "$d" && in_clone "$r" ls-files -z 2>/dev/null | xargs -0 file 2>/dev/null | $GREP -E ': .*(Mach-O|ELF|PE32)' | cut -d: -f1 | head -3 | tr '\n' ' ')
     if [[ -z $bins ]]; then out no-binaries yes; else out no-binaries -- "executables tracked: $bins"; fi
   fi
 
@@ -292,10 +314,10 @@ if (( VERBOSE )); then h "Not applicable, and why"; printf '%s' "${NA:-  (none)
 h "Clones here: uncommitted or unpushed work"
 any=0
 for r in "${!CLONE[@]}"; do
-  d=${CLONE[$r]}; p=""
-  dirty=$(git -C "$d" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+  p=""
+  dirty=$(in_clone "$r" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
   (( dirty )) && p+="dirty($dirty) "
-  ahead=$(git -C "$d" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)
+  ahead=$(in_clone "$r" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)
   (( ahead )) && p+="unpushed($ahead) "
   [[ -n $p ]] && { printf '  %-26s %s\n' "$r" "$p"; any=1; }
 done
