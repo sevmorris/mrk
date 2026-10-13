@@ -1616,7 +1616,7 @@ mrk-push -- "-starts with a dash"</code></pre>
             </ul>
             <ul>
               <li>tidy-projects never deletes a stash or a branch that holds unmerged or unpushed work. It never discards a change, commits, pushes, or changes the settings of a repository.</li>
-              <li>It never shows the URL of a remote. One remote here has an access token in its path.</li>
+              <li>It never shows the URL of a remote, because a URL can hold an access token.</li>
               <li>It needs <code>git</code>, and <code>gh</code> logged in for the pull request and GitHub Pages checks. Without <code>gh</code> it counts no branch as merged.</li>
               <li>It exits 2 for a wrong command line, and 1 when a cleanup fails.</li>
               <li>The <code>projects-maintenance</code> Claude Code skill runs tidy-projects with the three standards audits. <code>tests/tidy-projects.sh</code> covers it; see <a href="#ci-check">ci-check</a>.</li>

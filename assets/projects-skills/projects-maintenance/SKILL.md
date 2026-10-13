@@ -11,7 +11,6 @@ every build leaves output. Nothing else sweeps any of it. On 2026-10-13 the firs
 - 14 merged branches in 9 repos, and a finished worktree in DoublEnder
 - 9 stale remote-tracking refs in 4 repos
 - 1.1 GB of build output and DerivedData
-- two repos with no backup: herzog-zwei has no remote at all, and phantasy-star's is off GitHub
 
 `tidy-projects` (mrk's `bin/`, on the PATH) does the work and holds every safety rule. This skill
 adds the three standards audits and the owner's say-so.
@@ -92,8 +91,8 @@ the standards skills, with their own go-ahead.
   app. A LaunchAgent (`com.user.clear_derived_data`) also clears it on a schedule.
 - **`build/` holds the last release build** (`build/Build/Products/Release/<App>.app`). Once that
   release is published and checked, it is only disk space.
-- **phantasy-star's remote URL carries an access token.** `tidy-projects` never prints a remote's
-  URL, and neither should a report. herzog-zwei has no remote at all: this Mac is its only copy.
+- **A remote's URL can carry an access token**, so `tidy-projects` never prints one, and neither
+  should a report.
 - **WaxOnWaxOff was checked out on `dev`** on 2026-10-13. A release must come from `main`
   (release-standards' `main-only` guard), so mention it before a release round.
 - **mrk's own `maintain`** covers mrk's deployments, validation and tool builds. `tidy-projects`
