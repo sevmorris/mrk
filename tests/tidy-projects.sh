@@ -126,6 +126,7 @@ export TIDY_ROOTS="$T/Projects" TIDY_DERIVED="$T/DerivedData" TIDY_TRASH="$T/fak
 # ── 1. The survey: every case lands where it should, and nothing changes ──────
 
 bash "$S" > "$T/s1" 2>&1
+grep -q "^== What to run" "$T/s1" || { err "the survey stopped short; its output:"; sed 's/^/    /' "$T/s1" >&2; }
 has() { grep -qF -- "$1" "$T/s1"; }
 check "ff offered for Alpha (1 behind, clean), with its command" 'has "    Alpha: 1 commit(s) behind origin/main" && has "→ tidy-projects --apply ff"'
 check "refs: Alpha's deleted branches found stale"             'grep -qE "^    Alpha: [0-9]+ stale: " "$T/s1"'
@@ -167,10 +168,11 @@ check "survey changed nothing (Alpha main still behind)"        '[[ $(git -C "$A
 # ── 2. --apply all: only what qualified goes, and everything kept stays ───────
 
 bash "$S" --apply all > "$T/s2" 2>&1
+grep -q "^== Done" "$T/s2" || { err "--apply all stopped short; its output:"; sed 's/^/    /' "$T/s2" >&2; }
 check "Alpha fast-forwarded"                          '[[ $(git -C "$A" rev-list --count HEAD..origin/main) == 0 ]]'
 check "stale refs pruned"                             '! git -C "$A" show-ref --verify --quiet refs/remotes/origin/merged-ok'
-check "merged-ok, behind and inmain deleted"          'for b in merged-ok behind inmain; do ! git -C "$A" show-ref --verify --quiet refs/heads/$b || exit 1; done'
-check "merged-extra, closed, nopr, merged2, localonly kept" 'for b in merged-extra closed nopr merged2 localonly; do git -C "$A" show-ref --verify --quiet refs/heads/$b || exit 1; done'
+check "merged-ok, behind and inmain deleted"          '( for b in merged-ok behind inmain; do ! git -C "$A" show-ref --verify --quiet refs/heads/$b || exit 1; done )'
+check "merged-extra, closed, nopr, merged2, localonly kept" '( for b in merged-extra closed nopr merged2 localonly; do git -C "$A" show-ref --verify --quiet refs/heads/$b || exit 1; done )'
 check "wt-merged removed"                             '[[ ! -d "$A/.claude/worktrees/wt-merged" ]]'
 check "wt-missing entry pruned"                       '! git -C "$A" worktree list | grep -q wt-missing'
 check "wt-dirty and its untracked file kept"          '[[ -f "$A/.claude/worktrees/wt-dirty/untracked.txt" ]]'
