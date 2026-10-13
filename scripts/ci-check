@@ -28,7 +28,7 @@ check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
 check-picker-desc, topgrade-npm, picard-settings, snapshot-prefs, plist-import-order, setup-safety, undo-files,
-dock-setup, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, update-full, maintain, install-apps, make-pull, gitconfig, dead-functions and docs-drift tests in tests/, shellcheck over every tracked bash script,
+dock-setup, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, update-full, maintain, tidy-projects, install-apps, make-pull, gitconfig, dead-functions and docs-drift tests in tests/, shellcheck over every tracked bash script,
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
@@ -253,6 +253,12 @@ log "update-full"
 # calls neither gh, git nor make. Audit 20, X-11.
 log "maintain"
 "$REPO_ROOT/tests/maintain.sh"
+
+# tidy-projects against throwaway clones of every case, with gh and the tools it calls stubbed:
+# only a branch at or behind a merged PR's head, a clean merged worktree nothing runs in, and
+# gitignored build output may go, and --apply removes exactly those.
+log "tidy-projects"
+"$REPO_ROOT/tests/tidy-projects.sh"
 
 # install-apps with curl, gh and hdiutil stubbed: a private repo gh cannot
 # reach yet is a skip, not a failure; a 403 or no network still fails. Until
