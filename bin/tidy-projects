@@ -336,7 +336,7 @@ if [[ -t 1 && -z ${NO_COLOR:-} ]] && tput sgr0 >/dev/null 2>&1; then
 else
   BOLD="" DIM="" OFF="" HEAD="" CMD="" WARN="" BAD="" GOOD=""
 fi
-h() { printf '\n%s== %s%s\n' "$BOLD$HEAD" "$*" "$OFF"; }
+h() { printf '\n%s== %s%s\n' "${BOLD}${HEAD}" "$*" "${OFF}"; }
 
 # ── Report ─────────────────────────────────────────────────────────────────────
 
@@ -352,23 +352,23 @@ declare -A UNDO=([ff]="nothing is lost" [refs]="nothing is lost" [worktrees]="th
 
 # items KIND COLOR: "  repo: text", and the command that shows or settles it on the line below
 items() {
-  kind "$1" | sort -t$'\t' -k2,2f | awk -F'\t' -v c="$2" -v cmd="$CMD" -v off="$OFF" '
+  kind "$1" | sort -t$'\t' -k2,2f | awk -F'\t' -v c="$2" -v cmd="${CMD}" -v off="${OFF}" '
     { printf "  %s%s:%s %s\n", c, $2, off, $3; if ($4 != "") printf "      %s→ %s%s\n", cmd, $4, off }'
 }
 
 if [[ -z $APPLY ]]; then
   h "Clones"
-  printf '  %s%-32s %-26s %6s %9s %7s %6s  %s%s\n' "$BOLD" REPO BRANCH DIRTY UNPUSHED BEHIND STASH REMOTE "$OFF"
-  num() { local s; s=$(printf "%${2}s" "$1"); [[ $1 != 0 ]] && s="$WARN$s$OFF"; printf '%s' "$s"; }
+  printf '  %s%-32s %-26s %6s %9s %7s %6s  %s%s\n' "${BOLD}" REPO BRANCH DIRTY UNPUSHED BEHIND STASH REMOTE "${OFF}"
+  num() { local s; s=$(printf "%${2}s" "$1"); [[ $1 != 0 ]] && s="${WARN}$s${OFF}"; printf '%s' "$s"; }
   kind row | sort -t$'\t' -k2,2f | while IFS=$'\t' read -r _ n cur def dirty unp beh st rem; do
-    br=$(printf '%-26s' "$cur$([[ $cur != "$def" ]] && echo '*')"); [[ $cur != "$def" ]] && br="$WARN$br$OFF"
-    case $rem in none) rem="$BAD$rem$OFF" ;; other) rem="$WARN$rem$OFF" ;; esac
+    br=$(printf '%-26s' "$cur$([[ $cur != "$def" ]] && echo '*')"); [[ $cur != "$def" ]] && br="${WARN}$br${OFF}"
+    case $rem in none) rem="${BAD}$rem${OFF}" ;; other) rem="${WARN}$rem${OFF}" ;; esac
     printf '  %-32s %s %s %s %s %s  %s\n' "$n" "$br" "$(num "$dirty" 6)" "$(num "$unp" 9)" "$(num "$beh" 7)" "$(num "$st" 6)" "$rem"
   done
-  echo "  $DIM(* = not the default branch)$OFF"
+  echo "  ${DIM}(* = not the default branch)${OFF}"
 
   h "Needs you (tidy-projects changes none of these)"
-  if [[ -n $(kind owner) ]]; then items owner "$WARN"; else echo "  ${GOOD}Nothing.$OFF"; fi
+  if [[ -n $(kind owner) ]]; then items owner "${WARN}"; else echo "  ${GOOD}Nothing.${OFF}"; fi
 
   h "Cleanups available"
   AVAIL=()
@@ -387,35 +387,35 @@ if [[ -z $APPLY ]]; then
     else
       what="$n $what"
     fi
-    undo=${UNDO[$c]}; ucol=$GOOD; [[ $c == deploys ]] && ucol=$BAD
-    printf '\n  %s%-9s%s %s  %s(%s)%s\n' "$BOLD" "$c" "$OFF" "$what" "$ucol" "$undo" "$OFF"
+    undo=${UNDO[$c]}; ucol=${GOOD}; [[ $c == deploys ]] && ucol=${BAD}
+    printf '\n  %s%-9s%s %s  %s(%s)%s\n' "${BOLD}" "$c" "${OFF}" "$what" "$ucol" "$undo" "${OFF}"
     case $c in
       ff|refs|deploys) awk -F'\t' '{ printf "    %s: %s\n", $2, $NF }' <<<"$rows" ;;
       worktrees)       awk -F'\t' '{ sub(/^.*\.claude\/worktrees\//, "", $4); printf "    %s: %s (%s)\n", $2, $4, $5 }' <<<"$rows" ;;
       branches)        awk -F'\t' '{ printf "    %s: %s (%s)\n", $2, $4, $5 }' <<<"$rows" ;;
       build)           awk -F'\t' '{ printf "    %s: %s\n", $2, $5 }' <<<"$rows" ;;
     esac
-    echo "    $CMD→ tidy-projects --apply $c$OFF"
+    echo "    ${CMD}→ tidy-projects --apply $c${OFF}"
   done
-  (( ${#AVAIL[@]} )) || echo "  ${GOOD}Nothing to clean up.$OFF"
+  (( ${#AVAIL[@]} )) || echo "  ${GOOD}Nothing to clean up.${OFF}"
 
   h "Kept, and why"
-  if [[ -n $(kind kept) ]]; then items kept "$DIM"; else echo "  ${GOOD}Nothing.$OFF"; fi
+  if [[ -n $(kind kept) ]]; then items kept "${DIM}"; else echo "  ${GOOD}Nothing.${OFF}"; fi
 
   h "What to run"
   if (( ${#AVAIL[@]} )); then
-    printf '  %-34s %s%s%s\n' "Every cleanup above:" "$CMD" "tidy-projects --apply $(IFS=,; echo "${AVAIL[*]}")" "$OFF"
+    printf '  %-34s %s%s%s\n' "Every cleanup above:" "${CMD}" "tidy-projects --apply $(IFS=,; echo "${AVAIL[*]}")" "${OFF}"
     if [[ " ${AVAIL[*]} " == *" deploys "* ]] && (( ${#AVAIL[@]} > 1 )); then
       rest=(); for c in "${AVAIL[@]}"; do [[ $c != deploys ]] && rest+=("$c"); done
-      printf '  %-34s %s%s%s\n' "All but deploys, which is permanent:" "$CMD" "tidy-projects --apply $(IFS=,; echo "${rest[*]}")" "$OFF"
+      printf '  %-34s %s%s%s\n' "All but deploys, which is permanent:" "${CMD}" "tidy-projects --apply $(IFS=,; echo "${rest[*]}")" "${OFF}"
     fi
     printf '  %-34s %s\n' "One category:" "the → line under it"
     echo "  Each --apply surveys again first, and checks every rule at that moment."
   else
-    echo "  ${GOOD}Nothing to clean up.$OFF"
+    echo "  ${GOOD}Nothing to clean up.${OFF}"
   fi
   [[ -n $(kind owner) ]] && echo "  Run the → commands under \"Needs you\" yourself: tidy-projects never does."
-  echo "  ${DIM}tidy-projects --help explains each category.$OFF"
+  echo "  ${DIM}tidy-projects --help explains each category.${OFF}"
   exit 0
 fi
 
@@ -426,8 +426,8 @@ fi
 done_n=0; failed=0
 act() { # label command...
   local label=$1 msg; shift
-  if msg=$("$@" 2>&1); then echo "  $GOOD✓$OFF $label"; done_n=$((done_n + 1))
-  else echo "  $BAD✗$OFF $label: $(head -1 <<<"$msg")"; failed=$((failed + 1)); fi
+  if msg=$("$@" 2>&1); then echo "  ${GOOD}✓${OFF} $label"; done_n=$((done_n + 1))
+  else echo "  ${BAD}✗${OFF} $label: $(head -1 <<<"$msg")"; failed=$((failed + 1)); fi
 }
 
 if applying ff; then h "ff"
@@ -459,6 +459,6 @@ if applying build; then h "build"
   fi
 fi
 h "Done"
-echo "  $done_n applied, $( (( failed )) && echo "$BAD$failed failed$OFF" || echo "0 failed"). Re-run tidy-projects: what was applied should be gone"
+echo "  $done_n applied, $( (( failed )) && echo "${BAD}$failed failed${OFF}" || echo "0 failed"). Re-run tidy-projects: what was applied should be gone"
 echo "  from \"Cleanups available\"."
 (( failed == 0 ))

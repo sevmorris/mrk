@@ -195,6 +195,12 @@ check "only the fakes' cleanups remain (deploys, DerivedData)" \
 esc() { LC_ALL=C /usr/bin/grep -cF "$(printf '\033[')" "$1"; }
 script -q "$T/tty" env TERM=xterm-256color bash "$S" --no-fetch </dev/null >/dev/null 2>&1
 NO_COLOR=1 script -q "$T/tty-nc" env TERM=xterm-256color bash "$S" --no-fetch </dev/null >/dev/null 2>&1
+# A variable written straight before a non-ASCII character ("$CMD→") reads that character's first
+# byte as part of its name on some bash builds: on CI's 5.3.15, "CMD\xe2: unbound variable" ended
+# the survey after its first cleanup. Every such variable is braced ("${CMD}→").
+# shellcheck disable=SC2034  # read by the check below, through eval
+bare=$(LC_ALL=C /usr/bin/grep -cE '\$[A-Za-z_][A-Za-z0-9_]*'$'[\x80-\xff]' "$S")
+check "no variable written straight before a non-ASCII character" '[[ $bare == 0 ]]'
 check "colors on a terminal"                          '(( $(esc "$T/tty") > 0 ))'
 check "no colors with NO_COLOR"                       '(( $(esc "$T/tty-nc") == 0 ))'
 check "no colors when piped"                          '(( $(esc "$T/s1") == 0 ))'
