@@ -106,6 +106,7 @@ EXEMPT=(
   "DoublEnder-cloud:readme|an overlay sharing DoublEnder's working tree; a README would collide with DoublEnder's"
   "DoublEnder-cloud:tests-in-ci|an overlay; its code builds and is tested only inside DoublEnder's tree"
   "mrk-prefs:readme|a data store that snapshot-prefs writes and nothing reads a README from"
+  "DoublEnder-Windows:ci-matrix|ships for Windows and Linux only and builds nothing for the Mac; CI tests where it ships (Ubuntu 24.04, Windows Server 2025)"
 )
 
 # ci-matrix's runner lists, as of 2026-10-04. GitHub keeps two GA macOS images
