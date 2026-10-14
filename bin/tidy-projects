@@ -4,8 +4,7 @@
 # Every Claude session works on a branch that becomes a pull request, and GitHub deletes the
 # branch when the PR merges, but the local copy stays. On 2026-10-13 that had left 14 merged
 # branches in 9 repos, a finished worktree, stale remote-tracking refs and about 1.1 GB of build
-# output, while two repos had no backup at all: herzog-zwei with no remote, and phantasy-star off
-# GitHub. Nothing else looks at any of it. This finds it, and with --apply removes what is
+# output. Nothing else looked at any of it. This finds it, and with --apply removes what is
 # provably safe to remove. The projects-maintenance skill runs it, with the three standards
 # audits, and asks the owner before any --apply.
 #
@@ -23,8 +22,8 @@
 #   build      gitignored build/ and .build/ folders with no tracked files (to the Trash), and
 #              Xcode's DerivedData (clear-derived-data); skipped while xcodebuild is running
 # It never drops a stash, deletes an unmerged or unpushed branch, discards a change, commits,
-# pushes, or changes a repository's settings, and it never prints a remote's URL: one here
-# carries an access token in its path.
+# pushes, or changes a repository's settings, and it never prints a remote's URL, which can
+# carry an access token.
 #
 # Usage: tidy-projects [--no-fetch] [--apply LIST]
 #
