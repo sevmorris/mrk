@@ -101,6 +101,8 @@ var descriptions = map[string]string{
 	"yt-dlp":            "Download video and audio from YouTube and 1000+ sites",
 	"poppler":           "PDF rendering library and utilities",
 	"flac":              "Free lossless audio codec",
+	"mingw-w64":         "Minimalist GNU for Windows and GCC cross-compilers",
+	"nasm":              "Netwide Assembler (NASM) is an 80x86 assembler",
 	// Casks
 	"4k-video-downloader+":   "Download videos from YouTube and other platforms",
 	"a-better-finder-rename": "Powerful batch file renaming for Finder",
