@@ -671,9 +671,63 @@ topgrade_verdict() {
   fi
 }
 
-# run_topgrade [ARGS...] — run topgrade, then say what its exit status means
+# MRK_NOT_AT_LOGIN — the apps that must not open at login. Each one adds itself
+# to the login items without asking:
+# - NordVPN: its installer opens the app after every install and upgrade, and
+#   the app then registers itself to open at login, whatever its own "start on
+#   boot" setting says. It takes itself off again at its next launch, which is
+#   the next login: one unwanted start per cask upgrade.
+# - Google Drive: it adds itself at every launch while its own AutoStartOnLogin
+#   setting is on, which is the default. post-install turns that setting off.
+# Seen in the unified log on 2026-10-18: SMAppService's register for NordVPN,
+# addSFLItemWithURL for Google Drive.
+# shellcheck disable=SC2034  # read by the scripts that source this file
+MRK_NOT_AT_LOGIN=("Google Drive" "NordVPN")
+
+# remove_unwanted_login_items — delete each login item that MRK_NOT_AT_LOGIN
+# names, and say which it deleted. It is silent when there is none. Returns 1,
+# with a warning, when System Events cannot be asked. run_topgrade and
+# post-install run it; it writes through printf, as topgrade_verdict does, so
+# that bin/lib/common.sh's warn and ok cannot move it to stdout.
+#
+# The script is in -e lines, not a here-document: bash 3.2, which runs
+# post-install on a new Mac, reads a quote inside a here-document in $(...) as
+# shell quoting, and then cannot parse the rest of this file.
+remove_unwanted_login_items() {
+  local out name
+  [[ "$(uname -s)" == Darwin ]] || return 0
+  if ! out=$(osascript \
+      -e 'on run argv' \
+      -e '  set removed to {}' \
+      -e '  tell application "System Events"' \
+      -e '    repeat with i from 1 to count of argv' \
+      -e '      set appName to item i of argv' \
+      -e '      if (count of (every login item whose name is appName)) > 0 then' \
+      -e '        delete (every login item whose name is appName)' \
+      -e '        set end of removed to appName' \
+      -e '      end if' \
+      -e '    end repeat' \
+      -e '  end tell' \
+      -e "  set AppleScript's text item delimiters to linefeed" \
+      -e '  return removed as text' \
+      -e 'end run' \
+      "${MRK_NOT_AT_LOGIN[@]}" 2>/dev/null); then
+    printf '%s %s\n' "${_YLW}  ⚠${_R}" "Could not read the login items, so these apps can open at login: ${MRK_NOT_AT_LOGIN[*]}." >&2
+    printf '    %s\n' "Give Automation access to System Events in System Settings → Privacy & Security → Automation." >&2
+    return 1
+  fi
+  while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    printf '%s %s\n' "${_GRN}  ✓${_R}" "Removed $name from the login items. It had added itself again." >&2
+  done <<< "$out"
+}
+
+# run_topgrade [ARGS...] — run topgrade, delete the login items that
+# MRK_NOT_AT_LOGIN names, then say what topgrade's exit status means
 # (topgrade_verdict). Returns topgrade's status. make update, the update shell
-# function and update-full all run it.
+# function and update-full all run it. A cask upgrade is what puts NordVPN back
+# in the login items. A dry run (-n, --dry-run) changes nothing, so it deletes
+# nothing.
 #
 # At a terminal the run is recorded through script(1), which gives topgrade a
 # terminal of its own, so its colours, progress bars and sudo prompt are as
@@ -688,10 +742,14 @@ topgrade_verdict() {
 # trap decides. At a terminal Ctrl-C reaches topgrade through script, and the
 # run ends by the last lines here.
 run_topgrade() {
-  local log rc=0 saved sig
+  local log rc=0 saved sig arg dry=0
+  for arg in "$@"; do
+    case "$arg" in -n|--dry-run) dry=1 ;; esac
+  done
   if ! log=$(mrk_mktemp); then
-    topgrade "$@"
-    return
+    topgrade "$@" || rc=$?
+    (( dry )) || remove_unwanted_login_items || true
+    return "$rc"
   fi
   saved=$(trap -p INT TERM HUP)
   for sig in INT TERM HUP; do
@@ -707,6 +765,7 @@ kill -s $sig \$\$" "$sig"
     topgrade "$@" 2>&1 | tee "$log"
     rc=${PIPESTATUS[0]}
   fi
+  (( dry )) || remove_unwanted_login_items || true
   topgrade_verdict "$rc" "$log"
   rm -f "$log"
   trap - INT TERM HUP

@@ -963,6 +963,23 @@ add_login_item "/Applications/Dropbox.app"          || failed=$(( failed + 1 ))
 add_login_item "/Applications/Raycast.app"          || failed=$(( failed + 1 ))
 add_login_item "/Applications/Thaw.app"             || failed=$(( failed + 1 ))
 
+# The apps that add themselves to the login items, and must not open at login:
+# MRK_NOT_AT_LOGIN in lib.sh. Google Drive adds itself at every launch while
+# its AutoStartOnLogin setting is on, which is its default. It reads the
+# setting at launch, so the removal below then lasts. Phase 2 has just
+# installed NordVPN, whose installer opens it, and it has added itself.
+if [[ -d "/Applications/Google Drive.app" ]]; then
+  if [[ "$(defaults read com.google.drivefs.settings AutoStartOnLogin 2>/dev/null)" == 0 ]]; then
+    logskip "Google Drive" "AutoStartOnLogin is already off"
+  elif defaults write com.google.drivefs.settings AutoStartOnLogin -bool false; then
+    log "Turned off Google Drive's AutoStartOnLogin, so it no longer adds itself to the login items"
+  else
+    warn "Could not turn off Google Drive's AutoStartOnLogin"
+    failed=$(( failed + 1 ))
+  fi
+fi
+remove_unwanted_login_items || failed=$(( failed + 1 ))
+
 ###############################################################################
 # Launch Agents                                                               #
 ###############################################################################

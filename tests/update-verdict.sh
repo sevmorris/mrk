@@ -17,9 +17,10 @@
 # A run interrupted with no terminal must leave no recording, and the verdict
 # must be on stderr alone when bin/lib/common.sh is sourced too.
 # The update shell function is run in a zsh that reads no startup file.
-# The last cases run one clean-up command of assets/topgrade.toml, pip cache
-# purge, against a stub pip3: an empty cache must be said to be normal, and
-# nothing else must.
+# Then one clean-up command of assets/topgrade.toml, pip cache purge, runs
+# against a stub pip3: an empty cache must be said to be normal, and nothing
+# else must. The last cases hold run_topgrade to deleting, after topgrade, the
+# login items that MRK_NOT_AT_LOGIN names, through a stub osascript.
 # ci-check runs it.
 
 set -uo pipefail
@@ -53,7 +54,19 @@ cat > "$W/nobrew/brew" <<EOF
 #!/bin/sh
 echo "\$1" >> "$W/brew-calls"
 EOF
-chmod +x "$S/topgrade" "$W/nobrew/brew"
+# osascript: run_topgrade asks System Events to delete the login items that
+# MRK_NOT_AT_LOGIN names. The stub records each call, one argument a line and
+# then "---", prints \$W/osa-out (the names deleted) when it exists, and fails
+# when \$W/osa-fails exists. No real login item is read or deleted.
+cat > "$S/osascript" <<EOF
+#!/bin/sh
+for a in "\$@"; do printf '%s\n' "\$a"; done >> "$W/osa-calls"
+echo --- >> "$W/osa-calls"
+[ -f "$W/osa-fails" ] && exit 1
+[ -f "$W/osa-out" ] && cat "$W/osa-out"
+exit 0
+EOF
+chmod +x "$S/topgrade" "$S/osascript" "$W/nobrew/brew"
 
 # The transcripts: a run's last step, topgrade's Summary, and the clean-up
 # commands that follow it, in each of the three ways topgrade 17 draws a step's
@@ -318,11 +331,13 @@ done
 # bin/lib/common.sh's info is a line on stdout. Until 2026-10-01 the verdict
 # printed through warn and info, so in update-full its first line went to
 # stderr and its next two to stdout (audit 20, X-8).
+# Without MAKELEVEL: under make check the verdict's last line would name make,
+# and not be the line this case looks for.
 # shellcheck disable=SC2016  # expanded by the inner bash
-"$BASH" -c '. "$1/scripts/lib.sh"; . "$1/bin/lib/common.sh"; topgrade_verdict 1 "$2"' bash "$REPO_ROOT" "$T/one-failed" \
+env -u MAKELEVEL "$BASH" -c '. "$1/scripts/lib.sh"; . "$1/bin/lib/common.sh"; topgrade_verdict 1 "$2"' bash "$REPO_ROOT" "$T/one-failed" \
   > "$W/verdict-out" 2> "$W/out"
 # shellcheck disable=SC2016
-"$BASH" -c '. "$1/scripts/lib.sh"; topgrade_verdict 1 "$2"' bash "$REPO_ROOT" "$T/one-failed" > /dev/null 2> "$W/verdict-lib"
+env -u MAKELEVEL "$BASH" -c '. "$1/scripts/lib.sh"; topgrade_verdict 1 "$2"' bash "$REPO_ROOT" "$T/one-failed" > /dev/null 2> "$W/verdict-lib"
 if [[ ! -s "$W/verdict-out" ]] && [[ "$(wc -l < "$W/out" | tr -d ' ')" == 3 ]] && cmp -s "$W/out" "$W/verdict-lib" \
    && has "  ⚠ Update finished: every step ran. 1 of 10 failed: Brew Cask (ARM)." \
    && has "    Nothing was interrupted: the other 9 succeeded" && has "    The exit status is 1 for the failed step alone."; then
@@ -412,6 +427,58 @@ else
     fail "a real pip failure: exit $RC_SEEN"; show
   fi
 fi
+
+# ── 10. The apps that must not open at login ─────────────────────────────────
+
+# After topgrade, run_topgrade deletes the login items MRK_NOT_AT_LOGIN names:
+# a cask upgrade puts NordVPN back. It says which it deleted, before the
+# verdict, and says nothing when there was none. When System Events cannot be
+# asked it says so, and the exit status is still topgrade's. A dry run deletes
+# nothing.
+osa_calls() { [[ -f "$W/osa-calls" ]] && grep -cx -- --- "$W/osa-calls" || echo 0; }
+rm -f "$W/osa-calls" "$W/osa-out" "$W/osa-fails"
+printf 'NordVPN\n' > "$W/osa-out"
+update all-ok 0
+removed=$(grep -n 'Removed NordVPN from the login items' "$W/out" | cut -d: -f1)
+verdict=$(grep -n 'Update finished' "$W/out" | cut -d: -f1)
+if (( RC_SEEN == 0 )) && [[ -n "$removed" && -n "$verdict" ]] && (( removed < verdict )) \
+   && [[ "$(osa_calls)" == 1 ]] && grep -qx 'Google Drive' "$W/osa-calls" && grep -qx 'NordVPN' "$W/osa-calls" \
+   && ! has "Removed Google Drive"; then
+  pass "after topgrade: NordVPN's login item deleted and said to be, before the verdict"
+else
+  fail "after topgrade, deleting NordVPN's login item: exit $RC_SEEN, $(osa_calls) osascript call(s), lines $removed/$verdict"; show
+fi
+
+rm -f "$W/osa-calls" "$W/osa-out"
+update all-ok 0
+if (( RC_SEEN == 0 )) && [[ "$(osa_calls)" == 1 ]] && ! has "login items"; then
+  pass "with no such login item: asked once, and nothing said"
+else
+  fail "with no such login item: exit $RC_SEEN, $(osa_calls) osascript call(s)"; show
+fi
+
+rm -f "$W/osa-calls"
+: > "$W/osa-fails"
+update one-failed 1
+if (( RC_SEEN != 0 )) && has "Could not read the login items, so these apps can open at login: Google Drive NordVPN." \
+   && has "Update finished: every step ran. 1 of 10 failed: Brew Cask (ARM)." && has "[update] Error 1"; then
+  pass "when System Events cannot be asked: said, and the status is still topgrade's"
+else
+  fail "when System Events cannot be asked: exit $RC_SEEN"; show
+fi
+rm -f "$W/osa-fails" "$W/osa-calls"
+
+for flag in -n --dry-run; do
+  # shellcheck disable=SC2016  # expanded by the inner bash
+  "${ENV[@]}" TRANSCRIPT="$T/all-ok" RC=0 bash -c '. "$1"; run_topgrade "$2"' bash "$REPO_ROOT/scripts/lib.sh" "$flag" \
+    < /dev/null > "$W/out" 2>&1
+  if has "topgrade args: $flag" && [[ "$(osa_calls)" == 0 ]]; then
+    pass "a dry run ($flag): no login item is asked for or deleted"
+  else
+    fail "a dry run ($flag): $(osa_calls) osascript call(s)"; show
+  fi
+  rm -f "$W/osa-calls"
+done
 
 if (( fails )); then
   err "$fails update verdict check(s) failed"

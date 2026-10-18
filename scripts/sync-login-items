@@ -234,12 +234,28 @@ new_items_arr=()
 stale_items_arr=()
 ignored_arr=()
 conflict_items_arr=()
+not_wanted_arr=()
+
+# An app that MRK_NOT_AT_LOGIN (lib.sh) names must not open at login, so it is
+# never offered for tracking. It is on the system only because it added itself
+# again, and run_topgrade and post-install delete it.
+_login_item_not_wanted() {
+  local _item
+  for _item in "${MRK_NOT_AT_LOGIN[@]}"; do
+    [[ "$_item" == "$1" ]] && return 0
+  done
+  return 1
+}
 
 # The ignore list drops the ADD candidates only. A tracked item that is also
 # ignored still counts as tracked, so the stale set below is untouched: an
 # already-tracked item stays tracked until you delete it.
 for name in "${!system_items[@]}"; do
   [[ -z "${tracked_items[$name]+x}" ]] || continue
+  if _login_item_not_wanted "$name"; then
+    not_wanted_arr+=("$name")
+    continue
+  fi
   if _login_item_ignored "$name"; then
     ignored_arr+=("$name")
     continue
@@ -266,6 +282,11 @@ if (( ${#ignored_arr[@]} > 0 )); then
   while IFS= read -r name; do
     log "Ignoring $name per ~/.mrk/login-items-ignore"
   done < <(printf '%s\n' "${ignored_arr[@]}" | sort)
+fi
+if (( ${#not_wanted_arr[@]} > 0 )); then
+  while IFS= read -r name; do
+    log "Not offering $name: it must not open at login. make update and post-install delete it."
+  done < <(printf '%s\n' "${not_wanted_arr[@]}" | sort)
 fi
 
 if (( ${#new_items_arr[@]} > 0 )); then
