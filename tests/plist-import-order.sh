@@ -28,7 +28,8 @@
 # (audit 19, W-31). It lives here because this is the one harness that runs
 # post-install whole. Homebrew is a scratch prefix named by MRK_BREW, holding
 # stubs, and the copy's lib.sh is pointed away from this Mac's Homebrew too, so
-# no real pyenv or topgrade can reach PATH.
+# no real pyenv or topgrade can reach PATH. Google Drive's AutoStartOnLogin,
+# which post-install turns off, is checked here for the same reason.
 #
 # The run goes under /bin/bash and under the bash running this file, because
 # post-install carries no bash-4 guard and a new Mac runs it with bash 3.2.
@@ -330,6 +331,28 @@ if [[ -z "$not_imported" ]]; then
   pass "installed later, post-install again: all six imported, mrk's keys over them"
 else
   fail "installed later, post-install again: not imported: ${not_imported#, }"; show_out "$L"
+fi
+
+# ── 4b. Google Drive, which adds itself to the login items ───────────────────
+
+# post-install turns off Google Drive's AutoStartOnLogin when the app is
+# installed, and only then, and asks System Events to delete the login items
+# that MRK_NOT_AT_LOGIN names.
+G="$W/gdrive"
+machine "$G"; apps all
+mkdir -p "$APPS/Google Drive.app"
+run_pi "$G"
+if [[ "$(get "$G" com.google.drivefs.settings AutoStartOnLogin)" == 0 ]] && ! exists "$F" com.google.drivefs.settings \
+   && grep -q '^osascript .*delete (every login item whose name is appName).* Google Drive NordVPN$' "$G/calls.log"; then
+  pass "Google Drive installed: its AutoStartOnLogin turned off, not written without it, and the login items asked to be deleted"
+else
+  fail "Google Drive: AutoStartOnLogin=$(get "$G" com.google.drivefs.settings AutoStartOnLogin)"; show_out "$G"
+fi
+run_pi "$G"
+if grep -q "Google Drive (AutoStartOnLogin is already off)" "$G/out"; then
+  pass "Google Drive, second run: the setting is already off and is left alone"
+else
+  fail "Google Drive, second run: $(grep -i 'google drive' "$G/out" | tr '\n' ' ')"
 fi
 
 # ── 5. Right after Phase 2: Homebrew installed, and not on PATH ──────────────

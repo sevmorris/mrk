@@ -28,7 +28,7 @@ Keep both repositories current. You can then restore the full setup on a new mac
 > 1. Set `PREFS_REPO` in `scripts/snapshot-prefs` to your own private preferences repository. It points at `sevmorris/mrk-prefs`, which you cannot read.
 > 2. Replace the dotfiles in `dotfiles/` with your own.
 > 3. Edit the `Brewfile`. Keep the `##` section headers, because the sync tools read them.
-> 4. Edit the `add_login_item` list in `scripts/post-install`. It adds eight applications.
+> 4. Edit the `add_login_item` list in `scripts/post-install`. It adds six applications. Also edit `MRK_NOT_AT_LOGIN` in `scripts/lib.sh`. It names the two apps that mrk deletes from the login items.
 > 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 17 named plist domains, plus every `io.github.sevmorris.*` domain but KeyVault's as a group.
 > 6. Edit `DOCK_APPS` and `DOCK_FOLDER` in `scripts/dock-setup`. The script clears the Dock before it adds the applications.
 > 7. Read `scripts/defaults.sh` before you run it. It writes 133 preference keys, and each key is a personal choice.
@@ -139,6 +139,7 @@ It can run in the same shell as Phase 2, whether that is `make all`'s or one ope
 - **Claude Code guidance for `~/Projects`:** Links `assets/CLAUDE.md` to `~/Projects/CLAUDE.md` and `assets/projects-skills/` to `~/Projects/.claude/skills`. Neither lives inside a repository on its own, so both are tracked here and linked into place like a dotfile. A file already there and not a symlink is moved aside with a `.bak` suffix rather than overwritten.
 - **Claude Code, every session — the skills:** Links each skill in `assets/projects-skills/` into `~/.claude/skills`, for example `~/.claude/skills/release-standards`. Claude Code reads `~/.claude/skills` in every session. It does not read `.claude/skills` in a parent folder, so the `~/Projects` link alone does not load the skills in a session that starts in a repository. Phase 3 removes a link in `~/.claude/skills` that points to a skill that is no longer in `assets/projects-skills/`. It also adds the SessionStart hook of the dependency-updates skill to `~/.claude/settings.json`. At the start of a session the hook reports any vendored binary (yt-dlp, FFmpeg, LAME) that is behind upstream and any open Dependabot alert, from a cache it refreshes in the background every 12 hours. The hook is added once; nothing else in `settings.json` is touched, and a file that is not valid JSON is reported as a failed step rather than rewritten.
 - **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dropbox, Raycast, Thaw
+- **Apps that must not start at login:** Phase 3 deletes the login items of Google Drive and NordVPN. `MRK_NOT_AT_LOGIN` in `scripts/lib.sh` names them. Each of these apps adds itself to the login items. NordVPN's installer starts the app in Phase 2, and the app adds itself. Google Drive adds itself each time it starts while its `AutoStartOnLogin` setting is on, which is its default. When Google Drive is installed, Phase 3 turns that setting off.
 
 > **Note:** Phase 3 continues when a step fails. It counts the failed steps and reports the total at the end.
 
@@ -329,13 +330,15 @@ sync-login-items -c       # Commit the changes after the update
 
 1. sync-login-items reads the system login items with AppleScript.
 2. sync-login-items reads the tracked `add_login_item` lines in `scripts/post-install`.
-3. sync-login-items drops the new items that `~/.mrk/login-items-ignore` lists.
+3. sync-login-items drops the new items that `~/.mrk/login-items-ignore` lists. It also drops Google Drive and NordVPN.
 4. sync-login-items shows the differences in both directions.
 5. sync-login-items starts a `gum` selector, so you can choose the items.
 6. sync-login-items offers to add the new items you declined to `~/.mrk/login-items-ignore`.
 7. sync-login-items updates `scripts/post-install` and `docs/manual.md`.
 
 > **Caution:** If System Events returns no login items, or if the AppleScript fails, sync-login-items stops and shows an error. It does not continue, because an empty list looks the same as a complete list of deletions, and sync-login-items would then offer to delete every tracked item. Give Automation access in System Settings → Privacy & Security → Automation, and then run the command again.
+
+**The apps that must not start at login** are Google Drive and NordVPN. `MRK_NOT_AT_LOGIN` in `scripts/lib.sh` names them. Each one adds itself to the login items again: NordVPN after each upgrade, and Google Drive each time it starts, unless its `AutoStartOnLogin` setting is off. `make update`, `update-full` and Phase 3 delete their login items, and show each one they delete. sync-login-items never offers them.
 
 **The ignore list (`~/.mrk/login-items-ignore`)** holds one login-item name per line. Use the app name, and do not add the `.app` suffix. A `#` character starts a comment.
 
@@ -427,7 +430,7 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 | `prune-deployments` | Deletes the old GitHub Pages deployments and keeps the ten newest. It finds the repository from the origin remote, or use `--repo OWNER/NAME`. Outside a git repository, such as in `~`, it works on every Pages site you own. It always protects the deployment that serves the site, so a failed deploy cannot cause it to delete the live one. Use `--dry-run` first |
 | `pushall` | Commits and pushes each repository in `~/Projects`, and then syncs `~/mrk`. Scans the staged files for secrets before each commit. It stages only the tracked files. It leaves a repository alone, and reports it as failed, while a merge, rebase or cherry-pick in it is unfinished. When `check-picker-desc` fails in mrk, runs it with `--fix` before it commits mrk. Use `pushall --dry-run` to run the scan and change nothing |
 | `tidy-projects` | Finds the clutter in the git repositories under `~/Projects` and in `~/mrk`: merged branches, finished worktrees, stale remote-tracking refs, GitHub Pages deployments and build output. With `--apply` it deletes only the items that it can prove are safe. The `projects-maintenance` Claude Code skill runs it |
-| `update-full` | Full update pass. It pulls mrk, and relinks any scripts and dotfiles the pull changed. It quits the applications, and installs the macOS updates for the installed version and the package updates. It builds the Go tools again, runs `clean-ds` and `brew doctor`, and then offers a reboot. It never installs a major macOS upgrade. It stops with an error when there is no terminal, unless you give `--yes`. The `update --full` command is the same command |
+| `update-full` | Full update pass. It pulls mrk, and relinks any scripts and dotfiles the pull changed. It quits the applications, and installs the macOS updates for the installed version and the package updates. It deletes the login items of Google Drive and NordVPN, which a cask upgrade can add again. It builds the Go tools again, runs `clean-ds` and `brew doctor`, and then offers a reboot. It never installs a major macOS upgrade. It stops with an error when there is no terminal, unless you give `--yes`. The `update --full` command is the same command |
 | `clean-ds` | Removes the `.DS_Store` files from the local disk. It does not examine `~/Library`, `~/Desktop`, the network volumes, or the external volumes. Use `clean-ds --dry-run` to see the files first |
 | `nuke-mrk` | Moves `~/mrk` and `~/.mrk` to the Trash, deletes the `~/bin` symlinks, the dotfile symlinks, the `~/Projects/CLAUDE.md` link, the Claude Code skill links and the SessionStart hook post-install added to `~/.claude/settings.json`, and offers the rollbacks. It does NOT change Homebrew. `mrk-menu` lists it under Nuclear options |
 
@@ -809,7 +812,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 |---|---|
 | `make sync` | Sync the installed packages into the Brewfile |
 | `make sync-login-items` | Sync the system login items into post-install and the manual |
-| `make update` | Upgrade every package, with topgrade or with brew upgrade. topgrade runs every step even when one fails. The run ends by saying which failed and that the others ran |
+| `make update` | Upgrade every package, with topgrade or with brew upgrade. topgrade runs every step even when one fails. After topgrade, it deletes the login items of Google Drive and NordVPN, which a cask upgrade can add again. The run ends by saying which failed and that the others ran |
 | `make updates` | Install the macOS updates for the installed version, with `macos-updates`. It never installs a major upgrade: it names each one and leaves it alone. `ARGS=-n` lists the updates and installs nothing |
 | `make uninstall` | Delete the symlinks, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |

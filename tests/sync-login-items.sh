@@ -149,4 +149,21 @@ else
   fail "the last run was not a no-op: $(grep -E '^\s+[+-] ' "$W/out" | tr '\n' ' ')"
 fi
 
+# 4. The apps that MRK_NOT_AT_LOGIN names add themselves back. They are never
+#    offered for tracking, and nothing is written.
+{
+  cat "$BASE"
+  printf '%s\t%s\n' "NordVPN"      "/Applications/NordVPN.app"
+  printf '%s\t%s\n' "Google Drive" "/Applications/Google Drive.app"
+} > "$W/not-wanted"
+sli "$W/not-wanted"
+if grep -q 'Login items are up to date' "$W/out" \
+   && grep -q 'Not offering Google Drive: it must not open at login' "$W/out" \
+   && grep -q 'Not offering NordVPN: it must not open at login' "$W/out" \
+   && cmp -s "$R/scripts/post-install" "$W/post-install.orig"; then
+  pass "Google Drive and NordVPN are not offered, and nothing is written"
+else
+  fail "the apps that must not open at login: $(grep -E 'Not offering|^\s+[+-] |Updated' "$W/out" | tr '\n' ' ')"
+fi
+
 (( fails == 0 ))

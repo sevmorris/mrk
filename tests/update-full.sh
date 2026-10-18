@@ -107,11 +107,19 @@ pass "every command update-full reaches is a stub"
 # ── 1. One topgrade step failed: every step of update-full, in order ─────────
 
 full one-failed 1 --yes --no-reboot
-if (( RC_SEEN == 0 )) && [[ "$(order)" == "make:pull osascript sleep softwareupdate topgrade make:build-tools clean-ds brew " ]] \
+if (( RC_SEEN == 0 )) && [[ "$(order)" == "make:pull osascript sleep softwareupdate topgrade osascript make:build-tools clean-ds brew " ]] \
    && has "Update complete. Reboot skipped (--no-reboot)."; then
   pass "the steps run in order: pull, quit, macOS updates, topgrade, build-tools, clean-ds, brew doctor"
 else
   fail "the steps: exit $RC_SEEN, order: $(order)"; show
+fi
+
+# Step 4's second osascript call is run_topgrade's: it deletes the login items
+# that MRK_NOT_AT_LOGIN names, which a cask upgrade can put back.
+if grep -q '^osascript .*delete (every login item whose name is appName).* Google Drive NordVPN$' "$W/calls"; then
+  pass "step 4 then deletes the login items of Google Drive and NordVPN"
+else
+  fail "step 4 asked for no login item to be deleted: $(grep '^osascript' "$W/calls" | cut -c1-80 | tr '\n' ';')"
 fi
 
 # Step 1 leaves the Go tools to step 5, which comes after topgrade can have
@@ -154,7 +162,7 @@ fi
 echo pull > "$W/make-fails"
 full all-ok 0 --yes --no-reboot
 rm -f "$W/make-fails"
-if (( RC_SEEN == 0 )) && has "mrk pull failed" && [[ "$(order)" == "make:pull osascript sleep softwareupdate topgrade make:build-tools clean-ds brew " ]]; then
+if (( RC_SEEN == 0 )) && has "mrk pull failed" && [[ "$(order)" == "make:pull osascript sleep softwareupdate topgrade osascript make:build-tools clean-ds brew " ]]; then
   pass "a pull that fails: update-full says so and runs the other steps"
 else
   fail "a pull that fails: exit $RC_SEEN, order: $(order)"; show
