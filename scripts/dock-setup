@@ -5,7 +5,7 @@ set -euo pipefail
 # Run via: make dock
 # Requires dockutil (installed automatically if missing).
 #
-# Edit DOCK_APPS below to match your preferred layout.
+# The layout is config/dock.txt: edit that file, not this script.
 
 # Resolve symlinks so this works when called via ~/bin
 _self="${BASH_SOURCE[0]}"
@@ -24,46 +24,101 @@ usage() {
 dock-setup — rebuild the Dock from the preferred app layout
 
 Usage:
-  dock-setup
+  dock-setup [--dry-run | -n]
 
 Options:
+  -n, --dry-run   Show the Dock it would build, and change nothing
   -h, --help      Show this help
 
-dock-setup takes no options other than --help. It installs dockutil if that is
-missing, then replaces the current Dock with the DOCK_APPS list and the
-DOCK_FOLDER folder defined in the script; edit those to change the layout.
-Normally run as `make dock`.
+dock-setup installs dockutil if that is missing, then replaces the current
+Dock with the apps and folders that config/dock.txt lists, left to right;
+edit that file to change the layout. Normally run as `make dock`.
 EOF
 }
-mrk_help_guard "$(usage)" "$@"
+
+DRY_RUN=0
+for arg in "$@"; do
+  case "$arg" in
+    -n|--dry-run) DRY_RUN=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; printf '\nunknown argument: %s\n' "$arg" >&2; exit 2 ;;
+  esac
+done
+
+# ── The layout: config/dock.txt ──────────────────────────────────────────────
+#
+# One path a line, left to right (mrk_config_entries). A path that ends in .app
+# is an app; any other is a folder, which the Dock keeps beside the Trash. ~/
+# at the start is the home directory. Read and checked whole before anything
+# changes: dockutil --remove all below empties the Dock, so a missing file, an
+# empty list or a line that is not a path stops the run while the Dock is
+# still as it was.
+#
+# The list is the Dock in use on 2026-09-28, left to right (audit 15, T-14).
+# Until then it was an older layout, and `make dock` would have replaced the
+# live Dock with it. Finder is always first and needs no entry.
+DOCK_LIST="$SCRIPT_DIR/../config/dock.txt"
+if [[ ! -r "$DOCK_LIST" ]]; then
+  err "Cannot read $DOCK_LIST — the Dock is unchanged."
+  exit 1
+fi
+dock_apps=()
+dock_folders=()
+while IFS= read -r entry; do
+  # shellcheck disable=SC2088  # a literal ~/ in the file, expanded here
+  case "$entry" in
+    '~/'*) path="$HOME/${entry#\~/}" ;;
+    /*)    path="$entry" ;;
+    *)
+      err "Not a path, in config/dock.txt: $entry — the Dock is unchanged."
+      info "Each line is a full path, or a path that starts with ~/."
+      exit 1
+      ;;
+  esac
+  case "$path" in
+    *.app) dock_apps+=("$path") ;;
+    *)     dock_folders+=("$path") ;;
+  esac
+done < <(mrk_config_entries "$DOCK_LIST")
+if (( ${#dock_apps[@]} == 0 )); then
+  err "config/dock.txt lists no app — the Dock is unchanged."
+  exit 1
+fi
 
 section "Dock setup"
+
+# A dry run reads the same list, and asks the same question of each path, as
+# the run below; it installs, saves and changes nothing.
+if (( DRY_RUN )); then
+  dry "Would save the Dock, then delete every item from it"
+  would=0
+  skipped=0
+  for app in "${dock_apps[@]}"; do
+    name=$(basename "$app" .app)
+    if [[ -d "$app" ]]; then
+      dry "Would add: $name"
+      (( would++ )) || true
+    else
+      warn "Skipped: $name (not installed)"
+      (( skipped++ )) || true
+    fi
+  done
+  for folder in ${dock_folders[@]+"${dock_folders[@]}"}; do
+    folder_name=$(basename "$folder")
+    if [[ -d "$folder" ]]; then
+      dry "Would add: $folder_name folder, as a list"
+    else
+      warn "Skipped: $folder_name folder (no $folder)"
+    fi
+  done
+  dry "$would app(s) would be added, $skipped skipped. Nothing changed."
+  exit 0
+fi
 
 if ! command -v dockutil >/dev/null 2>&1; then
   log "dockutil not found — installing..."
   brew install dockutil || { err "Failed to install dockutil"; exit 1; }
 fi
-
-# The Dock in use on 2026-09-28, left to right (audit 15, T-14). Until then this
-# list was an older layout, and `make dock` would have replaced the live Dock
-# with it. Finder is always first and needs no entry.
-DOCK_APPS=(
-  "/Applications/Helium.app"
-  "/Applications/Google Chrome.app"
-  "/Applications/Safari.app"
-  "/Applications/iZotope RX 12 Audio Editor.app"
-  "/Applications/WaxOnWaxOff.app"
-  "/Applications/ClipHack.app"
-  "/Applications/Logic Pro.app"
-  "/Applications/iTerm.app"
-  "/Applications/Claude.app"
-  "/Applications/Antigravity.app"
-  "/Applications/WhatsApp.app"
-)
-
-# The folder beside the Trash: a stack, shown as a list, sorted by name. Until
-# 2026-09-28 this was /Applications as a grid, which was not the Dock in use.
-DOCK_FOLDER="$HOME/Work Apps"
 
 # Snapshot the Dock before wiping it.
 #
@@ -114,7 +169,7 @@ dockutil --remove all --no-restart || warn "dockutil --remove all failed"
 added=0
 skipped=0
 
-for app in "${DOCK_APPS[@]}"; do
+for app in "${dock_apps[@]}"; do
   name=$(basename "$app" .app)
   if [[ -d "$app" ]]; then
     if dockutil --add "$app" --no-restart; then
@@ -129,14 +184,17 @@ for app in "${DOCK_APPS[@]}"; do
   fi
 done
 
-folder_name=$(basename "$DOCK_FOLDER")
-if [[ ! -d "$DOCK_FOLDER" ]]; then
-  warn "Skipped: $folder_name folder (no $DOCK_FOLDER)"
-elif dockutil --add "$DOCK_FOLDER" --view list --display stack --sort name --no-restart; then
-  ok "Added: $folder_name folder"
-else
-  warn "Failed to add: $folder_name folder"
-fi
+# Each folder beside the Trash: a stack, shown as a list, sorted by name.
+for folder in ${dock_folders[@]+"${dock_folders[@]}"}; do
+  folder_name=$(basename "$folder")
+  if [[ ! -d "$folder" ]]; then
+    warn "Skipped: $folder_name folder (no $folder)"
+  elif dockutil --add "$folder" --view list --display stack --sort name --no-restart; then
+    ok "Added: $folder_name folder"
+  else
+    warn "Failed to add: $folder_name folder"
+  fi
+done
 
 killall Dock
 log "$added app(s) added, $skipped skipped"

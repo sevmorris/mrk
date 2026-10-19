@@ -1,0 +1,22 @@
+# mrk Dock layout
+#
+# What dock-setup (make dock) puts in the Dock. Finder is always first and
+# needs no line.
+#
+# One item on each line, left to right: its full path, or a path that starts
+# with ~/ for one in your home directory. A path that ends in .app is an app.
+# Any other path is a folder: dock-setup adds it beside the Trash, as a stack
+# shown as a list and sorted by name. A line that starts with # is a comment,
+# and an empty line is ignored.
+/Applications/Helium.app
+/Applications/Google Chrome.app
+/Applications/Safari.app
+/Applications/iZotope RX 12 Audio Editor.app
+/Applications/WaxOnWaxOff.app
+/Applications/ClipHack.app
+/Applications/Logic Pro.app
+/Applications/iTerm.app
+/Applications/Claude.app
+/Applications/Antigravity.app
+/Applications/WhatsApp.app
+~/Work Apps

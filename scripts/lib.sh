@@ -192,6 +192,25 @@ sudo_refresh() { sudo -n -v 2>/dev/null || true; }
 mrk_mktemp()   { mktemp    "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
 mrk_mktemp_d() { mktemp -d "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
 
+# mrk_config_entries FILE — print the entries of a list in config/, one a
+# line, in the file's order. Every line is an entry except a comment, a line
+# that starts with #, and an empty line. The entry is the line as it stands:
+# nothing is trimmed and there is no inline comment, because an app name can
+# hold a # or end in a space. Returns 1 when FILE cannot be read.
+#
+# The lists are plain lines so that a program can edit them without a parser:
+# the Settings app, and sync-login-items. post-install runs this on a new
+# Mac, so it is bash 3.2.
+mrk_config_entries() {
+  [[ -r "$1" ]] || return 1
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    case "$line" in '#'*) continue ;; esac
+    [[ -n "${line//[[:space:]]/}" ]] || continue
+    printf '%s\n' "$line"
+  done < "$1"
+}
+
 # The lines of an undo file that delete a whole preferences domain: those
 # post-install appends to defaults-rollback.sh for each plist it imports,
 # `defaults delete DOMAIN >/dev/null 2>&1 || true`. Every other line there puts

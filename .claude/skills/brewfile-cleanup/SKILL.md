@@ -132,11 +132,11 @@ single questions.
   it makes (Adopt uses `# Adopted`). Refile a line under a comment Barkeep made
   into its `##` section, add `greedy: true` to a bare cask, and drop the
   comment.
-- `scripts/snapshot-prefs` and `scripts/post-install` (`import_plist`,
-  `add_login_item`) hold the per-app lists.
+- `scripts/snapshot-prefs`, `scripts/post-install` (`import_plist`) and
+  `config/login-items.txt` hold the per-app lists.
 - `bin/clear-app-caches`, `scripts/trim-services` (launchd labels such as
-  Samsung Magician's and Google's updater) and `scripts/dock-setup`
-  (`DOCK_APPS`) each name apps.
+  Samsung Magician's and Google's updater) and `config/dock.txt` each name
+  apps.
 - `assets/preferences/*.sh` and `assets/browsers/*.sh` hold settings that name
   other apps.
 - `dotfiles/.zprofile` depends on the `coreutils` entry, which puts gnubin

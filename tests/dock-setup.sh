@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 # dock-setup.sh — hold make dock to what it says it builds. Audit 15, T-14.
 #
-# Until 2026-09-28 DOCK_APPS was an older layout, not the Dock in use, and
+# Until 2026-09-28 the app list was an older layout, not the Dock in use, and
 # dock-setup added /Applications as a grid where the Dock in use has the Work
 # Apps folder as a list. make dock would have replaced the live Dock with it,
-# without asking. The list now is that Dock, and the folder is DOCK_FOLDER,
-# added only when it exists.
+# without asking. The list now is that Dock, in config/dock.txt, and the Work
+# Apps folder is its last line, added only when it exists.
+#
+# dock-setup empties the Dock before it adds anything, so a list it cannot use
+# (no file, no app in it, a line that is not a path) must stop it before the
+# first dockutil call. --dry-run must call nothing at all.
 #
 # dock-setup runs from a copy of the repository under a throwaway HOME, with
 # `env -i` and PATH cut to stubs and the system directories. dockutil,
 # defaults, killall and brew are stubs that record their arguments, so nothing
-# reaches the real Dock. The /Applications paths in the copy point into the
-# sandbox. Each case runs under /bin/bash and under the bash running this file.
-# ci-check runs it.
+# reaches the real Dock. The /Applications paths in the copy of config/dock.txt
+# point into the sandbox. Each case runs under /bin/bash and under the bash
+# running this file. ci-check runs it.
 
 set -uo pipefail
 
@@ -50,18 +54,26 @@ while IFS= read -r -d '' f; do
   [[ -f "$REPO_ROOT/$f" ]] || continue
   mkdir -p "$R/$(dirname "$f")"
   cp -p "$REPO_ROOT/$f" "$R/$f"
-done < <(git -C "$REPO_ROOT" ls-files -z scripts)
-sed "s#/Applications/#$APPS/#g" "$R/scripts/dock-setup" > "$W/rewrite" && cat "$W/rewrite" > "$R/scripts/dock-setup"
-if grep -n '"/Applications/' "$R/scripts/dock-setup"; then
+done < <(git -C "$REPO_ROOT" ls-files -z scripts config)
+LIST="$R/config/dock.txt"
+sed "s#/Applications/#$APPS/#g" "$LIST" > "$W/rewrite" && cat "$W/rewrite" > "$LIST"
+if grep -n '/Applications/' "$LIST" | grep -vF "$APPS/"; then
   fail "a real /Applications path survived the rewrite — refusing to run"
   exit 1
 fi
+cp -p "$LIST" "$W/dock.orig"
 
-# DOCK_APPS as the copy spells it, one path per line
+# The apps in the copy's list, one path per line, in order. Its one folder is
+# ~/Work Apps, the last line; the cases below hold it to that.
 DOCK_APPS=()
-while IFS= read -r app; do DOCK_APPS+=("$app"); done < <(
-  sed -n '/^DOCK_APPS=(/,/^)/p' "$R/scripts/dock-setup" | sed -nE 's/^[[:space:]]*"([^"]+)".*/\1/p')
-(( ${#DOCK_APPS[@]} >= 3 )) || { fail "read ${#DOCK_APPS[@]} DOCK_APPS entries; expected more"; exit 1; }
+while IFS= read -r app; do DOCK_APPS+=("$app"); done < <(mrk_config_entries "$LIST" | grep '\.app$')
+(( ${#DOCK_APPS[@]} >= 3 )) || { fail "read ${#DOCK_APPS[@]} apps from config/dock.txt; expected more"; exit 1; }
+# shellcheck disable=SC2088  # the literal line, as the file holds it
+if [[ "$(mrk_config_entries "$LIST" | grep -v '\.app$')" == "~/Work Apps" ]]; then
+  pass "config/dock.txt: ${#DOCK_APPS[@]} apps, then ~/Work Apps"
+else
+  fail "config/dock.txt: expected one folder, ~/Work Apps; found: $(mrk_config_entries "$LIST" | grep -v '\.app$' | tr '\n' ' ')"
+fi
 
 # ── Stubs ────────────────────────────────────────────────────────────────────
 
@@ -93,7 +105,7 @@ done
 call() { printf 'dockutil'; printf ' %q' "$@"; printf '\n'; }
 run() {
   : > "$W/calls"
-  env -i "${ENV[@]}" "$S/bash" "$R/scripts/dock-setup" </dev/null > "$W/out" 2>&1
+  env -i "${ENV[@]}" "$S/bash" "$R/scripts/dock-setup" "$@" </dev/null > "$W/out" 2>&1
   RC=$?
 }
 show() { sed 's/^/      /' "$W/out" | tail -"${1:-12}" >&2; }
@@ -133,5 +145,39 @@ else
   fail "one app missing, no folder (exit $RC)"
   show; sed 's/^/      /' "$W/calls" >&2
 fi
+
+# ── --dry-run: the same list, and nothing called ─────────────────────────────
+
+rm -rf "$H"; mkdir -p "$H/Work Apps"
+for app in "${DOCK_APPS[@]}"; do mkdir -p "$app"; done
+rm -rf "$gone"
+run --dry-run
+would=$(grep -c 'Would add: ' "$W/out")
+if [[ $RC == 0 && ! -s "$W/calls" && ! -e "$H/.mrk" ]] \
+   && [[ "$would" == "${#DOCK_APPS[@]}" ]] \
+   && grep -qF "Skipped: $name (not installed)" "$W/out" \
+   && grep -qF "Would add: Work Apps folder, as a list" "$W/out"; then
+  pass "--dry-run: names each app and the folder it would add, and the one it would skip; calls nothing, saves nothing"
+else
+  fail "--dry-run (exit $RC)"
+  show; sed 's/^/      /' "$W/calls" >&2
+fi
+
+# ── A list dock-setup cannot use stops it before the Dock is touched ─────────
+
+# bad_list LABEL — dock-setup must exit 1 with no call at all
+bad_list() {
+  run
+  if [[ $RC == 1 && ! -s "$W/calls" ]] && grep -q 'the Dock is unchanged' "$W/out"; then
+    pass "$1: exit 1 before any call, so the Dock is unchanged"
+  else
+    fail "$1 (exit $RC)"
+    show; sed 's/^/      /' "$W/calls" >&2
+  fi
+  cp -p "$W/dock.orig" "$LIST"
+}
+rm -f "$LIST";                                     bad_list "no config/dock.txt"
+grep '^#' "$W/dock.orig" > "$LIST";                bad_list "a config/dock.txt with no app"
+printf 'Applications/Safari.app\n' >> "$LIST";     bad_list "a line in config/dock.txt that is not a path"
 
 (( fails == 0 ))
