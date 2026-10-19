@@ -368,6 +368,8 @@ make status               # The same panels, shown as text
 
 The panels are in the left pane, and their lines are in the right pane, each with its fix beside it. Press `f` to run the selected panel's first fix. Press `r` to run all the checks again. [What `make status` checks](#what-make-status-checks) lists the panels.
 
+Dipstick shows the same panels in the menu bar. See [Companion apps](#companion-apps).
+
 ## mrk-menu
 
 **`mrk-menu`** starts any mrk task. It groups the commands into categories: Daily, Brewfile, Login items, Preferences, Diagnostics, Maintenance, Setup, Migration, and Nuclear options. Daily comes first, with the three commands that record a change: `sync -c`, `sync-login-items -c` and `mrk-push`. Setup and Migration, which a Mac runs once, come last. It runs each command in the same terminal.
@@ -402,7 +404,7 @@ The `nuke-mrk` entry is under Nuclear options. To confirm it, type the word `nuk
 
 ## Companion apps
 
-Two native macOS apps come with mrk. `make post-install` installs both apps. Each app has its own repository, and the links below have the releases.
+Three native macOS apps come with mrk. Each app has its own repository, and the links below go to them. `make post-install` installs Barkeep and KeyVault from their releases. Dipstick has no release yet, so Phase 3 does not install it.
 
 **[Barkeep](https://github.com/sevmorris/Barkeep)** manages your Homebrew Brewfile in a window.
 
@@ -417,6 +419,15 @@ A KeyVault backup goes out as one passphrase-encrypted OpenPGP archive. Any `gpg
 > **Caution:** The KeyVault archive holds the API keys, the notes and the stored files only. It does not hold your SSH keys, and it does not hold your GPG keys. Use `make snapshot-keys` for those. See "How to prepare for a new machine".
 
 > **Caution:** `snapshot-prefs` does not export the KeyVault preferences, and it must not: they are a manifest of what the vault holds. From 2026-09-02 until 2026-09-30 it did, because the export of every `io.github.sevmorris.*` domain took KeyVault's with the rest. It now leaves KeyVault out, and deletes a saved copy that it finds. Use the KeyVault export for the API keys, the notes and the stored files. Use `make snapshot-keys` for the key files.
+
+**[Dipstick](https://github.com/sevmorris/Dipstick)** shows the `mrk-status` dashboard in the menu bar. It runs `mrk-status --json` and shows the same four panels. Its icon shows the worst result. Each fix is a button that shows its command. The button runs the command in a terminal, in `~/mrk`, as the `f` key does in `mrk-status`. Dipstick does no checks of its own, so the menu bar and the dashboard always agree.
+
+To build Dipstick before its first release, run these commands in a clone of its repository:
+
+```bash
+./build.sh                # Build build/Dipstick.app, signed ad hoc
+open build/Dipstick.app   # Start Dipstick
+```
 
 ## Standalone Utilities
 
