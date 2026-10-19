@@ -5,6 +5,7 @@ package main
 
 import (
 	"bufio"
+	_ "embed"
 	"errors"
 	"flag"
 	"fmt"
@@ -47,125 +48,45 @@ type category struct {
 
 // ── Descriptions ──────────────────────────────────────────────────────────
 
-var descriptions = map[string]string{
-	// Formulae
-	"bash":              "Modern shell (Bash 5.x) with improved features",
-	"bash-completion@2": "Tab completion for bash 4 and newer — where Homebrew formulae install their completion scripts",
-	"bat":               "cat clone with syntax highlighting and Git integration",
-	"cliclick":          "Emulate mouse and keyboard events from the command line",
-	"coreutils":         "GNU core utilities — enhanced versions of standard Unix tools",
-	"fastfetch":         "Fast, customizable system information display",
-	"gh":                "GitHub CLI — official command-line tool for GitHub",
-	"git":               "Distributed version control system",
-	"git-filter-repo":   "Quickly rewrite git repository history",
-	"gnupg":             "GNU Privacy Guard — encryption and signing tool",
-	"htop":              "Interactive process viewer and system monitor",
-	"jq":                "Lightweight, flexible command-line JSON processor",
-	"lsd":               "Modern ls replacement with colors and icons",
-	"moreutils":         "Useful Unix utilities: sponge, vidir, ts, and more",
-	"nano":              "Simple terminal text editor",
-	"nanorc":            "Syntax highlighting configurations for nano",
-	"ncdu":              "Disk usage analyzer with ncurses interface",
-	"nethogs":           "Monitor network bandwidth usage per process",
-	"nmap":              "Network exploration and security auditing tool",
-	"openssh":           "OpenSSH client and server for secure remote access",
-	"pandoc":            "Universal document converter",
-	"paperkey":          "Extract GnuPG secret keys for offline paper backup",
-	"pinentry-mac":      "PIN/passphrase entry dialog for GnuPG on macOS",
-	"pwgen":             "Secure, memorable password generator",
-	"qrencode":          "Generate QR codes from text strings",
-	"rclone":            "Cloud storage sync tool (S3, Dropbox, GDrive, and more)",
-	"deno":              "Secure JavaScript/TypeScript runtime by the Deno team",
-	"go":                "Go programming language compiler and tools",
-	"gum":               "Charm TUI toolkit — used as fallback package picker",
-	"ripgrep":           "Extremely fast regex search tool (rg)",
-	"shellcheck":        "Static analysis and linting tool for shell scripts",
-	"shfmt":             "Shell script formatter",
-	"tealdeer":          "Fast tldr client — simplified, practical man pages",
-	"topgrade":          "Update everything at once across all package managers",
-	"trash":             "Move files to macOS Trash instead of permanently deleting",
-	"tree":              "Display directory contents as a visual tree",
-	"watch":             "Repeatedly run a command and display its output",
-	"wget":              "Internet file retriever",
-	"zsh":               "Z shell — advanced interactive shell with many features",
-	"pipx":              "Install and run Python apps in isolated environments",
-	"pyenv":             "Python version manager (canonical; see .python-version)",
-	"openjdk":           "OpenJDK — open-source Java Development Kit",
-	"gradle":            "Groovy/Kotlin-based build automation tool",
-	"pngquant":          "Lossy PNG compressor for smaller image files",
-	"ffmpeg":            "Complete solution for audio/video recording and conversion",
-	"chromaprint":       "Audio fingerprinting library (AcoustID core component)",
-	"whisper.cpp":       "Speech-to-text engine (optimized C++ port of Whisper)",
-	"xcodegen":          "Generate Xcode projects from YAML or JSON specs",
-	"dockutil":          "Command-line tool for managing Dock items — used by make dock",
-	"yt-dlp":            "Download video and audio from YouTube and 1000+ sites",
-	"poppler":           "PDF rendering library and utilities",
-	"flac":              "Free lossless audio codec",
-	"mingw-w64":         "Minimalist GNU for Windows and GCC cross-compilers",
-	"nasm":              "Netwide Assembler (NASM) is an 80x86 assembler",
-	// Casks
-	"4k-video-downloader+":   "Download videos from YouTube and other platforms",
-	"a-better-finder-rename": "Powerful batch file renaming for Finder",
-	"aldente":                "Battery charge limiter to extend MacBook battery life",
-	"android-platform-tools": "Android SDK Platform-Tools — Android SDK component",
-	"antigravity":            "Google Antigravity — agent-first AI coding environment",
-	"appcleaner":             "Completely uninstall apps and all their leftover files",
-	"arctic":                 "Browse and manage Final Cut Pro libraries",
-	"audio-hijack":           "Record and process audio from any application",
-	"balenaetcher":           "Flash OS images to SD cards and USB drives",
-	"brave-browser":          "Privacy-focused browser based on Chromium",
-	"cryptomator":            "Client-side encryption for files stored in the cloud",
-	"calibre":                "E-book manager, reader, and format converter",
-	"claude":                 "Claude — Anthropic's desktop app",
-	"disk-drill":             "Data recovery software and disk health monitoring",
-	"dropbox":                "Cloud storage and file synchronization service",
-	"etrecheckpro":           "macOS system maintenance and diagnostics tool",
-	"farrago":                "Robust, rapid-fire soundboard for Mac",
-	"firefox":                "Free and open-source web browser by Mozilla",
-	"fission":                "Fast, lossless audio editor for Mac",
-	"gcloud-cli":             "Google Cloud SDK and gcloud command-line tools",
-	"github":                 "GitHub Desktop — visual Git client",
-	"google-chrome":          "Google Chrome web browser",
-	"google-drive":           "Google Drive desktop cloud storage client",
-	"handbrake-app":          "Open-source video transcoder",
-	"helium-browser":         "Helium — privacy-focused Chromium-based web browser",
-	"ilok-license-manager":   "iLok USB hardware license manager",
-	"iterm2":                 "Feature-rich terminal emulator for macOS",
-	"keka":                   "File archiver and extractor for macOS",
-	"keyboardcleantool":      "Temporarily disable keyboard and trackpad for cleaning",
-	"kid3":                   "Cross-platform audio tag editor",
-	"kindle-previewer":       "Preview and check Kindle eBooks before publishing",
-	"loopback":               "Cable-free audio routing between apps on Mac",
-	"losslesscut":            "Lossless video and audio trimmer and cutter",
-	"macwhisper":             "macOS app for Whisper-powered audio transcription",
-	"mdrp":                   "Mac DVDRipper Pro — rip and back up DVDs on macOS",
-	"mediainfo":              "Display technical information about media files",
-	"nordpass":               "NordPass — password manager desktop app",
-	"nordvpn":                "NordVPN client for macOS",
-	"omnidisksweeper":        "Disk usage analyzer for macOS",
-	"onyx":                   "System maintenance, tweaking, and cleaning for macOS",
-	"openaudible":            "Audible audiobook manager and converter",
-	"openmtp":                "Android file transfer for macOS",
-	"piezo":                  "Effortless audio recording from any application",
-	"prismlauncher":          "Open-source Minecraft launcher with multiple instances",
-	"pulsar":                 "Community-driven Atom editor fork",
-	"raspberry-pi-imager":    "Official Raspberry Pi OS imaging tool",
-	"raycast":                "Extensible macOS launcher and productivity platform",
-	"shutter-encoder":        "Video, audio, and image converter and encoder",
-	"signal":                 "Private, end-to-end encrypted messaging",
-	"slack":                  "Team messaging and collaboration platform",
-	"soundsource":            "System-wide per-application audio control for Mac",
-	"stats":                  "macOS system statistics in the menu bar",
-	"swift-publisher":        "Desktop publishing and brochure design for Mac",
-	"temurin@21":             "Eclipse Temurin 21 — Adoptium OpenJDK distribution",
-	"thaw":                   "Menu bar manager: hide and arrange menu bar items",
-	"the-unarchiver":         "Archive extractor supporting many formats",
-	"timemachineeditor":      "Schedule and control Time Machine backup frequency",
-	"typora":                 "Minimal Markdown editor with live preview",
-	"vlc":                    "Free, open-source media player for any format",
-	"waves-central":          "Waves audio plugin installer and license manager",
-	"whatsapp":               "WhatsApp desktop messaging client",
-	"zoom":                   "Video conferencing and online meetings",
+// descriptions.tsv is the one description table. sync, check-picker-desc
+// --fix and scripts/brew read and write it as plain lines, and Barkeep can
+// too. It was a map literal here, and only a Go-aware editor could change that
+// safely: scripts/lib.sh carried a Python editor and ran gofmt after it.
+//
+//go:embed descriptions.tsv
+var descriptionsTSV string
+
+// descriptions maps a Brewfile name to its description. descriptionsErr is set
+// when the embedded table cannot be read, and main stops on it: the compiler
+// refused a bad map literal, so a bad table must not reach the picker either.
+var descriptions, descriptionsErr = parseDescriptions(descriptionsTSV)
+
+// parseDescriptions reads the table: one `name<TAB>description` line for each
+// name, with blank lines and lines that start with # ignored. A line with no
+// tab, a second tab, an empty name or description, or a name given twice is an
+// error that names the line. The order is not checked here: the lookup does
+// not need it, and descriptions_test.go holds the file to it.
+func parseDescriptions(table string) (map[string]string, error) {
+	m := map[string]string{}
+	for i, line := range strings.Split(table, "\n") {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		name, desc, ok := strings.Cut(line, "\t")
+		switch {
+		case !ok:
+			return nil, fmt.Errorf("descriptions.tsv line %d: no tab between the name and the description", i+1)
+		case strings.Contains(desc, "\t"):
+			return nil, fmt.Errorf("descriptions.tsv line %d: more than one tab", i+1)
+		case name == "" || desc == "":
+			return nil, fmt.Errorf("descriptions.tsv line %d: an empty name or description", i+1)
+		}
+		if _, dup := m[name]; dup {
+			return nil, fmt.Errorf("descriptions.tsv line %d: %s is described twice", i+1, name)
+		}
+		m[name] = desc
+	}
+	return m, nil
 }
 
 // ── Brewfile parsing ──────────────────────────────────────────────────────
@@ -771,6 +692,11 @@ func parseFlags(args []string, errOut io.Writer) (options, error) {
 }
 
 func main() {
+	if descriptionsErr != nil {
+		fmt.Fprintf(os.Stderr, "mrk-picker: %v\n", descriptionsErr)
+		os.Exit(1)
+	}
+
 	o, err := parseFlags(os.Args[1:], os.Stderr)
 	if errors.Is(err, flag.ErrHelp) {
 		os.Exit(0)

@@ -776,9 +776,9 @@ kill -s $sig \$\$" "$sig"
 # tool_freshness REPO BINDIR — for each Go tool mrk builds, print its name and
 # its state, tab-separated: "ok"; "stale", when a source under tools/<dir> or
 # tools/theme — go.mod and go.sum included, since a dependency bump changes the
-# binary without touching a .go file — is newer than BINDIR/NAME; or "missing".
-# All three tools import the shared theme module, so a change there makes each
-# one stale.
+# binary without touching a .go file, and a .tsv file, since mrk-picker embeds
+# its description table — is newer than BINDIR/NAME; or "missing". All three
+# tools import the shared theme module, so a change there makes each one stale.
 #
 # maintain and mrk-status both read it. Until 2026-09-30 this was maintain's
 # own loop, using `find -newer` on the ~/bin link, which compares with the
@@ -797,7 +797,7 @@ tool_freshness() {
       state=ok
       while IFS= read -r -d '' f; do
         if [[ "$f" -nt "$bin" ]]; then state=stale; break; fi
-      done < <(find "$repo/tools/$dir" "$repo/tools/theme" \( -name '*.go' -o -name go.mod -o -name go.sum \) -print0 2>/dev/null)
+      done < <(find "$repo/tools/$dir" "$repo/tools/theme" \( -name '*.go' -o -name go.mod -o -name go.sum -o -name '*.tsv' \) -print0 2>/dev/null)
     fi
     printf '%s\t%s\n' "$name" "$state"
   done
@@ -886,21 +886,27 @@ picard_settings() {
 
 # ─── mrk-picker descriptions ─────────────────────────────────────────────────
 #
-# tools/picker/main.go holds the one description table, `var descriptions`, and
-# check-picker-desc holds it to the Brewfile in both directions. Two things
-# write it: sync, as it adds and prunes, and check-picker-desc --fix, for every
-# other way a Brewfile line comes and goes — Barkeep and a hand edit. They share
-# these functions, so a description is worded, placed and formatted one way.
+# tools/picker/descriptions.tsv holds the one description table, and
+# check-picker-desc holds it to the Brewfile in both directions. mrk-picker
+# embeds it when it is built. Two things write it: sync, as it adds and prunes,
+# and check-picker-desc --fix, for every other way a Brewfile line comes and
+# goes — Barkeep and a hand edit. They share these functions, so a description
+# is worded and placed one way.
 #
-# The two writers go through a temp file beside main.go, named in PICKER_TMP so
-# that the caller's EXIT trap can remove it after an interrupt, and run gofmt on
-# it before it replaces main.go. The map is column-aligned, and the longest key
-# in a block sets the padding of every line beside it; and a file gofmt cannot
-# parse never lands.
+# The table is plain lines, `name<TAB>description`, in byte order of the name,
+# with # comments. So a writer needs no parser: an add goes before the first
+# name that sorts after it, and a delete drops the line that starts with the
+# name and a tab. The table was a Go map literal in tools/picker/main.go until
+# 2026-10-18, and these functions were a Python editor followed by gofmt.
+#
+# The two writers go through a temp file beside the table, named in PICKER_TMP
+# so that the caller's EXIT trap can remove it after an interrupt, and move it
+# into place only when it is whole.
 
-# brew_describe BREW PICKER_GO KIND:NAME... — look each package up in Homebrew
-# and print one record for it: kind, name, section (casks only), why that
-# section, description, and 1 when PICKER_GO already describes the name.
+# brew_describe BREW TABLE KIND:NAME... — look each package up in Homebrew and
+# print one record for it: kind, name, section (casks only), why that section,
+# description, and 1 when TABLE, the description table, already describes the
+# name.
 #
 # Fields are split by the unit separator rather than a tab: bash's `read` folds
 # a run of tabs into one, so an empty field would shift the rest.
@@ -916,7 +922,7 @@ brew_describe() {
   python3 - "$@" <<'PYEOF'
 import json, os, plistlib, re, subprocess, sys
 
-brew, picker_go = sys.argv[1], sys.argv[2]
+brew, table = sys.argv[1], sys.argv[2]
 pkgs = [a.split(':', 1) for a in sys.argv[3:]]
 
 # LSApplicationCategoryType, without its public.app-category. prefix, to the
@@ -954,8 +960,8 @@ FALLBACK = 'Utilities'
 APP_DIRS = ['/Applications', os.path.expanduser('~/Applications')]
 PREFIX = 'public.app-category.'
 
-described = set(re.findall(r'^\t"([^"]+)":', open(picker_go, encoding='utf-8').read(), re.M)) \
-    if os.path.isfile(picker_go) else set()
+described = {line.split('\t', 1)[0] for line in open(table, encoding='utf-8')
+             if line.strip() and not line.startswith('#')} if os.path.isfile(table) else set()
 
 def norm(s):
     return re.sub(r'[^a-z0-9]', '', s.lower())
@@ -1034,98 +1040,72 @@ for kind, name in pkgs:
 PYEOF
 }
 
-# picker_add_descriptions PICKER_GO FILE — add the descriptions FILE holds, one
-# per line as kind, name and description split by the unit separator. A name
-# the map already has is left as it is, so a description reworded by hand
-# sticks, and a record with no description is skipped. A formula goes at the end
-# of the map's formulae block, which is in no order, and a cask in alphabetical
-# order among the casks.
+# picker_add_descriptions TABLE FILE — add the descriptions FILE holds, as
+# `name<TAB>description` lines like the table's own. A name the table already
+# has is left as it is, so a description reworded by hand sticks; a line with
+# no description is skipped, and of a name given twice the first is kept. Each
+# new line goes before the first name that sorts after it, so the table stays
+# in byte order. Control characters are dropped from a description, which
+# keeps a stray tab from splitting it.
 picker_add_descriptions() {
-  local go=$1 adds=$2
-  PICKER_TMP="$(mktemp "${go%/*}/.main.go.XXXXXX")"
-  if ! python3 - "$go" "$adds" "$PICKER_TMP" <<'PYEOF'
-import re, sys
-
-go_path, adds_path, out_path = sys.argv[1:4]
-with open(go_path, encoding='utf-8') as f:
-    lines = f.read().split('\n')
-try:
-    start = next(i for i, l in enumerate(lines) if l.startswith('var descriptions = map[string]string{'))
-    end = next(i for i in range(start + 1, len(lines)) if lines[i] == '}')
-except StopIteration:
-    sys.exit('the descriptions map was not found in tools/picker/main.go')
-
-key_re = re.compile(r'^\t"([^"]+)":')
-have = {m.group(1) for m in map(key_re.match, lines[start:end]) if m}
-casks_at = next((i for i in range(start, end) if lines[i].strip() == '// Casks'), end)
-
-def literal(s):
-    s = ''.join(c for c in s if c >= ' ')
-    return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
-
-with open(adds_path, encoding='utf-8') as f:
-    for record in f:
-        kind, name, desc = record.rstrip('\n').split('\x1f', 2)
-        if name in have or not desc:
-            continue
-        if kind == 'formula':
-            idx = casks_at
-            casks_at += 1
-        else:
-            idx = next((i for i in range(casks_at + 1, end)
-                        if (m := key_re.match(lines[i])) and m.group(1) > name), end)
-        lines.insert(idx, f'\t{literal(name)}: {literal(desc)},')
-        end += 1
-        have.add(name)
-
-with open(out_path, 'w', encoding='utf-8') as f:
-    f.write('\n'.join(lines))
-PYEOF
-  then
+  local table=$1 adds=$2
+  PICKER_TMP="$(mktemp "${table%/*}/.descriptions.tsv.XXXXXX")"
+  if ! LC_ALL=C awk -v adds="$adds" '
+    function name_of(line) { return substr(line, 1, index(line, "\t") - 1) }
+    function entry(line)   { return line !~ /^#/ && index(line, "\t") > 1 }
+    BEGIN {
+      while ((getline line < ARGV[1]) > 0) if (entry(line)) have[name_of(line)] = 1
+      close(ARGV[1])
+      while ((r = (getline line < adds)) > 0) {
+        if (!entry(line)) continue
+        name = name_of(line); desc = substr(line, length(name) + 2)
+        gsub(/[[:cntrl:]]/, "", desc)
+        if (desc == "" || name in have) continue
+        have[name] = 1
+        # An insertion sort: an add brings a handful of names.
+        for (i = ++n; i > 1 && qn[i - 1] > name; i--) { qn[i] = qn[i - 1]; qd[i] = qd[i - 1] }
+        qn[i] = name; qd[i] = desc
+      }
+      if (r < 0) exit 1
+    }
+    entry($0) { while (j < n && qn[j + 1] < name_of($0)) { j++; print qn[j] "\t" qd[j] } }
+    { print }
+    END { while (j < n) { j++; print qn[j] "\t" qd[j] } }' "$table" > "$PICKER_TMP"; then
+    err "Could not add to tools/picker/descriptions.tsv — left it unchanged."
     rm -f "$PICKER_TMP"; PICKER_TMP=""
     return 1
   fi
-  _picker_replace "$go"
+  _picker_replace "$table"
 }
 
-# picker_remove_descriptions PICKER_GO NAME... — delete the description lines
-# for the names given.
+# picker_remove_descriptions TABLE NAME... — delete the description lines for
+# the names given.
 #
 # awk rather than sed because a package name is not a regex: python@3.12 would
-# otherwise match python@3-12. Splitting on quotes makes field 2 the key, the
-# comparison is exact, and only lines inside `var descriptions` are touched.
+# otherwise match python@3-12. The name is the text before the first tab, and
+# the comparison is exact.
 picker_remove_descriptions() {
-  local go=$1; shift
-  PICKER_TMP="$(mktemp "${go%/*}/.main.go.XXXXXX")"
-  DROP_NAMES="$(printf '%s\n' "$@")" awk -F'"' '
+  local table=$1; shift
+  PICKER_TMP="$(mktemp "${table%/*}/.descriptions.tsv.XXXXXX")"
+  DROP_NAMES="$(printf '%s\n' "$@")" LC_ALL=C awk -F'\t' '
     BEGIN { n = split(ENVIRON["DROP_NAMES"], a, "\n"); for (i = 1; i <= n; i++) drop[a[i]] = 1 }
-    /^var descriptions = map\[string\]string\{/ { inmap = 1 }
-    inmap && /^}/                               { inmap = 0 }
-    inmap && /^\t"/ && ($2 in drop)             { next }
-    { print }' "$go" > "$PICKER_TMP"
+    !/^#/ && NF > 1 && ($1 in drop) { next }
+    { print }' "$table" > "$PICKER_TMP"
 
   local want got
-  want=$(( $(wc -l < "$go") - $# ))
+  want=$(( $(wc -l < "$table") - $# ))
   got=$(wc -l < "$PICKER_TMP")
   if (( got != want )); then
-    err "Expected $want lines in tools/picker/main.go after removing $#, got $got — left it unchanged."
+    err "Expected $want lines in tools/picker/descriptions.tsv after removing $#, got $got — left it unchanged."
     rm -f "$PICKER_TMP"; PICKER_TMP=""
     return 1
   fi
-  _picker_replace "$go"
+  _picker_replace "$table"
 }
 
-# _picker_replace PICKER_GO — gofmt PICKER_TMP and move it over PICKER_GO.
+# _picker_replace TABLE — move PICKER_TMP over TABLE, with the table's mode:
+# mktemp makes the file 0600.
 _picker_replace() {
-  if command -v gofmt >/dev/null 2>&1; then
-    if ! gofmt -w "$PICKER_TMP"; then
-      err "gofmt rejected the new tools/picker/main.go — left it unchanged."
-      rm -f "$PICKER_TMP"; PICKER_TMP=""
-      return 1
-    fi
-  else
-    warn "gofmt not found — tools/picker/main.go may need realigning (gofmt -w)."
-  fi
   chmod 644 "$PICKER_TMP"
   mv "$PICKER_TMP" "$1"
   PICKER_TMP=""

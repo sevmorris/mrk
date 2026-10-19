@@ -37,7 +37,8 @@ FIX="$W/fixtures"
 mkdir -p "$R/scripts" "$R/tools/picker" "$R/bin" "$W/home/Applications" "$W/stubs" "$FIX/info"
 cp -p "$REPO_ROOT/scripts/sync" "$REPO_ROOT/scripts/lib.sh" "$R/scripts/"
 cp -p "$REPO_ROOT/Brewfile" "$R/"
-cp -p "$REPO_ROOT/tools/picker/main.go" "$R/tools/picker/"
+cp -p "$REPO_ROOT/tools/picker/descriptions.tsv" "$R/tools/picker/"
+TABLE="$R/tools/picker/descriptions.tsv"
 git -C "$R" init -q
 git -C "$R" config user.name "sync test"
 git -C "$R" config user.email "sync-test@example.invalid"
@@ -153,21 +154,15 @@ section_of() {
   awk -v want="$1" '/^## /{s=substr($0,4)} $0 ~ "^(brew|cask) \""want"\"" {print s; exit}' "$R/Brewfile"
 }
 
-# desc_of NAME — NAME's description in main.go, unescaped, or nothing
-desc_of() {
-  python3 - "$R/tools/picker/main.go" "$1" <<'PY'
-import ast, re, sys
-m = re.search(r'^\t"' + re.escape(sys.argv[2]) + r'":\s*(".*"),$', open(sys.argv[1]).read(), re.M)
-print(ast.literal_eval(m.group(1)) if m else '', end='')
-PY
-}
+# desc_of NAME — NAME's description in the table, or nothing
+desc_of() { awk -F'\t' -v n="$1" '!/^#/ && $1 == n { print $2; exit }' "$TABLE"; }
 
 # The gate's rule, portably: every Brewfile package described, nothing extra.
 descriptions_in_sync() {
-  python3 - "$R/Brewfile" "$R/tools/picker/main.go" <<'PY'
+  python3 - "$R/Brewfile" "$TABLE" <<'PY'
 import re, sys
 pkgs = set(re.findall(r'^(?:brew|cask) "([^"]+)"', open(sys.argv[1]).read(), re.M))
-keys = set(re.findall(r'^\t"([^"]+)":', open(sys.argv[2]).read(), re.M))
+keys = {l.split('\t', 1)[0] for l in open(sys.argv[2]) if '\t' in l and not l.startswith('#')}
 for n in sorted(pkgs - keys): print('  missing:', n)
 for n in sorted(keys - pkgs): print('  orphaned:', n)
 sys.exit(pkgs != keys)
@@ -190,7 +185,7 @@ export GUM_CHOICE="CLI Tools - Media"
 # 1. A dry run shows the filing and the descriptions, and writes nothing.
 run_sync -n
 if git -C "$R" diff --quiet; then
-  pass "a dry run leaves the Brewfile and main.go alone"
+  pass "a dry run leaves the Brewfile and the description table alone"
 else
   fail "a dry run changed: $(git -C "$R" diff --name-only | tr '\n' ' ')"
 fi
@@ -240,21 +235,19 @@ expect_desc zq-pkgapp   "Video thing"
 expect_desc zq-driver   "Driver for Zq devices"
 expect_desc zqtool      "Zq command-line tool"
 
-# Formulae before the "// Casks" marker, casks after it in name order.
-order="$(awk -F'"' '/^\t\/\/ Casks/ { print "CASKS"; next }
-  /^\t"(flac|zqtool|zzmedia|zoom|zq-driver|zq-launcher|zq-ledger)":/ { print $2 }' "$R/tools/picker/main.go" | tr '\n' ' ')"
-if [[ "$order" == "flac zqtool zzmedia CASKS zoom zq-driver zq-launcher zq-ledger " ]]; then
-  pass "formula descriptions close the formulae block, casks sit in name order"
+# Formulae and casks by one rule: every line in byte order of the name, below
+# the header the table had.
+if [[ "$(sed -n '/^#/!q;p' "$TABLE")" == "$(sed -n '/^#/!q;p' "$REPO_ROOT/tools/picker/descriptions.tsv")" ]] \
+   && grep -v '^#' "$TABLE" | LC_ALL=C sort -c 2>/dev/null; then
+  pass "the new descriptions sit in byte order of their names, below the header"
 else
-  fail "main.go order: $order"
+  fail "the table's header changed, or its lines are out of order:"
+  grep -v '^#' "$TABLE" | LC_ALL=C sort -c 2>&1 | sed 's/^/      /' >&2
 fi
-
-if command -v gofmt >/dev/null 2>&1; then
-  if [[ -z "$(gofmt -l "$R/tools/picker/main.go" 2>&1)" ]]; then
-    pass "main.go is gofmt-clean and parses"
-  else
-    fail "gofmt: $(gofmt -l "$R/tools/picker/main.go" 2>&1)"
-  fi
+if [[ -z "$(find "$R/tools/picker" -name '.descriptions.tsv.*')" && "$(/usr/bin/stat -f '%Lp' "$TABLE")" == 644 ]]; then
+  pass "sync leaves no temp file beside the table, and the table's mode 644"
+else
+  fail "sync left: $(find "$R/tools/picker" -name '.descriptions.tsv.*' | tr '\n' ' '), mode $(/usr/bin/stat -f '%Lp' "$TABLE")"
 fi
 
 if out="$(descriptions_in_sync)"; then
@@ -268,8 +261,8 @@ files="$(git -C "$R" show --name-only --format= HEAD | sort | tr '\n' ' ')"
 # ", " between the names: until 2026-09-28 IFS=', ' joined on the comma alone
 # (audit 19, W-18), and this check expected it.
 if [[ "$subject" == "sync: add zq-driver, zq-launcher, zq-ledger, zq-pkgapp, zq-plain, zq-studio, zqtool, zzmedia" \
-      && "$files" == "Brewfile tools/picker/main.go " ]] && git -C "$R" diff --quiet; then
-  pass "-c commits the Brewfile and main.go together"
+      && "$files" == "Brewfile tools/picker/descriptions.tsv " ]] && git -C "$R" diff --quiet; then
+  pass "-c commits the Brewfile and the description table together"
 else
   fail "the commit: '$subject' with: $files"
 fi
@@ -284,11 +277,8 @@ fi
 
 # 4. A cask Homebrew cannot describe, one it has no record of, and one whose
 #    description was already written by hand.
-python3 - "$R/tools/picker/main.go" <<'PY'
-import sys
-p = sys.argv[1]; s = open(p).read()
-open(p, 'w').write(s.replace('\t// Casks\n', '\t// Casks\n\t"zq-kept": "Hand-written words",\n', 1))
-PY
+awk '!done && !/^#/ && $1 > "zq-kept" { print "zq-kept\tHand-written words"; done = 1 } { print }' \
+  "$TABLE" > "$TABLE.new" && mv "$TABLE.new" "$TABLE"
 mkdir -p "$W/home/Applications/Zq Kept.app"
 installed zqtool zzmedia "$NEW_CASKS zq-nodesc zq-ghost zq-kept"
 run_sync
@@ -326,6 +316,12 @@ if [[ "$(git -C "$R" rev-parse HEAD)" != "$before" && "$subject" == "sync: remov
 else
   fail "sync -p -c, the additions declined: last commit '$subject'; uncommitted: $(git -C "$R" diff --name-only | tr '\n' ' ')"
   grep -E 'No packages|Committed|stale|Stale' "$W/out" | sed 's/^/      /' >&2
+fi
+files="$(git -C "$R" show --name-only --format= HEAD | sort | tr '\n' ' ')"
+if [[ -z "$(desc_of "$STALE")" && "$files" == "Brewfile tools/picker/descriptions.tsv " ]]; then
+  pass "the prune deletes $STALE's description, and commits the table with the Brewfile"
+else
+  fail "after the prune $STALE is described as '$(desc_of "$STALE")', and the commit holds: $files"
 fi
 
 # 6. sync --check: the drift alone, for mrk-status. A new formula and cask, one

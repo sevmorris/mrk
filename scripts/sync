@@ -62,7 +62,7 @@ done
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 readonly BREWFILE="$REPO_ROOT/Brewfile"
 # The one description table: an add writes to it and a prune deletes from it.
-readonly PICKER_GO="$REPO_ROOT/tools/picker/main.go"
+readonly DESC_TABLE="$REPO_ROOT/tools/picker/descriptions.tsv"
 
 if [[ ! -f "$BREWFILE" ]]; then
   err "Brewfile not found: $BREWFILE"
@@ -394,28 +394,26 @@ if (( PRUNE && n_stale > 0 )); then
 # back. No rebuild follows: the picker looks descriptions up by the names the
 # Brewfile gives it, so an entry still compiled into the binary is never read.
 #
-# A name leaves the map only when no Brewfile entry still uses it.
+# A name leaves the table only when no Brewfile entry still uses it.
 # check-picker-desc matches by name alone, so a formula and a cask that share a
 # name share one description, and pruning one of them must keep it.
 #
-# awk rather than sed because a package name is not a regex: python@3.12 would
-# otherwise match python@3-12. Splitting on quotes makes field 2 the key, the
-# comparison is exact, and only lines inside `var descriptions` are touched.
+# awk rather than grep because a package name is not a regex: python@3.12 would
+# otherwise match python@3-12. The name is the text before the first tab, and
+# the comparison is exact.
 
 # Print, one per line and sorted, the pruned names whose description should go.
 _orphaned_descriptions() {
-  [[ -f "$PICKER_GO" ]] || return 0
+  [[ -f "$DESC_TABLE" ]] || return 0
   local pkg
   for pkg in "${!prune_formulae[@]}" "${!prune_casks[@]}"; do
     [[ -n "${brewfile_formulae[$pkg]+x}" && -z "${prune_formulae[$pkg]+x}" ]] && continue
     [[ -n "${brewfile_casks[$pkg]+x}"    && -z "${prune_casks[$pkg]+x}"    ]] && continue
     printf '%s\n' "$pkg"
   done | sort -u | while IFS= read -r pkg; do
-    awk -F'"' -v want="$pkg" '
-      /^var descriptions = map\[string\]string\{/ { inmap = 1; next }
-      inmap && /^}/                               { exit }
-      inmap && /^\t"/ && $2 == want               { found = 1; exit }
-      END { exit !found }' "$PICKER_GO" && printf '%s\n' "$pkg"
+    awk -F'\t' -v want="$pkg" '
+      !/^#/ && NF > 1 && $1 == want { found = 1; exit }
+      END { exit !found }' "$DESC_TABLE" && printf '%s\n' "$pkg"
   done
   return 0
 }
@@ -430,7 +428,7 @@ fi
     if (( DRY_RUN )); then
       echo "  [dry run] Would remove $n_prune entr(ies) from Brewfile."
       if (( ${#orphaned_descs[@]} > 0 )); then
-        echo "  [dry run] Would remove ${#orphaned_descs[@]} description(s) from tools/picker/main.go: ${orphaned_descs[*]}"
+        echo "  [dry run] Would remove ${#orphaned_descs[@]} description(s) from tools/picker/descriptions.tsv: ${orphaned_descs[*]}"
       fi
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     else
@@ -454,11 +452,11 @@ fi
       if (( ${#orphaned_descs[@]} > 0 )); then
         # The Brewfile is already written, so a failure here leaves exactly the
         # state the old warning described. Say so, with the names, and go on.
-        if picker_remove_descriptions "$PICKER_GO" "${orphaned_descs[@]}"; then
+        if picker_remove_descriptions "$DESC_TABLE" "${orphaned_descs[@]}"; then
           PICKER_CHANGED=1
-          log "Removed ${#orphaned_descs[@]} description(s) from tools/picker/main.go: ${orphaned_descs[*]}"
+          log "Removed ${#orphaned_descs[@]} description(s) from tools/picker/descriptions.tsv: ${orphaned_descs[*]}"
         else
-          warn "Delete these from tools/picker/main.go by hand, or check-picker-desc will fail: ${orphaned_descs[*]}"
+          warn "Delete these from tools/picker/descriptions.tsv by hand, or check-picker-desc will fail: ${orphaned_descs[*]}"
         fi
       fi
       echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -493,12 +491,12 @@ join_by() {
 # prune uncommitted (audit 19, W-18).
 commit_changes() {
   cd "$REPO_ROOT"
-  # Stage main.go only when this run edited it, so a run that wrote no
-  # description never commits someone's unrelated edit to that file.
+  # Stage the description table only when this run edited it, so a run that
+  # wrote no description never commits someone's unrelated edit to that file.
   changed_files=()
   git diff --quiet Brewfile 2>/dev/null || changed_files+=("Brewfile")
-  if (( PICKER_CHANGED )) && ! git diff --quiet tools/picker/main.go 2>/dev/null; then
-    changed_files+=("tools/picker/main.go")
+  if (( PICKER_CHANGED )) && ! git diff --quiet tools/picker/descriptions.tsv 2>/dev/null; then
+    changed_files+=("tools/picker/descriptions.tsv")
   fi
 
   if (( ${#changed_files[@]} == 0 )); then
@@ -728,7 +726,7 @@ fi
 # ─── 5. Look up each selected package in Homebrew ───────────────────────────
 #
 # Every entry needs two things besides its line, and until 2026-09-27 sync
-# supplied neither: a description in tools/picker/main.go, which
+# supplied neither: a description in tools/picker/descriptions.tsv, which
 # check-picker-desc requires of every package, and, for a cask, a section that
 # says what kind of app it is. So each add left the gate red until someone wrote
 # the description by hand: `sync: add prismlauncher` on 2026-09-24, then
@@ -739,7 +737,7 @@ fi
 #   - The description is Homebrew's own `desc`. A cask whose token does not
 #     name the product gets its display name in front ("GitHub Desktop — …"),
 #     as the hand-written entries do. sync writes a description only where
-#     there is none, so rewording one in main.go sticks.
+#     there is none, so rewording one in the table sticks.
 #   - A cask's section is the category its app declares: LSApplicationCategoryType
 #     in the Info.plist, the vocabulary the App Store uses, mapped onto the
 #     Brewfile's `## Casks - X` names by brew_describe in scripts/lib.sh. An app
@@ -788,9 +786,9 @@ log "Reading Homebrew's descriptions for ${#meta_args[@]} package(s)..."
 TEMP_META=$(mktemp "${TMPDIR:-/tmp}/mrk-meta.XXXXXX")
 
 # brew_describe (scripts/lib.sh) prints one record per package: kind, name,
-# section (casks only), why that section, description, and 1 when main.go
+# section (casks only), why that section, description, and 1 when the table
 # already describes the name. check-picker-desc --fix reads the same records.
-brew_describe "$HOMEBREW" "$PICKER_GO" "${meta_args[@]}" > "$TEMP_META"
+brew_describe "$HOMEBREW" "$DESC_TABLE" "${meta_args[@]}" > "$TEMP_META"
 
 declare -A pkg_desc=()
 declare -A pkg_described=()
@@ -895,8 +893,9 @@ for pkg in "${sorted_selected_casks[@]}"; do
 done
 
 # The packages whose description sync will write: added, and not yet described.
-# Ordered formulae first, as the map in main.go is. A formula and a cask with
-# the same name share one description, as check-picker-desc matches by name.
+# Formulae first, then casks, as the summary lists them; the table puts each in
+# name order. A formula and a cask with the same name share one description, as
+# check-picker-desc matches by name.
 describe_pkgs=()
 undescribable=()
 declare -A _listed=()
@@ -917,11 +916,11 @@ done < <(printf '%s\n' "${!formula_section_map[@]}" | sort; printf '%s\n' "${sor
 _desc_note() {
   local pkg="$1"
   if [[ "${pkg_described[$pkg]:-0}" == 1 ]]; then
-    printf '(already described in tools/picker/main.go)'
+    printf '(already described in tools/picker/descriptions.tsv)'
   elif [[ -n "${pkg_desc[$pkg]:-}" ]]; then
     printf '"%s"' "${pkg_desc[$pkg]}"
   else
-    printf '(Homebrew has no description — write one in tools/picker/main.go)'
+    printf '(Homebrew has no description — write one in tools/picker/descriptions.tsv)'
   fi
 }
 
@@ -953,7 +952,7 @@ fi
 echo ""
 
 if (( DRY_RUN )); then
-  echo "  [dry run] Brewfile and tools/picker/main.go not modified."
+  echo "  [dry run] Brewfile and tools/picker/descriptions.tsv not modified."
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
   exit 0
@@ -1086,33 +1085,28 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 log "Brewfile updated."
 
-# ─── 10. Describe the new packages in tools/picker/main.go ──────────────────
+# ─── 10. Describe the new packages in tools/picker/descriptions.tsv ─────────
 #
 # The descriptions section 5 read from Homebrew, written by
-# picker_add_descriptions in scripts/lib.sh. A formula goes at the end of
-# the map's formulae block, which is in no order, and a cask in alphabetical
-# order among the casks. gofmt runs on the new file before it replaces main.go,
-# so a file gofmt cannot parse never lands, and the columns are realigned as
-# the prune realigns them. The Brewfile is written by now, so a failure names
-# what is left to describe and goes on, as the prune does.
+# picker_add_descriptions in scripts/lib.sh, each in name order among the
+# table's lines. The Brewfile is written by now, so a failure names what is
+# left to describe and goes on, as the prune does.
 
 if (( ${#describe_pkgs[@]} > 0 )); then
   TEMP_DESCS=$(mktemp "${TMPDIR:-/tmp}/mrk-descs.XXXXXX")
   for pkg in "${describe_pkgs[@]}"; do
-    kind=cask
-    [[ -n "${formula_section_map[$pkg]+x}" ]] && kind=formula
-    printf '%s\x1f%s\x1f%s\n' "$kind" "$pkg" "${pkg_desc[$pkg]}" >> "$TEMP_DESCS"
+    printf '%s\t%s\n' "$pkg" "${pkg_desc[$pkg]}" >> "$TEMP_DESCS"
   done
-  if picker_add_descriptions "$PICKER_GO" "$TEMP_DESCS"; then
+  if picker_add_descriptions "$DESC_TABLE" "$TEMP_DESCS"; then
     PICKER_CHANGED=1
-    log "Described ${#describe_pkgs[@]} package(s) in tools/picker/main.go: ${describe_pkgs[*]}"
+    log "Described ${#describe_pkgs[@]} package(s) in tools/picker/descriptions.tsv: ${describe_pkgs[*]}"
   else
-    warn "Describe these in tools/picker/main.go by hand, or check-picker-desc will fail: ${describe_pkgs[*]}"
+    warn "Describe these in tools/picker/descriptions.tsv by hand, or check-picker-desc will fail: ${describe_pkgs[*]}"
   fi
 fi
 if (( ${#undescribable[@]} > 0 )); then
   warn "Homebrew has no description for: ${undescribable[*]}"
-  warn "Write one in tools/picker/main.go, or check-picker-desc will fail."
+  warn "Write one in tools/picker/descriptions.tsv, or check-picker-desc will fail."
 fi
 
 fi  # end new-package add flow (prune-only skips sections 4–10)
