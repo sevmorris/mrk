@@ -195,6 +195,18 @@ sync -c               # Commit the Brewfile and the description table after sync
 sync -p               # Delete the entries for the packages you uninstalled
 ```
 
+A program with no terminal, such as Barkeep, makes the same decisions with options, one package in each run. Each option takes only a package that `sync --check` shows, and refuses every other package:
+
+```bash
+sync --check --details                        # Show the candidates, with each cask's section and each description
+sync --add NAME --section "Repo essentials"   # Add one formula to that section
+sync --add NAME                               # Add one cask, filed by the category of its app
+sync --ignore NAME                            # Add one name to ~/.mrk/sync-ignore
+sync --prune NAME                             # Delete the entry of one package that you uninstalled
+```
+
+A formula needs `--section`, because sync does not guess the section of a formula. [BIN-1 §2.8](https://sevmorris.github.io/mrk/bin/mrk-usage.html#sync) lists the options and what each one refuses.
+
 **How sync works**
 
 1. sync reads the Brewfile and builds the list of tracked packages.
@@ -227,7 +239,9 @@ If `brew list` fails, sync stops. An empty package list would make `-p` mark eve
 
 When `-p` deletes a Brewfile entry, sync also deletes the package's description from `tools/picker/descriptions.tsv`, so `check-picker-desc` still passes. A formula and a cask with the same name share one description, and sync keeps it while either one is still in the Brewfile. With `-c`, sync commits both files together.
 
-**Barkeep and hand edits.** Barkeep adds and removes Brewfile lines — Add to Brewfile, Adopt, Remove from Brewfile, and from Barkeep 1.13.0 Uninstall and Remove from Brewfile — and writes no picker description, and neither does an edit by hand. `mrk-push` and `pushall` settle that before they commit: they run `check-picker-desc`, and when it fails they run `check-picker-desc --fix`, which writes Homebrew's description for each package that has none, in the words and places sync would use, and deletes each description no Brewfile entry uses. It never changes a description that is already there. This also catches a Barkeep edit you committed with a plain `git commit`. When Homebrew has no description for a package, the commit goes ahead with a warning that names it, and you write that one yourself. To do it before you push, run:
+**Barkeep in mrk mode.** From Barkeep 1.15.0, Barkeep uses sync when the Brewfile it opens is in an mrk checkout. Its Untracked list is the output of `sync --check --details`, so it drops the names in `~/.mrk/sync-ignore`. Add to Brewfile and Adopt run `sync --add`, Ignore runs `sync --ignore`, and Remove on a package that is not installed runs `sync --prune`. So the entry, its section and its description are the ones that sync writes. After each other edit to the Brewfile, Barkeep runs `check-picker-desc --fix`. Barkeep does not commit. Commit `~/mrk` with `mrk-push` or `pushall`, which run the secret scan and the commit gates.
+
+**Barkeep and hand edits.** Outside mrk mode, and in Barkeep 1.14.0 and earlier, Barkeep adds and deletes Brewfile lines — Add to Brewfile, Adopt, Remove from Brewfile, and from Barkeep 1.13.0 Uninstall and Remove from Brewfile — and writes no picker description, and neither does an edit by hand. `mrk-push` and `pushall` settle that before they commit: they run `check-picker-desc`, and when it fails they run `check-picker-desc --fix`, which writes Homebrew's description for each package that has none, in the words and places sync would use, and deletes each description no Brewfile entry uses. It never changes a description that is already there. This also catches a Barkeep edit you committed with a plain `git commit`. When Homebrew has no description for a package, the commit goes ahead with a warning that names it, and you write that one yourself. To do it before you push, run:
 
 ```bash
 check-picker-desc --fix
