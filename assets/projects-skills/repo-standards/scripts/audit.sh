@@ -138,7 +138,7 @@ exempt() { # repo standard -> prints the reason if exempt
 # Each prints: yes | -- | n/a, then a tab and a note. -- always carries the note
 # that says what to do.
 
-STANDARDS=(branch-rules push-protect vuln-alerts no-binaries nojekyll pages-https homepage deploys licence readme tests-in-ci ci-matrix ci-current)
+STANDARDS=(branch-rules auto-delete push-protect vuln-alerts no-binaries nojekyll pages-https homepage deploys licence readme tests-in-ci ci-matrix ci-current)
 
 audit_repo() { # name visibility default_branch -> one TSV line per standard
   local r="$1" vis="$2" def="$3" j tree
@@ -161,6 +161,11 @@ audit_repo() { # name visibility default_branch -> one TSV line per standard
     if [[ $rules == *non_fast_forward* && $rules == *deletion* ]]; then out branch-rules yes
     else out branch-rules -- "add the no-force-push, no-deletion ruleset on $def"; fi
   fi
+
+  # auto-delete: GitHub deletes a pull request's branch when the PR merges. Every
+  # plan has it, private repositories included.
+  if [[ $(jq -r '.delete_branch_on_merge' <<<"$j") == true ]]; then out auto-delete yes
+  else out auto-delete -- "turn on: gh repo edit $OWNER/$r --delete-branch-on-merge"; fi
 
   # push-protect
   if [[ $vis != public ]]; then out push-protect n/a "private: needs GitHub Advanced Security"
