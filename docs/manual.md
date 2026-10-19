@@ -381,9 +381,11 @@ sync-login-items only adds to the file. It keeps your comments, your blank lines
 
 > **Note:** sync-login-items drops the ignored names from the new items only. A name in the ignore list does not delete an item that `config/login-items.txt` already tracks. If an app is both tracked and in the ignore list, `post-install` still adds the app at install time. sync-login-items shows these apps under "Ignored, but still tracked", and it offers to delete them from `config/login-items.txt`.
 
-**The list file (`config/login-items.txt`)** holds the full path of each tracked app, one on each line. The path ends in `.app`. A line that starts with `#` is a comment. The paths are in byte order, so sync-login-items adds a new path before the first path that sorts after it. If you edit the file yourself, also change the sentence in "Phase 3" that lists the apps. `make check` fails until the two agree.
+**The list file (`config/login-items.txt`)** holds the full path of each tracked app, one on each line. The path ends in `.app`. A line that starts with `#` is a comment. The paths are in byte order, so sync-login-items adds a new path before the first path that sorts after it. If you edit the file yourself, run sync-login-items. `make check` fails until the file and the sentence in "Phase 3" agree.
 
-**A program can make the same decisions.** `sync-login-items --check` shows what a run would offer, one line for each item, with no prompt. `--add`, `--ignore` and `--remove` each make one decision for one item, with no prompt. Each decision refuses an item that `--check` does not show. [BIN-1](bin/mrk-usage.html#sync-login-items) gives the details.
+**The sentence in "Phase 3"** names each app in `config/login-items.txt`. On each run, sync-login-items compares the sentence with the file. If they do not agree, sync-login-items changes the sentence. This also applies to a run that does not change the file, for example after you edit the file yourself. With `-n`, sync-login-items shows the change and writes nothing. With `-c`, a run that changes only the sentence commits `docs/manual.md` alone.
+
+**A program can make the same decisions.** `sync-login-items --check` shows what a run would offer, one line for each item, with no prompt. It writes nothing. `--add`, `--ignore` and `--remove` each make one decision for one item, with no prompt. Each decision refuses an item that `--check` does not show. [BIN-1](bin/mrk-usage.html#sync-login-items) gives the details.
 
 ## How to check the day's work and the installation
 
