@@ -959,6 +959,7 @@ OSASCRIPT
 add_login_item "/Applications/AlDente.app"          || failed=$(( failed + 1 ))
 add_login_item "/Applications/BetterSnapTool.app"   || failed=$(( failed + 1 ))
 add_login_item "/Applications/Chrono Plus.app"      || failed=$(( failed + 1 ))
+add_login_item "/Applications/Dipstick.app"         || failed=$(( failed + 1 ))
 add_login_item "/Applications/Dropbox.app"          || failed=$(( failed + 1 ))
 add_login_item "/Applications/Raycast.app"          || failed=$(( failed + 1 ))
 add_login_item "/Applications/Thaw.app"             || failed=$(( failed + 1 ))
