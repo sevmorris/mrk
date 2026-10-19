@@ -956,13 +956,29 @@ OSASCRIPT
   log "Added login item: $app_name"
 }
 
-add_login_item "/Applications/AlDente.app"          || failed=$(( failed + 1 ))
-add_login_item "/Applications/BetterSnapTool.app"   || failed=$(( failed + 1 ))
-add_login_item "/Applications/Chrono Plus.app"      || failed=$(( failed + 1 ))
-add_login_item "/Applications/Dipstick.app"         || failed=$(( failed + 1 ))
-add_login_item "/Applications/Dropbox.app"          || failed=$(( failed + 1 ))
-add_login_item "/Applications/Raycast.app"          || failed=$(( failed + 1 ))
-add_login_item "/Applications/Thaw.app"             || failed=$(( failed + 1 ))
+# The apps that open at login: config/login-items.txt, one path a line, which
+# sync-login-items keeps in step with this Mac's login items. Read whole before
+# the first osascript, so nothing in add_login_item can read the list as its
+# stdin.
+LOGIN_ITEMS_FILE="$REPO_ROOT/config/login-items.txt"
+if [[ ! -r "$LOGIN_ITEMS_FILE" ]]; then
+  warn "Cannot read $LOGIN_ITEMS_FILE, so no login item was added"
+  failed=$(( failed + 1 ))
+else
+  login_items=()
+  while IFS= read -r app_path; do
+    login_items+=("$app_path")
+  done < <(mrk_config_entries "$LOGIN_ITEMS_FILE")
+  for app_path in ${login_items[@]+"${login_items[@]}"}; do
+    case "$app_path" in
+      /*.app) add_login_item "$app_path" || failed=$(( failed + 1 )) ;;
+      *)
+        warn "Not an app path, in config/login-items.txt: $app_path"
+        failed=$(( failed + 1 ))
+        ;;
+    esac
+  done
+fi
 
 # The apps that add themselves to the login items, and must not open at login:
 # MRK_NOT_AT_LOGIN in lib.sh. Google Drive adds itself at every launch while

@@ -210,7 +210,7 @@ mrk-menu: ## Build the mrk-menu TUI launcher binary
 sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to commit, ARGS=-n for dry run)
 	@"$(SCRIPTS)/sync" $(ARGS)
 
-sync-login-items: ## Sync system login items into post-install and docs  (pass ARGS=-c to commit, ARGS=-n for dry run)
+sync-login-items: ## Sync system login items into config/login-items.txt and docs  (pass ARGS=-c to commit, ARGS=-n for dry run)
 	@"$(SCRIPTS)/sync-login-items" $(ARGS)
 
 snapshot-prefs: ## Export app preferences to ~/.mrk/preferences/ and push to mrk-prefs  (ARGS=-n for dry run)
@@ -228,5 +228,5 @@ restore-keys: ## Restore ~/.ssh, ~/.gnupg, signing identities and project creden
 restore-repos: ## Clone the repositories recorded in the mrk-prefs manifest  (ARGS=-n for dry run)
 	@"$(SCRIPTS)/restore-repos" $(ARGS)
 
-dock: ## Populate the Dock with preferred apps (requires dockutil)
-	@"$(SCRIPTS)/dock-setup"
+dock: ## Populate the Dock with the apps in config/dock.txt (requires dockutil; ARGS=-n for dry run)
+	@"$(SCRIPTS)/dock-setup" $(ARGS)

@@ -219,7 +219,9 @@ Every deliberate departure from the ruleset.
 
 6. **`prune` survives as a literal.** The flags `--prune` / `-p`, the `bf` "Prune mode"
    label, and the git command `git fetch --prune` keep the word. The chosen verb for
-   the act itself is "delete" everywhere in prose.
+   the act itself is "delete" everywhere in prose. `remove` survives the same way, in
+   the flag `--remove` of `sync-login-items` and in the action `remove` that its
+   `--check` shows.
 
 7. **`snapshot` was both a Technical Name and an action in one place.** The command was
    named `snapshot`, and where the act was described the prose said "exports". The command

@@ -32,7 +32,7 @@ var categories = []category{
 		name: "Daily",
 		items: []item{
 			{"sync -c", "add new Homebrew packages to the Brewfile, and commit", cmdBin, "sync", []string{"-c"}, false},
-			{"sync-login-items -c", "track new login items in post-install, and commit", cmdBin, "sync-login-items", []string{"-c"}, false},
+			{"sync-login-items -c", "track new login items in config/login-items.txt, and commit", cmdBin, "sync-login-items", []string{"-c"}, false},
 			{"mrk-push", "commit and push ~/mrk (asks for the message)", cmdBin, "mrk-push", nil, false},
 		},
 	},

@@ -196,9 +196,10 @@ log "setup safety"
 log "undo files"
 "$REPO_ROOT/tests/undo-files.sh"
 
-# make dock, with dockutil stubbed: every app in DOCK_APPS added in order, the
-# folder only when it exists, a missing app skipped. Until 2026-09-28 the list
-# was not the Dock in use, and make dock would have replaced it. Audit 15, T-14.
+# make dock, with dockutil stubbed: every app in config/dock.txt added in
+# order, the folder only when it exists, a missing app skipped, and a list it
+# cannot use refused before the Dock is touched. Until 2026-09-28 the list was
+# not the Dock in use, and make dock would have replaced it. Audit 15, T-14.
 log "dock setup"
 "$REPO_ROOT/tests/dock-setup.sh"
 

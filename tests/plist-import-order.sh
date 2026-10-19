@@ -26,7 +26,9 @@
 # not on the PATH make all started with. Until 2026-09-27 post-install logged
 # topgrade, pyenv and pinentry-mac as not installed there, and skipped them
 # (audit 19, W-31). It lives here because this is the one harness that runs
-# post-install whole. Homebrew is a scratch prefix named by MRK_BREW, holding
+# post-install whole. So does the check that the fresh Mac's login items are
+# the installed apps of config/login-items.txt, which post-install reads under
+# bash 3.2. Homebrew is a scratch prefix named by MRK_BREW, holding
 # stubs, and the copy's lib.sh is pointed away from this Mac's Homebrew too, so
 # no real pyenv or topgrade can reach PATH. Google Drive's AutoStartOnLogin,
 # which post-install turns off, is checked here for the same reason.
@@ -67,11 +69,12 @@ trap 'rm -rf "$W"' EXIT
 R="$W/repo"
 APPS="$W/Applications"
 STUBS="$W/stubs"
-mkdir -p "$R/scripts" "$R/assets/preferences" "$R/assets/browsers" "$APPS" "$STUBS"
+mkdir -p "$R/scripts" "$R/config" "$R/assets/preferences" "$R/assets/browsers" "$APPS" "$STUBS"
 
 # ── The repository copy ──────────────────────────────────────────────────────
 
 cp -p "$REPO_ROOT/scripts/post-install" "$REPO_ROOT/scripts/lib.sh" "$R/scripts/"
+cp -p "$REPO_ROOT"/config/*.txt "$R/config/"
 cp -p "$REPO_ROOT"/assets/preferences/*.sh "$R/assets/preferences/"
 cp -p "$REPO_ROOT"/assets/browsers/*.sh "$R/assets/browsers/"
 cp -p "$REPO_ROOT/assets/topgrade.toml" "$R/assets/"
@@ -81,10 +84,10 @@ cat > "$R/scripts/install-apps" <<'EOF'
 install_companion_apps() { COMPANION_FAILED=0; }
 EOF
 
-for f in "$R/scripts/post-install" "$R"/assets/*/*.sh; do
+for f in "$R/scripts/post-install" "$R"/config/*.txt "$R"/assets/*/*.sh; do
   sed "s#/Applications/#$APPS/#g" "$f" > "$W/rewrite" && cat "$W/rewrite" > "$f"
 done
-if grep -n '/Applications/' "$R/scripts/post-install" "$R"/assets/*/*.sh | grep -vF "$APPS/"; then
+if grep -n '/Applications/' "$R/scripts/post-install" "$R"/config/*.txt "$R"/assets/*/*.sh | grep -vF "$APPS/"; then
   fail "a real /Applications path survived the rewrite — refusing to run"
   exit 1
 fi
@@ -223,6 +226,28 @@ if run_pi "$F"; then
   pass "fresh Mac: post-install exits 0"
 else
   fail "fresh Mac: post-install exited non-zero"; show_out "$F"
+fi
+
+# The login items: one `osascript - PATH` for each app config/login-items.txt
+# lists that is installed, in the file's order, and a skip for the rest. Some
+# of them are among the plists above, and some are not, so both branches run.
+want_li="" skipped_li=0 n_li=0
+while IFS= read -r p; do
+  n_li=$((n_li + 1))
+  if [[ -d "$p" ]]; then
+    want_li+="osascript - $p"$'\n'
+  else
+    name="${p##*/}"
+    grep -qF "Skipping login item (not installed): ${name%.app}" "$F/out" && skipped_li=$((skipped_li + 1))
+  fi
+done < <(mrk_config_entries "$R/config/login-items.txt")
+got_li="$(grep '^osascript - ' "$F/calls.log")"$'\n'
+n_want_li=$(printf '%s' "$want_li" | grep -c .)
+if [[ "$got_li" == "$want_li" ]] && (( n_want_li > 0 && n_want_li + skipped_li == n_li )); then
+  pass "fresh Mac: the $n_want_li installed apps of config/login-items.txt added as login items, in order; the other $skipped_li skipped"
+else
+  fail "fresh Mac: the login items differ from config/login-items.txt"
+  diff <(printf '%s' "$want_li") <(printf '%s' "$got_li") | sed 's/^/      /' >&2
 fi
 
 not_imported=""

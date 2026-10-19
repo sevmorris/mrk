@@ -58,14 +58,14 @@ Run `make all` to execute all three phases at once. On a fresh machine, run them
 | `make trackpad` | Apply defaults including trackpad gestures |
 | `make harden` | Security settings (Touch ID sudo, sleep password, firewall, Mac Analytics, Handoff) plus the quarantine-prompt opt-out |
 | `make trim-services` | Disable background launchd agents this Mac does not need (`ARGS=-n` to preview) |
-| `make dock` | Populate the Dock with preferred apps |
+| `make dock` | Populate the Dock from `config/dock.txt` (`ARGS=-n` to preview) |
 
 **Maintenance**
 
 | Target | Description |
 |--------|-------------|
 | `make sync` | Snapshot installed Homebrew packages into the Brewfile. Add names to `~/.mrk/sync-ignore` (one per line) to permanently skip them. |
-| `make sync-login-items` | Sync system login items into post-install and docs |
+| `make sync-login-items` | Sync system login items into `config/login-items.txt` and docs |
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
 | `make update` | Update via topgrade (or brew) |
@@ -99,14 +99,14 @@ data in them is not.
 |---|---|---|
 | Preferences repo | `PREFS_REPO` in `scripts/snapshot-prefs` | Points at `sevmorris/mrk-prefs`, which is private. Nothing else works until you repoint it. |
 | Packages | `Brewfile` | My formulae and casks, with `##` section headers the sync tooling relies on. |
-| Login items | `add_login_item` block in `scripts/post-install` | The apps that open at login. The [manual](docs/manual.md#phase-3--post-install-make-post-install) lists them, and `make sync-login-items` keeps that list and the block in step with System Settings. |
+| Login items | `config/login-items.txt` | The apps that open at login, one path a line. The [manual](docs/manual.md#phase-3--post-install-make-post-install) lists them, and `make sync-login-items` keeps that list and the file in step with System Settings. |
 | Snapshotted apps | `scripts/snapshot-prefs` | The 17 plist domains and the Application Support trees I care about. |
-| Dock | `DOCK_APPS` and `DOCK_FOLDER` in `scripts/dock-setup` | Wipes the Dock before it rebuilds it. |
+| Dock | `config/dock.txt` | The Dock, left to right, one path a line. `make dock` wipes the Dock before it rebuilds it. |
 | macOS defaults | `scripts/defaults.sh` | 133 keys, each one a preference of mine. Documented in the [defaults reference](https://sevmorris.github.io/mrk/defaults/). |
 | My own apps | `COMPANION_APPS` in `scripts/install-apps` | Installs eight apps of mine — Barkeep, ClipHack, Dipstick, DoublEnder, FilmStrip, KeyVault, Magic Backup Machine and WaxOn/WaxOff — and refuses any app not signed by `GITHUB_APP_TEAM_ID`, my Developer ID team. |
 | Dotfiles | `dotfiles/` | My shell, aliases and git config. |
 
-`make setup-dry`, `make sync ARGS=-n` and `make snapshot-keys ARGS=-n` all preview without
+`make setup-dry`, `make sync ARGS=-n`, `make dock ARGS=-n` and `make snapshot-keys ARGS=-n` all preview without
 writing, which is the cheapest way to see what a phase would do before it does it.
 
 ## Philosophy

@@ -1,0 +1,17 @@
+# mrk login items
+#
+# The apps that open at login. post-install adds each one to the login items
+# when the app is installed, and sync-login-items keeps this file in step
+# with the login items of this Mac.
+#
+# One app on each line: its full path, which ends in .app. A line that starts
+# with # is a comment, and an empty line is ignored. Keep the paths in byte
+# order (LC_ALL=C sort): sync-login-items adds a path before the first path
+# that sorts after it, and deletes a path by its exact line.
+/Applications/AlDente.app
+/Applications/BetterSnapTool.app
+/Applications/Chrono Plus.app
+/Applications/Dipstick.app
+/Applications/Dropbox.app
+/Applications/Raycast.app
+/Applications/Thaw.app

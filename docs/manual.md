@@ -28,9 +28,9 @@ Keep both repositories current. You can then restore the full setup on a new mac
 > 1. Set `PREFS_REPO` in `scripts/snapshot-prefs` to your own private preferences repository. It points at `sevmorris/mrk-prefs`, which you cannot read.
 > 2. Replace the dotfiles in `dotfiles/` with your own.
 > 3. Edit the `Brewfile`. Keep the `##` section headers, because the sync tools read them.
-> 4. Edit the `add_login_item` list in `scripts/post-install`. It adds six applications. Also edit `MRK_NOT_AT_LOGIN` in `scripts/lib.sh`. It names the two apps that mrk deletes from the login items.
+> 4. Edit `config/login-items.txt`. It lists the apps that open at login, one path on each line. Also edit `MRK_NOT_AT_LOGIN` in `scripts/lib.sh`. It names the two apps that mrk deletes from the login items.
 > 5. Edit the domain list in `scripts/snapshot-prefs`. It exports 17 named plist domains, plus every `io.github.sevmorris.*` domain but KeyVault's as a group.
-> 6. Edit `DOCK_APPS` and `DOCK_FOLDER` in `scripts/dock-setup`. The script clears the Dock before it adds the applications.
+> 6. Edit `config/dock.txt`. It lists the items of the Dock from left to right, one path on each line. `dock-setup` deletes every item from the Dock before it adds the items in the list.
 > 7. Read `scripts/defaults.sh` before you run it. It writes 133 preference keys, and each key is a personal choice.
 > 8. Edit `COMPANION_APPS` in `scripts/install-apps` — it is my own applications, and a fork wants none of them. Empty the list, or replace it with yours and set `GITHUB_APP_TEAM_ID` to your Developer ID team: the installer refuses any app not signed by that team.
 >
@@ -139,6 +139,7 @@ It can run in the same shell as Phase 2, whether that is `make all`'s or one ope
 - **Claude Code guidance for `~/Projects`:** Links `assets/CLAUDE.md` to `~/Projects/CLAUDE.md` and `assets/projects-skills/` to `~/Projects/.claude/skills`. Neither lives inside a repository on its own, so both are tracked here and linked into place like a dotfile. A file already there and not a symlink is moved aside with a `.bak` suffix rather than overwritten.
 - **Claude Code, every session — the skills:** Links each skill in `assets/projects-skills/` into `~/.claude/skills`, for example `~/.claude/skills/release-standards`. Claude Code reads `~/.claude/skills` in every session. It does not read `.claude/skills` in a parent folder, so the `~/Projects` link alone does not load the skills in a session that starts in a repository. Phase 3 removes a link in `~/.claude/skills` that points to a skill that is no longer in `assets/projects-skills/`. It also adds the SessionStart hook of the dependency-updates skill to `~/.claude/settings.json`. At the start of a session the hook reports any vendored binary (yt-dlp, FFmpeg, LAME) that is behind upstream and any open Dependabot alert, from a cache it refreshes in the background every 12 hours. The hook is added once; nothing else in `settings.json` is touched, and a file that is not valid JSON is reported as a failed step rather than rewritten.
 - **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dipstick, Dropbox, Raycast, Thaw
+- **The list of login items:** `config/login-items.txt` holds the path of each app, one on each line. Phase 3 adds the login item of an app only when the app is installed. `sync-login-items` keeps the file and the list above in step with System Settings.
 - **Apps that must not start at login:** Phase 3 deletes the login items of Google Drive and NordVPN. `MRK_NOT_AT_LOGIN` in `scripts/lib.sh` names them. Each of these apps adds itself to the login items. NordVPN's installer starts the app in Phase 2, and the app adds itself. Google Drive adds itself each time it starts while its `AutoStartOnLogin` setting is on, which is its default. When Google Drive is installed, Phase 3 turns that setting off.
 
 > **Note:** Phase 3 continues when a step fails. It counts the failed steps and reports the total at the end.
@@ -309,13 +310,21 @@ pull-prefs
 
 > **Caution:** `dock-setup` deletes every item from the Dock before it adds the new items, and it does not ask you to confirm. It does save the layout first: it exports `com.apple.dock` to `~/.mrk/plist-backups/com.apple.dock.plist` and appends a `defaults import` line to `~/.mrk/defaults-rollback.sh`. The snapshot is written once and never refreshed, so a second `make dock` cannot overwrite the original with the layout it just applied.
 
-**`dock-setup`** fills the Dock from a fixed app list, then adds the `~/Work Apps` folder when it exists. The list is the Dock this Mac had on 2026-09-28.
+**`dock-setup`** fills the Dock from the list in `config/dock.txt`. The list is the Dock this Mac had on 2026-09-28. Its last item is the `~/Work Apps` directory, which dock-setup adds only when it exists.
 
 ```bash
-make dock
+make dock                 # Replace the Dock with the list
+make dock ARGS=-n         # Show the Dock it would make, but change nothing
 ```
 
-To change the list or the order, edit `scripts/dock-setup`. The script needs `dockutil`, and it installs dockutil when dockutil is absent.
+To change the items or their order, edit `config/dock.txt`:
+
+1. Put one item on each line, from left to right. Finder is always first, and needs no line.
+2. Write the full path of the item. For an item in your home directory, you can start the path with `~/`.
+3. A path that ends in `.app` is an app. Any other path is a directory. dock-setup adds a directory next to the Trash, as a stack that shows a list sorted by name.
+4. A line that starts with `#` is a comment.
+
+dock-setup reads the whole list before it changes the Dock. If the file is absent, has no app, or has a line that is not a path, dock-setup stops, and the Dock does not change. dock-setup needs `dockutil`, and it installs dockutil when dockutil is absent.
 
 ## How to keep a macOS setting
 
@@ -334,7 +343,7 @@ defaults-watch changes nothing. It lists window positions, timestamps and counte
 
 ## How to keep the login items current
 
-**`sync-login-items`** compares the system login items against `post-install`, and then updates the repository.
+**`sync-login-items`** compares the system login items against `config/login-items.txt`, and then updates the repository.
 
 ```bash
 sync-login-items          # Select the items to add or delete
@@ -345,12 +354,12 @@ sync-login-items -c       # Commit the changes after the update
 **How sync-login-items works**
 
 1. sync-login-items reads the system login items with AppleScript.
-2. sync-login-items reads the tracked `add_login_item` lines in `scripts/post-install`.
+2. sync-login-items reads the tracked apps in `config/login-items.txt`.
 3. sync-login-items drops the new items that `~/.mrk/login-items-ignore` lists. It also drops Google Drive and NordVPN.
 4. sync-login-items shows the differences in both directions.
 5. sync-login-items starts a `gum` selector, so you can choose the items.
 6. sync-login-items offers to add the new items you declined to `~/.mrk/login-items-ignore`.
-7. sync-login-items updates `scripts/post-install` and `docs/manual.md`.
+7. sync-login-items updates `config/login-items.txt` and `docs/manual.md`.
 
 > **Caution:** If System Events returns no login items, or if the AppleScript fails, sync-login-items stops and shows an error. It does not continue, because an empty list looks the same as a complete list of deletions, and sync-login-items would then offer to delete every tracked item. Give Automation access in System Settings → Privacy & Security → Automation, and then run the command again.
 
@@ -358,19 +367,23 @@ sync-login-items -c       # Commit the changes after the update
 
 **The ignore list (`~/.mrk/login-items-ignore`)** holds one login-item name per line. Use the app name, and do not add the `.app` suffix. A `#` character starts a comment.
 
-sync-login-items drops these names on every run. An app that you keep as a login item, but do not want in `post-install`, stops appearing.
+sync-login-items drops these names on every run. An app that you keep as a login item, but do not want in `config/login-items.txt`, stops appearing.
 
 **How the file is created.** sync-login-items creates the file when you accept the offer described below. You can also write the file yourself. To start an empty one, run `touch ~/.mrk/login-items-ignore`.
 
 **The offer to ignore a declined item.** sync-login-items shows the new items, and you select the ones to add. It then offers the items you declined, and you select the ones to ignore. sync-login-items adds each name you select to `~/.mrk/login-items-ignore`, and shows the name it added.
 
-The offer changes only the ignore list. It does not add, delete or track anything in `scripts/post-install`. If you decline the offer, sync-login-items writes nothing, and it offers the same items again on the next run. With `--dry-run`, sync-login-items shows the names but writes no file.
+The offer changes only the ignore list. It does not add, delete or track anything in `config/login-items.txt`. If you decline the offer, sync-login-items writes nothing, and it offers the same items again on the next run. With `--dry-run`, sync-login-items shows the names but writes no file.
 
 sync-login-items only adds to the file. It keeps your comments, your blank lines and your order, and it adds each new name at the end.
 
 > **Note:** Some apps add themselves back to the login items after an update. sync-login-items then offers the app again. A later sync can track it again. To stop this, accept the offer to ignore the app, or add the name to `~/.mrk/login-items-ignore` yourself.
 
-> **Note:** sync-login-items drops the ignored names from the new items only. A name in the ignore list does not delete an item that `post-install` already tracks. If an app is both tracked and in the ignore list, `post-install` still adds the app at install time. sync-login-items shows these apps under "Ignored, but still tracked", and it offers to delete them from `scripts/post-install`.
+> **Note:** sync-login-items drops the ignored names from the new items only. A name in the ignore list does not delete an item that `config/login-items.txt` already tracks. If an app is both tracked and in the ignore list, `post-install` still adds the app at install time. sync-login-items shows these apps under "Ignored, but still tracked", and it offers to delete them from `config/login-items.txt`.
+
+**The list file (`config/login-items.txt`)** holds the full path of each tracked app, one on each line. The path ends in `.app`. A line that starts with `#` is a comment. The paths are in byte order, so sync-login-items adds a new path before the first path that sorts after it. If you edit the file yourself, also change the sentence in "Phase 3" that lists the apps. `make check` fails until the two agree.
+
+**A program can make the same decisions.** `sync-login-items --check` shows what a run would offer, one line for each item, with no prompt. `--add`, `--ignore` and `--remove` each make one decision for one item, with no prompt. Each decision refuses an item that `--check` does not show. [BIN-1](bin/mrk-usage.html#sync-login-items) gives the details.
 
 ## How to check the day's work and the installation
 
@@ -438,7 +451,7 @@ A KeyVault backup goes out as one passphrase-encrypted OpenPGP archive. Any `gpg
 
 **[Dipstick](https://github.com/sevmorris/Dipstick)** shows the `mrk-status` dashboard in the menu bar. It runs `mrk-status --json` and shows the same four panels. Its icon shows the worst result. Each fix is a button that shows its command. The button runs the command in a terminal, in `~/mrk`, as the `f` key does in `mrk-status`. Dipstick does no checks of its own, so the menu bar and the dashboard always agree.
 
-Phase 3 installs Dipstick, but it does not add Dipstick to the login items. To start Dipstick at login, add it in System Settings › General › Login Items. Then run `sync-login-items -c`, so that the next Mac adds it too.
+Phase 3 installs Dipstick, and `config/login-items.txt` lists it, so Phase 3 adds Dipstick to the login items too.
 
 ## Standalone Utilities
 
@@ -530,7 +543,7 @@ This command exports the 17 app preference plists, the Application Support files
 make sync-login-items ARGS=-c
 ```
 
-Login items live in the system's LaunchServices database, and `scripts/post-install` knows only the ones captured the last time this ran. Anything added since exists on this machine and nowhere else, and Phase 3 on the new machine would restore the stale list.
+Login items live in the system's LaunchServices database, and `config/login-items.txt` knows only the ones captured the last time this ran. Anything added since exists on this machine and nowhere else, and Phase 3 on the new machine would restore the stale list.
 
 **6. Push any pending mrk changes**
 
@@ -826,14 +839,14 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | `make defaults` | Apply the macOS defaults only |
 | `make trackpad` | Apply the macOS defaults and the trackpad settings |
 | `make harden` | Apply the optional macOS security settings |
-| `make dock` | Replace the Dock contents with the preferred apps |
+| `make dock` | Replace the Dock contents with the items in `config/dock.txt`. `ARGS=-n` shows the Dock it would make, and changes nothing |
 
 **Maintenance**
 
 | Command | Description |
 |---|---|
 | `make sync` | Sync the installed packages into the Brewfile |
-| `make sync-login-items` | Sync the system login items into post-install and the manual |
+| `make sync-login-items` | Sync the system login items into `config/login-items.txt` and the manual |
 | `make update` | Upgrade every package, with topgrade or with brew upgrade. topgrade runs every step even when one fails. After topgrade, it deletes the login items of Google Drive and NordVPN, which a cask upgrade can add again. The run ends by saying which failed and that the others ran |
 | `make updates` | Install the macOS updates for the installed version, with `macos-updates`. It never installs a major upgrade: it names each one and leaves it alone. `ARGS=-n` lists the updates and installs nothing |
 | `make uninstall` | Delete the symlinks, and offer the rollbacks |
