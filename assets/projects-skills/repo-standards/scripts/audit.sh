@@ -3,10 +3,11 @@
 #
 # release-standards covers the release machinery inside each app. This covers
 # everything around it, for every repository on the account: branch rules,
-# secret push protection, vulnerability alerts, Pages, licence, README, tests in
-# CI, the runners CI tests on, current CI actions, and no committed executables. It reads the published
-# state from GitHub, so a repository with no clone here is still audited. It
-# changes nothing.
+# deleting a branch when its pull request merges, secret push protection,
+# vulnerability alerts, Pages, licence, README, tests in CI, the runners CI
+# tests on, current CI actions, and no committed executables. It reads the
+# published state from GitHub, so a repository with no clone here is still
+# audited. It changes nothing.
 #
 # Usage: audit.sh [-v] [--owner NAME] [REPO...]
 #   REPO       audit only these repositories (default: every non-archived one)
