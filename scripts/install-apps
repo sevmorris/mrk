@@ -58,6 +58,7 @@ GITHUB_APP_TEAM_ID="T9RLNAXPWU"
 COMPANION_APPS=(
   "Barkeep.app|sevmorris/Barkeep|Barkeep"
   "ClipHack.app|sevmorris/ClipHack-releases|ClipHack"
+  "Dipstick.app|sevmorris/Dipstick|Dipstick"
   "DoublEnder.app|sevmorris/DoublEnder|DoublEnder"
   "FilmStrip.app|sevmorris/FilmStrip|FilmStrip"
   "KeyVault.app|sevmorris/KeyVault|KeyVault"
