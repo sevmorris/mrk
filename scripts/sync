@@ -31,13 +31,58 @@ DRY_RUN=0
 COMMIT=0
 PRUNE=0
 CHECK=0
+DETAILS=0
+
+# One decision made on the command line in place of the picker and the gum
+# prompts, for a program with no terminal to show them on (Barkeep). DECIDE is
+# add, ignore or prune; DECIDE_KIND is formula or cask, from --formula or
+# --cask, or found among the candidates when neither is given. Each decision
+# fills the variables the picker would have filled, and the same code as an
+# interactive run then writes the Brewfile, the description table and the
+# ignore list, so the two cannot place, describe or refuse a package
+# differently.
+DECIDE=""
+DECIDE_NAME=""
+DECIDE_KIND=""
+DECIDE_SECTION=""
+SECTION_GIVEN=0
+
+usage_error() { err "$*"; info "Run sync --help for the options."; exit 2; }
+
+decide() {
+  [[ -z "$DECIDE" ]] || usage_error "Give one decision per run: --add, --ignore or --prune with a name, once."
+  DECIDE=$1
+  DECIDE_NAME=$2
+}
 
 while (("$#")); do
   case "$1" in
     --dry-run|-n) DRY_RUN=1 ;;
     --commit|-c)  COMMIT=1 ;;
-    --prune|-p)   PRUNE=1 ;;
+    --prune|-p)
+      # A name after it makes it one decision; alone it opens the selection.
+      # No package name starts with a dash, so the next option is never
+      # mistaken for one.
+      if (( $# > 1 )) && [[ "$2" != -* ]]; then
+        decide prune "$2"; shift
+      else
+        PRUNE=1
+      fi
+      ;;
+    --add|--ignore)
+      (( $# > 1 )) && [[ "$2" != -* ]] || usage_error "$1 needs a package name."
+      decide "${1#--}" "$2"; shift
+      ;;
+    --section)
+      (( $# > 1 )) && [[ "$2" != -* ]] || usage_error "--section needs a section name."
+      DECIDE_SECTION=$2; SECTION_GIVEN=1; shift
+      ;;
+    --formula|--cask)
+      [[ -z "$DECIDE_KIND" || "$DECIDE_KIND" == "${1#--}" ]] || usage_error "Give --formula or --cask, not both."
+      DECIDE_KIND=${1#--}
+      ;;
     --check)      CHECK=1 ;;
+    --details)    DETAILS=1 ;;
     -h|--help)
       cat <<'USAGE'
 mrk sync — Snapshot installed Homebrew packages into the Brewfile
@@ -51,13 +96,56 @@ Usage: scripts/sync [options]
                   Nothing else on stdout, nothing changed, no picker. Exits 0
                   when it could tell, drift or none; 1 when brew failed.
                   mrk-status reads it. Takes precedence over the other options.
+  --details       With --check: three more fields on each line, for a program
+                  that shows the drift. For an add: the section sync files a
+                  cask under (empty for a formula), why, and the description
+                  the table will hold. For a prune: the entry's section, an
+                  empty field, and its description. Asks Homebrew about each
+                  new package, so it is slower than --check alone.
+
+One decision, made without the picker or a prompt (for a program, such as
+Barkeep). Each takes one package that --check lists, and refuses any other.
+With -n it shows what it would do; with -c it commits what it changed.
+  --add NAME      Add NAME as the picker would: in name order, with Homebrew's
+                  description, and a cask filed by its app's category.
+  --section NAME  The Brewfile section for a formula --add adds, as its "## "
+                  line names it, with or without the "## ". A formula needs
+                  one; a cask takes none. A name no section has yet starts one.
+  --ignore NAME   Add NAME to ~/.mrk/sync-ignore, so sync stops offering it.
+  --prune NAME    Delete NAME's entry, which is not installed, and its
+                  description when no other entry uses it.
+  --formula, --cask
+                  Which kind NAME is. Needed only when it is both.
+Exits 0 when done, 1 when sync refuses or brew fails, 2 for a bad option.
 USAGE
       exit 0
       ;;
-    *) err "Unknown option: $1"; exit 2 ;;
+    *) usage_error "Unknown option: $1" ;;
   esac
   shift
 done
+
+(( DETAILS && ! CHECK )) && usage_error "--details works only with --check."
+if [[ -n "$DECIDE" ]]; then
+  # A package name as Homebrew spells one: also what keeps a name from
+  # breaking the Brewfile line, the table line or the ignore file.
+  [[ "$DECIDE_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9@+._/-]*$ ]] \
+    || usage_error "Not a package name: '$DECIDE_NAME'."
+  (( PRUNE )) && usage_error "--prune without a name opens the selection; it does not combine with --$DECIDE."
+fi
+(( SECTION_GIVEN )) && [[ "$DECIDE" != add ]] && usage_error "--section works only with --add."
+[[ -n "$DECIDE_KIND" && -z "$DECIDE" ]] && usage_error "--$DECIDE_KIND works only with --add, --ignore or --prune NAME."
+if (( SECTION_GIVEN )); then
+  DECIDE_SECTION="${DECIDE_SECTION#\#\# }"
+  # The names section 6 offers for a formula: no Taps, no cask section, and
+  # nothing gum input would not let you type on one line.
+  [[ -n "${DECIDE_SECTION//[[:space:]]/}" ]] || usage_error "--section needs a section name."
+  [[ "$DECIDE_SECTION" != *[[:cntrl:]]* ]] || usage_error "A section name is one line of text."
+  [[ "$DECIDE_SECTION" != \#* ]] || usage_error "Give the section as its \"## \" line names it: '## Repo essentials' or 'Repo essentials'."
+  case "$DECIDE_SECTION" in
+    Taps|Casks*) usage_error "'$DECIDE_SECTION' is not a formula section. sync files a cask by its app's category." ;;
+  esac
+fi
 
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 readonly BREWFILE="$REPO_ROOT/Brewfile"
@@ -181,12 +269,19 @@ IGNOREHEADER
 
 declare -A brewfile_formulae=()
 declare -A brewfile_casks=()
+# kind:name → the "## " section the entry is in, for --check --details.
+declare -A brewfile_section=()
 
+_current_section=""
 while IFS= read -r line || [[ -n "$line" ]]; do
-  if [[ "$line" =~ ^brew[[:space:]]\"([^\"]+)\" ]]; then
+  if [[ "$line" =~ ^##[[:space:]](.+) ]]; then
+    _current_section="${BASH_REMATCH[1]}"
+  elif [[ "$line" =~ ^brew[[:space:]]\"([^\"]+)\" ]]; then
     brewfile_formulae["${BASH_REMATCH[1]}"]=1
+    brewfile_section["formula:${BASH_REMATCH[1]}"]="$_current_section"
   elif [[ "$line" =~ ^cask[[:space:]]\"([^\"]+)\" ]]; then
     brewfile_casks["${BASH_REMATCH[1]}"]=1
+    brewfile_section["cask:${BASH_REMATCH[1]}"]="$_current_section"
   fi
 done < "$BREWFILE"
 
@@ -240,7 +335,8 @@ done <<< "$_casks_out"
 # scripts/sync-login-items refuses the identical shape for system login items
 # and cites this file as its model. It guards emptiness as well as failure;
 # this one only guarded failure.
-if (( PRUNE )) && (( ${#installed_formulae_all[@]} == 0 )) && (( ${#installed_casks[@]} == 0 )); then
+if { (( PRUNE )) || [[ "$DECIDE" == prune ]]; } \
+   && (( ${#installed_formulae_all[@]} == 0 )) && (( ${#installed_casks[@]} == 0 )); then
   err "Homebrew reports nothing installed — refusing to prune."
   info "'Nothing is installed' and 'the read returned nothing' are"
   info "indistinguishable here, and pruning on the second would offer to delete"
@@ -312,18 +408,190 @@ n_stale=$(( ${#stale_formulae_arr[@]} + ${#stale_casks_arr[@]} ))
 # two cannot disagree about what is unrecorded. Until 2026-09-30 mrk-status
 # compared the Brewfile with `brew list` itself, which knows nothing of
 # sync-ignore or of the difference between a leaf and a dependency.
+#
+# --details adds what a program needs to show a decision before it is made:
+# where sync would file each new cask and why, and the words the description
+# table will hold. Three fields more, after the three mrk-status reads, which
+# keeps them out of its way: its parser takes a line of exactly three fields.
+# They cost a `brew info` for each new package, about 0.3 s here, which is why
+# they are asked for rather than always there.
+
+# The description table as name → description, for --details and the checks.
+declare -A table_desc=()
+if [[ -f "$DESC_TABLE" ]]; then
+  while IFS=$'\t' read -r _name _desc; do
+    [[ -n "$_name" && "$_name" != \#* && -n "$_desc" ]] && table_desc["$_name"]="$_desc"
+  done < "$DESC_TABLE"
+fi
+
+# check_line ACTION KIND NAME [SECTION WHY DESCRIPTION] — one --check line.
+# A tab or a newline inside a field would split it, so each becomes a space.
+check_line() {
+  local out="$1" f
+  shift
+  for f in "$@"; do
+    f="${f//$'\t'/ }"
+    out+=$'\t'"${f//$'\n'/ }"
+  done
+  printf '%s\n' "$out"
+}
+
 if (( CHECK )); then
-  for pkg in ${new_formulae_arr[@]+"${new_formulae_arr[@]}"};     do printf 'add\tformula\t%s\n' "$pkg"; done
-  for pkg in ${new_casks_arr[@]+"${new_casks_arr[@]}"};           do printf 'add\tcask\t%s\n' "$pkg"; done
-  for pkg in ${stale_formulae_arr[@]+"${stale_formulae_arr[@]}"}; do printf 'prune\tformula\t%s\n' "$pkg"; done
-  for pkg in ${stale_casks_arr[@]+"${stale_casks_arr[@]}"};       do printf 'prune\tcask\t%s\n' "$pkg"; done
+  if (( ! DETAILS )); then
+    for pkg in ${new_formulae_arr[@]+"${new_formulae_arr[@]}"};     do check_line add formula "$pkg"; done
+    for pkg in ${new_casks_arr[@]+"${new_casks_arr[@]}"};           do check_line add cask "$pkg"; done
+    for pkg in ${stale_formulae_arr[@]+"${stale_formulae_arr[@]}"}; do check_line prune formula "$pkg"; done
+    for pkg in ${stale_casks_arr[@]+"${stale_casks_arr[@]}"};       do check_line prune cask "$pkg"; done
+    exit 0
+  fi
+
+  declare -A d_section=() d_reason=() d_desc=()
+  meta_args=()
+  for pkg in ${new_formulae_arr[@]+"${new_formulae_arr[@]}"}; do meta_args+=("formula:$pkg"); done
+  for pkg in ${new_casks_arr[@]+"${new_casks_arr[@]}"};       do meta_args+=("cask:$pkg"); done
+  if (( ${#meta_args[@]} > 0 )); then
+    command -v python3 >/dev/null 2>&1 || { err "python3 not found — cannot read Homebrew's descriptions"; exit 1; }
+    TEMP_META=$(mktemp "${TMPDIR:-/tmp}/mrk-meta.XXXXXX")
+    brew_describe "$HOMEBREW" "$DESC_TABLE" "${meta_args[@]}" > "$TEMP_META" \
+      || { err "Could not read Homebrew's descriptions"; exit 1; }
+    while IFS=$'\x1f' read -r kind name section reason desc have; do
+      [[ -n "$name" ]] || continue
+      [[ "$kind" == cask ]] && d_section["$kind:$name"]="Casks - $section"
+      d_reason["$kind:$name"]="$reason"
+      # The words the table holds after the add: its own when it has some,
+      # since sync never rewrites a description.
+      if [[ "$have" == 1 ]]; then
+        d_desc["$kind:$name"]="${table_desc[$name]:-}"
+      else
+        d_desc["$kind:$name"]="$desc"
+      fi
+    done < "$TEMP_META"
+  fi
+
+  for kind in formula cask; do
+    if [[ "$kind" == formula ]]; then list=(${new_formulae_arr[@]+"${new_formulae_arr[@]}"})
+    else list=(${new_casks_arr[@]+"${new_casks_arr[@]}"}); fi
+    for pkg in ${list[@]+"${list[@]}"}; do
+      check_line add "$kind" "$pkg" "${d_section[$kind:$pkg]:-}" "${d_reason[$kind:$pkg]:-}" "${d_desc[$kind:$pkg]:-}"
+    done
+  done
+  for kind in formula cask; do
+    if [[ "$kind" == formula ]]; then list=(${stale_formulae_arr[@]+"${stale_formulae_arr[@]}"})
+    else list=(${stale_casks_arr[@]+"${stale_casks_arr[@]}"}); fi
+    for pkg in ${list[@]+"${list[@]}"}; do
+      check_line prune "$kind" "$pkg" "${brewfile_section[$kind:$pkg]:-}" "" "${table_desc[$pkg]:-}"
+    done
+  done
   exit 0
+fi
+
+# ─── 3c. Check a decision made on the command line ──────────────────────────
+#
+# A decision takes exactly what the picker would have offered: an add or an
+# ignore, a package --check lists as add; a prune, one it lists as prune. So
+# --add cannot bring back a package sync-ignore names, add a dependency, or
+# add an entry twice, and --prune cannot delete the entry of a package that is
+# still installed. Each refusal says why and changes nothing.
+
+_listed() {  # _listed NAME WORD... — whether NAME is one of the WORDs
+  local want=$1 w
+  shift
+  for w in "$@"; do [[ "$w" == "$want" ]] && return 0; done
+  return 1
+}
+
+refuse() { err "$*"; exit 1; }
+
+if [[ -n "$DECIDE" ]]; then
+  n="$DECIDE_NAME"
+  if [[ "$DECIDE" == prune ]]; then
+    as_formula=0; as_cask=0
+    _listed "$n" ${stale_formulae_arr[@]+"${stale_formulae_arr[@]}"} && as_formula=1
+    _listed "$n" ${stale_casks_arr[@]+"${stale_casks_arr[@]}"} && as_cask=1
+  else
+    # Ignoring a name the list already has is done, not refused: the run
+    # that follows would not offer it either way.
+    if [[ "$DECIDE" == ignore ]] && _sync_ignored "$n"; then
+      log "$n is already in ~/.mrk/sync-ignore"
+      exit 0
+    fi
+    as_formula=0; as_cask=0
+    _listed "$n" ${new_formulae_arr[@]+"${new_formulae_arr[@]}"} && as_formula=1
+    _listed "$n" ${new_casks_arr[@]+"${new_casks_arr[@]}"} && as_cask=1
+  fi
+
+  case "$DECIDE_KIND" in
+    formula) as_cask=0 ;;
+    cask)    as_formula=0 ;;
+  esac
+  kinds=${DECIDE_KIND:-formula or cask}
+
+  # sync-ignore holds names, not kinds: one line drops both, so ignoring a
+  # name that is both needs no --formula or --cask.
+  if (( as_formula && as_cask )) && [[ "$DECIDE" != ignore ]]; then
+    refuse "$n is both a formula and a cask. Add --formula or --cask."
+  elif (( as_formula )); then
+    DECIDE_KIND=formula
+  elif (( as_cask )); then
+    DECIDE_KIND=cask
+  elif [[ "$DECIDE" == prune ]]; then
+    in_brewfile=0
+    [[ "$DECIDE_KIND" != cask && -n "${brewfile_formulae[$n]+x}" ]] && in_brewfile=1
+    [[ "$DECIDE_KIND" != formula && -n "${brewfile_casks[$n]+x}" ]] && in_brewfile=1
+    (( in_brewfile )) || refuse "The Brewfile has no $kinds entry for $n."
+    refuse "$n is installed, so sync does not prune its entry. Uninstall it first, or delete the line by hand."
+  else
+    # Why the picker would not have offered it, most telling reason first.
+    if _sync_ignored "$n"; then
+      refuse "$n is in ~/.mrk/sync-ignore, so sync does not offer it. Delete it from that file first."
+    elif [[ "$DECIDE_KIND" != cask && -n "${brewfile_formulae[$n]+x}" ]] \
+      || [[ "$DECIDE_KIND" != formula && -n "${brewfile_casks[$n]+x}" ]]; then
+      refuse "$n is already in the Brewfile."
+    elif [[ "$DECIDE_KIND" != cask && -n "${installed_formulae_all[$n]+x}" ]]; then
+      refuse "$n is installed only as a dependency. sync adds the formulae you installed yourself (brew leaves --installed-on-request)."
+    else
+      refuse "Homebrew does not list $n as an installed $kinds."
+    fi
+  fi
+
+  if [[ "$DECIDE" == add ]]; then
+    if [[ "$DECIDE_KIND" == formula ]] && (( ! SECTION_GIVEN )); then
+      refuse "$n is a formula. Give its section with --section: sync does not guess a formula's section."
+    fi
+    if [[ "$DECIDE_KIND" == cask ]] && (( SECTION_GIVEN )); then
+      refuse "$n is a cask, and sync files a cask by its app's category. Leave out --section."
+    fi
+  fi
+
+  if [[ "$DECIDE" == ignore ]]; then
+    if (( DRY_RUN )); then
+      dry "Would add $n to ~/.mrk/sync-ignore"
+    else
+      _append_sync_ignore "$n"
+      log "Added $n to ~/.mrk/sync-ignore"
+    fi
+    exit 0
+  fi
 fi
 
 declare -A prune_formulae=()
 declare -A prune_casks=()
 
-if (( PRUNE && n_stale > 0 )); then
+if [[ "$DECIDE" == prune ]]; then
+  # The decision is the selection: one entry, checked in section 3c.
+  if [[ "$DECIDE_KIND" == formula ]]; then
+    prune_formulae["$DECIDE_NAME"]=1
+  else
+    prune_casks["$DECIDE_NAME"]=1
+  fi
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  Sync — Stale Brewfile Entry (not installed)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  printf "    - %s \"%s\"\n" "$([[ "$DECIDE_KIND" == formula ]] && echo brew || echo cask)" "$DECIDE_NAME"
+  echo ""
+elif (( PRUNE && n_stale > 0 )); then
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "  Sync — Stale Brewfile Entries (not installed)"
@@ -382,8 +650,11 @@ if (( PRUNE && n_stale > 0 )); then
       for pkg in "${stale_casks_arr[@]}"; do prune_casks["$pkg"]=1; done
     fi
   fi
+elif (( PRUNE )); then
+  log "No stale entries found — Brewfile is clean."
+fi
 
-  # Removing a Brewfile entry orphans its mrk-picker description, and
+# Removing a Brewfile entry orphans its mrk-picker description, and
 # check-picker-desc gates the two one-to-one. Nothing coupled them — sync only
 # ever ran the picker as a UI — so a removal looked complete and the mismatch
 # surfaced later as a red build: descript on 2026-09-04, then gemini-cli and
@@ -424,48 +695,45 @@ if (( n_prune > 0 )); then
   mapfile -t orphaned_descs < <(_orphaned_descriptions)
 fi
 
-  if (( n_prune > 0 )); then
-    if (( DRY_RUN )); then
-      echo "  [dry run] Would remove $n_prune entr(ies) from Brewfile."
-      if (( ${#orphaned_descs[@]} > 0 )); then
-        echo "  [dry run] Would remove ${#orphaned_descs[@]} description(s) from tools/picker/descriptions.tsv: ${orphaned_descs[*]}"
-      fi
-      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    else
-      # Build sed patterns to remove matching lines (atomic write via temp file)
-      local_sed_args=()
-      escaped_pkg=
-      BREWFILE_TMP="$(mktemp "${REPO_ROOT}/.Brewfile.XXXXXX")"
-      for pkg in "${!prune_formulae[@]}"; do
-        escaped_pkg=$(printf '%s\n' "$pkg" | sed 's/[[\.*^$&/]/\\&/g')
-        local_sed_args+=(-e "/^brew \"${escaped_pkg}\"/d")
-      done
-      for pkg in "${!prune_casks[@]}"; do
-        escaped_pkg=$(printf '%s\n' "$pkg" | sed 's/[[\.*^$&/]/\\&/g')
-        local_sed_args+=(-e "/^cask \"${escaped_pkg}\"/d")
-      done
-
-      sed "${local_sed_args[@]}" "$BREWFILE" > "$BREWFILE_TMP"
-      replace_brewfile || exit 1
-
-      log "Removed $n_prune stale entr(ies) from Brewfile."
-      if (( ${#orphaned_descs[@]} > 0 )); then
-        # The Brewfile is already written, so a failure here leaves exactly the
-        # state the old warning described. Say so, with the names, and go on.
-        if picker_remove_descriptions "$DESC_TABLE" "${orphaned_descs[@]}"; then
-          PICKER_CHANGED=1
-          log "Removed ${#orphaned_descs[@]} description(s) from tools/picker/descriptions.tsv: ${orphaned_descs[*]}"
-        else
-          warn "Delete these from tools/picker/descriptions.tsv by hand, or check-picker-desc will fail: ${orphaned_descs[*]}"
-        fi
-      fi
-      echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+if (( n_prune > 0 )); then
+  if (( DRY_RUN )); then
+    echo "  [dry run] Would remove $n_prune entr(ies) from Brewfile."
+    if (( ${#orphaned_descs[@]} > 0 )); then
+      echo "  [dry run] Would remove ${#orphaned_descs[@]} description(s) from tools/picker/descriptions.tsv: ${orphaned_descs[*]}"
     fi
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   else
-    log "No stale entries selected for removal."
+    # Build sed patterns to remove matching lines (atomic write via temp file)
+    local_sed_args=()
+    escaped_pkg=
+    BREWFILE_TMP="$(mktemp "${REPO_ROOT}/.Brewfile.XXXXXX")"
+    for pkg in "${!prune_formulae[@]}"; do
+      escaped_pkg=$(printf '%s\n' "$pkg" | sed 's/[[\.*^$&/]/\\&/g')
+      local_sed_args+=(-e "/^brew \"${escaped_pkg}\"/d")
+    done
+    for pkg in "${!prune_casks[@]}"; do
+      escaped_pkg=$(printf '%s\n' "$pkg" | sed 's/[[\.*^$&/]/\\&/g')
+      local_sed_args+=(-e "/^cask \"${escaped_pkg}\"/d")
+    done
+
+    sed "${local_sed_args[@]}" "$BREWFILE" > "$BREWFILE_TMP"
+    replace_brewfile || exit 1
+
+    log "Removed $n_prune stale entr(ies) from Brewfile."
+    if (( ${#orphaned_descs[@]} > 0 )); then
+      # The Brewfile is already written, so a failure here leaves exactly the
+      # state the old warning described. Say so, with the names, and go on.
+      if picker_remove_descriptions "$DESC_TABLE" "${orphaned_descs[@]}"; then
+        PICKER_CHANGED=1
+        log "Removed ${#orphaned_descs[@]} description(s) from tools/picker/descriptions.tsv: ${orphaned_descs[*]}"
+      else
+        warn "Delete these from tools/picker/descriptions.tsv by hand, or check-picker-desc will fail: ${orphaned_descs[*]}"
+      fi
+    fi
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   fi
-elif (( PRUNE && n_stale == 0 )); then
-  log "No stale entries found — Brewfile is clean."
+elif (( PRUNE && n_stale > 0 )); then
+  log "No stale entries selected for removal."
 fi
 
 # Section 11 reads these on every path. Declared inside the add flow, they were
@@ -539,6 +807,11 @@ commit_changes() {
   fi
 }
 
+# A decision to prune is the whole run: commit it when asked, and add nothing.
+if [[ "$DECIDE" == prune ]]; then
+  (( COMMIT && ! DRY_RUN )) && commit_changes
+  exit 0
+fi
 
 if (( ${#new_formulae_arr[@]} == 0 && ${#new_casks_arr[@]} == 0 )); then
   # -C, because sync runs from wherever you are: from outside the repository
@@ -571,9 +844,17 @@ find_picker() {
 
 declare -A selected_formulae=()
 
-picker_bin=$(find_picker)
+picker_bin=""
+[[ -n "$DECIDE" ]] || picker_bin=$(find_picker)
 
-if [[ -n "$picker_bin" ]]; then
+if [[ "$DECIDE" == add ]]; then
+  # The decision is the selection: one package, checked in section 3c.
+  if [[ "$DECIDE_KIND" == formula ]]; then
+    selected_formulae["$DECIDE_NAME"]=1
+  else
+    selected_casks["$DECIDE_NAME"]=1
+  fi
+elif [[ -n "$picker_bin" ]]; then
   # Build a minimal temp Brewfile for mrk-picker
   TEMP_BREWFILE=$(mktemp "${TMPDIR:-/tmp}/mrk.XXXXXX")
 
@@ -662,6 +943,9 @@ fi
 # Brewfile. It must run before the "nothing selected" exit below, because
 # declining every candidate is exactly the case this is for.
 # Mirrors section 5b of scripts/sync-login-items.
+#
+# A decision made on the command line declines nothing: it says what to do
+# with one package, and the others wait for the next run. So it is not asked.
 
 declined_pkgs=()
 for pkg in "${new_formulae_arr[@]}"; do
@@ -671,7 +955,7 @@ for pkg in "${new_casks_arr[@]}"; do
   [[ -n "${selected_casks[$pkg]+x}" ]] || declined_pkgs+=("$pkg")
 done
 
-if (( ${#declined_pkgs[@]} > 0 )); then
+if [[ -z "$DECIDE" ]] && (( ${#declined_pkgs[@]} > 0 )); then
   declare -A ignore_selected=()
 
   if (( USED_PICKER )); then
@@ -822,7 +1106,13 @@ done < "$BREWFILE"
 # Per-formula section assignment via gum
 
 if (( n_selected_formulae > 0 )); then
-  if ! command -v gum >/dev/null 2>&1; then
+  if [[ "$DECIDE" == add ]]; then
+    # --section answers the question, and section 3c checked that it was given.
+    formula_section_map["$DECIDE_NAME"]="$DECIDE_SECTION"
+    if ! _listed "$DECIDE_SECTION" ${formula_sections[@]+"${formula_sections[@]}"}; then
+      log "The Brewfile has no '## $DECIDE_SECTION' section yet. sync adds it at the end."
+    fi
+  elif ! command -v gum >/dev/null 2>&1; then
     warn "gum not available — assigning formulae to '${formula_sections[0]:-CLI Tools}'"
     for pkg in "${sorted_selected_formulae[@]}"; do
       formula_section_map["$pkg"]="${formula_sections[0]:-CLI Tools}"

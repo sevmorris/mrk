@@ -7,7 +7,11 @@
 # the package by hand: `sync: add prismlauncher`, then `picker: describe
 # prismlauncher`. sync now reads Homebrew's description, and files a cask by the
 # category its app declares in its Info.plist. It also proves that sync --check,
-# which mrk-status reads, prints the drift and nothing else.
+# which mrk-status reads, prints the drift and nothing else, and that
+# --check --details adds the section and the description after those fields.
+# Then the decisions a program makes with no terminal, for Barkeep: --add,
+# --ignore and --prune with a name write what the picker's answers would, start
+# neither the picker nor gum, and refuse what the picker would not offer.
 #
 # Everything runs against a copy of the repository, under a throwaway HOME whose
 # ~/Applications holds fake apps. brew is a stub named by MRK_BREW that prints
@@ -61,7 +65,8 @@ EOF
 cat > "$R/bin/mrk-picker" <<'EOF'
 #!/bin/bash
 # `mrk-picker --brewfile FILE ...`: select every package FILE lists, or none
-# with PICKER_NONE set.
+# with PICKER_NONE set. With NO_UI set, record the start in that file and fail.
+[[ -n "${NO_UI:-}" ]] && { echo "mrk-picker $*" >> "$NO_UI"; exit 97; }
 [[ -n "${PICKER_NONE:-}" ]] && exit 0
 while (($#)); do [[ "$1" == --brewfile ]] && { f="$2"; shift; }; shift; done
 sed -nE 's/^brew "([^"]+)".*/formula:\1/p; s/^cask "([^"]+)".*/cask:\1/p' "$f"
@@ -69,6 +74,8 @@ EOF
 cat > "$W/stubs/gum" <<'EOF'
 #!/bin/bash
 # `gum choose [flags] choices...`: GUM_CHOICE when offered, else the first.
+# With NO_UI set, record the start in that file and fail.
+[[ -n "${NO_UI:-}" ]] && { echo "gum $*" >> "$NO_UI"; exit 97; }
 cmd="$1"; shift
 [[ "$cmd" == choose ]] || exit 0
 choices=()
@@ -362,6 +369,266 @@ if (( rc == 1 )) && [[ ! -s "$W/check.out" ]] && grep -q 'brew list --formula fa
   pass "sync --check with a failing brew list: exit 1, no list, and the reason on stderr"
 else
   fail "sync --check with a failing brew list: rc $rc, stdout: $(tr '\n' ';' < "$W/check.out")"
+fi
+
+# ── 7. Decisions on the command line ─────────────────────────────────────────
+#
+# What Barkeep runs in place of the picker: one package a run, no terminal.
+# No pseudo-terminal here, stdin is /dev/null, and the picker and gum stubs
+# record any start in $W/ui and fail, so a decision that reached for either
+# shows up there.
+git -C "$R" reset -q --hard
+python3 - "$FIX/info" "$W/home/Applications" <<'PY'
+import json, os, plistlib, sys
+info_dir, apps = sys.argv[1:3]
+def app(name, category):
+    os.makedirs(f'{apps}/{name}/Contents')
+    with open(f'{apps}/{name}/Contents/Info.plist', 'wb') as f:
+        plistlib.dump({'CFBundleName': name[:-4], 'LSApplicationCategoryType': category}, f)
+def write(name, formulae=(), casks=()):
+    json.dump({'formulae': list(formulae), 'casks': list(casks)}, open(f'{info_dir}/{name}.json', 'w'))
+def f(name, desc): return {'name': name, 'full_name': name, 'desc': desc}
+def c(token, name, desc): return {'token': token, 'full_token': token, 'name': [name], 'desc': desc,
+                                  'artifacts': [{'app': [name + '.app']}]}
+write('zq-chess', casks=[c('zq-chess', 'Zq Chess', 'Chess against the clock')])
+app('Zq Chess.app', 'public.app-category.board-games')
+write('zq-both', formulae=[f('zq-both', 'Both, the formula')], casks=[c('zq-both', 'Zq Both', 'Both, the cask')])
+app('Zq Both.app', 'public.app-category.utilities')
+write('zq-dec-tool', formulae=[f('zq-dec-tool', 'Decides things')])
+write('zq-later', formulae=[f('zq-later', 'Later things')])
+PY
+
+# zq-twin is a formula and a cask in the Brewfile, sharing one description;
+# only the formula is installed, so the cask is the one to prune.
+python3 - "$R/Brewfile" <<'PY'
+import sys
+p = sys.argv[1]
+lines = open(p).read().split('\n')
+def after(entry, line):
+    i = lines.index(entry)
+    lines.insert(i + 1, line)
+after('brew "xcodegen"', 'brew "zq-twin"')
+last_util = max(i for i, l in enumerate(lines) if l.startswith('cask "') and
+                max(j for j in range(i) if lines[j].startswith('## ')) ==
+                lines.index('## Casks - Utilities'))
+lines.insert(last_util + 1, 'cask "zq-twin", greedy: true')
+open(p, 'w').write('\n'.join(lines))
+PY
+printf 'zq-twin\tTwin words\n' > "$W/twin.tsv"
+picker_add_descriptions "$TABLE" "$W/twin.tsv"
+git -C "$R" commit -qam "fixture: zq-twin"
+
+STALE_F="$(sed -nE 's/^brew "([^"]+)".*/\1/p' "$R/Brewfile" | head -1)"
+STALE_C="$(sed -nE 's/^cask "([^"]+)".*/\1/p' "$R/Brewfile" | grep -v '^zq-' | head -1)"
+# decision_world — the installed lists for this section: the Brewfile less one
+# stale formula and two stale casks, plus the new packages.
+decision_world() {
+  { sed -nE 's/^brew "([^"]+)".*/\1/p' "$R/Brewfile" | grep -vxF "$STALE_F"
+    printf '%s\n' zq-both zq-dec-tool zq-later zq-ignored-tool; } | sort -u > "$FIX/leaves"
+  { cat "$FIX/leaves"; echo zq-dep; } > "$FIX/formulae"
+  { sed -nE 's/^cask "([^"]+)".*/\1/p' "$R/Brewfile" | grep -vxF -e "$STALE_C" -e zq-twin
+    printf '%s\n' zq-both zq-chess; } | sort -u > "$FIX/casks"
+}
+decision_world
+printf '# test\nzq-ignored-tool\n' > "$W/home/.mrk/sync-ignore"
+
+# decide ARGS... — sync with no terminal. Output in $W/decide.out and
+# $W/decide.err, the exit status in $rc.
+decide() {
+  rc=0
+  (cd "$W/home" && env HOME="$W/home" PATH="$W/stubs:$PATH" MRK_BREW="$W/stubs/brew" FIX="$FIX" NO_UI="$W/ui" \
+    bash "$R/scripts/sync" "$@" </dev/null >"$W/decide.out" 2>"$W/decide.err") || rc=$?
+}
+# unchanged — the repository as last committed, and no picker or gum started.
+unchanged() { git -C "$R" diff --quiet && [[ ! -e "$W/ui" ]]; }
+# expect_refusal RC WHAT PATTERN ARGS... — sync exits RC, says PATTERN on
+# stderr, and changes nothing.
+expect_refusal() {
+  local want=$1 what=$2 pattern=$3
+  shift 3
+  decide "$@"
+  if (( rc == want )) && grep -qiE "$pattern" "$W/decide.err" && unchanged; then
+    pass "$what: exit $want, nothing changed"
+  else
+    fail "$what (sync $*): exit $rc, want $want; stderr:"; sed 's/^/      /' "$W/decide.err" >&2
+    git -C "$R" diff --stat | sed 's/^/      /' >&2
+  fi
+}
+
+# Malformed command lines: exit 2, before Homebrew is asked anything.
+expect_refusal 2 "--add with no name"                  'needs a package name'  --add
+expect_refusal 2 "two decisions in one run"            'one decision per run'  --add zq-dec-tool --ignore zq-later
+expect_refusal 2 "--details without --check"           'only with --check'     --details
+expect_refusal 2 "--section without --add"             'only with --add'       --section "Repo essentials"
+expect_refusal 2 "--formula and --cask together"       'not both'              --add zq-both --formula --cask
+expect_refusal 2 "a name Homebrew could not spell"     'Not a package name'    --add 'zq tool'
+expect_refusal 2 "a formula into a cask section"       'not a formula section' --add zq-dec-tool --section "## Casks - Audio"
+expect_refusal 2 "a formula into Taps"                 'not a formula section' --add zq-dec-tool --section Taps
+expect_refusal 2 "the picker's --prune with a decision" 'does not combine'     -p --add zq-dec-tool
+
+# --check --details: the three fields mrk-status reads, then the section, why,
+# and the description the table will hold. Plain --check keeps three fields.
+decide --check --details
+TAB=$'\t'
+want="$(cat <<EOF
+add${TAB}formula${TAB}zq-both${TAB}${TAB}${TAB}Both, the formula
+add${TAB}formula${TAB}zq-dec-tool${TAB}${TAB}${TAB}Decides things
+add${TAB}formula${TAB}zq-later${TAB}${TAB}${TAB}Later things
+add${TAB}cask${TAB}zq-both${TAB}Casks - Utilities${TAB}Zq Both.app declares public.app-category.utilities${TAB}Both, the cask
+add${TAB}cask${TAB}zq-chess${TAB}Casks - Games${TAB}Zq Chess.app declares public.app-category.board-games${TAB}Chess against the clock
+prune${TAB}formula${TAB}${STALE_F}${TAB}$(section_of "$STALE_F")${TAB}${TAB}$(desc_of "$STALE_F")
+prune${TAB}cask${TAB}${STALE_C}${TAB}$(section_of "$STALE_C")${TAB}${TAB}$(desc_of "$STALE_C")
+prune${TAB}cask${TAB}zq-twin${TAB}Casks - Utilities${TAB}${TAB}Twin words
+EOF
+)"
+if (( rc == 0 )) && [[ "$(cat "$W/decide.out")" == "$want" ]] && unchanged; then
+  pass "--check --details adds the section, why, and the description, and changes nothing"
+else
+  fail "--check --details: rc $rc, got:"; diff <(printf '%s\n' "$want") "$W/decide.out" | sed 's/^/      /' >&2
+fi
+decide --check
+if (( rc == 0 )) && [[ -s "$W/decide.out" ]] && awk -F'\t' 'NF != 3 { bad = 1 } END { exit bad }' "$W/decide.out" \
+   && [[ "$(cut -f1-3 <<< "$want")" == "$(cat "$W/decide.out")" ]]; then
+  pass "plain --check keeps the three fields mrk-status reads"
+else
+  fail "plain --check:"; sed 's/^/      /' "$W/decide.out" >&2
+fi
+
+# Refusals: what the picker would not have offered.
+expect_refusal 1 "--add a formula with no --section"   'does not guess'            --add zq-dec-tool
+expect_refusal 1 "--add a name that is both kinds"     'both a formula and a cask' --add zq-both
+expect_refusal 1 "--add a cask with --section"         'Leave out --section'       --add zq-chess --section "Repo essentials"
+expect_refusal 1 "--add a name sync-ignore lists"      'sync-ignore'               --add zq-ignored-tool --section "Repo essentials"
+expect_refusal 1 "--add a dependency"                  'only as a dependency'      --add zq-dep --section "Repo essentials"
+expect_refusal 1 "--add an entry the Brewfile has"     'already in the Brewfile'   --add zq-twin --section "Repo essentials"
+expect_refusal 1 "--add a package not installed"       'does not list'             --add zq-nowhere --cask
+expect_refusal 1 "--add a kind it is not"              'does not list'             --add zq-chess --formula --section "Repo essentials"
+
+# --add, a cask: filed by its app's category, greedy, described, in name order.
+decide --add zq-chess
+if (( rc == 0 )) && [[ ! -e "$W/ui" ]]; then
+  pass "--add runs without a terminal and starts neither the picker nor gum"
+else
+  fail "--add zq-chess: rc $rc, started: $(cat "$W/ui" 2>/dev/null)"; sed 's/^/      /' "$W/decide.err" >&2
+fi
+expect_section zq-chess "Casks - Games"
+expect_desc    zq-chess "Chess against the clock"
+games="$(awk '/^## /{s=$0} s == "## Casks - Games" && /^cask "/' "$R/Brewfile")"
+if grep -qx 'cask "zq-chess", greedy: true' <<< "$games" && [[ "$games" == "$(LC_ALL=C sort <<< "$games")" ]]; then
+  pass "--add puts the cask in name order among its section's entries, with greedy: true"
+else
+  fail "the Games section reads:"; awk '{ print "      " $0 }' <<< "$games" >&2
+fi
+git -C "$R" commit -qam "sync: add zq-chess"
+
+# --add, a formula, with -n and then -c.
+decide --add zq-dec-tool --section "## Repo essentials" -n
+if (( rc == 0 )) && grep -qF '+ brew "zq-dec-tool"  →  Repo essentials' "$W/decide.out" && unchanged; then
+  pass "--add -n shows the section and the description, and writes nothing"
+else
+  fail "--add -n: rc $rc"; sed 's/^/      /' "$W/decide.out" "$W/decide.err" >&2
+fi
+decide --add zq-dec-tool --section "## Repo essentials" -c
+subject="$(git -C "$R" log -1 --format=%s)"
+files="$(git -C "$R" show --name-only --format= HEAD | sort | tr '\n' ' ')"
+if (( rc == 0 )) && [[ "$(grep -A1 -x 'brew "xcodegen"' "$R/Brewfile")" == "$(printf '%s\n' 'brew "xcodegen"' 'brew "zq-dec-tool"')" ]] \
+   && [[ "$subject" == "sync: add zq-dec-tool" && "$files" == "Brewfile tools/picker/descriptions.tsv " ]] && unchanged; then
+  pass "--add --section -c files the formula in name order and commits it with its description"
+else
+  fail "--add --section -c: rc $rc, commit '$subject' with: $files"; sed 's/^/      /' "$W/decide.err" >&2
+fi
+expect_desc zq-dec-tool "Decides things"
+decide --add zq-both --cask -n
+if (( rc == 0 )) && grep -qF '+ cask "zq-both", greedy: true  →  Casks - Utilities' "$W/decide.out" && unchanged; then
+  pass "--cask settles a name that is both kinds"
+else
+  fail "--add zq-both --cask -n: rc $rc"; sed 's/^/      /' "$W/decide.out" "$W/decide.err" >&2
+fi
+decide --add zq-later --section "Zq Tools" -n
+if (( rc == 0 )) && grep -q "no '## Zq Tools' section yet" "$W/decide.err" && unchanged; then
+  pass "--section with a name no section has says that sync starts the section"
+else
+  fail "--add --section 'Zq Tools' -n: rc $rc"; sed 's/^/      /' "$W/decide.err" >&2
+fi
+if out="$(descriptions_in_sync)"; then
+  pass "after the decisions every package in the Brewfile has a description"
+else
+  fail "descriptions out of step with the Brewfile:"; printf '%s\n' "$out" >&2
+fi
+
+# --ignore: appends, keeps the comments, mends a missing last newline.
+IGN="$W/home/.mrk/sync-ignore"
+printf '# test\n\nzq-ignored-tool  # kept by hand' > "$IGN"
+decide --ignore zq-both
+if (( rc == 0 )) && [[ "$(cat "$IGN")" == "$(printf '# test\n\nzq-ignored-tool  # kept by hand\nzq-both')" ]] && unchanged; then
+  pass "--ignore adds the name at the end, keeps the comments, and needs no kind for a name that is both"
+else
+  fail "--ignore zq-both: rc $rc, the file reads:"; sed 's/^/      /' "$IGN" >&2
+fi
+cp "$IGN" "$W/ign.before"
+decide --ignore zq-both
+if (( rc == 0 )) && cmp -s "$IGN" "$W/ign.before" && grep -q 'already in' "$W/decide.err"; then
+  pass "--ignore a name already listed: exit 0, the file unchanged"
+else
+  fail "--ignore zq-both again: rc $rc"; diff "$W/ign.before" "$IGN" | sed 's/^/      /' >&2
+fi
+decide --ignore zq-later -n
+if (( rc == 0 )) && cmp -s "$IGN" "$W/ign.before"; then
+  pass "--ignore -n writes nothing"
+else
+  fail "--ignore -n: rc $rc"; diff "$W/ign.before" "$IGN" | sed 's/^/      /' >&2
+fi
+expect_refusal 1 "--ignore an entry the Brewfile has" 'already in the Brewfile' --ignore zq-chess
+decide --check
+if ! grep -q 'zq-both' "$W/decide.out"; then
+  pass "an ignored name leaves --check"
+else
+  fail "--check still lists zq-both after --ignore"
+fi
+rm -f "$IGN"
+decide --ignore zq-later
+if (( rc == 0 )) && [[ "$(grep -v '^#' "$IGN")" == zq-later ]] && grep -q '^# mrk sync ignore list' "$IGN"; then
+  pass "--ignore creates the ignore file, with its header, when there is none"
+else
+  fail "--ignore with no file: rc $rc"; sed 's/^/      /' "$IGN" >&2
+fi
+
+# --prune: one stale entry, and its description unless another entry uses it.
+expect_refusal 1 "--prune an installed package"     'is installed'          --prune zq-chess
+expect_refusal 1 "--prune a name not in the Brewfile" 'has no'              --prune zq-nowhere
+expect_refusal 1 "--prune a kind the Brewfile lacks" 'has no formula entry' --prune "$STALE_C" --formula
+decide --prune "$STALE_C" -n
+if (( rc == 0 )) && grep -q "Would remove 1 description" "$W/decide.out" && unchanged; then
+  pass "--prune -n names the entry and its description, and writes nothing"
+else
+  fail "--prune -n: rc $rc"; sed 's/^/      /' "$W/decide.out" "$W/decide.err" >&2
+fi
+decide --prune "$STALE_C" -c
+subject="$(git -C "$R" log -1 --format=%s)"
+if (( rc == 0 )) && [[ "$subject" == "sync: remove $STALE_C" && -z "$(desc_of "$STALE_C")" ]] \
+   && ! grep -q "^cask \"$STALE_C\"" "$R/Brewfile" && unchanged; then
+  pass "--prune -c deletes the entry and its description, and commits both"
+else
+  fail "--prune -c: rc $rc, commit '$subject'"; sed 's/^/      /' "$W/decide.err" >&2
+fi
+decide --prune zq-twin -c
+if (( rc == 0 )) && [[ "$(desc_of zq-twin)" == "Twin words" ]] && grep -qx 'brew "zq-twin"' "$R/Brewfile" \
+   && ! grep -q '^cask "zq-twin"' "$R/Brewfile" && unchanged; then
+  pass "--prune keeps a description the formula of the same name still uses"
+else
+  fail "--prune zq-twin: rc $rc, described as '$(desc_of zq-twin)'"; sed 's/^/      /' "$W/decide.err" >&2
+fi
+mv "$FIX/casks" "$FIX/casks.ok"
+expect_refusal 1 "--prune when brew list fails" 'brew list --cask failed' --prune "$STALE_F"
+mv "$FIX/casks.ok" "$FIX/casks"
+mv "$FIX/formulae" "$FIX/formulae.ok"; mv "$FIX/casks" "$FIX/casks.ok"
+: > "$FIX/formulae"; : > "$FIX/casks"
+expect_refusal 1 "--prune when Homebrew reports nothing installed" 'refusing to prune' --prune "$STALE_F"
+mv "$FIX/formulae.ok" "$FIX/formulae"; mv "$FIX/casks.ok" "$FIX/casks"
+if awk -F'\t' '!/^#/ { print $1 }' "$TABLE" | LC_ALL=C sort -c 2>/dev/null && out="$(descriptions_in_sync)"; then
+  pass "after the prunes the table is in order and in step with the Brewfile"
+else
+  fail "after the prunes:"; printf '%s\n' "${out:-the table is out of order}" >&2
 fi
 
 if (( fails > 0 )); then
