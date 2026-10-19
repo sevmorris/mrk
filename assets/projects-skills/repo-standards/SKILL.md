@@ -1,6 +1,6 @@
 ---
 name: repo-standards
-description: Keep every repository on the sevmorris account to the same standard. That covers the default-branch ruleset, secret push protection, Dependabot alerts, Pages that serve hand-written HTML (.nojekyll, HTTPS, homepage, pruned deployments), a licence and README, tests that actually run, current CI actions, and no committed executables. release-standards covers the release machinery inside the apps; this covers everything around it, for all repos, including mrk, sevmac, the guides and the private ones. Use this when asked to audit, tidy, standardize or "bring up to standard" the repos, when creating a new repository, when making one public or private, when adding tests, CI or a Pages site to a repo, and when a repo's GitHub settings or Pages look wrong.
+description: Keep every repository on the sevmorris account to the same standard. That covers the default-branch ruleset, deleting a branch when its pull request merges, secret push protection, Dependabot alerts, Pages that serve hand-written HTML (.nojekyll, HTTPS, homepage, pruned deployments), a licence and README, tests that actually run, current CI actions, and no committed executables. release-standards covers the release machinery inside the apps; this covers everything around it, for all repos, including mrk, sevmac, the guides and the private ones. Use this when asked to audit, tidy, standardize or "bring up to standard" the repos, when creating a new repository, when making one public or private, when adding tests, CI or a Pages site to a repo, and when a repo's GitHub settings or Pages look wrong.
 ---
 
 # Repo standards (all repositories)
@@ -45,6 +45,7 @@ protect there: a repo with no Pages site cannot need `.nojekyll`.
 | Standard | Prevents | Applies to | Fix |
 |---|---|---|---|
 | `branch-rules` | A force push or deletion wiping the default branch. Several Claude sessions push with the owner's credentials. | public repos | the ruleset in §3 |
+| `auto-delete` | Merged branches piling up on GitHub. Every session's pull request leaves one, and on 2026-10-18 fourteen repos kept them: Barkeep had three after its PRs merged. With it on, GitHub deletes the branch when the PR merges, and `tidy-projects` then sees the local copy as gone upstream. | all repos | `gh repo edit sevmorris/R --delete-branch-on-merge` |
 | `push-protect` | A pushed credential going public: GitHub refuses the push instead. | public repos | §3 |
 | `vuln-alerts` | Shipping a dependency with a published vulnerability, unnoticed. Alerts only; no pull requests. | repos with a manifest GitHub reads (`go.mod`, `package-lock.json`, `*.csproj`, `Package.resolved`…) | `gh api -X PUT repos/sevmorris/R/vulnerability-alerts` |
 | `no-binaries` | A committed executable no one can audit or reproduce. Vendored binaries are fetched from a pinned release and checked by SHA-256 (`Vendor/ffmpeg-manifest.env`). | repos cloned here | remove it, fetch it at build time |
@@ -162,6 +163,7 @@ from reopening it.
 
 Run `audit.sh <name>` as soon as it exists on GitHub, and apply what applies:
 - the ruleset and push protection, if it is public
+- delete-branch-on-merge, whatever its visibility
 - a README and the family's licence
 - `.nojekyll`, HTTPS and the homepage, if it gets a Pages site
 
