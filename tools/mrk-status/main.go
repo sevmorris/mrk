@@ -1,7 +1,8 @@
 // mrk-status — the daily dashboard: what is unrecorded, what has fallen
 // behind, Time Machine, and the installation, folded into one panel.
 // Two-pane Bubble Tea TUI: panels (left) | detail (right); --plain prints the
-// same panels as text, for scripts/status and make status.
+// same panels as text, for scripts/status and make status, and --json prints
+// them as JSON, for a program to read.
 package main
 
 import (
@@ -797,6 +798,7 @@ func usage(w io.Writer) {
 Usage:
   mrk-status          Open the TUI dashboard
   mrk-status --plain  Print the same panels as text, and exit
+  mrk-status --json   Print the same panels as JSON, and exit
   mrk-status --help   Show this help
 
 Panels, daily work first:
@@ -825,7 +827,7 @@ TUI keys:
 
 // options is what the command line asked for.
 type options struct {
-	help, plain bool
+	help, plain, json bool
 }
 
 // parseArgs decides what to do with the command line. bad is the argument to
@@ -847,6 +849,8 @@ func parseArgs(args []string) (opts options, bad string) {
 		return options{help: true}, ""
 	case "--plain":
 		return options{plain: true}, ""
+	case "--json":
+		return options{json: true}, ""
 	default:
 		return options{}, args[0]
 	}
@@ -878,6 +882,13 @@ func main() {
 
 	if opts.plain {
 		renderPlain(os.Stdout, collect(repoRoot, home, binDir))
+		return
+	}
+	if opts.json {
+		if err := renderJSON(os.Stdout, collect(repoRoot, home, binDir)); err != nil {
+			fmt.Fprintf(os.Stderr, "mrk-status: %v\n", err)
+			os.Exit(1)
+		}
 		return
 	}
 
