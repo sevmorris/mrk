@@ -65,9 +65,10 @@ protect there: a repo with no Pages site cannot need `.nojekyll`.
 the audit found, say which you would fix, and apply them together once the
 owner agrees. Do not fix as you go.
 
-Commit the way each repository already works:
-- mrk goes through a branch and a pull request, merged once CI is green.
-- sevmac and most other repos take commits straight to `main`.
+Every commit goes on a branch and into a pull request, in every repository,
+and the owner merges it: `~/Projects/CLAUDE.md`, "Sessions work on a branch".
+Push to `main` directly only when the owner says so in so many words. In mrk,
+GitHub also holds the merge until CI is green.
 
 Re-run the audit afterwards. Every line you fixed should now read `yes`.
 
@@ -90,10 +91,14 @@ gh api -X PATCH repos/sevmorris/$R --input - <<'JSON'
 JSON
 ```
 
-**Licences follow the family.** The apps are GPL-3.0, except DoublEnder and
-KeyVault, which are MIT. The tools and guides are MIT: mrk, dead-city-sf and
-the Raspberry Pi guide. Propose the family's licence, but it is the owner's
-decision, and a repository published without one may be that way on purpose.
+**Licences follow the family.** Most apps are GPL-3.0: WaxOnWaxOff, ClipHack
+(and ClipHack-releases), FilmStrip, Barkeep and PasswordGen (`ppg`).
+DoublEnder, DoublEnder-Windows, KeyVault and Dipstick are MIT. The tools,
+guides and sites are MIT: mrk, sevmac, homebrew-tap, dead-city-sf, wp-sim-93
+and the Raspberry Pi guide. A new app has no one family to follow, so ask:
+Dipstick went MIT to match mrk, which it is a front end for. It is always the
+owner's decision, and a repository published without a licence may be that way
+on purpose.
 
 **Tests in CI.** WaxOnWaxOff's `.github/workflows/ci.yml` is the reference.
 Its `build-and-test` job:
@@ -116,6 +121,9 @@ shows it as `n/a` with that reason:
   sharing DoublEnder's working tree, so a README would collide with
   DoublEnder's, and its code is only built and tested inside that tree.
 - **mrk-prefs** has no README. It is a data store that `snapshot-prefs` writes.
+- **DoublEnder-Windows** is exempt from `ci-matrix`. It ships for Windows and
+  Linux only and builds nothing for the Mac, so its CI tests where it ships:
+  Ubuntu 24.04 and Windows Server 2025.
 
 Add an exemption rather than leave a gap standing, and write the reason. A gap
 the owner has decided to keep is a decision, and the reason stops the next pass
@@ -164,7 +172,9 @@ from reopening it.
 Run `audit.sh <name>` as soon as it exists on GitHub, and apply what applies:
 - the ruleset and push protection, if it is public
 - delete-branch-on-merge, whatever its visibility
-- a README and the family's licence
+- Dependabot alerts, if it has a dependency manifest GitHub reads
+- a README, and a licence (§3)
+- CI that runs its tests on the `ci-matrix` runners, if it has tests
 - `.nojekyll`, HTTPS and the homepage, if it gets a Pages site
 
 Then add it to the owner's `pushall` sweep by cloning it under `~/Projects`, so
