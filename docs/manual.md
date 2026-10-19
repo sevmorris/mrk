@@ -191,7 +191,7 @@ Two tools manage the Brewfile: `sync` on the command line, and Barkeep in a wind
 ```bash
 sync                  # Start the mrk-picker TUI, and select the packages
 sync -n               # Show the additions, but change nothing
-sync -c               # Commit the Brewfile and main.go after sync updates them
+sync -c               # Commit the Brewfile and the description table after sync updates them
 sync -p               # Delete the entries for the packages you uninstalled
 ```
 
@@ -215,15 +215,17 @@ sync -p               # Delete the entries for the packages you uninstalled
 8. sync asks you, through `gum`, which Brewfile section each formula belongs to. The question shows Homebrew's description of the formula.
 9. sync files each cask by the category its app declares for itself, `LSApplicationCategoryType` in the app's `Info.plist`, under `## Casks - <Category>`: Audio, Communication, Developer Tools, Games, Productivity, Utilities, Video, and the other App Store categories. An app that declares no category goes to Utilities. A category with no section yet gets one, among the other cask sections in alphabetical order.
 10. sync adds each entry to its section in alphabetical order.
-11. sync writes each new package's description to `tools/picker/main.go`, so `check-picker-desc` still passes.
+11. sync writes each new package's description to `tools/picker/descriptions.tsv`, so `check-picker-desc` still passes.
 
-The description is Homebrew's own. A cask whose name does not say what the product is gets the product's name in front: `github` is described as "GitHub Desktop — Desktop client for GitHub repositories". sync writes a description only for a package that has none, so you can reword one in `main.go` and sync keeps your words. When Homebrew has no description, sync adds the package and names it, and you write the description yourself. With `-n`, sync shows each section and description, and writes nothing.
+The description is Homebrew's own. A cask whose name does not say what the product is gets the product's name in front: `github` is described as "GitHub Desktop — Desktop client for GitHub repositories". sync writes a description only for a package that has none, so you can reword one in `descriptions.tsv` and sync keeps your words. When Homebrew has no description, sync adds the package and names it, and you write the description yourself. With `-n`, sync shows each section and description, and writes nothing.
+
+**The description table.** `tools/picker/descriptions.tsv` holds one line for each package: the name, a tab, and the description. The lines are in byte order of the name, and a line that starts with `#` is a comment. To write or change a description by hand, keep that shape. `check-picker-desc` refuses a line that has spaces in place of the tab. mrk-picker embeds the file when it is built, so run `make picker` to see a change in the picker.
 
 sync never moves an entry that is already in the Brewfile. To refile an app, move its line to another `## Casks -` section by hand, and it stays there.
 
 If `brew list` fails, sync stops. An empty package list would make `-p` mark every Brewfile entry for deletion.
 
-When `-p` deletes a Brewfile entry, sync also deletes the package's description from `tools/picker/main.go`, so `check-picker-desc` still passes. A formula and a cask with the same name share one description, and sync keeps it while either one is still in the Brewfile. With `-c`, sync commits both files together.
+When `-p` deletes a Brewfile entry, sync also deletes the package's description from `tools/picker/descriptions.tsv`, so `check-picker-desc` still passes. A formula and a cask with the same name share one description, and sync keeps it while either one is still in the Brewfile. With `-c`, sync commits both files together.
 
 **Barkeep and hand edits.** Barkeep adds and removes Brewfile lines — Add to Brewfile, Adopt, Remove from Brewfile, and from Barkeep 1.13.0 Uninstall and Remove from Brewfile — and writes no picker description, and neither does an edit by hand. `mrk-push` and `pushall` settle that before they commit: they run `check-picker-desc`, and when it fails they run `check-picker-desc --fix`, which writes Homebrew's description for each package that has none, in the words and places sync would use, and deletes each description no Brewfile entry uses. It never changes a description that is already there. This also catches a Barkeep edit you committed with a plain `git commit`. When Homebrew has no description for a package, the commit goes ahead with a warning that names it, and you write that one yourself. To do it before you push, run:
 

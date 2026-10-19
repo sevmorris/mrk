@@ -9,8 +9,8 @@
 # Homebrew's words and deletes the orphans, and mrk-push and pushall run it
 # whenever the check fails, before they commit.
 #
-# Everything runs against copies of this repository's Brewfile and main.go, in
-# throwaway repositories whose pushes go to local bares. brew is a stub named by
+# Everything runs against copies of this repository's Brewfile and description
+# table, in throwaway repositories whose pushes go to local bares. brew is a stub named by
 # MRK_BREW that answers `brew info --json=v2` from fixtures, and gh a stub that
 # refuses to run. Nothing is installed. ci-check runs it.
 
@@ -24,7 +24,7 @@ fails=0
 pass() { ok "$*"; }
 fail() { err "$*"; fails=$((fails + 1)); }
 
-for tool in python3 git gofmt; do
+for tool in python3 git; do
   command -v "$tool" >/dev/null 2>&1 || { fail "$tool not found"; exit 1; }
 done
 
@@ -76,7 +76,7 @@ mkrepo() {
   cp -p "$REPO_ROOT/scripts/check-picker-desc" "$REPO_ROOT/scripts/lib.sh" "$d/scripts/"
   cp -p "$REPO_ROOT/bin/mrk-push" "$REPO_ROOT/bin/pushall" "$d/bin/"
   cp -p "$REPO_ROOT/Brewfile" "$d/"
-  cp -p "$REPO_ROOT/tools/picker/main.go" "$d/tools/picker/"
+  cp -p "$REPO_ROOT/tools/picker/descriptions.tsv" "$d/tools/picker/"
   git init -q --bare -b main "$d.git"
   git init -q -b main "$d"
   git -C "$d" config user.name "check-picker-desc test"
@@ -135,15 +135,18 @@ open(path, 'w').write('\n'.join(l for l in lines
 PY
 }
 
-# descs FILE — every description in main.go, as `name<TAB>description`, unescaped.
-descs() {
-  python3 - "$1" <<'PY'
-import ast, re, sys
-for k, v in re.findall(r'^\t"([^"]+)":\s*(".*"),$', open(sys.argv[1]).read(), re.M):
-    print(f'{k}\t{ast.literal_eval(v)}')
-PY
+# T DIR — DIR's description table.
+T() { printf '%s/tools/picker/descriptions.tsv' "$1"; }
+# descs FILE — every description in the table, as `name<TAB>description`.
+descs() { awk -F'\t' '!/^#/ && NF > 1' "$1"; }
+desc_of() { descs "$(T "$2")" | awk -F'\t' -v k="$1" '$1 == k { print $2 }'; }
+# in_order DIR — the table's header as this repository has it, then every line
+# in byte order of the name, which is the order the writers keep.
+in_order() {
+  local t; t="$(T "$1")"
+  [[ "$(sed -n '/^#/!q;p' "$t")" == "$(sed -n '/^#/!q;p' "$(T "$REPO_ROOT")")" ]] &&
+    grep -v '^#' "$t" | LC_ALL=C sort -c 2>/dev/null
 }
-desc_of() { descs "$2/tools/picker/main.go" | awk -F'\t' -v k="$1" '$1 == k { print $2 }'; }
 expect_desc() {  # expect_desc DIR NAME WANT
   local got; got="$(desc_of "$2" "$1")"
   if [[ "$got" == "$3" ]]; then pass "$2 is described as: $3"; else fail "$2 is described as '${got:-nothing}', want '$3'"; fi
@@ -175,7 +178,7 @@ log "check-picker-desc --fix"
 
 R="$W/repo"
 mkrepo "$R"
-descs "$R/tools/picker/main.go" > "$W/before"
+descs "$(T "$R")" > "$W/before"
 barkeep_session "$R"
 
 # The copy of Barkeep's add() is only as good as its likeness: each line in the
@@ -198,10 +201,10 @@ if (( rc == 1 )) && grep -qx '  zq-adopted' "$W/check.log" && grep -qx '  zqtool
 else
   fail "the check exited $rc and said:"; sed 's/^/      /' "$W/check.log" >&2
 fi
-if git -C "$R" diff --quiet -- tools/picker/main.go; then
+if git -C "$R" diff --quiet -- tools/picker/descriptions.tsv; then
   pass "the check without --fix writes nothing"
 else
-  fail "the check without --fix changed main.go"
+  fail "the check without --fix changed the description table"
 fi
 
 rc=0; "$R/scripts/check-picker-desc" --fix >"$W/fix.log" 2>&1 || rc=$?
@@ -220,7 +223,7 @@ else
 fi
 
 # Every other description is exactly as it was: --fix writes only what is absent.
-descs "$R/tools/picker/main.go" > "$W/after"
+descs "$(T "$R")" > "$W/after"
 changed="$(diff <(awk -F'\t' '$1 != "zq-adopted" && $1 != "zqtool" && $1 != "zq-studio"' "$W/after") \
                <(awk -F'\t' -v gone="$GONE" '$1 != gone' "$W/before") 2>&1)"
 if [[ -z "$changed" ]]; then
@@ -229,22 +232,18 @@ else
   fail "other descriptions changed:"; printf '%s\n' "$changed" | sed 's/^/      /' >&2
 fi
 
-order="$(awk -F'"' '/^\t\/\/ Casks/ { print "CASKS"; next } /^\t"(zqtool|zq-adopted|zq-studio)":/ { print $2 }' \
-         "$R/tools/picker/main.go" | tr '\n' ' ')"
-if [[ "$order" == "zqtool CASKS zq-adopted zq-studio " ]]; then
-  pass "the formula closes the formulae block, the casks sit in name order"
+# The formula and the casks are placed by one rule, so a writer needs no parser:
+# each new line goes before the first name that sorts after it.
+if in_order "$R"; then
+  pass "the header stays, and every description sits in byte order of its name"
 else
-  fail "main.go order: $order"
+  fail "the table's header changed, or its lines are out of order:"
+  grep -v '^#' "$(T "$R")" | LC_ALL=C sort -c 2>&1 | sed 's/^/      /' >&2
 fi
-if [[ -z "$(gofmt -l "$R/tools/picker/main.go" 2>&1)" ]]; then
-  pass "main.go is gofmt-clean and parses"
+if [[ -z "$(find "$R/tools/picker" -name '.descriptions.tsv.*')" && "$(/usr/bin/stat -f '%Lp' "$(T "$R")")" == 644 ]]; then
+  pass "--fix leaves no temp file beside the table, and the table's mode 644"
 else
-  fail "gofmt: $(gofmt -l "$R/tools/picker/main.go" 2>&1)"
-fi
-if [[ -z "$(find "$R/tools/picker" -name '.main.go.*')" ]]; then
-  pass "--fix leaves no temp file beside main.go"
-else
-  fail "--fix left: $(find "$R/tools/picker" -name '.main.go.*' | tr '\n' ' ')"
+  fail "--fix left: $(find "$R/tools/picker" -name '.descriptions.tsv.*' | tr '\n' ' '), mode $(/usr/bin/stat -f '%Lp' "$(T "$R")")"
 fi
 if "$R/scripts/check-picker-desc" >/dev/null 2>&1; then
   pass "check-picker-desc passes after --fix"
@@ -252,12 +251,12 @@ else
   fail "check-picker-desc still fails after --fix"
 fi
 
-cp "$R/tools/picker/main.go" "$W/main.go.fixed"
+cp "$(T "$R")" "$W/table.fixed"
 "$R/scripts/check-picker-desc" --fix >/dev/null 2>&1
-if cmp -s "$R/tools/picker/main.go" "$W/main.go.fixed"; then
+if cmp -s "$(T "$R")" "$W/table.fixed"; then
   pass "a second --fix changes nothing"
 else
-  fail "a second --fix rewrote main.go"
+  fail "a second --fix rewrote the description table"
 fi
 
 # ── 2. What --fix cannot settle ──────────────────────────────────────────────
@@ -275,10 +274,10 @@ fi
 barkeep_remove "$R" cask zq-nodesc
 barkeep_remove "$R" cask zq-ghost
 
-cp "$R/tools/picker/main.go" "$W/main.go.keep"
+cp "$(T "$R")" "$W/table.keep"
 barkeep_add "$R" cask zq-adopted2 Adopted
 rc=0; MRK_BREW="$W/stubs/no-such-brew" "$R/scripts/check-picker-desc" --fix >"$W/nobrew.log" 2>&1 || rc=$?
-if (( rc == 1 )) && grep -q 'needs Homebrew' "$W/nobrew.log" && cmp -s "$R/tools/picker/main.go" "$W/main.go.keep"; then
+if (( rc == 1 )) && grep -q 'needs Homebrew' "$W/nobrew.log" && cmp -s "$(T "$R")" "$W/table.keep"; then
   pass "--fix without Homebrew exits 1 and writes nothing"
 else
   fail "--fix without Homebrew exited $rc:"; sed 's/^/      /' "$W/nobrew.log" >&2
@@ -287,11 +286,35 @@ barkeep_remove "$R" cask zq-adopted2
 
 printf 'brew  "zq-spaced"\n' >> "$R/Brewfile"
 rc=0; "$R/scripts/check-picker-desc" --fix >"$W/unparsable.log" 2>&1 || rc=$?
-if (( rc == 1 )) && grep -q 'mrk cannot parse' "$W/unparsable.log" && cmp -s "$R/tools/picker/main.go" "$W/main.go.keep"; then
+if (( rc == 1 )) && grep -q 'mrk cannot parse' "$W/unparsable.log" && cmp -s "$(T "$R")" "$W/table.keep"; then
   pass "--fix refuses a Brewfile line mrk cannot parse, as the check does, and writes nothing"
 else
   fail "--fix on an unparsable line exited $rc:"; sed 's/^/      /' "$W/unparsable.log" >&2
 fi
+
+sed -i.bak '$d' "$R/Brewfile" && rm -f "$R/Brewfile.bak"
+
+# A table line whose tab an editor turned into spaces reads as a name no
+# Brewfile entry uses. --fix would delete it as an orphan and describe the
+# package again in Homebrew's words, losing the hand-written description, so
+# the check refuses the table first. A name described twice is refused too.
+first="$(descs "$W/table.keep" | head -1 | cut -f1)"
+awk -F'\t' -v n="$first" 'BEGIN { OFS = "    " } !/^#/ && $1 == n { $1 = $1 } { print }' "$W/table.keep" > "$(T "$R")"
+rc=0; "$R/scripts/check-picker-desc" --fix >"$W/spaces.log" 2>&1 || rc=$?
+if (( rc == 1 )) && grep -q 'descriptions.tsv cannot be read' "$W/spaces.log" \
+   && grep -qF "$first    " "$W/spaces.log" && ! grep -q 'deleted' "$W/spaces.log"; then
+  pass "a table line with spaces for its tab is named, and --fix refuses it and deletes nothing"
+else
+  fail "--fix on a table line with spaces exited $rc:"; sed 's/^/      /' "$W/spaces.log" >&2
+fi
+{ cat "$W/table.keep"; descs "$W/table.keep" | head -1; } > "$(T "$R")"
+rc=0; "$R/scripts/check-picker-desc" >"$W/twice.log" 2>&1 || rc=$?
+if (( rc == 1 )) && grep -qF "$first is described twice" "$W/twice.log"; then
+  pass "a name described twice is named, and the check exits 1"
+else
+  fail "the check on a name described twice exited $rc:"; sed 's/^/      /' "$W/twice.log" >&2
+fi
+cp "$W/table.keep" "$(T "$R")"
 
 rc=0; "$R/scripts/check-picker-desc" --fxi >/dev/null 2>&1 || rc=$?
 if (( rc == 2 )); then pass "an unknown argument exits 2"; else fail "an unknown argument exited $rc"; fi
@@ -324,7 +347,7 @@ mrk_push_repo "$M"
 barkeep_session "$M"
 b="$(git -C "$M.git" rev-parse main)"
 rc="$(mrk_push "$M" "$W/mp-dry.log" --dry-run)"
-if (( rc == 0 )) && git -C "$M" diff --quiet -- tools/picker/main.go && [[ "$(git -C "$M.git" rev-parse main)" == "$b" ]] \
+if (( rc == 0 )) && git -C "$M" diff --quiet -- tools/picker/descriptions.tsv && [[ "$(git -C "$M.git" rev-parse main)" == "$b" ]] \
    && grep -q 'A real run runs check-picker-desc --fix' "$W/mp-dry.log"; then
   pass "mrk-push --dry-run reports the missing descriptions and writes nothing"
 else
@@ -333,7 +356,7 @@ fi
 
 rc="$(mrk_push "$M" "$W/mp.log" "Barkeep edits")"
 files="$(git -C "$M.git" show --name-only --format= main | sort | tr '\n' ' ')"
-if (( rc == 0 )) && [[ "$files" == "Brewfile tools/picker/main.go " ]]; then
+if (( rc == 0 )) && [[ "$files" == "Brewfile tools/picker/descriptions.tsv " ]]; then
   pass "mrk-push commits the descriptions with the Brewfile"
 else
   fail "mrk-push exited $rc and committed: $files"; sed 's/^/      /' "$W/mp.log" >&2
@@ -353,21 +376,21 @@ barkeep_session "$M"
 git -C "$M" commit -qam "Barkeep edits, committed by hand"
 rc="$(mrk_push "$M" "$W/mp-committed.log" "describe")"
 files="$(git -C "$M.git" show --name-only --format= main | sort | tr '\n' ' ')"
-if (( rc == 0 )) && [[ "$files" == "tools/picker/main.go " ]] && pushed "$M"; then
+if (( rc == 0 )) && [[ "$files" == "tools/picker/descriptions.tsv " ]] && pushed "$M"; then
   pass "a Brewfile committed without its descriptions gets them on the next mrk-push"
 else
   fail "mrk-push after a hand commit exited $rc, committed: $files"; sed 's/^/      /' "$W/mp-committed.log" >&2
 fi
 
-# Descriptions already in step: the check runs, says nothing, and main.go stays
-# out of the commit.
+# Descriptions already in step: the check runs, says nothing, and the table
+# stays out of the commit.
 M="$W/mp-quiet"
 mrk_push_repo "$M"
 printf '# a comment\n' >> "$M/Brewfile"
 rc="$(mrk_push "$M" "$W/mp-quiet.log" "comment")"
 files="$(git -C "$M.git" show --name-only --format= main | sort | tr '\n' ' ')"
 if (( rc == 0 )) && [[ "$files" == "Brewfile " ]] && ! grep -qE 'check-picker-desc:|--fix' "$W/mp-quiet.log"; then
-  pass "a push with the descriptions in step says nothing about them and leaves main.go alone"
+  pass "a push with the descriptions in step says nothing about them and leaves the table alone"
 else
   fail "mrk-push with descriptions in step exited $rc, committed: $files"; sed 's/^/      /' "$W/mp-quiet.log" >&2
 fi
@@ -383,7 +406,7 @@ mkdir -p "$W/pa-home/Projects"
 barkeep_session "$P"
 rc=0; PATH="$W/stubs:$PATH" HOME="$W/pa-home" "$P/bin/pushall" >"$W/pa.log" 2>&1 || rc=$?
 files="$(git -C "$P.git" show --name-only --format= main | sort | tr '\n' ' ')"
-if (( rc == 0 )) && [[ "$files" == "Brewfile tools/picker/main.go " ]]; then
+if (( rc == 0 )) && [[ "$files" == "Brewfile tools/picker/descriptions.tsv " ]]; then
   pass "pushall commits mrk's descriptions with its Brewfile"
 else
   fail "pushall exited $rc and committed: $files"; sed 's/^/      /' "$W/pa.log" >&2
@@ -402,7 +425,7 @@ barkeep_session "$P"
 git -C "$P" commit -qam "Barkeep edits, committed by hand"
 rc=0; PATH="$W/stubs:$PATH" HOME="$W/pa-home" "$P/bin/pushall" >"$W/pa-committed.log" 2>&1 || rc=$?
 files="$(git -C "$P.git" show --name-only --format= main | sort | tr '\n' ' ')"
-if (( rc == 0 )) && [[ "$files" == "tools/picker/main.go " ]] && pushed "$P"; then
+if (( rc == 0 )) && [[ "$files" == "tools/picker/descriptions.tsv " ]] && pushed "$P"; then
   pass "a clean mrk whose Brewfile was committed without descriptions gets them from pushall"
 else
   fail "pushall after a hand commit exited $rc, committed: $files"; sed 's/^/      /' "$W/pa-committed.log" >&2

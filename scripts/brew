@@ -218,8 +218,8 @@ resolve_homebrew() {
 }
 
 # Package descriptions for the gum fallback, read from the one table mrk keeps:
-# the descriptions map in tools/picker/main.go, which check-picker-desc holds to
-# the Brewfile in both directions.
+# tools/picker/descriptions.tsv, `name<TAB>description` lines that
+# check-picker-desc holds to the Brewfile in both directions.
 #
 # Until 2026-09-17 this script kept its own copy: 42 formulae, no casks, and no
 # check, so it lacked 15 of the Brewfile's 57 formulae and every cask. It
@@ -231,15 +231,13 @@ resolve_homebrew() {
 PKG_DESC_NAMES=()
 PKG_DESC_TEXTS=()
 load_descriptions() {
-  local picker_go="$REPO_ROOT/tools/picker/main.go" line
-  local re=$'^\t"([^"]+)":[[:space:]]*"(.*)",$'
-  [[ -f "$picker_go" ]] || return 0
-  while IFS= read -r line; do
-    if [[ "$line" =~ $re ]]; then
-      PKG_DESC_NAMES+=("${BASH_REMATCH[1]}")
-      PKG_DESC_TEXTS+=("${BASH_REMATCH[2]}")
-    fi
-  done < "$picker_go"
+  local table="$REPO_ROOT/tools/picker/descriptions.tsv" name text
+  [[ -f "$table" ]] || return 0
+  while IFS=$'\t' read -r name text; do
+    [[ -z "$name" || "$name" == \#* || -z "$text" ]] && continue
+    PKG_DESC_NAMES+=("$name")
+    PKG_DESC_TEXTS+=("$text")
+  done < "$table"
   return 0
 }
 

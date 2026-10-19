@@ -25,14 +25,15 @@ Usage:
 Options:
       --fix       Describe each package that has no description, in Homebrew's
                   words, and delete each description no Brewfile entry uses.
-                  A description already in the map is never changed.
+                  A description already in the table is never changed.
   -h, --help      Show this help
 
 check-picker-desc compares the packages in the Brewfile against the
-descriptions in tools/picker/main.go and fails when either side has an entry
-the other does not. ci-check runs it first. mrk-push and pushall run it with
---fix when it fails, before they commit, which covers the packages Barkeep and
-hand edits add and remove.
+descriptions in tools/picker/descriptions.tsv and fails when either side has an
+entry the other does not, or when a line of either file cannot be read.
+ci-check runs it first. mrk-push and pushall run it with --fix when it fails,
+before they commit, which covers the packages Barkeep and hand edits add and
+remove.
 EOF
 }
 
@@ -41,9 +42,9 @@ EOF
 # removes lines and writes no description, so every Barkeep add turned this
 # gate red until someone described the package by hand. From 2026-09-27 --fix
 # does what sync does, with the same functions from scripts/lib.sh, for
-# whatever the Brewfile holds. It refuses the same Brewfiles the check refuses:
-# a line it cannot parse, or a mas entry, is a hand edit to undo rather than a
-# package to describe.
+# whatever the Brewfile holds. It refuses the same files the check refuses: a
+# Brewfile line it cannot parse, a mas entry, or a table line it cannot read is
+# a hand edit to undo rather than a package to describe.
 FIX=0
 while (( $# )); do
   case "$1" in
@@ -55,14 +56,14 @@ while (( $# )); do
 done
 
 BREWFILE="$REPO_ROOT/Brewfile"
-PICKER_GO="$REPO_ROOT/tools/picker/main.go"
+DESC_TABLE="$REPO_ROOT/tools/picker/descriptions.tsv"
 
 if [[ ! -f "$BREWFILE" ]]; then
   echo "check-picker-desc: Brewfile not found: $BREWFILE" >&2
   exit 1
 fi
-if [[ ! -f "$PICKER_GO" ]]; then
-  echo "check-picker-desc: picker source not found: $PICKER_GO" >&2
+if [[ ! -f "$DESC_TABLE" ]]; then
+  echo "check-picker-desc: description table not found: $DESC_TABLE" >&2
   exit 1
 fi
 
@@ -107,6 +108,29 @@ if (( ${#unparsable[@]} > 0 )); then
   exit 1
 fi
 
+# Fail closed on a table line this gate cannot read, for the same reason.
+#
+# The table is plain lines, so an editor that turns the tab into spaces makes a
+# line that is no `name<TAB>description`. Read as a name, that line is one no
+# Brewfile entry uses, and --fix would delete it as an orphan and describe the
+# package again in Homebrew's words: the description written by hand would go,
+# with nothing to say why. A name described twice is refused too. mrk-picker
+# refuses both when it starts, as the compiler refused them in the map literal
+# the table replaced.
+unreadable=()
+while IFS= read -r line; do
+  unreadable+=("$line")
+done < <(LC_ALL=C awk -F'\t' '
+  /^#/ || $0 == ""                { next }
+  NF != 2 || $1 == "" || $2 == "" { printf "line %d: %s\n", NR, $0; next }
+  seen[$1]++                      { printf "line %d: %s is described twice\n", NR, $1 }' "$DESC_TABLE")
+if (( ${#unreadable[@]} > 0 )); then
+  echo "check-picker-desc: ${#unreadable[@]} line(s) of tools/picker/descriptions.tsv cannot be read:" >&2
+  printf '  %s\n' "${unreadable[@]}" >&2
+  echo 'Rewrite each as: name<TAB>description  (one tab, both parts, each name once)' >&2
+  exit 1
+fi
+
 # Bash-3.2-safe membership test. The previous `printf | grep -Fxq` pattern
 # races against `set -o pipefail` on macOS bash 3.2: when grep -q matches
 # early, printf gets SIGPIPE, pipefail makes the pipeline non-zero, and the
@@ -128,7 +152,7 @@ compare() {
   picker_keys=()
   while IFS= read -r key; do
     [[ -n "$key" ]] && picker_keys+=("$key")
-  done < <(grep -E '^\t"[^"]+":' "$PICKER_GO" | sed 's/^\t"\([^"]*\)".*/\1/' | sort -u)
+  done < <(awk -F'\t' '!/^#/ && $1 != "" { print $1 }' "$DESC_TABLE" | sort -u)
 
   # ${a[@]+"${a[@]}"}: bash 3.2 calls an empty array unbound under set -u.
   missing=()
@@ -162,24 +186,24 @@ fix() {
   if (( ${#missing[@]} > 0 )); then
     # A formula and a cask that share a name share one description. The first
     # Brewfile line with the name says which of the two to ask Homebrew about.
-    local lookups=() described=() undescribed=() pkg kind name desc _section _reason _have
+    local lookups=() described=() undescribed=() pkg kind name desc _kind _section _reason _have
     for pkg in "${missing[@]}"; do
       kind=$(awk -F'"' -v want="$pkg" '$2 == want { print ($1 == "cask " ? "cask" : "formula"); exit }' "$BREWFILE")
       lookups+=("$kind:$pkg")
     done
     ADDS=$(mktemp "${TMPDIR:-/tmp}/mrk-descs.XXXXXX")
-    while IFS=$'\x1f' read -r kind name _section _reason desc _have; do
+    while IFS=$'\x1f' read -r _kind name _section _reason desc _have; do
       [[ -n "$name" ]] || continue
       if [[ -n "$desc" ]]; then
-        printf '%s\x1f%s\x1f%s\n' "$kind" "$name" "$desc" >> "$ADDS"
+        printf '%s\t%s\n' "$name" "$desc" >> "$ADDS"
         described+=("$name")
       else
         undescribed+=("$name")
       fi
-    done < <(brew_describe "$brew" "$PICKER_GO" "${lookups[@]}")
+    done < <(brew_describe "$brew" "$DESC_TABLE" "${lookups[@]}")
 
     if (( ${#described[@]} > 0 )); then
-      if picker_add_descriptions "$PICKER_GO" "$ADDS"; then
+      if picker_add_descriptions "$DESC_TABLE" "$ADDS"; then
         echo "check-picker-desc: described ${#described[@]} package(s) in Homebrew's words: ${described[*]}"
       else
         echo "check-picker-desc: could not write the descriptions of: ${described[*]}" >&2
@@ -187,12 +211,12 @@ fix() {
     fi
     if (( ${#undescribed[@]} > 0 )); then
       echo "check-picker-desc: Homebrew has no description for: ${undescribed[*]}" >&2
-      echo "Write one for each in tools/picker/main.go." >&2
+      echo "Write one for each in tools/picker/descriptions.tsv." >&2
     fi
   fi
 
   if (( ${#orphan[@]} > 0 )); then
-    if picker_remove_descriptions "$PICKER_GO" "${orphan[@]}"; then
+    if picker_remove_descriptions "$DESC_TABLE" "${orphan[@]}"; then
       echo "check-picker-desc: deleted ${#orphan[@]} description(s) no Brewfile entry uses: ${orphan[*]}"
     else
       echo "check-picker-desc: could not delete the descriptions of: ${orphan[*]}" >&2
@@ -215,7 +239,7 @@ if (( ${#missing[@]} == 0 && ${#orphan[@]} == 0 )); then
 fi
 
 if (( ${#missing[@]} > 0 )); then
-  echo "check-picker-desc: missing from tools/picker/main.go (${#missing[@]}):" >&2
+  echo "check-picker-desc: missing from tools/picker/descriptions.tsv (${#missing[@]}):" >&2
   printf '  %s\n' "${missing[@]}" >&2
 fi
 if (( ${#orphan[@]} > 0 )); then

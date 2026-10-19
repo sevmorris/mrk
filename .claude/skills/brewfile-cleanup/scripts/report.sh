@@ -27,7 +27,7 @@ REPO=${REPO:-${MRK_ROOT:-$HOME/mrk}}
 PROJECTS=${PROJECTS:-$HOME/Projects}
 SEVMAC=${SEVMAC:-$PROJECTS/sevmac}
 BREWFILE="$REPO/Brewfile"
-PICKER="$REPO/tools/picker/main.go"
+PICKER="$REPO/tools/picker/descriptions.tsv"
 GREP=/usr/bin/grep   # not a shell function or alias, whatever the caller has
 
 [[ -f "$BREWFILE" ]] || { echo "report.sh: no Brewfile at $BREWFILE" >&2; exit 1; }
@@ -124,7 +124,7 @@ if [[ -s "$TMP/patterns" ]]; then
     fi
     # mrk's own code, minus the one file that names every package by design
     git -C "$REPO" ls-files -z -- bin scripts dotfiles assets tools Makefile 2>/dev/null \
-      | tr '\0' '\n' | $GREP -vxF 'tools/picker/main.go' \
+      | tr '\0' '\n' | $GREP -vxF 'tools/picker/descriptions.tsv' \
       | while IFS= read -r f; do printf '%s\0' "$REPO/$f"; done \
       | xargs -0 $GREP -IohwF -f "$TMP/patterns" 2>/dev/null
   } | sort -u > "$TMP/named-words"
@@ -214,7 +214,8 @@ for path, key, ident in ((sys.argv[1], 'formulae', 'name'), (sys.argv[2], 'casks
     for item in data.get(key, []):
         names = ', '.join(item.get('name') or []) if key == 'casks' else ''
         hb[item[ident]] = (item.get('desc') or '') + (f'  [{names}]' if names else '')
-ours = dict(re.findall(r'^\t"([^"]+)":\s*"(.*)",$', open(sys.argv[3]).read(), re.M))
+ours = dict(line.rstrip('\n').split('\t', 1) for line in open(sys.argv[3], encoding='utf-8')
+            if '\t' in line and not line.startswith('#'))
 if not hb:
     print('  brew info failed; is a Brewfile name unknown to Homebrew?')
 for name in sorted(set(hb) | set(ours), key=str.lower):

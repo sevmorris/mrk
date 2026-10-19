@@ -64,7 +64,7 @@ while IFS= read -r -d '' f; do
   [[ -f "$REPO_ROOT/$f" ]] || continue
   mkdir -p "$R/$(dirname "$f")"
   cp -p "$REPO_ROOT/$f" "$R/$f"
-done < <(git -C "$REPO_ROOT" ls-files -z scripts bin dotfiles Brewfile Makefile tools/picker/main.go)
+done < <(git -C "$REPO_ROOT" ls-files -z scripts bin dotfiles Brewfile Makefile tools/picker/descriptions.tsv)
 # build-tools changes into each tool's directory; the stub go needs no source
 mkdir -p "$R/tools/mrk-status" "$R/tools/mrk-menu"
 
@@ -201,11 +201,8 @@ C1="${CASKS[0]}";    C2="${CASKS[${#CASKS[@]}-1]}"
 
 # line_of NAME — NAME's line in the Brewfile
 line_of() { awk -F'"' -v n="$1" '($1 == "brew " || $1 == "cask ") && $2 == n { print; exit }' "$R/Brewfile"; }
-# desc_of NAME — NAME's description in main.go, as written there
-desc_of() {
-  awk -v n="$1" 'index($0, "\t\"" n "\":") == 1 { sub(/^[^:]*:[[:space:]]*"/, ""); sub(/",$/, ""); print; exit }' \
-    "$R/tools/picker/main.go"
-}
+# desc_of NAME — NAME's description in the description table
+desc_of() { awk -F'\t' -v n="$1" '!/^#/ && $1 == n { print $2; exit }' "$R/tools/picker/descriptions.tsv"; }
 # bundled_ok NAME... — `brew bundle` was handed the Brewfile's taps, comments
 # and blank lines, in order, and the lines of exactly NAME..., in any order.
 bundled_ok() {
@@ -362,7 +359,7 @@ cases() {
   desc="$(desc_of "$F1")"
   if [[ "$labels" == "$(( ${#FORMULAE[@]} + ${#CASKS[@]} ))" ]] && [[ -n "$desc" ]] \
      && grep -qxF "$F1 — $desc" "$W/gum-labels"; then
-    pass "  offers every package, each with its description from main.go"
+    pass "  offers every package, each with its description from the description table"
   else
     fail "  gum was offered $labels labels; $F1's: $(grep -F "$F1" "$W/gum-labels" 2>/dev/null | head -1)"
   fi

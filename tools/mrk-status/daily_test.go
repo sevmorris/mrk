@@ -271,9 +271,12 @@ func TestUpkeepToolFreshness(t *testing.T) {
 	// Each tool is held to its own directory, and mrk-picker's is tools/picker.
 	// A go.mod or a go.sum counts as a source: a dependency bump changes the
 	// binary without touching a .go file. Until 2026-10-01 this test changed
-	// only the shared theme, and held neither rule (audit 20, X-11).
+	// only the shared theme, and held neither rule (audit 20, X-11). So does
+	// the description table mrk-picker embeds, which sync and
+	// check-picker-desc --fix change without touching a .go file either.
 	for _, c := range []struct{ file, stale string }{
 		{"picker/go.mod", "mrk-picker"},
+		{"picker/descriptions.tsv", "mrk-picker"},
 		{"mrk-menu/go.sum", "mrk-menu"},
 		{"mrk-status/extra.go", "mrk-status"},
 	} {
