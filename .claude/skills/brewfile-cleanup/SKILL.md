@@ -49,15 +49,17 @@ what the list should hold, then follow every change to what depends on it.
 
 The reasoning behind the rows:
 
-- **Descriptions.** `tools/picker/main.go` holds the only description table.
-  `scripts/brew`'s gum fallback reads it too, and on a new Mac that fallback is
-  the picker, because Phase 2 runs before `make build-tools`. Never add a
-  second copy. Since 2026-09-27 `sync` writes Homebrew's `desc` for every
+- **Descriptions.** `tools/picker/descriptions.tsv` holds the only description
+  table, and mrk-picker embeds it at build time. `scripts/brew`'s gum fallback
+  reads it too, and on a new Mac that fallback is the picker, because Phase 2
+  runs before `make build-tools`. Never add a second copy. Since 2026-09-27 `sync` writes Homebrew's `desc` for every
   package it adds, so a missing description means the line was added by hand,
   or Homebrew had none. Write it the way sync would: Homebrew's `desc`, with the
   cask's display name in front when the token does not name the product. When
   mrk is the reason a package is there, say so: `dockutil` is "used by make
-  dock". Run `gofmt -w tools/picker/main.go` afterwards. With `--descriptions`,
+  dock". Each line is `name<TAB>description`, in byte order of the name: put a
+  new line before the first name that sorts after it, and keep the tab a tab
+  (`check-picker-desc` refuses spaces in its place). With `--descriptions`,
   fix only real mismatches, not wording: on 2026-09-17 `helium-browser`
   described a floating-window app, and the cask is imput's Chromium browser.
 - **Names.** `brew list` prints canonical names, and `brew install` accepts
@@ -103,11 +105,11 @@ single questions.
 
 ## 3. Follow each change to what depends on it
 
-- `tools/picker/main.go` holds the descriptions, and `check-picker-desc` holds
-  them to the Brewfile in both directions. `scripts/brew` reads them. sync and
-  `check-picker-desc --fix` write them, through the functions in
-  `scripts/lib.sh`; mrk-push and pushall run the check before they commit,
-  and `--fix` when it fails.
+- `tools/picker/descriptions.tsv` holds the descriptions, and
+  `check-picker-desc` holds them to the Brewfile in both directions.
+  `scripts/brew` reads them. sync and `check-picker-desc --fix` write them,
+  through the functions in `scripts/lib.sh`; mrk-push and pushall run the
+  check before they commit, and `--fix` when it fails.
 - `scripts/sync`, `scripts/brew`, `scripts/status`, `tools/picker` and
   `tools/mrk-status` all parse the Brewfile, each in its own way. Keep every
   line in the strict shape: `brew "name"` or
