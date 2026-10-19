@@ -21,12 +21,16 @@ func TestParseArgs(t *testing.T) {
 		{"--help", []string{"--help"}, options{help: true}, ""},
 		{"-h", []string{"-h"}, options{help: true}, ""},
 		{"--plain prints the panels", []string{"--plain"}, options{plain: true}, ""},
+		{"--json prints the panels as JSON", []string{"--json"}, options{json: true}, ""},
+		{"-json is not --json", []string{"-json"}, options{}, "-json"},
+		{"--plain and --json together are refused", []string{"--plain", "--json"}, options{}, "--json"},
 		{"an unknown flag is refused", []string{"--bogus"}, options{}, "--bogus"},
 		{"a bare word is refused", []string{"status"}, options{}, "status"},
 		{"-help is not -h", []string{"-help"}, options{}, "-help"},
 		{"case matters", []string{"--HELP"}, options{}, "--HELP"},
 		{"an extra argument after --help is refused", []string{"--help", "extra"}, options{}, "extra"},
 		{"an extra argument after --plain is refused", []string{"--plain", "extra"}, options{}, "extra"},
+		{"an extra argument after --json is refused", []string{"--json", "extra"}, options{}, "extra"},
 		{"an extra argument after a flag is refused", []string{"--bogus", "extra"}, options{}, "extra"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -44,9 +48,10 @@ func TestParseArgs(t *testing.T) {
 // had asked for help on stdout.
 func TestRefusalAndHelpAreExclusive(t *testing.T) {
 	for _, args := range [][]string{
-		nil, {}, {"--help"}, {"-h"}, {"--plain"}, {"--bogus"}, {"x"}, {"--help", "extra"},
+		nil, {}, {"--help"}, {"-h"}, {"--plain"}, {"--json"}, {"--bogus"}, {"x"}, {"--help", "extra"},
+		{"--json", "extra"},
 	} {
-		if opts, bad := parseArgs(args); (opts.help || opts.plain) && bad != "" {
+		if opts, bad := parseArgs(args); (opts.help || opts.plain || opts.json) && bad != "" {
 			t.Errorf("parseArgs(%q) returned both %+v and bad=%q", args, opts, bad)
 		}
 	}
