@@ -20,7 +20,10 @@
 #
 # The committed list is checked too: every line an app path, in byte order,
 # and the manual's sentence naming exactly those apps, so an edit that skips
-# sync-login-items cannot leave the manual behind.
+# sync-login-items cannot leave the manual behind. A run of sync-login-items
+# that leaves the list as it is repairs that sentence, and section 11 checks
+# it does, with -n and --check writing nothing and -c committing the manual
+# alone.
 #
 # Everything runs against a copy of the repository, under a throwaway HOME.
 # osascript is a stub that prints the login items from a fixture, and gum is a
@@ -66,7 +69,7 @@ got_sentence=$(sed -n 's/^- \*\*Login items:\*\* post-install adds these apps to
 if [[ -n "$got_sentence" && "$got_sentence" == "$want_sentence" ]]; then
   pass "the manual's login-items sentence names exactly the apps $LIST lists"
 else
-  fail "the manual's login-items sentence differs from $LIST. Make the sentence in docs/manual.md read:"
+  fail "the manual's login-items sentence differs from $LIST. Run sync-login-items, which repairs it, or make the sentence in docs/manual.md read:"
   info "- **Login items:** post-install adds these apps to the login items: $want_sentence"
 fi
 
@@ -399,6 +402,104 @@ if [[ $RC == 1 && ! -s "$W/out" ]] && grep -qF 'Not an app path: Applications/No
   pass "a line in the list that is not an app path: named, exit 1, nothing written"
 else
   fail "a bad line in the list (exit $RC)"; why
+fi
+reset_copy
+
+# ── 11. The manual's sentence, when the list does not change ─────────────────
+#
+# A hand edit of the list, or one by the Settings app, leaves the sentence
+# behind. A run that leaves the list as it is brings the sentence back in step.
+# The stale sentence here names an app the list does not, and lacks one it
+# does.
+
+# set_sentence FILE LIST — FILE, with the manual's login-items sentence listing LIST
+set_sentence() {
+  python3 - "$1" "$2" <<'PYEOF'
+import sys, re
+path, items = sys.argv[1:3]
+with open(path) as f:
+    content = f.read()
+sys.stdout.write(re.sub(r'(- \*\*Login items:\*\* post-install adds these apps to the login items: )[^\n]*',
+                        lambda m: m.group(1) + items, content))
+PYEOF
+}
+set_sentence "$W/manual.orig" "$want_sentence" > "$W/manual.good"
+set_sentence "$W/manual.orig" "Gone App, ${want_sentence#*, }" > "$W/manual.stale"
+stale_manual() { cp -p "$W/manual.stale" "$R/docs/manual.md"; }
+
+stale_manual
+slx "$BASE"
+if [[ $RC == 0 && $GUMS == 0 ]] && grep -q 'Login items are up to date' "$W/err" \
+   && grep -q 'Updated docs/manual.md' "$W/err" \
+   && cmp -s "$R/docs/manual.md" "$W/manual.good" && cmp -s "$R/$LIST" "$W/list.orig"; then
+  pass "a stale sentence, with the login items up to date: the sentence repaired, and the list unchanged"
+else
+  fail "a stale sentence, with the login items up to date (exit $RC)"; why
+fi
+slx "$BASE"
+if [[ $RC == 0 ]] && ! grep -q 'docs/manual.md' "$W/err" && cmp -s "$R/docs/manual.md" "$W/manual.good"; then
+  pass "and the next run says nothing about the manual"
+else
+  fail "the run after the repair (exit $RC)"; why
+fi
+
+stale_manual
+slx "$BASE" -n
+if [[ $RC == 0 ]] && grep -q 'lists these login items: Gone App' "$W/err" \
+   && grep -q 'Would change it to list the tracked apps' "$W/err" \
+   && cmp -s "$R/docs/manual.md" "$W/manual.stale" && cmp -s "$R/$LIST" "$W/list.orig"; then
+  pass "-n with a stale sentence: says what it would change, and writes nothing"
+else
+  fail "-n with a stale sentence (exit $RC)"; why
+fi
+
+slx "$BASE" --check
+if [[ $RC == 0 && ! -s "$W/out" ]] && cmp -s "$R/docs/manual.md" "$W/manual.stale"; then
+  pass "--check with a stale sentence: no line, and writes nothing"
+else
+  fail "--check with a stale sentence (exit $RC): $(cat "$W/out")"; why
+fi
+
+mkdir -p "$W/home/.mrk"; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
+slx "$W/drift" --add Nobody
+if [[ $RC == 1 ]] && cmp -s "$R/docs/manual.md" "$W/manual.stale"; then
+  pass "a refused decision with a stale sentence: writes nothing"
+else
+  fail "a refused decision with a stale sentence (exit $RC)"; why
+fi
+slx "$W/drift" --ignore "Zéphyr"
+if [[ $RC == 0 ]] && cmp -s "$R/docs/manual.md" "$W/manual.good" && cmp -s "$R/$LIST" "$W/list.orig"; then
+  pass "--ignore NAME with a stale sentence: the sentence repaired too"
+else
+  fail "--ignore NAME with a stale sentence (exit $RC)"; why
+fi
+cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
+
+# -c commits the manual alone: a file staged before the run stays staged.
+stale_manual
+HOME="$W/home" git -C "$R" init -q
+HOME="$W/home" git -C "$R" add -A
+HOME="$W/home" git -C "$R" commit -qm base
+echo staged > "$R/staged.txt"
+HOME="$W/home" git -C "$R" add staged.txt
+slx "$BASE" -c
+if [[ $RC == 0 && "$(git -C "$R" log -1 --format=%s)" == "login-items: list the tracked apps in the manual" ]] \
+   && [[ "$(git -C "$R" rev-list --count HEAD)" == 2 ]] \
+   && [[ "$(git -C "$R" show --name-only --format= HEAD)" == "docs/manual.md" ]] \
+   && [[ "$(git -C "$R" status --porcelain)" == "A  staged.txt" ]] \
+   && cmp -s "$R/docs/manual.md" "$W/manual.good"; then
+  pass "-c with a stale sentence: one commit, of the manual alone"
+else
+  fail "-c with a stale sentence (exit $RC): $(git -C "$R" log -1 --format=%s) / $(git -C "$R" show --name-only --format= HEAD | tr '\n' ' ') / $(git -C "$R" status --porcelain | tr '\n' ' ')"; why
+fi
+rm -rf "$R/.git" "$R/staged.txt"; reset_copy
+
+grep -v '^- \*\*Login items:\*\*' "$W/manual.orig" > "$R/docs/manual.md"
+slx "$BASE"
+if [[ $RC == 1 ]] && grep -q 'could not locate login-items line' "$W/err" && cmp -s "$R/$LIST" "$W/list.orig"; then
+  pass "a manual with no login-items sentence: exit 1, and the list unchanged"
+else
+  fail "a manual with no login-items sentence (exit $RC)"; why
 fi
 reset_copy
 

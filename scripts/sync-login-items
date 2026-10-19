@@ -75,6 +75,11 @@ Usage: scripts/sync-login-items [options]
                   System Events gave no login items. Takes precedence over
                   the other options.
 
+A run that leaves config/login-items.txt as it is still makes the login-items
+sentence in docs/manual.md list the tracked apps, so a hand edit of the file
+leaves no stale sentence. -n and -c apply to it too. --check and a refused
+decision write nothing.
+
 One decision, made without gum or a prompt (for a program, such as the
 Settings app). Each takes one item that --check lists, and refuses any other.
 With -n it shows what it would do; with -c it commits what it changed.
@@ -299,6 +304,87 @@ while IFS=$'\t' read -r app_name app_path; do
   [[ -n "$app_name" ]] && tracked_items["$app_name"]="$app_path"
 done <<< "$tracked_raw"
 
+# ─── 2b. The manual's sentence ───────────────────────────────────────────────
+#
+# Phase 3 in docs/manual.md names the tracked apps in one sentence, and
+# tests/sync-login-items.sh fails when the two differ. A run that changes the
+# list rewrites the sentence in section 9. A run that leaves the list as it is
+# brings the sentence back in step (manual_in_step), so a hand edit of
+# config/login-items.txt, or one by the Settings app, has a command that
+# repairs the manual. Both go through write_manual.
+
+# manual_items NAME... — the names sorted and joined with ", ", as the sentence
+# lists them. `IFS=', '` would join on the first IFS character only, which
+# produced an unreadable "A,B,C" run-on in the manual.
+manual_items() {
+  local sorted=() out=""
+  if (( $# > 0 )); then
+    mapfile -t sorted < <(printf '%s\n' "$@" | sort)
+    out=$(printf '%s, ' "${sorted[@]}")
+  fi
+  printf '%s' "${out%, }"
+}
+
+# write_manual ITEMS — docs/manual.md with its sentence listing ITEMS, written
+# to $TMP_MD. Sets MANUAL_STALE to 1 when that changes the sentence, else 0,
+# and MANUAL_WAS to what the sentence lists now. Stops the run when the manual
+# has no such sentence.
+write_manual() {
+  local out
+  [[ -n "$TMP_MD" ]] || TMP_MD=$(mrk_mktemp)
+  out=$(python3 - "$MANUAL_MD" "$1" "$TMP_MD" <<'PYEOF'
+import sys, re
+path, items, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path) as f:
+    content = f.read()
+# Must stay in step with the sentence in docs/manual.md. The prefix is the
+# anchor and the list runs to the end of the line. If the manual is reworded,
+# change it here too — the n_subs check below turns any drift into a hard error.
+pattern = r'(- \*\*Login items:\*\* post-install adds these apps to the login items: )([^\n]*)'
+new_content, n_subs = re.subn(pattern, lambda m: m.group(1) + items, content)
+if n_subs == 0:
+    print('Warning: could not locate login-items line in manual.md.', file=sys.stderr)
+    sys.exit(1)
+with open(out_path, 'w') as f:
+    f.write(new_content)
+was = re.search(pattern, content).group(2)
+print(('1' if new_content != content else '0') + '\t' + was, end='')
+PYEOF
+) || exit 1
+  MANUAL_STALE=${out%%$'\t'*}
+  MANUAL_WAS=${out#*$'\t'}
+}
+
+# manual_in_step — at an exit that leaves config/login-items.txt as it is, make
+# the sentence list the tracked apps, and say so. Silent when it already does.
+# With -n it says what it would change; with -c it commits docs/manual.md
+# alone, and nothing else that is staged.
+manual_in_step() {
+  local items msg="login-items: list the tracked apps in the manual"
+  items=$(manual_items "${!tracked_items[@]}")
+  write_manual "$items"
+  (( MANUAL_STALE )) || return 0
+
+  if (( DRY_RUN )); then
+    dry "docs/manual.md lists these login items: $MANUAL_WAS"
+    dry "Would change it to list the tracked apps: $items"
+    return 0
+  fi
+  # mktemp creates 0600, so restore the expected mode before the swap.
+  chmod 644 "$TMP_MD"
+  mv "$TMP_MD" "$MANUAL_MD"
+  log "Updated docs/manual.md to list the tracked apps: $items"
+
+  (( COMMIT )) || return 0
+  cd "$REPO_ROOT"
+  if git diff --quiet HEAD -- "$MANUAL_MD" 2>/dev/null; then
+    log "No changes to commit."
+    return 0
+  fi
+  git commit -m "$msg" -- "$MANUAL_MD"
+  log "Committed: $msg"
+}
+
 # ─── 3. Compute diff ─────────────────────────────────────────────────────────
 
 new_items_arr=()
@@ -448,6 +534,7 @@ if [[ -n "$DECIDE" ]]; then
       # that follows would not offer it either way.
       if [[ "$DECIDE" == ignore ]] && _login_item_ignored "$n"; then
         log "$n is already in ~/.mrk/login-items-ignore"
+        manual_in_step
         exit 0
       fi
       if ! _listed "$n" ${new_items_arr[@]+"${new_items_arr[@]}"}; then
@@ -471,6 +558,7 @@ if [[ -n "$DECIDE" ]]; then
           _append_login_item_ignore "$n"
           log "Added $n to ~/.mrk/login-items-ignore"
         fi
+        manual_in_step
         exit 0
       fi
       add_items["$n"]=1
@@ -495,7 +583,8 @@ fi
 if [[ -z "$DECIDE" ]]; then
   if (( ${#new_items_arr[@]} == 0 && ${#stale_items_arr[@]} == 0 \
         && ${#conflict_items_arr[@]} == 0 )); then
-    log "Login items are up to date. Nothing to do."
+    log "Login items are up to date."
+    manual_in_step
     exit 0
   fi
 
@@ -648,7 +737,8 @@ n_add=${#add_items[@]}
 n_remove=${#remove_items[@]}
 
 if (( n_add == 0 && n_remove == 0 )); then
-  log "No changes selected. Nothing to do."
+  log "No changes selected."
+  manual_in_step
   exit 0
 fi
 
@@ -691,7 +781,6 @@ fi
 TEMP_ADD=$(mrk_mktemp)
 TEMP_REMOVE=$(mrk_mktemp)
 TMP_LIST=$(mrk_mktemp)
-TMP_MD=$(mrk_mktemp)
 
 for name in "${!add_items[@]}"; do
   printf '%s\n' "${system_items[$name]}" >> "$TEMP_ADD"
@@ -755,37 +844,11 @@ for name in "${!add_items[@]}"; do
   final_items["$name"]=1
 done
 
-sorted_names=()
-if (( ${#final_items[@]} > 0 )); then
-  mapfile -t sorted_names < <(printf '%s\n' "${!final_items[@]}" | sort)
-fi
-# Join with ", ". `IFS=', '` would join on the first IFS character only, which
-# produced an unreadable "A,B,C" run-on in the manual.
-items_list=""
-(( ${#sorted_names[@]} > 0 )) && items_list=$(printf '%s, ' "${sorted_names[@]}")
-items_list="${items_list%, }"
+items_list=$(manual_items "${!final_items[@]}")
 
 # ─── 9. Update docs ──────────────────────────────────────────────────────────
 
-python3 - "$MANUAL_MD" "$items_list" "$TMP_MD" <<'PYEOF'
-import sys, re
-path, items, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
-with open(path) as f:
-    content = f.read()
-# Must stay in step with the sentence in docs/manual.md. The prefix is the
-# anchor and the list runs to the end of the line. If the manual is reworded,
-# change it here too — the n_subs check below turns any drift into a hard error.
-new_content, n_subs = re.subn(
-    r'(- \*\*Login items:\*\* post-install adds these apps to the login items: )([^\n]*)',
-    lambda m: m.group(1) + items,
-    content
-)
-if n_subs == 0:
-    print('Warning: could not locate login-items line in manual.md.', file=sys.stderr)
-    sys.exit(1)
-with open(out_path, 'w') as f:
-    f.write(new_content)
-PYEOF
+write_manual "$items_list"
 
 # Both outputs succeeded — atomically replace the real files.
 # mktemp creates 0600, so restore the expected modes before the swap.
