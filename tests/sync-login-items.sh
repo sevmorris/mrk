@@ -23,7 +23,8 @@
 # sync-login-items cannot leave the manual behind. A run of sync-login-items
 # that leaves the list as it is repairs that sentence, and section 11 checks
 # it does, with -n and --check writing nothing and -c committing the manual
-# alone.
+# alone. Section 12 checks --manual, which repairs only the sentence, with no
+# gum and no System Events, while the system has items to offer.
 #
 # Everything runs against a copy of the repository, under a throwaway HOME.
 # osascript is a stub that prints the login items from a fixture, and gum is a
@@ -384,7 +385,7 @@ rm -rf "$R/.git"; reset_copy; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-i
 
 # ── 10. Bad command lines, and a bad list ────────────────────────────────────
 
-for args in "--add" "--add Zed --remove Foo" "--remove -n" "--frob"; do
+for args in "--add" "--add Zed --remove Foo" "--remove -n" "--manual --add Zed" "--frob"; do
   # shellcheck disable=SC2086  # each case is several words
   slx "$W/drift" $args
   if [[ $RC == 2 ]] && unchanged; then
@@ -500,6 +501,94 @@ if [[ $RC == 1 ]] && grep -q 'could not locate login-items line' "$W/err" && cmp
   pass "a manual with no login-items sentence: exit 1, and the list unchanged"
 else
   fail "a manual with no login-items sentence (exit $RC)"; why
+fi
+reset_copy
+
+# ── 12. --manual ─────────────────────────────────────────────────────────────
+#
+# A program that has just changed the list repairs the sentence with --manual.
+# The drift fixture has a new, a stale and an ignored item to offer, so a plain
+# run would start gum here. --manual must not, and must ask System Events
+# nothing: with System Events failing it repairs the sentence all the same.
+
+mkdir -p "$W/home/.mrk"; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
+stale_manual
+slx "$W/drift" --manual
+if [[ $RC == 0 && $GUMS == 0 && ! -s "$W/out" ]] && grep -q 'Updated docs/manual.md' "$W/err" \
+   && cmp -s "$R/docs/manual.md" "$W/manual.good" && cmp -s "$R/$LIST" "$W/list.orig" \
+   && cmp -s "$W/home/.mrk/login-items-ignore" "$W/ignore.orig"; then
+  pass "--manual with a stale sentence and items to offer: the sentence repaired, gum not started, nothing else written"
+else
+  fail "--manual with a stale sentence and items to offer (exit $RC, gum started $GUMS times)"; why
+fi
+slx "$W/drift" --manual
+if [[ $RC == 0 ]] && grep -q 'already lists the tracked apps' "$W/err" \
+   && cmp -s "$R/docs/manual.md" "$W/manual.good"; then
+  pass "--manual again: says the manual already lists them"
+else
+  fail "--manual again (exit $RC)"; why
+fi
+
+stale_manual
+slx FAIL --manual
+if [[ $RC == 0 ]] && cmp -s "$R/docs/manual.md" "$W/manual.good"; then
+  pass "--manual with System Events failing: the sentence repaired, so it asks System Events nothing"
+else
+  fail "--manual with System Events failing (exit $RC)"; why
+fi
+
+stale_manual
+slx "$W/drift" --manual -n
+if [[ $RC == 0 && $GUMS == 0 ]] && grep -q 'Would change it to list the tracked apps' "$W/err" \
+   && cmp -s "$R/docs/manual.md" "$W/manual.stale" && cmp -s "$R/$LIST" "$W/list.orig"; then
+  pass "--manual -n: says what it would change, and writes nothing"
+else
+  fail "--manual -n (exit $RC)"; why
+fi
+
+slx "$W/drift" --check --manual
+if [[ $RC == 0 && "$(cat "$W/out")" == "$want" ]] && cmp -s "$R/docs/manual.md" "$W/manual.stale"; then
+  pass "--check --manual: --check takes precedence, and writes nothing"
+else
+  fail "--check --manual (exit $RC)"; why
+fi
+
+stale_manual
+HOME="$W/home" git -C "$R" init -q
+HOME="$W/home" git -C "$R" add -A
+HOME="$W/home" git -C "$R" commit -qm base
+echo staged > "$R/staged.txt"
+HOME="$W/home" git -C "$R" add staged.txt
+slx "$W/drift" --manual -c
+if [[ $RC == 0 && $GUMS == 0 && "$(git -C "$R" log -1 --format=%s)" == "login-items: list the tracked apps in the manual" ]] \
+   && [[ "$(git -C "$R" rev-list --count HEAD)" == 2 ]] \
+   && [[ "$(git -C "$R" show --name-only --format= HEAD)" == "docs/manual.md" ]] \
+   && [[ "$(git -C "$R" status --porcelain)" == "A  staged.txt" ]] \
+   && cmp -s "$R/docs/manual.md" "$W/manual.good"; then
+  pass "--manual -c: one commit, of the manual alone"
+else
+  fail "--manual -c (exit $RC): $(git -C "$R" log -1 --format=%s) / $(git -C "$R" show --name-only --format= HEAD | tr '\n' ' ') / $(git -C "$R" status --porcelain | tr '\n' ' ')"; why
+fi
+rm -rf "$R/.git" "$R/staged.txt"; reset_copy
+
+printf 'Applications/NoSlash.app\n' >> "$R/$LIST"
+cp -p "$R/$LIST" "$W/list.bad"
+stale_manual
+slx "$W/drift" --manual
+if [[ $RC == 1 ]] && grep -qF 'Not an app path: Applications/NoSlash.app' "$W/err" \
+   && cmp -s "$R/$LIST" "$W/list.bad" && cmp -s "$R/docs/manual.md" "$W/manual.stale"; then
+  pass "--manual with a bad line in the list: exit 1, and nothing written"
+else
+  fail "--manual with a bad line in the list (exit $RC)"; why
+fi
+reset_copy
+
+grep -v '^- \*\*Login items:\*\*' "$W/manual.orig" > "$R/docs/manual.md"
+slx "$W/drift" --manual
+if [[ $RC == 1 ]] && grep -q 'could not locate login-items line' "$W/err"; then
+  pass "--manual with no login-items sentence in the manual: exit 1"
+else
+  fail "--manual with no login-items sentence (exit $RC)"; why
 fi
 reset_copy
 

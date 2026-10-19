@@ -31,6 +31,7 @@ check_macos
 DRY_RUN=0
 COMMIT=0
 CHECK=0
+MANUAL=0   # --manual: only bring the manual's sentence in step (section 1c)
 
 # One decision made on the command line in place of gum and the y/N prompts,
 # for a program with no terminal to show them on (the Settings app). DECIDE is
@@ -55,6 +56,7 @@ while (("$#")); do
     --dry-run|-n) DRY_RUN=1 ;;
     --commit|-c)  COMMIT=1 ;;
     --check)      CHECK=1 ;;
+    --manual)     MANUAL=1 ;;
     --add|--ignore|--remove)
       # An app name does not start with a dash, so the next option is never
       # taken for one.
@@ -74,6 +76,13 @@ Usage: scripts/sync-login-items [options]
                   changed, no prompt. Exits 0 when it could tell, 1 when
                   System Events gave no login items. Takes precedence over
                   the other options.
+  --manual        Only make the login-items sentence in docs/manual.md list
+                  the apps in config/login-items.txt, for a program that
+                  changed the file. Reads no login items: no System Events,
+                  no gum, no prompt. With -n it shows the change; with -c it
+                  commits docs/manual.md alone. Exits 0 when the sentence
+                  lists the apps, 1 when the file has a bad line or the
+                  manual has no such sentence, 2 for a bad option.
 
 A run that leaves config/login-items.txt as it is still makes the login-items
 sentence in docs/manual.md list the tracked apps, so a hand edit of the file
@@ -105,6 +114,7 @@ if [[ -n "$DECIDE" ]]; then
   # of the list or of the ignore file.
   [[ -n "${DECIDE_NAME//[[:space:]]/}" && "$DECIDE_NAME" != *[[:cntrl:]]* ]] \
     || usage_error "Not a login-item name: '$DECIDE_NAME'."
+  (( ! MANUAL )) || usage_error "--manual makes no decision. Give it alone, or with -n and -c."
 fi
 
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -124,141 +134,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# ─── Load persistent ignore list ─────────────────────────────────────────────
-#
-# Format of ~/.mrk/login-items-ignore:
-#   one login-item name per line (the app name, without the .app suffix)
-#   lines starting with # are ignored
-#   example:
-#     NordPass
-#     Chrono Plus
-#
-# The file is created when the user accepts the offer to ignore a declined
-# item (section 5b), or by --ignore NAME, and can also be written by hand.
-#
-# This mirrors ~/.mrk/sync-ignore ("Load persistent ignore list" in
-# scripts/sync) in format, load and match, with one deliberate difference: sync
-# strips *all* whitespace from a rule, which is right for Brewfile tokens but
-# would turn "Chrono Plus" into "ChronoPlus" and never match. Login-item names
-# are app names and contain interior spaces, so only leading and trailing
-# whitespace is stripped here.
-
-_LOGIN_ITEM_IGNORE=()
-if [[ -f "${STATE_DIR}/login-items-ignore" ]]; then
-  while IFS= read -r _line || [[ -n "$_line" ]]; do
-    _line="${_line%%#*}"                           # strip inline comments
-    _line="${_line#"${_line%%[![:space:]]*}"}"     # strip leading whitespace
-    _line="${_line%"${_line##*[![:space:]]}"}"     # strip trailing whitespace
-    [[ -n "$_line" ]] && _LOGIN_ITEM_IGNORE+=("$_line")
-  done < "${STATE_DIR}/login-items-ignore"
-  if (( ${#_LOGIN_ITEM_IGNORE[@]} > 0 )); then
-    log "Loaded ${#_LOGIN_ITEM_IGNORE[@]} ignore rule(s) from ~/.mrk/login-items-ignore"
-  fi
-fi
-
-_login_item_ignored() {
-  local _name="$1"
-  local _item
-  for _item in "${_LOGIN_ITEM_IGNORE[@]}"; do
-    [[ "$_item" == "$_name" ]] && return 0
-  done
-  return 1
-}
-
-# Append one name to the ignore file, and create the file if it is absent.
-# Append-only: existing lines are never rewritten or reordered. The name goes
-# in verbatim, interior spaces intact, because the loader trims only the ends.
-_append_login_item_ignore() {
-  local _name="$1"
-  local _f="${STATE_DIR}/login-items-ignore"
-
-  if [[ ! -f "$_f" ]]; then
-    mkdir -p "$STATE_DIR"
-    cat > "$_f" <<'IGNOREHEADER'
-# mrk login-items ignore list
-#
-# One login-item name per line: the app name, without the .app suffix.
-# A # character starts a comment. Leading and trailing spaces are trimmed,
-# so a name with interior spaces (for example: Chrono Plus) works as written.
-#
-# sync-login-items drops these names, so it never offers them as new items.
-IGNOREHEADER
-  fi
-
-  # A file whose last line has no newline would otherwise absorb the append.
-  # The loader tolerates a missing final newline, so this state is reachable.
-  if [[ -s "$_f" && -n "$(tail -c 1 "$_f")" ]]; then
-    printf '\n' >> "$_f"
-  fi
-
-  printf '%s\n' "$_name" >> "$_f"
-  _LOGIN_ITEM_IGNORE+=("$_name")   # keep the in-memory list authoritative
-}
-
-# ─── 1. Get system login items (name -> path) ────────────────────────────────
-
-log "Reading system login items..."
-
-declare -A system_items=()
-
-# Single System Events query returning "name<TAB>path" pairs, one per line.
-# The old comma-split name list broke on names containing commas, and the
-# per-name path lookup guessed /Applications/$name.app when it failed.
-TMP_OSA_ERR="$(mrk_mktemp)"
-osa_rc=0
-raw_items=$(
-  osascript 2>"$TMP_OSA_ERR" <<'OSASCRIPT'
-tell application "System Events"
-  set output to ""
-  repeat with li in login items
-    try
-      set output to output & (name of li) & tab & (path of li) & linefeed
-    end try
-  end repeat
-  return output
-end tell
-OSASCRIPT
-) || osa_rc=$?
-
-# A failed or empty read must never reach the diff. Every tracked item would
-# be absent from an empty system_items, so section 3 would mark all of them
-# stale and offer to delete every line of config/login-items.txt. A decision
-# stops here too, so --remove cannot delete one on a failed read either.
-# `scripts/sync` aborts on the equivalent brew-list failure; do the same here.
-if (( osa_rc != 0 )); then
-  err "Could not read system login items — osascript exited $osa_rc."
-  [[ -s "$TMP_OSA_ERR" ]] && info "$(head -3 "$TMP_OSA_ERR")"
-  info "System Events may be unavailable, or Automation access may be denied"
-  info "(System Settings → Privacy & Security → Automation)."
-  exit 1
-fi
-
-if [[ -z "${raw_items//[[:space:]]/}" ]]; then
-  err "System Events returned no login items."
-  info "'You have zero login items' and 'the read failed' are indistinguishable"
-  info "here, so this aborts rather than offering to delete every tracked item."
-  info "If the list really is empty, edit config/login-items.txt by hand."
-  exit 1
-fi
-
-# Names are compared in Unicode NFC, here and on the tracked side below. System
-# Events and the file system need not spell an accented name the same way —
-# one composed (é), one decomposed (e + combining accent) — and until
-# 2026-09-18 such an app was listed as new and as stale on every run, under
-# what looks like the same name twice. The path is kept exactly as given.
-raw_items=$(printf '%s' "$raw_items" | python3 -c '
-import sys, unicodedata
-for line in sys.stdin.read().splitlines():
-    name, tab, path = line.partition("\t")
-    if tab:
-        print(unicodedata.normalize("NFC", name) + "\t" + path)
-')
-
-while IFS=$'\t' read -r name app_path; do
-  [[ -n "$name" && -n "$app_path" ]] && system_items["$name"]="$app_path"
-done <<< "$raw_items"
-
-# ─── 2. Read tracked login items from config/login-items.txt ─────────────────
+# ─── 1. Read tracked login items from config/login-items.txt ─────────────────
 
 declare -A tracked_items=()  # name -> path, the path exactly as its line
 
@@ -304,14 +180,15 @@ while IFS=$'\t' read -r app_name app_path; do
   [[ -n "$app_name" ]] && tracked_items["$app_name"]="$app_path"
 done <<< "$tracked_raw"
 
-# ─── 2b. The manual's sentence ───────────────────────────────────────────────
+# ─── 1b. The manual's sentence ───────────────────────────────────────────────
 #
 # Phase 3 in docs/manual.md names the tracked apps in one sentence, and
 # tests/sync-login-items.sh fails when the two differ. A run that changes the
 # list rewrites the sentence in section 9. A run that leaves the list as it is
 # brings the sentence back in step (manual_in_step), so a hand edit of
 # config/login-items.txt, or one by the Settings app, has a command that
-# repairs the manual. Both go through write_manual.
+# repairs the manual: --manual (section 1c), or any such run. Both go through
+# write_manual.
 
 # manual_items NAME... — the names sorted and joined with ", ", as the sentence
 # lists them. `IFS=', '` would join on the first IFS character only, which
@@ -384,6 +261,155 @@ manual_in_step() {
   git commit -m "$msg" -- "$MANUAL_MD"
   log "Committed: $msg"
 }
+
+# ─── 1c. --manual ────────────────────────────────────────────────────────────
+#
+# The sentence depends on config/login-items.txt alone, so --manual stops here,
+# before the ignore list and System Events. A program that has just changed
+# the file repairs the manual with it, with no decision to make: a plain run
+# starts gum or a y/N prompt whenever System Events has an item to offer, and
+# a decision repairs the sentence only as a side effect. --check still takes
+# precedence, as it does over every other option.
+
+if (( MANUAL && ! CHECK )); then
+  manual_in_step
+  (( MANUAL_STALE )) || log "docs/manual.md already lists the tracked apps."
+  exit 0
+fi
+
+# ─── Load persistent ignore list ─────────────────────────────────────────────
+#
+# Format of ~/.mrk/login-items-ignore:
+#   one login-item name per line (the app name, without the .app suffix)
+#   lines starting with # are ignored
+#   example:
+#     NordPass
+#     Chrono Plus
+#
+# The file is created when the user accepts the offer to ignore a declined
+# item (section 5b), or by --ignore NAME, and can also be written by hand.
+#
+# This mirrors ~/.mrk/sync-ignore ("Load persistent ignore list" in
+# scripts/sync) in format, load and match, with one deliberate difference: sync
+# strips *all* whitespace from a rule, which is right for Brewfile tokens but
+# would turn "Chrono Plus" into "ChronoPlus" and never match. Login-item names
+# are app names and contain interior spaces, so only leading and trailing
+# whitespace is stripped here.
+
+_LOGIN_ITEM_IGNORE=()
+if [[ -f "${STATE_DIR}/login-items-ignore" ]]; then
+  while IFS= read -r _line || [[ -n "$_line" ]]; do
+    _line="${_line%%#*}"                           # strip inline comments
+    _line="${_line#"${_line%%[![:space:]]*}"}"     # strip leading whitespace
+    _line="${_line%"${_line##*[![:space:]]}"}"     # strip trailing whitespace
+    [[ -n "$_line" ]] && _LOGIN_ITEM_IGNORE+=("$_line")
+  done < "${STATE_DIR}/login-items-ignore"
+  if (( ${#_LOGIN_ITEM_IGNORE[@]} > 0 )); then
+    log "Loaded ${#_LOGIN_ITEM_IGNORE[@]} ignore rule(s) from ~/.mrk/login-items-ignore"
+  fi
+fi
+
+_login_item_ignored() {
+  local _name="$1"
+  local _item
+  for _item in "${_LOGIN_ITEM_IGNORE[@]}"; do
+    [[ "$_item" == "$_name" ]] && return 0
+  done
+  return 1
+}
+
+# Append one name to the ignore file, and create the file if it is absent.
+# Append-only: existing lines are never rewritten or reordered. The name goes
+# in verbatim, interior spaces intact, because the loader trims only the ends.
+_append_login_item_ignore() {
+  local _name="$1"
+  local _f="${STATE_DIR}/login-items-ignore"
+
+  if [[ ! -f "$_f" ]]; then
+    mkdir -p "$STATE_DIR"
+    cat > "$_f" <<'IGNOREHEADER'
+# mrk login-items ignore list
+#
+# One login-item name per line: the app name, without the .app suffix.
+# A # character starts a comment. Leading and trailing spaces are trimmed,
+# so a name with interior spaces (for example: Chrono Plus) works as written.
+#
+# sync-login-items drops these names, so it never offers them as new items.
+IGNOREHEADER
+  fi
+
+  # A file whose last line has no newline would otherwise absorb the append.
+  # The loader tolerates a missing final newline, so this state is reachable.
+  if [[ -s "$_f" && -n "$(tail -c 1 "$_f")" ]]; then
+    printf '\n' >> "$_f"
+  fi
+
+  printf '%s\n' "$_name" >> "$_f"
+  _LOGIN_ITEM_IGNORE+=("$_name")   # keep the in-memory list authoritative
+}
+
+# ─── 2. Get system login items (name -> path) ────────────────────────────────
+
+log "Reading system login items..."
+
+declare -A system_items=()
+
+# Single System Events query returning "name<TAB>path" pairs, one per line.
+# The old comma-split name list broke on names containing commas, and the
+# per-name path lookup guessed /Applications/$name.app when it failed.
+TMP_OSA_ERR="$(mrk_mktemp)"
+osa_rc=0
+raw_items=$(
+  osascript 2>"$TMP_OSA_ERR" <<'OSASCRIPT'
+tell application "System Events"
+  set output to ""
+  repeat with li in login items
+    try
+      set output to output & (name of li) & tab & (path of li) & linefeed
+    end try
+  end repeat
+  return output
+end tell
+OSASCRIPT
+) || osa_rc=$?
+
+# A failed or empty read must never reach the diff. Every tracked item would
+# be absent from an empty system_items, so section 3 would mark all of them
+# stale and offer to delete every line of config/login-items.txt. A decision
+# stops here too, so --remove cannot delete one on a failed read either.
+# `scripts/sync` aborts on the equivalent brew-list failure; do the same here.
+if (( osa_rc != 0 )); then
+  err "Could not read system login items — osascript exited $osa_rc."
+  [[ -s "$TMP_OSA_ERR" ]] && info "$(head -3 "$TMP_OSA_ERR")"
+  info "System Events may be unavailable, or Automation access may be denied"
+  info "(System Settings → Privacy & Security → Automation)."
+  exit 1
+fi
+
+if [[ -z "${raw_items//[[:space:]]/}" ]]; then
+  err "System Events returned no login items."
+  info "'You have zero login items' and 'the read failed' are indistinguishable"
+  info "here, so this aborts rather than offering to delete every tracked item."
+  info "If the list really is empty, edit config/login-items.txt by hand."
+  exit 1
+fi
+
+# Names are compared in Unicode NFC, here and on the tracked side below. System
+# Events and the file system need not spell an accented name the same way —
+# one composed (é), one decomposed (e + combining accent) — and until
+# 2026-09-18 such an app was listed as new and as stale on every run, under
+# what looks like the same name twice. The path is kept exactly as given.
+raw_items=$(printf '%s' "$raw_items" | python3 -c '
+import sys, unicodedata
+for line in sys.stdin.read().splitlines():
+    name, tab, path = line.partition("\t")
+    if tab:
+        print(unicodedata.normalize("NFC", name) + "\t" + path)
+')
+
+while IFS=$'\t' read -r name app_path; do
+  [[ -n "$name" && -n "$app_path" ]] && system_items["$name"]="$app_path"
+done <<< "$raw_items"
 
 # ─── 3. Compute diff ─────────────────────────────────────────────────────────
 
