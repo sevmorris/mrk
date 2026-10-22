@@ -284,12 +284,30 @@ mrk_tsv_fields() {
 }
 
 # mrk_tsv_escape TEXT — show TEXT as one field of such a line: a backslash as
-# \\, a tab as \t and a newline as \n, so mrk_tsv_fields gives TEXT back. The
-# --check lines of defaults.sh and dock-setup use it.
+# \\, a tab as \t and a newline as \n, so mrk_tsv_fields gives TEXT back.
 mrk_tsv_escape() {
   local s=${1//\\/\\\\}
   s=${s//$'\t'/\\t}
   printf '%s' "${s//$'\n'/\\n}"
+}
+
+# mrk_check_line FIELD... — print one line of a --check mode: each FIELD
+# escaped by mrk_tsv_escape, a tab between two fields, and a newline at the
+# end. The five --check modes print every line with this, so a program reads
+# them all by one rule, and loses nothing: split at each tab, then undo the
+# escapes in each field. A later version may add a field at the end of a
+# line. It never removes a field or changes their order.
+#
+# No $( ), so no subshell for each field: defaults.sh prints a line for each
+# of its keys. Bash 3.2, as mrk_config_entries is.
+mrk_check_line() {
+  local f sep=""
+  for f in "$@"; do
+    printf '%s' "$sep"
+    mrk_tsv_escape "$f"
+    sep=$'\t'
+  done
+  printf '\n'
 }
 
 # defaults_row LINE — split LINE, an entry of config/defaults.tsv, into the

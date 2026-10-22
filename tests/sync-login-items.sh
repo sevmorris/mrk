@@ -289,6 +289,25 @@ for fixture in "$W/empty" FAIL; do
   fi
 done
 
+# A name with a backslash: --check escapes it, as every --check line does, and
+# a program that undoes the escape gives --add the name it lists.
+{ cat "$BASE"; printf '%s\t%s\n' 'Back\slash' '/Applications/Back\slash.app'; } > "$W/backslash"
+rm -f "$W/home/.mrk/login-items-ignore"
+slx "$W/backslash" --check
+if [[ $RC == 0 && "$(cat "$W/out")" == 'add	Back\\slash	/Applications/Back\\slash.app	new' ]]; then
+  pass "--check: a backslash in a name and a path is escaped as \\\\"
+else
+  fail "--check with a backslash (exit $RC): $(cat "$W/out")"; why
+fi
+slx "$W/backslash" --add 'Back\slash'
+if [[ $RC == 0 ]] && mrk_config_entries "$R/$LIST" | grep -qxF '/Applications/Back\slash.app'; then
+  pass "--add takes the name --check lists, with the escape undone"
+else
+  fail "--add with a backslash (exit $RC)"; why
+fi
+reset_copy
+cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
+
 # ── 6. --add ─────────────────────────────────────────────────────────────────
 
 slx "$W/drift" --add "Zéphyr"

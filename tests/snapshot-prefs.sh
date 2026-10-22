@@ -76,8 +76,9 @@ ln -s "$REAL_GIT" "$S/git"
 # time, a window frame, launch counters at the top and nested, MBM's and
 # Gearbox's update checks); ORDER 1 writes the same JSON and archived
 # dictionary in another order. gamma adds a domain holding nothing but a
-# Sparkle time; no-theme takes Alpha's theme out; beta-keys adds two keys to
-# Beta, one with a tab in its name.
+# Sparkle time; no-theme takes Alpha's theme out; beta-keys adds four keys to
+# Beta: one plain, and one each with a tab, a newline and a backslash in its
+# name.
 cat > "$W/fixtures.py" <<'PY'
 import datetime, json, plistlib, sys
 from plistlib import UID
@@ -113,7 +114,7 @@ if gamma:
 if "no-theme" in words:
     del domains["io.github.sevmorris.Alpha"]["theme"]
 if "beta-keys" in words:
-    domains["io.github.sevmorris.Beta"].update({"extra": 1, "two\twords": "x"})
+    domains["io.github.sevmorris.Beta"].update({"extra": 1, "two\twords": "x", "line\nbreak": "y", "back\\slash": "z"})
 for name, value in domains.items():
     with open(f"{d}/{name}.plist", "wb") as f:
         plistlib.dump(value, f, fmt=plistlib.FMT_XML)
@@ -257,10 +258,12 @@ else
   fail "--check with one real change: rc $RC"; show_check
 fi
 
-# A key deleted, two added, one changed. A tab in a key's name is a space.
+# A key deleted, four added, one changed. A tab, a newline and a backslash in
+# a key's name are escaped, as on every --check line: \t, \n and \\.
 fixtures light c 5 1 no-theme beta-keys
 check
-want=$(lines "$P_A"$'\t'theme$'\t'deleted "$P_B"$'\t'extra$'\t'added "$P_B"$'\t'mode$'\t'changed "$P_B"$'\t''two words'$'\t'added)
+want=$(lines "$P_A"$'\t'theme$'\t'deleted "$P_B"$'\t''back\\slash'$'\t'added "$P_B"$'\t'extra$'\t'added \
+  "$P_B"$'\t''line\nbreak'$'\t'added "$P_B"$'\t'mode$'\t'changed "$P_B"$'\t''two\twords'$'\t'added)
 if (( RC == 0 )) && [[ "$(cat "$W/check")" == "$want" && "$(fingerprint)" == "$before" ]] \
    && ! awk -F'\t' 'NF != 3 { bad = 1 } END { exit !bad }' "$W/check"; then
   pass "--check: deleted, added and changed keys, each on its own line of three fields, in file and key order"

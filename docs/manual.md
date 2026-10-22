@@ -338,6 +338,8 @@ To change the items or their order, edit `config/dock.txt`:
 
 dock-setup reads the whole list before it changes the Dock. If the file is absent, has no app, or has a line that is not a path, dock-setup stops, and the Dock does not change. dock-setup needs `dockutil`, and it installs dockutil when dockutil is absent.
 
+Before you run `make dock`, run `dock-setup --check` to compare the list with the Dock. It shows each item of the list as `docked` or `undocked`. It also shows each app or directory in the Dock that the list does not have, as `unlisted`. `make dock` deletes these items, so add each one that you want to keep to the list. `--check` changes nothing.
+
 ## How to keep a macOS setting
 
 A setting you change in System Settings is the one change that no mrk command records. To keep it, add its key to `config/defaults.tsv`. **`defaults-watch`** finds the key.
