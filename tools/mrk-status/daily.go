@@ -8,10 +8,12 @@ package main
 // into one Installation panel, last.
 //
 // Where another mrk command already decides a question, the panel asks that
-// command rather than deciding it again: Brewfile drift is `sync --check`, the
-// list of projects is lib.sh's project_repos, and build freshness is lib.sh's
-// tool_freshness. scripts/status and this binary were twins until the same
-// day, and each kept gaining fixes the other lacked.
+// command rather than deciding it again: Brewfile drift is `sync --check`, app
+// preferences not yet saved are `snapshot-prefs --check`, login items not
+// tracked are `sync-login-items --check`, the macOS defaults are `defaults.sh
+// --check`, the list of projects is lib.sh's project_repos, and build
+// freshness is lib.sh's tool_freshness. scripts/status and this binary were
+// twins until the same day, and each kept gaining fixes the other lacked.
 
 import (
 	"bufio"
@@ -40,10 +42,11 @@ const (
 	fixUpdates     = "make updates"
 	fixBuildTools  = "make build-tools"
 	fixBrewInstall = "make brew"
+	fixLoginItems  = "make sync-login-items ARGS=-c"
 )
 
 var dailyFixes = []string{fixSyncAdd, fixMrkPush, fixPushall, fixSnapshot, fixPull,
-	fixUpdate, fixUpdates, fixBuildTools, fixBrewInstall}
+	fixUpdate, fixUpdates, fixBuildTools, fixBrewInstall, fixLoginItems}
 
 // Paths the checks read, variables so the tests can point them at fixtures.
 var (
@@ -190,30 +193,95 @@ func brewBin() string {
 	return ""
 }
 
-func readBrewDrift(repoRoot string) brewDrift {
-	if brewBin() == "" {
-		return brewDrift{noBrew: true}
-	}
-	cmd := exec.Command(filepath.Join(repoRoot, "scripts", "sync"), "--check")
+// checkLines runs scripts/<script> in one of its --check modes and returns its
+// lines of at least n fields, each field with its escapes undone. Each --check
+// mode prints those lines alone on stdout, and its progress on stderr, by one
+// rule, lib.sh's mrk_check_line: fields split at each tab, \\, \t and \n
+// escaped in each. A later version may add fields at the end of a line, and
+// new words in a field that has a set of them, so a reader takes the fields it
+// knows and passes over a word it does not. When the script fails, the error
+// is the reason it gave: the last line lib.sh's err marked ✗, else its last
+// line.
+func checkLines(repoRoot, script string, n int, args ...string) ([][]string, error) {
+	cmd := exec.Command(filepath.Join(repoRoot, "scripts", script), args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		msg := strings.TrimSpace(stderr.String())
-		if i := strings.LastIndex(msg, "\n"); i >= 0 {
-			msg = strings.TrimSpace(msg[i+1:])
-		}
-		if msg == "" {
-			msg = err.Error()
-		}
-		return brewDrift{err: fmt.Errorf("sync --check failed: %s", msg)}
+		return nil, fmt.Errorf("%s failed: %s", strings.Join(append([]string{script}, args...), " "), failReason(stderr.String(), err))
 	}
-	var d brewDrift
+	var rows [][]string
 	for _, line := range strings.Split(string(out), "\n") {
 		f := strings.Split(line, "\t")
-		if len(f) != 3 {
+		if len(f) < n {
 			continue
 		}
+		for i := range f {
+			f[i] = unescapeField(f[i])
+		}
+		rows = append(rows, f)
+	}
+	return rows, nil
+}
+
+// unescapeField undoes mrk_tsv_escape: \\ is a backslash, \t a tab and \n a
+// newline. A backslash before any other character is kept as it is.
+func unescapeField(s string) string {
+	if !strings.Contains(s, `\`) {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) {
+			switch s[i+1] {
+			case '\\':
+				b.WriteByte('\\')
+				i++
+				continue
+			case 't':
+				b.WriteByte('\t')
+				i++
+				continue
+			case 'n':
+				b.WriteByte('\n')
+				i++
+				continue
+			}
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String()
+}
+
+// oneLine is a field as a status line shows it: a tab or a newline in it is a
+// space, so it cannot break the line it is in.
+func oneLine(s string) string {
+	return strings.NewReplacer("\t", " ", "\n", " ").Replace(s)
+}
+
+func failReason(stderr string, err error) string {
+	lines := strings.Split(strings.TrimSpace(stderr), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if l := strings.TrimSpace(lines[i]); strings.HasPrefix(l, "✗") {
+			return strings.TrimSpace(strings.TrimPrefix(l, "✗"))
+		}
+	}
+	if l := strings.TrimSpace(lines[len(lines)-1]); l != "" {
+		return l
+	}
+	return err.Error()
+}
+
+func readBrewDrift(repoRoot string) brewDrift {
+	if brewBin() == "" {
+		return brewDrift{noBrew: true}
+	}
+	rows, err := checkLines(repoRoot, "sync", 3, "--check")
+	if err != nil {
+		return brewDrift{err: err}
+	}
+	var d brewDrift
+	for _, f := range rows {
 		name := f[2]
 		if f[1] == "cask" {
 			name += " (cask)"
@@ -223,6 +291,183 @@ func readBrewDrift(repoRoot string) brewDrift {
 			d.adds = append(d.adds, name)
 		case "prune":
 			d.prunes = append(d.prunes, name)
+		}
+	}
+	return d
+}
+
+// ── App preferences ───────────────────────────────────────────────────────
+
+// prefsDrift is `snapshot-prefs --check`: what the next snapshot would commit
+// to mrk-prefs, one change a line, keys that change on their own left out.
+type prefsDrift struct {
+	changes []string // "app key" for a key of a plist, "file (added)" for a whole file
+	err     error
+}
+
+func readPrefsDrift(repoRoot string) prefsDrift {
+	rows, err := checkLines(repoRoot, "snapshot-prefs", 3, "--check")
+	if err != nil {
+		return prefsDrift{err: err}
+	}
+	var d prefsDrift
+	for _, f := range rows {
+		file, key, change := f[0], f[1], f[2]
+		name := filepath.Base(file)
+		if key != "" {
+			d.changes = append(d.changes, oneLine(strings.TrimSuffix(name, ".plist")+" "+key))
+		} else {
+			d.changes = append(d.changes, oneLine(name+" ("+change+")"))
+		}
+	}
+	return d
+}
+
+// ── Login items ───────────────────────────────────────────────────────────
+
+// loginDrift is `sync-login-items --check`: what an interactive run would
+// offer to add to config/login-items.txt or remove from it.
+type loginDrift struct {
+	adds    []string // login items here that the file does not track
+	stale   []string // tracked, and not a login item here
+	ignored []string // tracked, and named in ~/.mrk/login-items-ignore
+	skipped bool     // not asked: there is no terminal
+	err     error
+}
+
+// askSystemEvents says whether sync-login-items --check may run. It reads the
+// login items from System Events through osascript, and macOS asks once for
+// each app whether that app may control System Events. From a terminal the
+// prompt names the terminal, which runs sync-login-items itself. Dipstick runs
+// --json with no terminal, and there the prompt would name Dipstick, which has
+// no other reason to control System Events. So with no terminal the check is
+// not run, and the panel says so. A variable so the tests can say either.
+var askSystemEvents = func() bool {
+	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		return false
+	}
+	tty.Close()
+	return true
+}
+
+func readLoginDrift(repoRoot string) loginDrift {
+	if !askSystemEvents() {
+		return loginDrift{skipped: true}
+	}
+	rows, err := checkLines(repoRoot, "sync-login-items", 4, "--check")
+	if err != nil {
+		return loginDrift{err: err}
+	}
+	var d loginDrift
+	for _, f := range rows {
+		name := oneLine(f[1])
+		switch f[0] + "\t" + f[3] {
+		case "add\tnew":
+			d.adds = append(d.adds, name)
+		case "remove\tstale":
+			d.stale = append(d.stale, name)
+		case "remove\tignored":
+			d.ignored = append(d.ignored, name)
+		}
+	}
+	return d
+}
+
+// ── macOS defaults ────────────────────────────────────────────────────────
+
+// defaultsDrift is `defaults.sh --check`, counted: each key of
+// config/defaults.tsv against this Mac. A key is named "domain key".
+type defaultsDrift struct {
+	notApplied bool     // no rollback script: make defaults has not run
+	trackpad   bool     // the rollback records trackpad keys, so the check has them too
+	set        int      // keys that hold what mrk sets
+	unset      []string // keys a run would write: they differ, or are absent
+	waiting    []string // nodomain: a run does not write them until their app has preferences
+	err        error
+}
+
+// readTrackpadKeys lists the trackpad keys of config/defaults.tsv, as lib.sh
+// reads it, each "domain key" as the undo script spells it, with printf %q.
+func readTrackpadKeys(repoRoot string) ([]string, error) {
+	out, err := bashLib(repoRoot, `defaults_table "$1/config/defaults.tsv" || exit 1
+for i in "${!DT_DOMAIN[@]}"; do
+  [[ ${DT_WHEN[i]} == trackpad ]] && printf '%q %q\n' "${DT_DOMAIN[i]}" "${DT_KEY[i]}"
+done
+exit 0`, repoRoot)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot read config/defaults.tsv: %w", err)
+	}
+	var keys []string
+	for _, l := range strings.Split(out, "\n") {
+		if l != "" {
+			keys = append(keys, l)
+		}
+	}
+	return keys, nil
+}
+
+// trackpadApplied reports whether rollback, defaults.sh's undo script, has a
+// line for any of the trackpad keys. defaults.sh writes a key's undo line
+// before it compares the key, so a run of make trackpad records every one of
+// them, and make defaults records none.
+func trackpadApplied(rollback string, trackpad []string) (bool, error) {
+	f, err := os.Open(rollback)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	prefixes := make([]string, 0, 2*len(trackpad))
+	for _, k := range trackpad {
+		prefixes = append(prefixes, "defaults write "+k+" ", "defaults delete "+k+" ")
+	}
+	found := false
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		for _, p := range prefixes {
+			if strings.HasPrefix(sc.Text(), p) {
+				found = true
+			}
+		}
+	}
+	return found, sc.Err()
+}
+
+// readDefaultsDrift runs defaults.sh --check, with --with-trackpad only when
+// the rollback shows that make trackpad has run, and counts its states. A key
+// that --check calls nodomain is one a run does not write until its app has
+// preferences, such as Mail's before Mail is set up: it waits, and is not
+// counted as unset.
+func readDefaultsDrift(repoRoot, stateDir string) defaultsDrift {
+	rollback := filepath.Join(stateDir, "defaults-rollback.sh")
+	if _, err := os.Stat(rollback); err != nil {
+		return defaultsDrift{notApplied: true}
+	}
+	trackpad, err := readTrackpadKeys(repoRoot)
+	if err != nil {
+		return defaultsDrift{err: err}
+	}
+	var d defaultsDrift
+	if d.trackpad, err = trackpadApplied(rollback, trackpad); err != nil {
+		return defaultsDrift{err: fmt.Errorf("Cannot read the rollback script: %w", err)}
+	}
+	args := []string{"--check"}
+	if d.trackpad {
+		args = append(args, "--with-trackpad")
+	}
+	rows, err := checkLines(repoRoot, "defaults.sh", 5, args...)
+	if err != nil {
+		return defaultsDrift{err: err}
+	}
+	for _, f := range rows {
+		key := oneLine(f[0] + " " + f[1])
+		switch f[4] {
+		case "set":
+			d.set++
+		case "nodomain":
+			d.waiting = append(d.waiting, key)
+		case "absent", "differs":
+			d.unset = append(d.unset, key)
 		}
 	}
 	return d
@@ -317,11 +562,38 @@ func readManifest(prefsDir string) (map[string]bool, error) {
 
 // ── Unrecorded ────────────────────────────────────────────────────────────
 
-func checkUnrecorded(repoRoot, home string, drift brewDrift) group {
+// drifts is what mrk's own --check modes found, each run once, side by side,
+// for the panels that report it.
+type drifts struct {
+	brew     brewDrift
+	prefs    prefsDrift
+	login    loginDrift
+	defaults defaultsDrift
+}
+
+// repoReading is what Unrecorded reads from git: ~/mrk as mrk-push sees it,
+// and the repositories pushall sweeps. collect reads it beside the --check
+// modes, as it takes about a third of a second.
+type repoReading struct {
+	mrk      repoState
+	projects []project
+	err      error // project_repos failed
+}
+
+func readRepos(repoRoot, home string) repoReading {
+	ps, err := readProjects(repoRoot, filepath.Join(home, "Projects"))
+	return repoReading{mrk: readRepoState(repoRoot), projects: ps, err: err}
+}
+
+func checkUnrecorded(repoRoot, home string, found drifts) group {
+	return unrecordedPanel(repoRoot, home, found, readRepos(repoRoot, home))
+}
+
+func unrecordedPanel(repoRoot, home string, found drifts, repos repoReading) group {
 	var lines []statusLine
 
 	// Homebrew, by sync's own reckoning.
-	switch {
+	switch drift := found.brew; {
 	case drift.noBrew:
 		lines = append(lines, sl(sevInfo, "Homebrew is not installed: nothing to compare with the Brewfile"))
 	case drift.err != nil:
@@ -345,9 +617,11 @@ func checkUnrecorded(repoRoot, home string, drift brewDrift) group {
 		}
 	}
 
+	lines = append(lines, loginItemLines(found.login)...)
+
 	// ~/mrk, as mrk-push would commit and push it.
 	mrk := tilde(home, repoRoot)
-	if s := readRepoState(repoRoot); s.err != nil {
+	if s := repos.mrk; s.err != nil {
 		lines = append(lines, sl(sevWarn, fmt.Sprintf("%s: cannot read its git state: %v", mrk, s.err)))
 	} else {
 		clean := true
@@ -372,9 +646,7 @@ func checkUnrecorded(repoRoot, home string, drift brewDrift) group {
 	}
 
 	// ~/Projects, as pushall sweeps it and the manifest records it.
-	projectsDir := filepath.Join(home, "Projects")
-	ps, err := readProjects(repoRoot, projectsDir)
-	if err != nil {
+	if ps, err := repos.projects, repos.err; err != nil {
 		lines = append(lines, sl(sevWarn, "~/Projects: "+err.Error()))
 	} else {
 		var dirty, unpushed, noUp, untracked, noOrigin, unlisted []string
@@ -439,7 +711,55 @@ func checkUnrecorded(repoRoot, home string, drift brewDrift) group {
 		}
 	}
 
+	// App preferences, as the next snapshot would commit them.
+	switch prefs := found.prefs; {
+	case prefs.err != nil:
+		lines = append(lines, sl(sevWarn, "App preferences: "+prefs.err.Error()))
+	case len(prefs.changes) > 0:
+		lines = append(lines, slFix(sevWarn,
+			plural(len(prefs.changes), "app preference change not snapshotted", "app preference changes not snapshotted")+": "+names(prefs.changes),
+			fixSnapshot))
+	default:
+		lines = append(lines, sl(sevOK, "App preferences: nothing new to snapshot"))
+	}
+
 	return group{"Unrecorded", linesSev(lines), lines, firstFix(lines)}
+}
+
+// loginItemLines are the login items, as sync-login-items would offer them.
+// sync-login-items commits to ~/mrk, so these come before its lines.
+func loginItemLines(d loginDrift) []statusLine {
+	var lines []statusLine
+	switch {
+	case d.skipped:
+		return []statusLine{sl(sevInfo, "Login items: not checked without a terminal, because System Events would ask for Automation access")}
+	case d.err != nil:
+		return []statusLine{sl(sevWarn, "Login items: "+d.err.Error())}
+	}
+	if len(d.adds) > 0 {
+		lines = append(lines, slFix(sevWarn,
+			plural(len(d.adds), "login item not in config/login-items.txt", "login items not in config/login-items.txt")+": "+names(d.adds),
+			fixLoginItems))
+	}
+	if len(d.ignored) > 0 {
+		// post-install still adds an ignored app it tracks, so the ignore does
+		// nothing. sync-login-items offers to stop tracking it.
+		lines = append(lines, slFix(sevWarn,
+			plural(len(d.ignored), "login item tracked and also ignored", "login items tracked and also ignored")+": "+names(d.ignored),
+			fixLoginItems))
+	}
+	if len(d.stale) > 0 {
+		// No fix for the f key, as for a Brewfile entry not installed: on this
+		// Mac the login item was most likely removed, and on a new one it is
+		// not added yet, and the two repairs are opposites.
+		lines = append(lines,
+			sl(sevWarn, plural(len(d.stale), "tracked login item is not a login item here", "tracked login items are not login items here")+": "+names(d.stale)),
+			sl(sevInfo, "  removed on purpose: "+fixLoginItems+" · not added yet: make post-install"))
+	}
+	if len(lines) == 0 {
+		lines = append(lines, sl(sevOK, "config/login-items.txt tracks every login item"))
+	}
+	return lines
 }
 
 // ── Upkeep ────────────────────────────────────────────────────────────────
@@ -733,7 +1053,7 @@ func fold(name string, parts []group) group {
 	return group{name, panelSev(sevs...), lines, fix}
 }
 
-func checkInstallation(repoRoot, home, binDir string, drift brewDrift) group {
+func checkInstallation(repoRoot, home, binDir string, found drifts) group {
 	stateDir := filepath.Join(home, ".mrk")
 	parts := []group{
 		checkDotfiles(repoRoot, home),
@@ -741,8 +1061,8 @@ func checkInstallation(repoRoot, home, binDir string, drift brewDrift) group {
 		checkShell(),
 		checkPATH(home, binDir),
 		checkHomebrew(),
-		brewfileSummary(repoRoot, drift),
-		checkDefaults(stateDir),
+		brewfileSummary(repoRoot, found.brew),
+		checkDefaults(found.defaults),
 		checkHardening(stateDir),
 	}
 	if g, ok := checkBackups(stateDir); ok {
@@ -754,24 +1074,29 @@ func checkInstallation(repoRoot, home, binDir string, drift brewDrift) group {
 
 // ── All of it ─────────────────────────────────────────────────────────────
 
-// collect runs every panel, the slow ones side by side: sync --check and brew
-// outdated each take about a second.
+// collect runs every panel, the slow ones side by side. On the Mac this was
+// written on, snapshot-prefs --check takes about 3.5 seconds, defaults.sh
+// --check 2, and sync --check, brew outdated and sync-login-items --check
+// about 1 each, so together they take as long as snapshot-prefs alone.
 func collect(repoRoot, home, binDir string) []group {
 	var (
 		wg    sync.WaitGroup
-		drift brewDrift
+		found drifts
+		repos repoReading
 		up    group
 		tm    group
 	)
-	wg.Add(3)
-	go func() { defer wg.Done(); drift = readBrewDrift(repoRoot) }()
+	stateDir := filepath.Join(home, ".mrk")
+	wg.Add(7)
+	go func() { defer wg.Done(); found.brew = readBrewDrift(repoRoot) }()
+	go func() { defer wg.Done(); found.prefs = readPrefsDrift(repoRoot) }()
+	go func() { defer wg.Done(); found.login = readLoginDrift(repoRoot) }()
+	go func() { defer wg.Done(); found.defaults = readDefaultsDrift(repoRoot, stateDir) }()
+	go func() { defer wg.Done(); repos = readRepos(repoRoot, home) }()
 	go func() { defer wg.Done(); up = checkUpkeep(repoRoot, home, binDir) }()
 	go func() { defer wg.Done(); tm = checkTimeMachine() }()
 	wg.Wait()
-	var un, inst group
-	wg.Add(2)
-	go func() { defer wg.Done(); un = checkUnrecorded(repoRoot, home, drift) }()
-	go func() { defer wg.Done(); inst = checkInstallation(repoRoot, home, binDir, drift) }()
-	wg.Wait()
+	un := unrecordedPanel(repoRoot, home, found, repos)
+	inst := checkInstallation(repoRoot, home, binDir, found)
 	return []group{un, up, tm, inst}
 }

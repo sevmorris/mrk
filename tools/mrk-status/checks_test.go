@@ -128,28 +128,149 @@ func TestCheckDotfilesMissingDirWarns(t *testing.T) {
 
 // ── Rollback-backed checks ──────────────────────────────────────────────────
 
-// An empty rollback script is the interesting case for both of these: the file
-// exists, so a naive check reports "Applied" when nothing was ever recorded.
-func TestCheckDefaultsDistinguishesEmptyFromApplied(t *testing.T) {
-	dir := t.TempDir()
-	if g := checkDefaults(dir); g.sev != sevInfo || !strings.Contains(texts(g), "Not applied") {
-		t.Errorf("no rollback should read as not applied, got sev=%v:\n%s", g.sev, texts(g))
-	}
+// The macOS defaults are counted by defaults.sh --check, read through a stub
+// here: a checkout holding the real lib.sh, a config/defaults.tsv, which
+// lib.sh reads for the trackpad keys, and a scripts/defaults.sh that records
+// its arguments and prints the lines given.
+const defaultsTable = "NSGlobalDomain\tA\tbool\ttrue\talways\tTest\n" +
+	"NSGlobalDomain\tB\tint\t1\talways\tTest\n" +
+	"com.apple.AppleMultitouchTrackpad\tClicking\tint\t1\ttrackpad\tTest\n" +
+	"com.apple.mail\tK\tbool\ttrue\texisting\tTest\n" +
+	"NSGlobalDomain\tE\tbool\ttrue\texisting\tTest\n"
 
-	path := filepath.Join(dir, "defaults-rollback.sh")
-	if err := os.WriteFile(path, []byte("#!/usr/bin/env bash\n"), 0o755); err != nil {
+func defaultsRepo(t *testing.T, check string) (repo, argsFile string) {
+	t.Helper()
+	repo = t.TempDir()
+	lib, err := os.ReadFile(filepath.Join("..", "..", "scripts", "lib.sh"))
+	if err != nil {
 		t.Fatal(err)
 	}
-	g := checkDefaults(dir)
-	if g.sev == sevOK {
-		t.Errorf("an empty rollback must not read as Applied:\n%s", texts(g))
-	}
+	write(t, filepath.Join(repo, "scripts", "lib.sh"), string(lib))
+	write(t, filepath.Join(repo, "config", "defaults.tsv"), "# a comment\n"+defaultsTable)
+	argsFile = filepath.Join(repo, "args")
+	writeScript(t, filepath.Join(repo, "scripts", "defaults.sh"),
+		"#!/bin/sh\necho \"$*\" > '"+argsFile+"'\necho '  ▸ Reading the keys' >&2\nprintf '"+check+"'\n")
+	return repo, argsFile
+}
 
-	if err := os.WriteFile(path, []byte("#!/usr/bin/env bash\ndefaults write com.example Key -bool true\n"), 0o755); err != nil {
+func writeScript(t *testing.T, path, body string) {
+	t.Helper()
+	write(t, path, body)
+	if err := os.Chmod(path, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if g := checkDefaults(dir); g.sev != sevOK || !strings.Contains(texts(g), "1 change") {
-		t.Errorf("one recorded change should read as Applied with a count of 1:\n%s", texts(g))
+}
+
+func TestDefaultsNotAppliedRunsNothing(t *testing.T) {
+	repo, argsFile := defaultsRepo(t, "")
+	d := readDefaultsDrift(repo, t.TempDir())
+	if !d.notApplied {
+		t.Fatalf("no rollback should read as not applied, got %+v", d)
+	}
+	if _, err := os.Stat(argsFile); err == nil {
+		t.Errorf("with no rollback, defaults.sh --check should not run")
+	}
+	if g := checkDefaults(d); g.sev != sevInfo || g.fix != "make defaults" || !strings.Contains(texts(g), "Not applied") {
+		t.Errorf("no rollback should read as not applied, offering make defaults, got sev=%v fix=%q:\n%s", g.sev, g.fix, texts(g))
+	}
+}
+
+// A rollback says that make defaults ran, not what the keys hold now. A key
+// changed since in System Settings differs, and the count says so. A key
+// whose app has no preferences yet is nodomain: make defaults does not write
+// it, so it waits. A line may carry fields after the five, and a state word
+// this reader does not know is passed over.
+func TestDefaultsCountsTheCheckStates(t *testing.T) {
+	repo, argsFile := defaultsRepo(t, `NSGlobalDomain\tA\ttrue\ttrue\tset\n`+
+		`NSGlobalDomain\tB\t1\t2\tdiffers\ta later field\n`+
+		`com.apple.mail\tK\ttrue\t\tnodomain\n`+
+		`NSGlobalDomain\tE\ttrue\t\tabsent\n`+
+		`NSGlobalDomain\tF\ttrue\t\ta-later-state\n`+
+		`a line of another shape\n`)
+	state := t.TempDir()
+	write(t, filepath.Join(state, "defaults-rollback.sh"), "#!/usr/bin/env bash\ndefaults write NSGlobalDomain A -bool false\n")
+
+	d := readDefaultsDrift(repo, state)
+	if d.err != nil {
+		t.Fatal(d.err)
+	}
+	if b, _ := os.ReadFile(argsFile); strings.TrimSpace(string(b)) != "--check" {
+		t.Errorf("with no trackpad key in the rollback, the check should run without them, got args %q", b)
+	}
+	if d.trackpad || d.set != 1 || strings.Join(d.unset, ",") != "NSGlobalDomain B,NSGlobalDomain E" ||
+		strings.Join(d.waiting, ",") != "com.apple.mail K" {
+		t.Errorf("set, differs, absent and nodomain should each be counted as such, got %+v", d)
+	}
+
+	g := checkDefaults(d)
+	if g.sev != sevWarn || g.fix != "make defaults" {
+		t.Errorf("keys not as mrk sets them should warn with make defaults, got sev=%v fix=%q", g.sev, g.fix)
+	}
+	if l := g.lines[0].text; l != "1 of 4 set; 1 key waits until its app has preferences" {
+		t.Errorf("first line = %q", l)
+	}
+	if l, ok := line(g, "2 keys are not as mrk sets them: NSGlobalDomain B, NSGlobalDomain E"); !ok || l.fix != "make defaults" {
+		t.Errorf("the keys should be named, with their fix:\n%s", texts(g))
+	}
+}
+
+func TestDefaultsTrackpadOnlyWhenTheRollbackHasIt(t *testing.T) {
+	repo, argsFile := defaultsRepo(t, `NSGlobalDomain\tA\ttrue\ttrue\tset\n`+
+		`NSGlobalDomain\tB\t1\t1\tset\n`+
+		`com.apple.AppleMultitouchTrackpad\tClicking\t1\t0\tdiffers\n`)
+	state := t.TempDir()
+	rollback := filepath.Join(state, "defaults-rollback.sh")
+
+	for _, tc := range []struct {
+		line     string
+		trackpad bool
+	}{
+		{"defaults write com.apple.AppleMultitouchTrackpad Clicking -int 0", true},
+		{"defaults delete com.apple.AppleMultitouchTrackpad Clicking >/dev/null 2>&1 || true", true},
+		{"defaults write com.apple.AppleMultitouchTrackpad ClickingSomethingElse -int 0", false},
+		{"# defaults write com.apple.AppleMultitouchTrackpad Clicking -int 0", false},
+	} {
+		write(t, rollback, "#!/usr/bin/env bash\n"+tc.line+"\n")
+		d := readDefaultsDrift(repo, state)
+		if d.err != nil {
+			t.Fatal(d.err)
+		}
+		args, _ := os.ReadFile(argsFile)
+		if d.trackpad != tc.trackpad || strings.Contains(string(args), "--with-trackpad") != tc.trackpad {
+			t.Errorf("rollback %q: trackpad = %v, args %q, want trackpad %v", tc.line, d.trackpad, args, tc.trackpad)
+		}
+	}
+
+	write(t, rollback, "defaults write com.apple.AppleMultitouchTrackpad Clicking -int 0\n")
+	g := checkDefaults(readDefaultsDrift(repo, state))
+	if g.lines[0].text != "2 of 3 set, the trackpad keys included" || g.fix != "make trackpad" {
+		t.Errorf("with the trackpad keys applied, make defaults would not repair one: want make trackpad, got %q:\n%s", g.fix, texts(g))
+	}
+
+	g = checkDefaults(defaultsDrift{set: 150})
+	if g.sev != sevOK || g.fix != "" || texts(g) != "150 of 150 set\n" {
+		t.Errorf("every key set should be OK, with no fix, got sev=%v fix=%q:\n%s", g.sev, g.fix, texts(g))
+	}
+}
+
+func TestDefaultsCheckFailureIsAWarning(t *testing.T) {
+	repo, _ := defaultsRepo(t, "")
+	writeScript(t, filepath.Join(repo, "scripts", "defaults.sh"),
+		"#!/bin/sh\necho '  ✗ config/defaults.tsv has a line mrk-defaults cannot use (see above). Nothing was changed.' >&2\nexit 1\n")
+	state := t.TempDir()
+	write(t, filepath.Join(state, "defaults-rollback.sh"), "#!/usr/bin/env bash\n")
+	g := checkDefaults(readDefaultsDrift(repo, state))
+	if g.sev != sevWarn || !strings.Contains(texts(g), "defaults.sh --check failed: config/defaults.tsv has a line") {
+		t.Errorf("a check that could not run should warn with its reason, got sev=%v:\n%s", g.sev, texts(g))
+	}
+	if strings.Contains(texts(g), " set") {
+		t.Errorf("a check that could not run must not show a count:\n%s", texts(g))
+	}
+
+	write(t, filepath.Join(repo, "config", "defaults.tsv"), "NSGlobalDomain\tA\tbool\tmaybe\talways\tTest\n")
+	g = checkDefaults(readDefaultsDrift(repo, state))
+	if g.sev != sevWarn || !strings.Contains(texts(g), "Cannot read config/defaults.tsv") {
+		t.Errorf("a table lib.sh refuses should warn, got sev=%v:\n%s", g.sev, texts(g))
 	}
 }
 
@@ -234,7 +355,8 @@ func TestUnreadableFilesAreReportedNotMiscounted(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, g := range []group{checkDefaults(dir), checkHardening(dir), brewfileSummary(dir, brewDrift{})} {
+	repo, _ := defaultsRepo(t, "")
+	for _, g := range []group{checkDefaults(readDefaultsDrift(repo, dir)), checkHardening(dir), brewfileSummary(dir, brewDrift{})} {
 		if g.sev != sevWarn || !strings.Contains(texts(g), "Cannot read") {
 			t.Errorf("%s: a file that cannot be read to the end should warn, got sev=%v:\n%s", g.name, g.sev, texts(g))
 		}
