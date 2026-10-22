@@ -167,7 +167,8 @@ log "Picard settings"
 # snapshot-prefs under a throwaway HOME, with defaults stubbed and a scratch
 # mrk-prefs: a plist that changed only in keys that change on their own is left
 # out, a commit holding nothing else is not made, and --dry-run writes nothing.
-# Until 2026-09-30 every such difference made a commit.
+# Until 2026-09-30 every such difference made a commit. Also --check, which
+# shows the commit as lines, and config/app-prefs.tsv, which it reads.
 log "snapshot-prefs"
 "$REPO_ROOT/tests/snapshot-prefs.sh"
 
@@ -176,7 +177,8 @@ log "snapshot-prefs"
 # ran before the plist imports, so six apps' saved preferences were never
 # imported on a new Mac. Audit 19, W-2. Also a Mac with Homebrew off PATH, as
 # after Phase 2 in make all, where until 2026-09-27 it skipped topgrade, pyenv
-# and pinentry-mac as not installed. Audit 19, W-31.
+# and pinentry-mac as not installed. Audit 19, W-31. And snapshot-prefs after
+# it: the two must save and restore the same apps, under the same files.
 log "plist import order"
 "$REPO_ROOT/tests/plist-import-order.sh"
 

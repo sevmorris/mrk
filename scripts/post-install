@@ -460,29 +460,37 @@ import_plist(){
   log "Imported $name preferences"
 }
 
+# The apps whose saved preferences are imported: config/app-prefs.tsv, one app
+# a line, as domain, plist file, app path and name. snapshot-prefs reads the
+# same file, so each plist is restored from the name it was saved under. Read
+# whole before the first import. A line that is not one app counts as a failed
+# step, and the others are still imported.
+APP_PREFS_FILE="$REPO_ROOT/config/app-prefs.tsv"
 if [[ ! -d "$LOCAL_PREFS_DIR" ]]; then
   : # preferences will be noted in make all summary
 else
-  import_plist "/Applications/BetterSnapTool.app"  "com.hegenberg.BetterSnapTool"              "$LOCAL_PREFS_DIR/BetterSnapTool.plist"    "BetterSnapTool"    || failed=$(( failed + 1 ))
-  import_plist "/Applications/Thaw.app"           "com.stonerl.Thaw"                          "$LOCAL_PREFS_DIR/Thaw.plist"              "Thaw"              || failed=$(( failed + 1 ))
-  import_plist "/Applications/iTerm.app"          "com.googlecode.iterm2"                     "$LOCAL_PREFS_DIR/iTerm2.plist"            "iTerm2"            || failed=$(( failed + 1 ))
-  import_plist "/Applications/Raycast.app"        "com.raycast.macos"                         "$LOCAL_PREFS_DIR/Raycast.plist"           "Raycast"           || failed=$(( failed + 1 ))
-  import_plist "/Applications/Stats.app"          "eu.exelban.Stats"                          "$LOCAL_PREFS_DIR/Stats.plist"             "Stats"             || failed=$(( failed + 1 ))
-  import_plist "/Applications/Loopback.app"       "com.rogueamoeba.Loopback"                  "$LOCAL_PREFS_DIR/Loopback.plist"          "Loopback"          || failed=$(( failed + 1 ))
-  import_plist "/Applications/SoundSource.app"    "com.rogueamoeba.soundsource"               "$LOCAL_PREFS_DIR/SoundSource.plist"       "SoundSource"       || failed=$(( failed + 1 ))
-  import_plist "/Applications/Audio Hijack.app"   "com.rogueamoeba.audiohijack"               "$LOCAL_PREFS_DIR/AudioHijack.plist"       "Audio Hijack"      || failed=$(( failed + 1 ))
-  import_plist "/Applications/Farrago.app"        "com.rogueamoeba.farrago"                   "$LOCAL_PREFS_DIR/Farrago.plist"           "Farrago"           || failed=$(( failed + 1 ))
-  import_plist "/Applications/Piezo.app"          "com.rogueamoeba.Piezo"                     "$LOCAL_PREFS_DIR/Piezo.plist"             "Piezo"             || failed=$(( failed + 1 ))
-  import_plist "/Applications/Typora.app"         "abnerworks.Typora"                         "$LOCAL_PREFS_DIR/Typora.plist"            "Typora"            || failed=$(( failed + 1 ))
-  import_plist "/Applications/Keka.app"           "com.aone.keka"                             "$LOCAL_PREFS_DIR/Keka.plist"              "Keka"              || failed=$(( failed + 1 ))
-  # Migrated from Magic Backup Machine, 2026-09-02 — see snapshot-prefs.
-  import_plist "/Applications/Helium.app"         "net.imput.helium"                          "$LOCAL_PREFS_DIR/Helium.plist"            "Helium"            || failed=$(( failed + 1 ))
-  import_plist "/Applications/Waves Central.app"  "com.WavesAudio.central"                    "$LOCAL_PREFS_DIR/WavesCentral.plist"      "Waves Central"     || failed=$(( failed + 1 ))
-  import_plist "/Applications/MusicBrainz Picard.app" "org.musicbrainz.Picard"                "$LOCAL_PREFS_DIR/Picard.plist"            "MusicBrainz Picard" || failed=$(( failed + 1 ))
+  app_prefs=()
+  if [[ -r "$APP_PREFS_FILE" ]]; then
+    while IFS= read -r ap_line; do
+      app_prefs+=("$ap_line")
+    done < <(mrk_config_entries "$APP_PREFS_FILE")
+  else
+    warn "Cannot read $APP_PREFS_FILE, so no app's plist was imported but my own"
+    failed=$(( failed + 1 ))
+  fi
+  for ap_line in ${app_prefs[@]+"${app_prefs[@]}"}; do
+    if ! ap_why=$(app_prefs_why "$ap_line"); then
+      warn "Not one app, in config/app-prefs.tsv ($ap_why): $ap_line"
+      failed=$(( failed + 1 ))
+      continue
+    fi
+    IFS=$'\t' read -r ap_domain ap_file ap_app ap_name <<< "$ap_line"
+    import_plist "$ap_app" "$ap_domain" "$LOCAL_PREFS_DIR/$ap_file" "$ap_name" || failed=$(( failed + 1 ))
+  done
 
   # My own applications, restored as the group snapshot-prefs captures. The
   # bundle id is the file name without .plist, so the two ends stay in step with
-  # no list to maintain on either side.
+  # no list to maintain on either side. config/app-prefs.tsv cannot name one.
   #
   # Deliberately NOT gated on the app being installed, unlike import_plist above.
   # Several of these are tools with no /Applications bundle, and on a new machine
@@ -490,8 +498,6 @@ else
   # means the app finds its settings on first launch instead of starting blank.
   # The domain is namespaced to me, so there is nothing to collide with.
   import_own_apps || failed=$(( failed + 1 ))
-  import_plist "/Applications/TimeMachineEditor.app" "com.tclementdev.timemachineeditor.application" "$LOCAL_PREFS_DIR/TimeMachineEditor.plist" "TimeMachineEditor" || failed=$(( failed + 1 ))
-  import_plist "/Applications/MacWhisper.app"     "com.goodsnooze.MacWhisper"                 "$LOCAL_PREFS_DIR/MacWhisper.plist"        "MacWhisper"        || failed=$(( failed + 1 ))
 fi
 
 ###############################################################################
@@ -712,8 +718,8 @@ fi
 ###############################################################################
 
 # The installer lives in scripts/install-apps so that `make apps` and this
-# phase share one copy, and so the list of apps is one place. Sourcing defines
-# the functions without running anything.
+# phase share one copy, and the list of apps is config/companion-apps.txt.
+# Sourcing defines the functions without running anything.
 # shellcheck source=install-apps
 source "$SCRIPT_DIR/install-apps"
 install_companion_apps

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # plist-import-order.sh — prove that post-install imports every saved app plist
-# on a fresh Mac, and still leaves an app that is already configured alone.
+# on a fresh Mac, and still leaves an app that is already configured alone. And
+# that snapshot-prefs saves each of those plists under the name post-install
+# restores it from: the two scripts must not list different apps.
 #
 # import_plist imports only into an empty domain. Until 2026-09-27 post-install
 # ran its app-defaults scripts first, and they wrote keys into six of the
@@ -9,6 +11,15 @@
 # Hijack and Helium scripts wrote their own. Each of the six imports then found
 # its domain holding something and logged "exists — skipping import". The
 # 2026-09-15 migration imported none of them. Audit 19, W-2.
+#
+# The apps are config/app-prefs.tsv, which both scripts read. On the fresh Mac
+# below, with every app of the table installed, snapshot-prefs --check runs
+# after post-install, against the domains post-install imported. The domain and
+# file of each export must be those of an import, and the other way round; and
+# neither script may skip an app as not installed, which is how a line written
+# into one script and not the other would show. A line of the table that is
+# not one app must be a failed step that imports nothing, while the other apps
+# are still imported.
 #
 # post-install runs whole, from a copy of the repository, under a throwaway
 # HOME and an empty environment. `defaults` is a stub first on PATH that keeps
@@ -73,8 +84,8 @@ mkdir -p "$R/scripts" "$R/config" "$R/assets/preferences" "$R/assets/browsers" "
 
 # ── The repository copy ──────────────────────────────────────────────────────
 
-cp -p "$REPO_ROOT/scripts/post-install" "$REPO_ROOT/scripts/lib.sh" "$R/scripts/"
-cp -p "$REPO_ROOT"/config/*.txt "$R/config/"
+cp -p "$REPO_ROOT/scripts/post-install" "$REPO_ROOT/scripts/snapshot-prefs" "$REPO_ROOT/scripts/lib.sh" "$R/scripts/"
+cp -p "$REPO_ROOT"/config/* "$R/config/"
 cp -p "$REPO_ROOT"/assets/preferences/*.sh "$R/assets/preferences/"
 cp -p "$REPO_ROOT"/assets/browsers/*.sh "$R/assets/browsers/"
 cp -p "$REPO_ROOT/assets/topgrade.toml" "$R/assets/"
@@ -84,14 +95,14 @@ cat > "$R/scripts/install-apps" <<'EOF'
 install_companion_apps() { COMPANION_FAILED=0; }
 EOF
 
-for f in "$R/scripts/post-install" "$R"/config/*.txt "$R"/assets/*/*.sh; do
+for f in "$R/scripts/post-install" "$R/scripts/snapshot-prefs" "$R"/config/* "$R"/assets/*/*.sh; do
   sed "s#/Applications/#$APPS/#g" "$f" > "$W/rewrite" && cat "$W/rewrite" > "$f"
 done
-if grep -n '/Applications/' "$R/scripts/post-install" "$R"/config/*.txt "$R"/assets/*/*.sh | grep -vF "$APPS/"; then
+if grep -n '/Applications/' "$R/scripts/post-install" "$R/scripts/snapshot-prefs" "$R"/config/* "$R"/assets/*/*.sh | grep -vF "$APPS/"; then
   fail "a real /Applications path survived the rewrite — refusing to run"
   exit 1
 fi
-if grep -n '/usr/bin/defaults' "$R/scripts/post-install" "$R"/assets/*/*.sh; then
+if grep -n '/usr/bin/defaults' "$R/scripts/post-install" "$R/scripts/snapshot-prefs" "$R"/assets/*/*.sh; then
   fail "a script names /usr/bin/defaults, which the stub cannot intercept — refusing to run"
   exit 1
 fi
@@ -113,6 +124,11 @@ cat > "$STUBS/defaults" <<'EOF'
 # Every domain is a plist file under $STORE; nothing reaches the user's own.
 printf '%s\n' "$*" >> "$DEFAULTS_LOG"
 refuse() { printf 'REFUSED %s\n' "$*" >> "$DEFAULTS_LOG"; echo "defaults stub: refused: $*" >&2; exit 2; }
+# domains: the store's domains, as defaults lists them, for snapshot-prefs
+if [[ "${1:-}" == domains && $# == 1 ]]; then
+  for f in "$STORE"/*.plist; do [[ -f "$f" ]] && basename "$f" .plist; done | paste -sd, - | sed 's/,/, /g'
+  exit 0
+fi
 case "${1:-}" in read|write|delete|import|export) ;; *) refuse "$@" ;; esac
 case "${2:-}" in
   "" | -*)      refuse "$@" ;;
@@ -143,12 +159,10 @@ ln -s "$BASH_UNDER_TEST" "$STUBS/bash"
 
 # ── What post-install imports ────────────────────────────────────────────────
 
-# One line per import_plist call: app path, bundle id, plist file name, name.
+# One line per app of config/app-prefs.tsv: app path, bundle id, plist file
+# name, name. The copy's paths already point into the scratch /Applications.
 ENTRIES="$W/entries"
-grep -E '^[[:space:]]*import_plist "' "$R/scripts/post-install" > "$W/calls.sh"
-LOCAL_PREFS_DIR=@ bash -c \
-  'import_plist() { printf "%s\t%s\t%s\t%s\n" "$1" "$2" "${3##*/}" "$4"; }; failed=0; source "$1"' \
-  _ "$W/calls.sh" > "$ENTRIES"
+mrk_config_entries "$R/config/app-prefs.tsv" | awk -F'\t' -v OFS='\t' '{ print $3, $1, $2, $4 }' > "$ENTRIES"
 n_entries=$(wc -l < "$ENTRIES" | tr -d ' ')
 
 # The six W-2 names. Each checks a key its defaults script writes, holding the
@@ -211,6 +225,24 @@ run_pi() {
     STORE="$d/domains" SCRATCH="$W" DEFAULTS_LOG="$d/defaults.log" CALLS="$d/calls.log" \
     MRK_BREW="$W/homebrew/bin/brew" MRK_ROOT="$R" \
     "$STUBS/bash" "$R/scripts/post-install" --yes </dev/null > "$d/out" 2>&1
+}
+
+# run_snap DIR ARGS — snapshot-prefs on that machine, as run_pi runs
+# post-install; stdout in DIR/snap.out, stderr in DIR/snap.err, and its own
+# defaults log
+run_snap() {
+  local d="$1"
+  shift
+  env -i HOME="$d/home" PATH="$STUBS:/usr/bin:/bin:/usr/sbin:/sbin" TMPDIR="$d/tmp" \
+    STORE="$d/domains" SCRATCH="$W" DEFAULTS_LOG="$d/snap-defaults.log" CALLS="$d/calls.log" \
+    PREFS_REPO="$W/no-such-remote.git" NONINTERACTIVE=1 \
+    "$STUBS/bash" "$R/scripts/snapshot-prefs" "$@" </dev/null > "$d/snap.out" 2> "$d/snap.err"
+}
+
+# saved VERB LOG — the domain and saved file of each `defaults VERB DOMAIN PATH`
+# in LOG, the path cut to what follows preferences/, sorted
+saved() {
+  awk -v verb="$1" '$1 == verb { p = $3; sub(/.*\/preferences\//, "", p); print $2 "\t" p }' "$2" | LC_ALL=C sort
 }
 
 get()    { /usr/bin/defaults read "$1/domains/$2" "$3" 2>/dev/null; }  # get DIR DOMAIN KEY
@@ -286,6 +318,65 @@ if [[ -z "$no_line" ]] && (( $(rollback_deletes "$F") == n_entries + 1 )); then
   pass "fresh Mac: one rollback line per import, each deleting a domain mrk created"
 else
   fail "fresh Mac: $(rollback_deletes "$F") rollback deletes for $((n_entries + 1)) imports${no_line:+; none for ${no_line#, }}"
+fi
+
+# ── 1b. snapshot-prefs saves what post-install restored, and nothing else ─────
+
+# The Mac above, every app installed and its preferences restored, has no
+# saved preferences under git, so the dry run starts from an empty repository
+# and lists every export as added.
+imported=$(saved import "$F/defaults.log")
+if run_snap "$F" --check; then
+  exported=$(saved export "$F/snap-defaults.log")
+  want_lines=$( { cut -f2 <<<"$exported"; echo repos.tsv; } | LC_ALL=C sort | sed 's/$/\t\tadded/')
+  if [[ -n "$imported" && "$exported" == "$imported" ]] && (( $(grep -c . <<<"$exported") == n_entries + 1 )); then
+    pass "post-install and snapshot-prefs: the same $n_entries apps and my own app, each domain under the same file"
+  else
+    fail "post-install imports and snapshot-prefs exports differ (< import, > export):"
+    diff <(printf '%s\n' "$imported") <(printf '%s\n' "$exported") | sed 's/^/      /' >&2
+  fi
+  if ! grep -q 'plist (not installed)' "$F/out" && ! grep -q '(not installed)' "$F/snap.err"; then
+    pass "neither script skipped an app as not installed, so neither knows an app the table does not list"
+  else
+    fail "an app was skipped as not installed: $( { grep -h 'plist (not installed)' "$F/out"; grep -h '(not installed)' "$F/snap.err"; } | tr '\n' ' ')"
+  fi
+  if [[ "$(LC_ALL=C sort "$F/snap.out")" == "$want_lines" ]]; then
+    pass "snapshot-prefs --check: one line for each file, FILE, an empty key and added; nothing else on stdout"
+  else
+    fail "snapshot-prefs --check showed (< want, > got):"
+    diff <(printf '%s\n' "$want_lines") <(LC_ALL=C sort "$F/snap.out") | sed 's/^/      /' >&2
+  fi
+else
+  fail "snapshot-prefs --check exited non-zero on the fresh Mac"; sed 's/^/      /' "$F/snap.err" >&2
+fi
+
+# ── 1c. A line of config/app-prefs.tsv that is not one app ───────────────────
+
+# KeyVault's domain, which the group may never save, with a saved copy and its
+# app in place, so that the import would happen if the line were taken; and a
+# line with three fields. Each must be a failed step, named, and the apps of
+# the other lines must still be imported.
+B="$W/bad-line"
+cp -p "$R/config/app-prefs.tsv" "$W/app-prefs.good"
+printf 'io.github.sevmorris.KeyVault\tKeyVault.plist\t%s/KeyVault.app\tKeyVault\ncom.example.three\tThree.plist\t%s/Three.app\n' \
+  "$APPS" "$APPS" >> "$R/config/app-prefs.tsv"
+machine "$B"; apps all
+mkdir -p "$APPS/KeyVault.app" "$APPS/Three.app"
+/usr/bin/defaults write "$B/home/.mrk/preferences/KeyVault" mrkTestSaved -string KeyVault
+run_pi "$B"
+rc_bad=$?
+cp -p "$W/app-prefs.good" "$R/config/app-prefs.tsv"
+not_imported=""
+while IFS=$'\t' read -r _ id _ name; do
+  [[ "$(get "$B" "$id" mrkTestSaved)" == "$id" ]] || not_imported="$not_imported, $name"
+done < "$ENTRIES"
+if (( rc_bad != 0 )) && [[ -z "$not_imported" ]] && ! exists "$B" io.github.sevmorris.KeyVault \
+   && (( $(grep -c 'Not one app, in config/app-prefs.tsv' "$B/out") == 2 )) \
+   && grep -q 'io.github.sevmorris.\* domains as a group' "$B/out"; then
+  pass "a line that is not one app: two failed steps, each named, KeyVault's domain left alone, the other $n_entries imported"
+else
+  fail "a line that is not one app: exit $rc_bad, not imported: ${not_imported#, }; KeyVault $(exists "$B" io.github.sevmorris.KeyVault && echo IMPORTED || echo absent)"
+  show_out "$B"
 fi
 
 # ── 2. The same Mac again: nothing is imported twice ─────────────────────────

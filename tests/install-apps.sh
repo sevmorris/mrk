@@ -14,6 +14,11 @@
 # run's skip test took it for installed. Now the EXIT trap removes it, and
 # `make apps` on its own exits on Ctrl-C as post-install does, so the trap runs.
 #
+# The apps are config/companion-apps.txt. The committed list must be one app a
+# line, in byte order, each bundle once. install_companion_apps must count a
+# line that is not one app, and a list it cannot read, as failures, and still
+# install the other apps.
+#
 # scripts/install-apps is sourced, which defines its functions and runs nothing.
 # curl, gh, hdiutil, ditto, codesign and spctl are stubs first on PATH, so no
 # request leaves the machine, nothing is mounted and nothing is verified for real. install_github_app runs against app paths in a scratch
@@ -158,20 +163,58 @@ else
   fail "install_github_app on a 403: exit $RC, said: $OUT"
 fi
 
+# ── The committed list ───────────────────────────────────────────────────────
+
+LIST="$REPO_ROOT/config/companion-apps.txt"
+if [[ "$COMPANION_APPS_FILE" -ef "$LIST" ]]; then
+  pass "install-apps reads config/companion-apps.txt"
+else
+  fail "install-apps reads $COMPANION_APPS_FILE, not config/companion-apps.txt"
+fi
+entries=$(mrk_config_entries "$LIST")
+n_list=$(grep -c . <<<"$entries")
+bad=$(while IFS= read -r l; do companion_app_ok "$l" || printf '%s; ' "$l"; done <<<"$entries")
+twice=$(cut -d'|' -f1 <<<"$entries" | sort | uniq -d | tr '\n' ' ')
+if (( n_list > 0 )) && [[ -z "$bad$twice" && "$entries" == "$(LC_ALL=C sort <<<"$entries")" ]]; then
+  pass "config/companion-apps.txt: $n_list apps, one a line, in byte order, each once"
+else
+  fail "config/companion-apps.txt: not one app: ${bad:-none}; listed twice: ${twice:-none}; in byte order: $([[ "$entries" == "$(LC_ALL=C sort <<<"$entries")" ]] && echo yes || echo no)"
+fi
+
 # ── install_companion_apps counts skips apart from failures ──────────────────
 
 install_github_app() {
+  printf '%s\n' "$1" >> "$W/installed"
   case "$2" in
     */ok) return 0 ;; */private) return 3 ;; *) return 1 ;;
   esac
 }
-# shellcheck disable=SC2034  # read by install_companion_apps, from the sourced script
-COMPANION_APPS=("A.app|x/ok|A" "B.app|x/private|B" "C.app|x/broken|C" "D.app|x/private|D")
-install_companion_apps
-if [[ $COMPANION_FAILED == 1 && $COMPANION_SKIPPED == 2 ]]; then
+# companions LINE... — install_companion_apps over a list of those lines
+companions() {
+  printf '%s\n' "$@" > "$W/companions.txt"
+  : > "$W/installed"
+  COMPANION_APPS_FILE="$W/companions.txt" install_companion_apps
+}
+companions "# a comment" "A.app|x/ok|A" "B.app|x/private|B" "" "C.app|x/broken|C" "D.app|x/private|D"
+if [[ $COMPANION_FAILED == 1 && $COMPANION_SKIPPED == 2 && "$(tr '\n' ' ' < "$W/installed")" == "/Applications/A.app /Applications/B.app /Applications/C.app /Applications/D.app " ]]; then
   pass "install_companion_apps: 1 failed, 2 skipped, and only failures reach post-install's count"
 else
-  fail "install_companion_apps: failed $COMPANION_FAILED, skipped $COMPANION_SKIPPED (want 1 and 2)"
+  fail "install_companion_apps: failed $COMPANION_FAILED, skipped $COMPANION_SKIPPED (want 1 and 2), installed: $(tr '\n' ' ' < "$W/installed")"
+fi
+companions "A.app|x/ok|A" "../B.app|x/ok|B" "C.app|x/ok" "D.app|x/ok|D" > "$W/out" 2>&1
+OUT=$(cat "$W/out")
+if [[ $COMPANION_FAILED == 2 && "$(tr '\n' ' ' < "$W/installed")" == "/Applications/A.app /Applications/D.app " ]] \
+   && grep -qF 'not one app, in config/companion-apps.txt: ../B.app|x/ok|B' <<<"$OUT"; then
+  pass "install_companion_apps: a line that is not one app is a failure, named, and the others are installed"
+else
+  fail "a bad line: failed $COMPANION_FAILED (want 2), installed: $(tr '\n' ' ' < "$W/installed"), said: $OUT"
+fi
+: > "$W/installed"
+OUT=$(COMPANION_APPS_FILE="$W/absent.txt" install_companion_apps 2>&1; echo "failed=$COMPANION_FAILED")
+if grep -qx 'failed=1' <<<"$OUT" && grep -q 'cannot read .*absent.txt' <<<"$OUT" && [[ ! -s "$W/installed" ]]; then
+  pass "install_companion_apps: a list it cannot read is one failure, and installs nothing"
+else
+  fail "a list it cannot read: $OUT"
 fi
 
 # ── A copy into /Applications, whole, failed or cut short ────────────────────
@@ -214,12 +257,13 @@ else
   fail "interrupted copy: exit $RC, app $([[ -e "$W/Applications/Example.app" ]] && echo LEFT BEHIND || echo gone), left '$LEFT'"
 fi
 
-# `make apps` on its own: a copy of the script, its /Applications pointed into
-# the sandbox, interrupted during its first app's copy.
-C="$W/copy"; mkdir -p "$C"
+# `make apps` on its own: a copy of the script and the list, its /Applications
+# pointed into the sandbox, interrupted during its first app's copy.
+C="$W/copy"; mkdir -p "$C" "$W/config"
 cp "$REPO_ROOT/scripts/lib.sh" "$C/"
+cp "$LIST" "$W/config/"
 sed "s#/Applications/#$W/Applications/#g" "$REPO_ROOT/scripts/install-apps" > "$C/install-apps"
-first=$(sed -n 's/^  "\([^"|]*\)\.app|.*/\1/p' "$C/install-apps" | head -1)
+first=$(mrk_config_entries "$W/config/companion-apps.txt" | head -1); first=${first%%.app|*}
 rm -rf "$W/Applications"/*; : > "$W/calls"
 OUT=$(CURL_CODE=200 DITTO_MODE=interrupt STUB_APP="$first" "$BASH_UNDER_TEST" "$C/install-apps" 2>&1); RC=$?
 if [[ -n "$first" && $RC == 1 && ! -e "$W/Applications/$first.app" ]] && grep -q 'interrupted' <<<"$OUT"; then

@@ -31,20 +31,29 @@ usage() {
 snapshot-prefs — export app preferences to ~/.mrk/preferences and push them
 
 Usage:
-  snapshot-prefs [--dry-run]
+  snapshot-prefs [--dry-run | --check]
 
 Options:
   -n, --dry-run   Export into a scratch copy of ~/.mrk/preferences and report
                   what would be committed, with each plist's changed keys.
                   ~/.mrk/preferences is left as it was; nothing is committed
                   or pushed. The secret scan still runs.
+      --check     Print what a run would commit, one line for each change,
+                  tab-separated: the file, the key, and added, deleted or
+                  changed. The key is empty for a change to a whole file: a
+                  file the commit adds or deletes, or one that is not a plist.
+                  Nothing else on stdout, and nothing changed: it exports as
+                  --dry-run does, and its progress goes to stderr. Exits 0
+                  when it could tell, 1 when it refused, 2 for a bad option.
   -h, --help      Show this help
 
-snapshot-prefs exports each app's preferences into ~/.mrk/preferences, and
-commits and pushes that tree to the private mrk-prefs repo. It does not quit
-any app: defaults export asks the preferences system, which has an open app's
-changes as soon as it makes them. An app with no preferences yet is skipped,
-and its saved copy kept.
+snapshot-prefs exports the preferences of the apps that config/app-prefs.tsv
+lists, and of every io.github.sevmorris.* app but KeyVault, into
+~/.mrk/preferences, and commits and pushes that tree to the private mrk-prefs
+repo. It refuses a line of config/app-prefs.tsv that is not one app, before it
+exports anything. It does not quit any app: defaults export asks the
+preferences system, which has an open app's changes as soon as it makes them.
+An app with no preferences yet is skipped, and its saved copy kept.
 
 A plist that differs from the last commit only in keys that change on their
 own (update-check times, window and menu bar positions, launch counters, the
@@ -60,17 +69,65 @@ EOF
 }
 
 DRY_RUN=0
+CHECK=0
 for arg in "$@"; do
   case "$arg" in
     -n|--dry-run) DRY_RUN=1 ;;
+    --check)      CHECK=1 ;;
     -h|--help)    usage; exit 0 ;;
     *)            usage >&2; printf '\nunknown argument: %s\n' "$arg" >&2; exit 2 ;;
   esac
 done
 
+# --check is a dry run that shows the commit as lines for a program to read
+# (the Settings app), on stdout, which holds nothing else: fd 3 is stdout, and
+# everything else, git's output included, goes to stderr. Modelled on sync
+# --check and sync-login-items --check.
+if (( CHECK )); then
+  DRY_RUN=1
+  exec 3>&1 1>&2
+fi
+
 : "${PREFS_REPO:=git@github.com:sevmorris/mrk-prefs.git}"
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
 APP_SUPPORT="$HOME/Library/Application Support"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# The named apps: config/app-prefs.tsv, one app a line, as domain, plist file,
+# app path and name. post-install reads the same file, so a plist is saved
+# under the name it is restored from. Read and checked whole, before anything
+# is exported: a line that is not one app, or a domain or file listed twice,
+# stops the run. Two lines with one file would save one app's settings over
+# another's.
+APP_PREFS_FILE="$REPO_ROOT/config/app-prefs.tsv"
+APP_PREFS=()
+if [[ ! -r "$APP_PREFS_FILE" ]]; then
+  err "Cannot read $APP_PREFS_FILE. Nothing was exported."
+  exit 1
+fi
+mapfile -t APP_PREFS < <(mrk_config_entries "$APP_PREFS_FILE")
+declare -A _ap_domains=() _ap_files=()
+_ap_bad=0
+for _ap in ${APP_PREFS[@]+"${APP_PREFS[@]}"}; do
+  if ! _ap_why=$(app_prefs_why "$_ap"); then
+    err "Not one app, in config/app-prefs.tsv ($_ap_why): $_ap"
+    _ap_bad=1
+    continue
+  fi
+  IFS=$'\t' read -r _ap_domain _ap_file _ <<< "$_ap"
+  if [[ -n "${_ap_domains[$_ap_domain]:-}" ]]; then
+    err "config/app-prefs.tsv lists the domain $_ap_domain two times"; _ap_bad=1
+  fi
+  if [[ -n "${_ap_files[$_ap_file]:-}" ]]; then
+    err "config/app-prefs.tsv lists the file $_ap_file two times"; _ap_bad=1
+  fi
+  _ap_domains[$_ap_domain]=1
+  _ap_files[$_ap_file]=1
+done
+if (( _ap_bad )); then
+  err "Nothing was exported."
+  exit 1
+fi
 
 # Apps whose export failed or timed out — reported at exit, never fatal.
 SNAPSHOT_SKIPPED=()
@@ -224,30 +281,16 @@ snapshot_plist(){
   log "Saved $name → $LOCAL_PREFS_DIR/$filename"
 }
 
-# Previously captured
-snapshot_plist "com.hegenberg.BetterSnapTool"           "BetterSnapTool.plist"    "/Applications/BetterSnapTool.app"   "BetterSnapTool"
-snapshot_plist "com.stonerl.Thaw"                       "Thaw.plist"              "/Applications/Thaw.app"             "Thaw"
-snapshot_plist "com.googlecode.iterm2"                  "iTerm2.plist"            "/Applications/iTerm.app"            "iTerm2"
-
-# Newly added
-snapshot_plist "com.raycast.macos"                      "Raycast.plist"           "/Applications/Raycast.app"          "Raycast"
-snapshot_plist "eu.exelban.Stats"                       "Stats.plist"             "/Applications/Stats.app"            "Stats"
-snapshot_plist "com.rogueamoeba.Loopback"               "Loopback.plist"          "/Applications/Loopback.app"         "Loopback"
-snapshot_plist "com.rogueamoeba.soundsource"            "SoundSource.plist"       "/Applications/SoundSource.app"      "SoundSource"
-snapshot_plist "com.rogueamoeba.audiohijack"            "AudioHijack.plist"       "/Applications/Audio Hijack.app"     "Audio Hijack"
-snapshot_plist "com.rogueamoeba.farrago"                "Farrago.plist"           "/Applications/Farrago.app"          "Farrago"
-snapshot_plist "com.rogueamoeba.Piezo"                  "Piezo.plist"             "/Applications/Piezo.app"            "Piezo"
-snapshot_plist "abnerworks.Typora"                      "Typora.plist"            "/Applications/Typora.app"           "Typora"
-snapshot_plist "com.aone.keka"                          "Keka.plist"              "/Applications/Keka.app"             "Keka"
-snapshot_plist "com.tclementdev.timemachineeditor.application" "TimeMachineEditor.plist" "/Applications/TimeMachineEditor.app" "TimeMachineEditor"
-snapshot_plist "com.goodsnooze.MacWhisper"              "MacWhisper.plist"        "/Applications/MacWhisper.app"       "MacWhisper"
-
-# Migrated out of Magic Backup Machine, 2026-09-02. MBM carried these inside an
-# rsync mirror, which keeps the current state and no history. They are settings,
-# they are tiny, and a regression in one is worth being able to diff.
-snapshot_plist "net.imput.helium"                       "Helium.plist"            "/Applications/Helium.app"           "Helium"
-snapshot_plist "com.WavesAudio.central"                 "WavesCentral.plist"      "/Applications/Waves Central.app"    "Waves Central"
-snapshot_plist "org.musicbrainz.Picard"                 "Picard.plist"            "/Applications/MusicBrainz Picard.app" "MusicBrainz Picard"
+# The apps of config/app-prefs.tsv, checked above.
+#
+# Helium, Waves Central and MusicBrainz Picard were migrated out of Magic Backup
+# Machine, 2026-09-02. MBM carried these inside an rsync mirror, which keeps the
+# current state and no history. They are settings, they are tiny, and a
+# regression in one is worth being able to diff.
+for _ap in ${APP_PREFS[@]+"${APP_PREFS[@]}"}; do
+  IFS=$'\t' read -r _ap_domain _ap_file _ap_app _ap_name <<< "$_ap"
+  snapshot_plist "$_ap_domain" "$_ap_file" "$_ap_app" "$_ap_name"
+done
 
 # KeyVault (io.github.sevmorris.KeyVault) is deliberately absent, and must stay
 # absent. It is a secrets manager. Its API keys and notes are self-describing
@@ -259,6 +302,9 @@ snapshot_plist "org.musicbrainz.Picard"                 "Picard.plist"          
 # The key files have their own script — snapshot-keys — which writes one
 # encrypted archive to a path outside every directory a wipe deletes, and
 # pushes nowhere. Same call already made for Bitwarden, NordPass and 1Password.
+#
+# config/app-prefs.tsv cannot name it: app_prefs_why (lib.sh) refuses a line
+# for any io.github.sevmorris.* domain, which is the group's to save.
 #
 # Leaving it out of the named list was not enough. The group export below takes
 # every io.github.sevmorris.* domain, and from the 2026-09-02 migration until
@@ -644,6 +690,13 @@ git add -A -- "${add_specs[@]}"
 # changing without anyone changing a setting; a value someone moves while using
 # the app (Farrago's masterVolume) or a table an app keeps of what it has seen
 # with settings inside it (BetterSnapTool's BSTAppSettings) still counts.
+#
+# Kept here, not in config/ beside the apps. config/ holds choices, such as
+# which apps to keep; these are facts about how an app behaves, each earned by
+# the history above and explained beside it. Half of them are
+# MRK_SELF_CHANGING_KEYS, which defaults-watch reads from lib.sh. A rule that
+# names a top-level plist must name a file of config/app-prefs.tsv:
+# tests/snapshot-prefs.sh checks that.
 PREFS_NOISE=(
   # In every file: Sparkle's update checks, window and file-panel positions,
   # launch counters. The list is MRK_SELF_CHANGING_KEYS in lib.sh, which
@@ -674,7 +727,10 @@ PREFS_NOISE=(
 
 # plist_changes PATH... — compare each plist as staged with HEAD's copy. Prints
 # "noise<TAB>PATH" for one that differs only in PREFS_NOISE keys, and
-# "real<TAB>PATH<TAB>KEYS" otherwise, KEYS being the top-level keys that changed.
+# "real<TAB>PATH<TAB>KEYS" otherwise, KEYS being the top-level keys that changed,
+# shortened for the report. After a real line, one "key<TAB>PATH<TAB>CHANGE<TAB>KEY"
+# for each of those keys, whole, for --check: CHANGE is added, deleted or
+# changed, and a tab or a newline in KEY becomes a space.
 #
 # Values are compared as what they hold, not as bytes: a value that is itself a
 # plist, an NSKeyedArchiver archive or JSON is decoded first. Ice wrote the same
@@ -754,7 +810,7 @@ for path in sys.argv[2:]:
         print("real\t" + path)
         continue
     pats = [k for f, k in rules if fnmatch.fnmatchcase(path, f)]
-    real = []
+    real, keys = [], []
     for k in sorted(set(old) | set(new), key=str):
         a, b = old.get(k, MISSING), new.get(k, MISSING)
         if a == b or noisy(k, pats):
@@ -763,11 +819,29 @@ for path in sys.argv[2:]:
             continue
         name = " ".join(str(k).split())
         real.append(name if len(name) <= 60 else name[:59] + "…")
+        change = "added" if a is MISSING else "deleted" if b is MISSING else "changed"
+        whole = str(k).replace("\t", " ").replace("\r", " ").replace("\n", " ")
+        keys.append("key\t%s\t%s\t%s" % (path, change, whole))
     print(("real\t%s\t%s" % (path, ", ".join(real))) if real else "noise\t" + path)
+    for line in keys:
+        print(line)
 PYEOF
 }
 
+# check_line FIELD... — one --check line. A tab or a newline inside a field
+# would split it, so each becomes a space.
+check_line() {
+  local out="" f sep=""
+  for f in "$@"; do
+    f="${f//$'\t'/ }"
+    out+="$sep${f//$'\n'/ }"
+    sep=$'\t'
+  done
+  printf '%s\n' "$out"
+}
+
 declare -A PLIST_KEYS=()   # path → the keys that changed, for the report
+declare -A PLIST_CHECK=()  # path → its --check lines, one for each key that changed
 left_out=()
 modified=()
 while IFS= read -r -d '' f; do
@@ -777,10 +851,11 @@ if (( ${#modified[@]} > 0 )); then
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found — every changed plist is committed, keys that change on their own included"
   elif changes=$(plist_changes "${modified[@]}"); then
-    while IFS=$'\t' read -r kind path keys; do
+    while IFS=$'\t' read -r kind path a b; do
       case "$kind" in
         noise) left_out+=("$path") ;;
-        real)  PLIST_KEYS["$path"]="${keys:-}" ;;
+        real)  PLIST_KEYS["$path"]="${a:-}" ;;
+        key)   PLIST_CHECK["$path"]+="$(check_line "$path" "${b:-}" "$a")"$'\n' ;;
       esac
     done <<< "$changes"
   else
@@ -835,13 +910,35 @@ report_staged() {
   done < <(git -c core.quotepath=off diff --cached --name-status --no-renames)
   if (( more > 0 )); then printf '    … and %d more\n' "$more"; fi
 }
+
+# check_report — what --check shows: the files report_staged names, from the
+# same index. A changed plist gives a line for each key that changed in it,
+# and any other file gives one line, with the key empty.
+check_report() {
+  local status path
+  while IFS= read -r -d '' status && IFS= read -r -d '' path; do
+    case "$status" in
+      A) check_line "$path" "" added ;;
+      D) check_line "$path" "" deleted ;;
+      *) if [[ -n "${PLIST_CHECK[$path]:-}" ]]; then
+           printf '%s' "${PLIST_CHECK[$path]}"
+         else
+           check_line "$path" "" changed
+         fi ;;
+    esac
+  done < <(git diff --cached --name-status --no-renames -z)
+}
+
 staged_count=$(git diff --cached --name-only | wc -l | tr -d ' ')
-if (( DRY_RUN )); then
+if (( CHECK )); then
+  check_report >&3
+elif (( DRY_RUN )); then
   log "Would commit $staged_count file(s):"
+  report_staged
 else
   log "Committing $staged_count file(s):"
+  report_staged
 fi
-report_staged
 
 # Scan staged snapshot files before commit/push.
 #
