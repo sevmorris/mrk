@@ -395,7 +395,7 @@ app('Zq Chess.app', 'public.app-category.board-games')
 write('zq-both', formulae=[f('zq-both', 'Both, the formula')], casks=[c('zq-both', 'Zq Both', 'Both, the cask')])
 app('Zq Both.app', 'public.app-category.utilities')
 write('zq-dec-tool', formulae=[f('zq-dec-tool', 'Decides things')])
-write('zq-later', formulae=[f('zq-later', 'Later things')])
+write('zq-later', formulae=[f('zq-later', 'Later things in C:\\later')])
 PY
 
 # zq-twin is a formula and a cask in the Brewfile, sharing one description;
@@ -468,12 +468,13 @@ expect_refusal 2 "the picker's --prune with a decision" 'does not combine'     -
 
 # --check --details: the three fields mrk-status reads, then the section, why,
 # and the description the table will hold. Plain --check keeps three fields.
+# zq-later's description holds a backslash, which the line escapes as \\.
 decide --check --details
 TAB=$'\t'
 want="$(cat <<EOF
 add${TAB}formula${TAB}zq-both${TAB}${TAB}${TAB}Both, the formula
 add${TAB}formula${TAB}zq-dec-tool${TAB}${TAB}${TAB}Decides things
-add${TAB}formula${TAB}zq-later${TAB}${TAB}${TAB}Later things
+add${TAB}formula${TAB}zq-later${TAB}${TAB}${TAB}Later things in C:\\\\later
 add${TAB}cask${TAB}zq-both${TAB}Casks - Utilities${TAB}Zq Both.app declares public.app-category.utilities${TAB}Both, the cask
 add${TAB}cask${TAB}zq-chess${TAB}Casks - Games${TAB}Zq Chess.app declares public.app-category.board-games${TAB}Chess against the clock
 prune${TAB}formula${TAB}${STALE_F}${TAB}$(section_of "$STALE_F")${TAB}${TAB}$(desc_of "$STALE_F")

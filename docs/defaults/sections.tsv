@@ -1,0 +1,40 @@
+# mrk macOS defaults: the sections
+#
+# What MRK-1, the defaults reference, shows under the heading of each section
+# of config/defaults.tsv. The page reads this file when it loads, and other
+# programs can read it too. check-defaults-desc fails, and so make check fails,
+# when a section there has no line here, when a line here names no section
+# there, or when a line is not one section.
+#
+# One section on each line: two fields, separated by tabs.
+#   section      the section, as the sixth field of config/defaults.tsv has it
+#   description  what the keys of the section do
+# Neither field is empty. Each field is plain text, not HTML. In the
+# description, a backslash starts an escape: \t is a tab, \n is a newline and
+# \\ is a backslash. A line that starts with # is a comment, and an empty line
+# is ignored. Two lines with the same section are refused.
+#
+# The lines are in the order in which the sections first appear in
+# config/defaults.tsv. Add a new line at the place of its section.
+General UI / UX	Settings that apply to the whole interface. They include Dark Mode, the scrollbars, file extensions, window and sheet animations, the Save and Print dialogs, and the highlight colour. Most of the keys are in NSGlobalDomain, which every app reads. An app that is open can show a change only after you start it again.
+Sound	The alert sound and the interface sound effects. mrk sets the alert volume to zero, selects Tink as the alert sound, and turns off the interface sound effects.
+Keyboard & input	Key repeat, keyboard navigation and the Globe key. The section also turns off the changes that macOS makes to text as you type. These are capitals, dashes, periods, smart quotes and spelling corrections.
+Dock	The position, the icon size and the animations of the Dock. The apps in the Dock are not here: make dock sets them from config/dock.txt.
+Finder	How Finder windows look and behave: the path bar and the status bar, list view, directories first, and the scope of a search. The section also turns off two warnings, shows the hard disks on the desktop, and adds Quit to the Finder menu.
+Screenshots	Where screenshots go, and what a screenshot includes: the window shadow, the date in the file name, and the clicks in a screen recording. The floating thumbnail is off.
+Desktop Services	A .DS_Store file keeps the Finder view settings of a directory. These keys stop macOS from writing .DS_Store files on network volumes and on USB drives.
+Disk images	The checksum check that macOS can do when it mounts a disk image. These keys write without an error, but they are probably not effective on current macOS.
+Time Machine	Time Machine does not ask to use each new disk that you connect as a backup disk.
+Activity Monitor	How Activity Monitor shows processes: which processes it lists, the sort order, how often it refreshes, and what its Dock icon shows.
+TextEdit	A new TextEdit document is plain text, not rich text. TextEdit keeps its preferences in its container, which exists only after you start TextEdit once. make defaults writes this key only after that.
+Terminal.app	The Terminal profile, Secure Keyboard Entry, focus that follows the mouse pointer, and the directory where a new tab starts. Secure Keyboard Entry stops other apps from reading what you type in Terminal.
+Menu bar clock	How the menu bar clock shows the time and the date. ControlCenter draws the clock, and reads these keys only when it starts. make defaults restarts ControlCenter, so a change shows at once.
+Trackpad	Trackpad gestures, which mrk writes only with --with-trackpad, as make trackpad runs it. They turn off tap to click, Force Click and most multi-finger gestures. A click in the bottom-right corner is the secondary click. Each key goes to two domains: com.apple.AppleMultitouchTrackpad and the Bluetooth trackpad domain.
+Privacy & diagnostics	Personalised advertising and the crash reporter. mrk turns off personalised ads, limits ad tracking, and stops the dialog that shows after an app crashes.
+Windows & Stage Manager	How Stage Manager groups windows, and whether a click on the wallpaper hides the windows to show the desktop.
+Siri, dictation & spoken content	Siri, Siri Suggestions and Dictation are off, and the Mac does not listen for the wake word. mrk answers no to "Improve Siri & Dictation". Speak Selection is on, with its shortcut key.
+Mail & Calendar	Mail copies an email address without the name, and Calendar puts a new event in the calendar you last selected. Mail keeps its preferences in its container, so make defaults writes the Mail key only after you set up Mail.
+Sharing & handoff	What this Mac shares with other devices and people. AirDrop is for contacts only. Home Sharing, media sharing, name and photo sharing in Messages, iPhone widgets and iPhone calls are off.
+Menu bar extras	Which items macOS shows in the menu bar. mrk hides the AirPlay, input source and Passwords items.
+Applications	Settings of macOS services and apps that have no section of their own: Folder Actions, audio ducking for speech recognition, and the Safari Develop menu.
+Xcode	Three Xcode settings. A new project gets no git repository, and Xcode does not ask before a clean build or warn about uncommitted changes.

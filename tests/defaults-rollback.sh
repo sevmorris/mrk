@@ -207,6 +207,18 @@ else
   tail -3 "$T/locked/err" >&2
 fi
 
+# The restarts, and the undo file's own. ControlCenter draws the menu bar
+# clock and reads its keys only when it starts; until 2026-10-22 a run
+# restarted SystemUIServer alone, and a changed clock key waited for a login.
+restarts=$'killall Finder\nkillall Dock\nkillall SystemUIServer\nkillall ControlCenter'
+if [[ "$(grep '^killall' "$T/clean/calls")" == "$restarts" ]] \
+   && [[ "$(grep '^killall' "$T/clean/home/.mrk/defaults-rollback.sh" | sed 's/ >.*//')" == "$restarts" ]]; then
+  ok "a run restarts Finder, the Dock, SystemUIServer and ControlCenter, and the undo file restarts the same four"
+else
+  fail "the restarts of a run, or of its undo file, are not Finder, Dock, SystemUIServer and ControlCenter:"
+  grep '^killall' "$T/clean/calls" "$T/clean/home/.mrk/defaults-rollback.sh" >&2
+fi
+
 mkdir -p "$T/full/store"
 /usr/bin/defaults write "$T/full/store/com.apple.mail" Seeded -bool true       # Mail is set up
 /usr/bin/defaults write "$T/full/store/com.apple.TextEdit" Seeded -bool true   # TextEdit has been used
@@ -263,12 +275,24 @@ if grep -qx $'com.apple.dock\ttilesize\t36\t48\tdiffers' "$T/full/out" \
 else
   fail "--check after three changes:"; grep -v $'\tset$' "$T/full/out" >&2
 fi
+# A when=existing row whose domain does not exist yet is nodomain, not absent:
+# a run does not write it until the app makes its preferences.
 run fresh --check
 if [[ $RC == 0 && -s "$T/fresh/out" && ! -e "$T/fresh/home/.mrk" ]] \
-   && ! grep -qv $'\tabsent$' "$T/fresh/out" && ! grep -q '^killall' "$T/fresh/calls"; then
-  ok "--check on a Mac never set up: every row absent; no ~/.mrk, no undo file, no restart"
+   && [[ "$(grep $'\tnodomain$' "$T/fresh/out" | cut -f1,2)" == "$(expected existing x | cut -f1,2)" ]] \
+   && ! grep -v $'\tnodomain$' "$T/fresh/out" | grep -qv $'\tabsent$' && ! grep -q '^killall' "$T/fresh/calls"; then
+  ok "--check on a Mac never set up: every row absent, Mail's and TextEdit's nodomain; no ~/.mrk, no undo file, no restart"
 else
-  fail "--check on a fresh store: exit $RC"; head -3 "$T/fresh/out" "$T/fresh/err" >&2
+  fail "--check on a fresh store: exit $RC"; grep -v $'\tabsent$' "$T/fresh/out" >&2; head -3 "$T/fresh/err" >&2
+fi
+/usr/bin/defaults write "$T/fresh/store/com.apple.mail" Seeded -bool true   # Mail is set up
+run fresh --check
+if [[ $RC == 0 ]] && grep -q $'^com\\.apple\\.mail\t.*\tabsent$' "$T/fresh/out" \
+   && ! grep -q $'^com\\.apple\\.mail\t.*\tnodomain$' "$T/fresh/out" \
+   && grep -q $'^com\\.apple\\.TextEdit\t.*\tnodomain$' "$T/fresh/out"; then
+  ok "--check: once Mail has a domain its row is absent, and TextEdit's is still nodomain"
+else
+  fail "--check with Mail set up: exit $RC"; grep -E '^com\.apple\.(mail|TextEdit)' "$T/fresh/out" >&2
 fi
 
 # ── A table of its own: escapes, and the lines defaults.sh refuses ───────────

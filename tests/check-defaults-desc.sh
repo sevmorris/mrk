@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # check-defaults-desc.sh — prove that check-defaults-desc holds
-# docs/defaults/descriptions.tsv to config/defaults.tsv, and refuses a line of
-# it that is not one description.
+# docs/defaults/descriptions.tsv and docs/defaults/sections.tsv to
+# config/defaults.tsv, and refuses a line of either that is not one
+# description or one section.
 #
 # MRK-1 reads both files when it loads, and other programs read the
 # descriptions too, so a line in the wrong shape is a fault even where the page
@@ -23,6 +24,7 @@ W="$(mktemp -d "${TMPDIR:-/tmp}/check-defaults-desc.XXXXXX")"
 trap 'rm -rf "$W"' EXIT
 
 DESC="$REPO_ROOT/docs/defaults/descriptions.tsv"
+SECT="$REPO_ROOT/docs/defaults/sections.tsv"
 TAB=$'\t'
 
 # mkcopy NAME — a copy of what check-defaults-desc reads, in $W/NAME
@@ -31,7 +33,7 @@ mkcopy() {
   mkdir -p "$d/scripts" "$d/config" "$d/docs/defaults"
   cp -p "$REPO_ROOT/scripts/check-defaults-desc" "$REPO_ROOT/scripts/lib.sh" "$d/scripts/"
   cp -p "$REPO_ROOT/config/defaults.tsv" "$d/config/"
-  cp -p "$DESC" "$d/docs/defaults/"
+  cp -p "$DESC" "$SECT" "$d/docs/defaults/"
 }
 
 # check NAME BASH — run the copy's check-defaults-desc under BASH. stdout and
@@ -68,13 +70,35 @@ done
 first=$(grep -v '^#' "$DESC" | grep -v '^[[:space:]]*$' | head -1)
 first_id="${first%%"$TAB"*} $(cut -f2 <<<"$first")"
 
-# ── The page reads the file, and holds no copy ───────────────────────────────
+# The sections: their number, and the first line of sections.tsv.
+n_sections=0 sections_seen=$'\n'
+for s in "${DT_SECTION[@]}"; do
+  case "$sections_seen" in *$'\n'"$s"$'\n'*) continue ;; esac
+  sections_seen+="$s"$'\n'; n_sections=$((n_sections + 1))
+done
+first_sect=$(grep -v '^#' "$SECT" | grep -v '^[[:space:]]*$' | head -1)
+first_sect_name=${first_sect%%"$TAB"*}
+
+# ── The page reads the files, and holds no copy ──────────────────────────────
 
 if grep -qF "docs/defaults/descriptions.tsv" "$REPO_ROOT/docs/defaults/script.js" \
    && ! grep -qE 'DEFAULT_DESCRIPTIONS|systemDefault:[[:space:]]*'"'" "$REPO_ROOT/docs/defaults/script.js"; then
   pass "MRK-1 reads docs/defaults/descriptions.tsv and holds no description of its own"
 else
   fail "docs/defaults/script.js does not read descriptions.tsv, or holds descriptions of its own"
+fi
+
+# The section text was an object of 'name': 'text' pairs in script.js. No
+# section name of config/defaults.tsv may be a quoted key there now.
+held=""
+while IFS= read -r s; do
+  [[ -n "$s" ]] || continue
+  grep -qF "'$s':" "$REPO_ROOT/docs/defaults/script.js" && held="$held '$s'"
+done <<<"$sections_seen"
+if grep -qF "docs/defaults/sections.tsv" "$REPO_ROOT/docs/defaults/script.js" && [[ -z "$held" ]]; then
+  pass "MRK-1 reads docs/defaults/sections.tsv and holds no section text of its own"
+else
+  fail "docs/defaults/script.js does not read sections.tsv, or holds section text of its own:${held:- (none held)}"
 fi
 
 for B in "${BASHES[@]}"; do
@@ -86,10 +110,10 @@ for B in "${BASHES[@]}"; do
 
   mkcopy "real-$v"
   check "real-$v" "$B"
-  if (( RC == 0 )) && [[ "$OUT" == *"OK ($n_settings keys"* ]]; then
-    pass "the repository's files: OK, $n_settings keys"
+  if (( RC == 0 )) && [[ "$OUT" == *"OK ($n_settings keys, $n_sections sections"* ]]; then
+    pass "the repository's files: OK, $n_settings keys and $n_sections sections"
   else
-    fail "the repository's files (exit $RC, want 0 and $n_settings keys): $OUT"
+    fail "the repository's files (exit $RC, want 0, $n_settings keys and $n_sections sections): $OUT"
   fi
 
   # ── A key with no description, and a description with no key ───────────────
@@ -179,6 +203,77 @@ for B in "${BASHES[@]}"; do
     pass "no descriptions.tsv: exit 1"
   else
     fail "no descriptions.tsv (exit $RC, want 1): $OUT"
+  fi
+
+  # ── The sections ───────────────────────────────────────────────────────────
+
+  mkcopy "sect-missing-$v"
+  grep -vxF "$first_sect" "$SECT" > "$W/sect-missing-$v/docs/defaults/sections.tsv"
+  check "sect-missing-$v" "$B"
+  if (( RC == 1 )) && [[ "$OUT" == *"with no line in docs/defaults/sections.tsv (1)"* && "$OUT" == *"  $first_sect_name"* ]]; then
+    pass "a section with no line: named, exit 1"
+  else
+    fail "a section with no line (exit $RC, want 1, naming $first_sect_name): $OUT"
+  fi
+
+  mkcopy "sect-orphan-$v"
+  printf 'Finish up\tRestarts the processes.\n' >> "$W/sect-orphan-$v/docs/defaults/sections.tsv"
+  check "sect-orphan-$v" "$B"
+  if (( RC == 1 )) && [[ "$OUT" == *"not a section of config/defaults.tsv (1)"* && "$OUT" == *"  Finish up"* ]]; then
+    pass "a line with no section: named, exit 1"
+  else
+    fail "a line with no section (exit $RC, want 1, naming Finish up): $OUT"
+  fi
+
+  # The trackpad section is "Trackpad" in config/defaults.tsv. MRK-1 shows it
+  # with "(opt-in: --with-trackpad)" after the name, and a line under that
+  # name is a line with no section.
+  mkcopy "sect-shown-$v"
+  { grep -v "^Trackpad$TAB" "$SECT"; printf 'Trackpad (opt-in: --with-trackpad)\tGestures.\n'; } \
+    > "$W/sect-shown-$v/docs/defaults/sections.tsv"
+  check "sect-shown-$v" "$B"
+  if (( RC == 1 )) && [[ "$OUT" == *"sections.tsv (1):"*"  Trackpad"* && "$OUT" == *"  Trackpad (opt-in: --with-trackpad)"* ]]; then
+    pass "the trackpad section goes under its name in config/defaults.tsv, not the name MRK-1 shows"
+  else
+    fail "the trackpad section under the name MRK-1 shows (exit $RC, want 1): $OUT"
+  fi
+
+  # sect_refused NAME WHY LINE — LINE in place of the first section: exit 1,
+  # with the reason WHY, and the sections are not compared.
+  sect_refused() {
+    local name=$1 why=$2 line=$3
+    mkcopy "sect-$name-$v"
+    { grep -vxF "$first_sect" "$SECT"; printf '%s\n' "$line"; } > "$W/sect-$name-$v/docs/defaults/sections.tsv"
+    check "sect-$name-$v" "$B"
+    if (( RC == 1 )) && [[ "$OUT" == *"Not one section"*"$why"* && "$OUT" != *"not a section of config/defaults.tsv"* ]]; then
+      pass "refused, a section: $name"
+    else
+      fail "a section: $name (exit $RC, want 1 with \"$why\"): $OUT"
+    fi
+  }
+  sect_refused "one field" "two fields" "$first_sect_name"
+  sect_refused "three fields" "two fields" "$first_sect$TAB"
+  sect_refused "a blank description" "the description is empty" "$first_sect_name$TAB   "
+  sect_refused "an empty section" "the section is empty" "${TAB}Text."
+  sect_refused "a newline in the section" "the section is empty, or holds a tab or a newline" "Two\\nlines${TAB}Text."
+  sect_refused "a bad escape" "a backslash is not one of" "$first_sect_name${TAB}C:\\qtemp"
+
+  mkcopy "sect-twice-$v"
+  printf '%s\n' "$first_sect" >> "$W/sect-twice-$v/docs/defaults/sections.tsv"
+  check "sect-twice-$v" "$B"
+  if (( RC == 1 )) && [[ "$OUT" == *"has $first_sect_name on two lines"* ]]; then
+    pass "refused: a section on two lines"
+  else
+    fail "a section on two lines (exit $RC, want 1): $OUT"
+  fi
+
+  mkcopy "sect-absent-$v"
+  rm "$W/sect-absent-$v/docs/defaults/sections.tsv"
+  check "sect-absent-$v" "$B"
+  if (( RC == 1 )) && [[ "$OUT" == *"Cannot read"*"sections.tsv"* ]]; then
+    pass "no sections.tsv: exit 1"
+  else
+    fail "no sections.tsv (exit $RC, want 1): $OUT"
   fi
 done
 

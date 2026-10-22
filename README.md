@@ -115,7 +115,7 @@ Setup is split into phases so you can:
 
 - Run Phase 1 on a fresh Mac before Homebrew is even available
 - Selectively install only the Homebrew packages you want (Phase 2 is interactive)
-- Re-run any phase independently — `make defaults` restarts Finder, Dock, and SystemUIServer to apply changes, which is visible but harmless
+- Re-run any phase independently — `make defaults` restarts Finder, Dock, SystemUIServer and ControlCenter to apply changes, which is visible but harmless
 
 mrk's bookkeeping (rollback scripts, backups) lives in `~/.mrk`. Configuration changes are written to their canonical macOS locations — system preferences via `defaults`, app symlinks in `~/bin`, and so on. Rollback scripts are generated automatically for defaults and hardening changes.
 

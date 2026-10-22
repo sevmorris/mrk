@@ -29,7 +29,8 @@ Usage:
 
 Options:
   -n, --dry-run   Show the Dock it would build, and change nothing
-      --check     Show each item of the list as a line for a program to read,
+      --check     Show each item of the list, and each item of the Dock that
+                  the list does not have, as a line for a program to read,
                   and change nothing
   -h, --help      Show this help
 
@@ -37,11 +38,22 @@ dock-setup installs dockutil if that is missing, then replaces the current
 Dock with the apps and folders that config/dock.txt lists, left to right;
 edit that file to change the layout. Normally run as `make dock`.
 
---check shows one line for each item, in the order of the file, with four
+--check shows one line for each item, in the order of the file, with five
 fields separated by tabs: app or folder, the line as the file has it, the
-path it names, and present or missing. A tab, a newline and a backslash in a
-field are escaped as config/defaults.tsv escapes them. It exits 0 when it can
-read the list, 1 when it refuses the list, and 2 for a bad option.
+path it names, present or missing, and docked, undocked or unknown. Docked
+means the item is in the Dock now. Unknown means dock-setup cannot read the
+Dock, because dockutil is not installed or `dockutil --list` failed.
+
+Then one line for each file or folder in the Dock that the list does not
+have, in the order of the Dock: unlisted, an empty field, its path, present
+or missing, and docked. `make dock` removes these items. The Dock can also
+hold a web link or a spacer, which --check does not show and `make dock` also
+removes.
+
+A tab, a newline and a backslash in a field are escaped as
+config/defaults.tsv escapes them (\t, \n, \\). A later version may add
+fields at the end of a line, and never removes or reorders one. It exits 0
+when it can read the list, 1 when it refuses the list, and 2 for a bad option.
 EOF
 }
 
@@ -108,14 +120,75 @@ if (( ${#dock_apps[@]} == 0 )); then
   exit 1
 fi
 
+# real_path PATH — PATH with each symlink in it followed, and no / at the end,
+# so that two names for one app compare equal. The Dock names Safari by where
+# it is, /System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app,
+# and /Applications/Safari.app is a symlink to that. A path that does not
+# exist stays as it is.
+real_path() {
+  local p=$1
+  [[ "$p" == */ && "$p" != / ]] && p=${p%/}
+  if [[ -d "$p" ]]; then
+    (cd -P "$p" 2>/dev/null && pwd -P) || printf '%s\n' "$p"
+  else
+    printf '%s\n' "$p"
+  fi
+}
+
 # --check: each item, in the order of the file, with the question the run asks
-# of it — is the app installed, does the folder exist. It installs, saves and
-# changes nothing.
+# of it — is the app installed, does the folder exist — and whether it is in
+# the Dock now. Then each file or folder in the Dock that the list does not
+# have: what `make dock` would remove. The Dock in use on 2026-10-22 held
+# Signal, which the list did not, and the check could not show it. It
+# installs, saves and changes nothing: no dockutil means the Dock is unknown.
+#
+# dockutil --list prints a tab-separated line for each item: its label, its
+# URL, its section, the plist and the bundle id. A file's URL is percent
+# encoded and ends in / for a folder or an app. Only persistentApps and
+# persistentOthers are the Dock's own items; recentApps are not. The tabs
+# become \037 before the read, because read takes two tabs as one, and a
+# spacer's label and URL are empty.
 if (( CHECK )); then
+  docked_real=()   # the real path of each file or folder in the Dock, in order
+  docked_paths=()  # the same, as the Dock names it
+  dock_known=0
+  if ! command -v dockutil >/dev/null 2>&1; then
+    warn "dockutil not found — cannot read the Dock, so each item is unknown"
+  elif dock_now=$(dockutil --list); then
+    dock_known=1
+    while IFS=$'\037' read -r _label url section _rest; do
+      case "$section" in persistentApps|persistentOthers) ;; *) continue ;; esac
+      case "$url" in file://*) ;; *) continue ;; esac
+      path=${url#file://}
+      path=$(printf '%b' "${path//%/\\x}")
+      [[ "$path" == */ && "$path" != / ]] && path=${path%/}
+      docked_paths+=("$path")
+      docked_real+=("$(real_path "$path")")
+    done <<< "${dock_now//$'\t'/$'\037'}"
+  else
+    warn "dockutil --list failed — cannot read the Dock, so each item is unknown"
+  fi
+
+  listed_real=()
   for i in "${!dock_entries[@]}"; do
+    listed_real[i]=$(real_path "${dock_paths[i]}")
     if [[ -d "${dock_paths[i]}" ]]; then state=present; else state=missing; fi
-    printf '%s\t%s\t%s\t%s\n' "${dock_kinds[i]}" "$(mrk_tsv_escape "${dock_entries[i]}")" \
-      "$(mrk_tsv_escape "${dock_paths[i]}")" "$state" >&3
+    if (( ! dock_known )); then
+      docked=unknown
+    else
+      docked=undocked
+      for real in ${docked_real[@]+"${docked_real[@]}"}; do
+        [[ "$real" == "${listed_real[i]}" ]] && { docked=docked; break; }
+      done
+    fi
+    mrk_check_line "${dock_kinds[i]}" "${dock_entries[i]}" "${dock_paths[i]}" "$state" "$docked" >&3
+  done
+  for j in ${docked_real[@]+"${!docked_real[@]}"}; do
+    for real in "${listed_real[@]}"; do
+      [[ "$real" == "${docked_real[j]}" ]] && continue 2
+    done
+    if [[ -e "${docked_paths[j]}" ]]; then state=present; else state=missing; fi
+    mrk_check_line unlisted "" "${docked_paths[j]}" "$state" docked >&3
   done
   exit 0
 fi

@@ -20,8 +20,9 @@ Options:
       --check          Compare each key with this Mac, and change nothing.
                        One line for each key, tab-separated: the domain, the
                        key, the value mrk sets, the value it has now, and set,
-                       differs or absent. Nothing else on stdout. Exits 0 when
-                       it could tell, 1 when it refused, 2 for a bad option.
+                       differs, absent or nodomain. Nothing else on stdout.
+                       Exits 0 when it could tell, 1 when it refused, 2 for a
+                       bad option.
   -h, --help           Show this help
 
 mrk-defaults writes the keys that config/defaults.tsv lists, in its order,
@@ -34,7 +35,11 @@ file, before it writes anything, when a line is not one key. Run it as
 With --check, a field escapes a tab, a newline and a backslash as
 config/defaults.tsv does (\t, \n, \\), and a bool's value is true or false.
 A key whose value is right but whose type is not differs, as a run would
-write it. --with-trackpad adds the trackpad keys to the check as well.
+write it. A key that config/defaults.tsv writes only to a domain that exists
+(when existing) is nodomain when its domain does not exist yet: a run does
+not write it. --with-trackpad adds the trackpad keys to the check as well.
+A later version may add fields at the end of a line, and never removes or
+reorders one.
 EOF
 }
 
@@ -130,6 +135,13 @@ exact_string(){
   EXACT_STRING=${out%$'\n'}
 }
 
+# domain_exists DOMAIN — true when DOMAIN has preferences. A run writes a
+# when=existing key only then, and --check calls such a key nodomain when it
+# is not, so the two cannot disagree.
+domain_exists(){
+  defaults read "$1" >/dev/null 2>&1
+}
+
 # ── --check ──────────────────────────────────────────────────────────────────
 # Reads each key, as write_default does, and writes nothing: no default, no
 # undo line, and no restart.
@@ -153,9 +165,11 @@ if $CHECK; then
       fi
     else
       current=""
+      if [[ "${DT_WHEN[i]}" == existing ]] && ! domain_exists "$domain"; then
+        state=nodomain
+      fi
     fi
-    printf '%s\t%s\t%s\t%s\t%s\n' "$(mrk_tsv_escape "$domain")" "$(mrk_tsv_escape "$key")" \
-      "$(mrk_tsv_escape "${DT_VALUE[i]}")" "$(mrk_tsv_escape "$current")" "$state" >&3
+    mrk_check_line "$domain" "$key" "${DT_VALUE[i]}" "$current" "$state" >&3
   done
   exit 0
 fi
@@ -305,7 +319,7 @@ for i in "${!DT_DOMAIN[@]}"; do
       # before the domain does. Once the app has preferences, `defaults`
       # reads and writes them in the container, and the next run writes the
       # key there.
-      if ! defaults read "${DT_DOMAIN[i]}" >/dev/null 2>&1; then
+      if ! domain_exists "${DT_DOMAIN[i]}"; then
         logskip "${DT_DOMAIN[i]} ${DT_KEY[i]}" "its domain does not exist yet"
         continue
       fi
@@ -318,11 +332,18 @@ log "Writing rollback helper to $ROLLBACK"
 backup_line "killall Finder >/dev/null 2>&1 || true"
 backup_line "killall Dock >/dev/null 2>&1 || true"
 backup_line "killall SystemUIServer >/dev/null 2>&1 || true"
+backup_line "killall ControlCenter >/dev/null 2>&1 || true"
 
-# Apply immediate effects
+# Apply immediate effects. ControlCenter draws the menu bar clock and most of
+# the menu bar's items, and reads com.apple.menuextra.clock only when it
+# starts. Until 2026-10-22 only SystemUIServer was restarted here, so a clock
+# key changed by a run showed only after the next login. launchd starts
+# ControlCenter again, as it does SystemUIServer: its KeepAlive restarts it on
+# any exit but a clean one.
 killall Finder >/dev/null 2>&1 || true
 killall Dock >/dev/null 2>&1 || true
 killall SystemUIServer >/dev/null 2>&1 || true
+killall ControlCenter >/dev/null 2>&1 || true
 
 # Exit 1 when any write failed, after every write has been tried and the undo
 # lines written, as the six app-defaults scripts have since 2026-09-11. Until

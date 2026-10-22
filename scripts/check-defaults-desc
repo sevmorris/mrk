@@ -14,6 +14,11 @@ set -euo pipefail
 # 2026-10-21, and this script found its keys with a regular expression. They
 # moved to a file of lines, which this script reads whole and checks as
 # defaults.sh checks its own, so another program can read them too.
+#
+# The text MRK-1 shows under each section heading stayed in script.js until
+# 2026-10-22, where nothing checked it: two entries described sections that
+# were gone, and eight sections had none. It is docs/defaults/sections.tsv
+# now, and this script holds it to the sections of config/defaults.tsv too.
 
 _self="${BASH_SOURCE[0]}"
 while [[ -L "$_self" ]]; do
@@ -45,12 +50,17 @@ of config/defaults.tsv that defaults.sh would refuse, and on a line of
 descriptions.tsv that is not one description. The same key, type and value in
 two domains of one section is one setting, as MRK-1 shows it: it wants one
 description, for the first of the domains.
+
+It compares the sections of config/defaults.tsv with
+docs/defaults/sections.tsv in the same way. Each section needs one line
+there, and each line needs a section.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"
 
 DEFAULTS_TSV="$REPO_ROOT/config/defaults.tsv"
 DESCRIPTIONS_TSV="$REPO_ROOT/docs/defaults/descriptions.tsv"
+SECTIONS_TSV="$REPO_ROOT/docs/defaults/sections.tsv"
 
 if ! defaults_table "$DEFAULTS_TSV"; then
   echo "check-defaults-desc: config/defaults.tsv has a line defaults.sh would refuse (see above)" >&2
@@ -58,6 +68,10 @@ if ! defaults_table "$DEFAULTS_TSV"; then
 fi
 if ! defaults_desc_table "$DESCRIPTIONS_TSV"; then
   echo "check-defaults-desc: docs/defaults/descriptions.tsv has a line that is not one description (see above)" >&2
+  exit 1
+fi
+if ! defaults_sections_table "$SECTIONS_TSV"; then
+  echo "check-defaults-desc: docs/defaults/sections.tsv has a line that is not one section (see above)" >&2
   exit 1
 fi
 
@@ -99,8 +113,22 @@ for id in ${desc_keys[@]+"${desc_keys[@]}"}; do
   in_array "$id" "${script_keys[@]}" || orphan+=("$id")
 done
 
-if (( ${#missing[@]} == 0 && ${#orphan[@]} == 0 )); then
-  echo "check-defaults-desc: OK (${#script_keys[@]} keys, descriptions in sync)"
+# The sections, in the order they first appear in config/defaults.tsv.
+script_sections=()
+for s in "${DT_SECTION[@]}"; do
+  in_array "$s" ${script_sections[@]+"${script_sections[@]}"} || script_sections+=("$s")
+done
+missing_sections=()
+orphan_sections=()
+for s in "${script_sections[@]}"; do
+  in_array "$s" ${DS_SECTION[@]+"${DS_SECTION[@]}"} || missing_sections+=("$s")
+done
+for s in ${DS_SECTION[@]+"${DS_SECTION[@]}"}; do
+  in_array "$s" "${script_sections[@]}" || orphan_sections+=("$s")
+done
+
+if (( ${#missing[@]} + ${#orphan[@]} + ${#missing_sections[@]} + ${#orphan_sections[@]} == 0 )); then
+  echo "check-defaults-desc: OK (${#script_keys[@]} keys, ${#script_sections[@]} sections, descriptions in sync)"
   exit 0
 fi
 
@@ -111,5 +139,13 @@ fi
 if (( ${#orphan[@]} > 0 )); then
   echo "check-defaults-desc: in docs/defaults/descriptions.tsv, not in config/defaults.tsv (${#orphan[@]}):" >&2
   printf '  %s\n' "${orphan[@]}" >&2
+fi
+if (( ${#missing_sections[@]} > 0 )); then
+  echo "check-defaults-desc: a section of config/defaults.tsv, with no line in docs/defaults/sections.tsv (${#missing_sections[@]}):" >&2
+  printf '  %s\n' "${missing_sections[@]}" >&2
+fi
+if (( ${#orphan_sections[@]} > 0 )); then
+  echo "check-defaults-desc: in docs/defaults/sections.tsv, not a section of config/defaults.tsv (${#orphan_sections[@]}):" >&2
+  printf '  %s\n' "${orphan_sections[@]}" >&2
 fi
 exit 1
