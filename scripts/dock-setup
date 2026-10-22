@@ -25,25 +25,43 @@ dock-setup — rebuild the Dock from the preferred app layout
 
 Usage:
   dock-setup [--dry-run | -n]
+  dock-setup --check
 
 Options:
   -n, --dry-run   Show the Dock it would build, and change nothing
+      --check     Show each item of the list as a line for a program to read,
+                  and change nothing
   -h, --help      Show this help
 
 dock-setup installs dockutil if that is missing, then replaces the current
 Dock with the apps and folders that config/dock.txt lists, left to right;
 edit that file to change the layout. Normally run as `make dock`.
+
+--check shows one line for each item, in the order of the file, with four
+fields separated by tabs: app or folder, the line as the file has it, the
+path it names, and present or missing. A tab, a newline and a backslash in a
+field are escaped as config/defaults.tsv escapes them. It exits 0 when it can
+read the list, 1 when it refuses the list, and 2 for a bad option.
 EOF
 }
 
 DRY_RUN=0
+CHECK=0
 for arg in "$@"; do
   case "$arg" in
     -n|--dry-run) DRY_RUN=1 ;;
+    --check) CHECK=1 ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; printf '\nunknown argument: %s\n' "$arg" >&2; exit 2 ;;
   esac
 done
+
+# --check is for a program to read (the Settings app), on stdout, which holds
+# nothing else: fd 3 is stdout, and everything else goes to stderr, as in
+# defaults.sh --check.
+if (( CHECK )); then
+  exec 3>&1 1>&2
+fi
 
 # ── The layout: config/dock.txt ──────────────────────────────────────────────
 #
@@ -64,6 +82,9 @@ if [[ ! -r "$DOCK_LIST" ]]; then
 fi
 dock_apps=()
 dock_folders=()
+dock_entries=()
+dock_kinds=()
+dock_paths=()
 while IFS= read -r entry; do
   # shellcheck disable=SC2088  # a literal ~/ in the file, expanded here
   case "$entry" in
@@ -76,13 +97,27 @@ while IFS= read -r entry; do
       ;;
   esac
   case "$path" in
-    *.app) dock_apps+=("$path") ;;
-    *)     dock_folders+=("$path") ;;
+    *.app) dock_apps+=("$path");    dock_kinds+=(app) ;;
+    *)     dock_folders+=("$path"); dock_kinds+=(folder) ;;
   esac
+  dock_entries+=("$entry")
+  dock_paths+=("$path")
 done < <(mrk_config_entries "$DOCK_LIST")
 if (( ${#dock_apps[@]} == 0 )); then
   err "config/dock.txt lists no app — the Dock is unchanged."
   exit 1
+fi
+
+# --check: each item, in the order of the file, with the question the run asks
+# of it — is the app installed, does the folder exist. It installs, saves and
+# changes nothing.
+if (( CHECK )); then
+  for i in "${!dock_entries[@]}"; do
+    if [[ -d "${dock_paths[i]}" ]]; then state=present; else state=missing; fi
+    printf '%s\t%s\t%s\t%s\n' "${dock_kinds[i]}" "$(mrk_tsv_escape "${dock_entries[i]}")" \
+      "$(mrk_tsv_escape "${dock_paths[i]}")" "$state" >&3
+  done
+  exit 0
 fi
 
 section "Dock setup"

@@ -9,7 +9,8 @@
 #
 # dock-setup empties the Dock before it adds anything, so a list it cannot use
 # (no file, no app in it, a line that is not a path) must stop it before the
-# first dockutil call. --dry-run must call nothing at all.
+# first dockutil call. --dry-run must call nothing at all, and so must --check,
+# which shows each item as a line for a program to read.
 #
 # dock-setup runs from a copy of the repository under a throwaway HOME, with
 # `env -i` and PATH cut to stubs and the system directories. dockutil,
@@ -161,6 +162,59 @@ if [[ $RC == 0 && ! -s "$W/calls" && ! -e "$H/.mrk" ]] \
 else
   fail "--dry-run (exit $RC)"
   show; sed 's/^/      /' "$W/calls" >&2
+fi
+
+# ── --check: each item as a line for a program, and nothing called ───────────
+
+# run_check ARGS... — dock-setup with stdout and stderr apart
+run_check() {
+  : > "$W/calls"
+  env -i "${ENV[@]}" "$S/bash" "$R/scripts/dock-setup" "$@" </dev/null > "$W/stdout" 2> "$W/stderr"
+  RC=$?
+}
+TAB=$'\t'
+# The folder's name holds a backslash and a tab, which the line must escape.
+odd="$H/Odd\\name${TAB}here"
+rm -rf "$H"; mkdir -p "$H/Work Apps" "$odd"
+for app in "${DOCK_APPS[@]}"; do mkdir -p "$app"; done
+rm -rf "$gone"
+# shellcheck disable=SC2088  # the literal line, as the file holds it
+printf '~/Odd\\name\there\n' >> "$LIST"
+want=""
+for app in "${DOCK_APPS[@]}"; do
+  state=present; [[ "$app" == "$gone" ]] && state=missing
+  want+="app$TAB$app$TAB$app$TAB$state"$'\n'
+done
+want+="folder$TAB~/Work Apps$TAB$H/Work Apps${TAB}present"$'\n'
+want+="folder$TAB~/Odd\\\\name\\there$TAB$H/Odd\\\\name\\there${TAB}present"
+run_check --check
+if [[ $RC == 0 && "$(cat "$W/stdout")" == "$want" && ! -s "$W/calls" && ! -e "$H/.mrk" ]]; then
+  pass "--check: app or folder, the line, the path and present or missing, in the order of the file; calls nothing"
+else
+  fail "--check (exit $RC)"
+  diff <(printf '%s\n' "$want") "$W/stdout" | sed 's/^/      /' >&2
+  sed 's/^/      /' "$W/stderr" "$W/calls" >&2
+fi
+run_check --dry-run --check
+if [[ $RC == 0 && "$(cat "$W/stdout")" == "$want" && ! -s "$W/calls" ]]; then
+  pass "--check takes precedence over --dry-run"
+else
+  fail "--dry-run --check (exit $RC)"; sed 's/^/      /' "$W/stdout" "$W/stderr" >&2
+fi
+cp -p "$W/dock.orig" "$LIST"
+printf 'Applications/Safari.app\n' >> "$LIST"
+run_check --check
+if [[ $RC == 1 && ! -s "$W/stdout" && ! -s "$W/calls" ]] && grep -q 'Not a path' "$W/stderr"; then
+  pass "--check on a list dock-setup refuses: exit 1, the reason on stderr, no line"
+else
+  fail "--check on a bad list (exit $RC)"; sed 's/^/      /' "$W/stdout" "$W/stderr" >&2
+fi
+cp -p "$W/dock.orig" "$LIST"
+run_check --check --bogus
+if [[ $RC == 2 && ! -s "$W/stdout" && ! -s "$W/calls" ]]; then
+  pass "--check with an unknown option: exit 2"
+else
+  fail "--check --bogus (exit $RC)"; sed 's/^/      /' "$W/stdout" "$W/stderr" >&2
 fi
 
 # ── A list dock-setup cannot use stops it before the Dock is touched ─────────

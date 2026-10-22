@@ -350,10 +350,10 @@ defaults-watch            # Snapshot, wait for Return, snapshot again, compare
 2. Change the one setting in System Settings, and then press Return.
 3. defaults-watch shows each key that changed, with its old value and its new one. For a key that `config/defaults.tsv` already sets, it says whether the new value is the one mrk sets. For any other key, it shows the line to add to the file.
 4. Add that line to `config/defaults.tsv`, with a tab between the fields.
-5. Add a description of the key to `docs/defaults/script.js`. `make check` fails until the description is there.
+5. Add a line for the key to `docs/defaults/descriptions.tsv`, at the place of the key in `config/defaults.tsv`. `make check` fails until the line is there.
 6. Run `mrk-defaults --check` to compare the file with this Mac. A line that ends in `set` shows a key that has the value mrk sets.
 
-Each line of `config/defaults.tsv` has six fields, separated by tabs. They are the domain, the key, the type, the value, when mrk writes the key, and the section of the [defaults reference](https://sevmorris.github.io/mrk/defaults/). The comments at the top of the file give the details.
+Each line of `config/defaults.tsv` has six fields, separated by tabs. They are the domain, the key, the type, the value, when mrk writes the key, and the section of the [defaults reference](https://sevmorris.github.io/mrk/defaults/). The comments at the top of the file give the details. Each line of `docs/defaults/descriptions.tsv` has nine fields, separated by tabs. They are the domain, the key, a title, a category, the macOS default, the preference, the description, the reason and a note. The comments at the top of that file give the details too.
 
 defaults-watch changes nothing. It lists window positions, timestamps and counters apart, as probably not the setting. `config/defaults.tsv` cannot hold a key for this Mac alone (`-currentHost`), a key for all users, or a dictionary. For those, defaults-watch says what to use instead.
 

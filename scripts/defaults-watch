@@ -44,9 +44,10 @@ again, and prints each key that changed, with its old and new value.
 
 For a key config/defaults.tsv already lists, it says whether the new value
 is the one mrk sets. For any other, it shows the line of config/defaults.tsv
-that would keep it, and names the description check-defaults-desc will then
-want in docs/defaults/script.js. Window positions, timestamps and launch
-counters are listed apart, as probably not the setting. It changes nothing.
+that would keep it, and says that check-defaults-desc will then want its
+description in docs/defaults/descriptions.tsv. Window positions, timestamps
+and launch counters are listed apart, as probably not the setting. It changes
+nothing.
 EOF
 }
 
@@ -364,7 +365,7 @@ for kind, dom, key, old, new in real:
         section = next((w[4] for (d, _), w in written.items() if d == dom), "Applications")
         print("    Not in config/defaults.tsv. To keep it, add this line to it, with a tab between fields:")
         print(f"      {row(dom, key, new, 'always', section)}")
-        print(f"    and describe '{dom}.{key}' in docs/defaults/script.js, which check-defaults-desc requires.")
+        print("    and add its description to docs/defaults/descriptions.tsv, which check-defaults-desc requires.")
 
 if noise:
     print("\nAlso changed, and probably not the setting:")

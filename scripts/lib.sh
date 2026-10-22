@@ -250,23 +250,20 @@ app_prefs_why() {
   return 0
 }
 
-# defaults_row LINE — split LINE, an entry of config/defaults.tsv, into the
-# array DEFAULTS_ROW: domain, key, type, value, when and section, each with its
-# escapes undone (\t a tab, \n a newline, \\ a backslash). Return 0 when LINE
-# is one key. When it is not, leave the reason in DEFAULTS_WHY and return 1.
+# mrk_tsv_fields LINE — split LINE, a line of config/defaults.tsv or of
+# docs/defaults/descriptions.tsv, into the array TSV_FIELDS, each field with
+# its escapes undone (\t a tab, \n a newline, \\ a backslash). Return 1, with
+# the reason in TSV_WHY, when LINE holds a control character other than a tab
+# or a backslash before anything else.
 #
-# A variable rather than stdout, because $( ) drops the newlines a value ends
+# A variable rather than stdout, because $( ) drops the newlines a field ends
 # in. The fields are split here, not with `IFS=$'\t' read`, which takes two
-# tabs as one and so loses an empty string value. Only a string value may
-# hold a tab or a newline: a domain or key with one would break the undo file
-# and the --check line. Bash 3.2, as mrk_config_entries is.
-defaults_row() {
+# tabs as one and so loses an empty field. Bash 3.2, as mrk_config_entries is.
+mrk_tsv_fields() {
   local rest="$1" f out c n=0
-  local id_re='^[A-Za-z0-9][A-Za-z0-9._-]*$' int_re='^-?[0-9]+$'
-  local float_re='^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$'
-  DEFAULTS_ROW=() DEFAULTS_WHY=""
+  TSV_FIELDS=() TSV_WHY=""
   if [[ "${rest//$'\t'/}" == *[[:cntrl:]]* ]]; then
-    DEFAULTS_WHY="it holds a control character other than a tab"; return 1
+    TSV_WHY="it holds a control character other than a tab"; return 1
   fi
   while :; do
     f=${rest%%$'\t'*} out=""
@@ -275,15 +272,42 @@ defaults_row() {
         \\t*)   out+=$'\t'; f=${f:2} ;;
         \\n*)   out+=$'\n'; f=${f:2} ;;
         \\\\*) out+=\\; f=${f:2} ;;
-        \\*)    DEFAULTS_WHY="a backslash is not one of \\t, \\n and \\\\"; return 1 ;;
+        \\*)    TSV_WHY="a backslash is not one of \\t, \\n and \\\\"; return 1 ;;
         *)      c=${f%%\\*}; out+=$c; f=${f:${#c}} ;;
       esac
     done
-    DEFAULTS_ROW[n]=$out; n=$((n + 1))
+    TSV_FIELDS[n]=$out; n=$((n + 1))
     [[ "$rest" == *$'\t'* ]] || break
     rest=${rest#*$'\t'}
   done
-  if (( n != 6 )); then
+  return 0
+}
+
+# mrk_tsv_escape TEXT — show TEXT as one field of such a line: a backslash as
+# \\, a tab as \t and a newline as \n, so mrk_tsv_fields gives TEXT back. The
+# --check lines of defaults.sh and dock-setup use it.
+mrk_tsv_escape() {
+  local s=${1//\\/\\\\}
+  s=${s//$'\t'/\\t}
+  printf '%s' "${s//$'\n'/\\n}"
+}
+
+# defaults_row LINE — split LINE, an entry of config/defaults.tsv, into the
+# array DEFAULTS_ROW: domain, key, type, value, when and section, each with its
+# escapes undone by mrk_tsv_fields. Return 0 when LINE is one key. When it is
+# not, leave the reason in DEFAULTS_WHY and return 1.
+#
+# Only a string value may hold a tab or a newline: a domain or key with one
+# would break the undo file and the --check line.
+defaults_row() {
+  local id_re='^[A-Za-z0-9][A-Za-z0-9._-]*$' int_re='^-?[0-9]+$'
+  local float_re='^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$'
+  DEFAULTS_ROW=() DEFAULTS_WHY=""
+  if ! mrk_tsv_fields "$1"; then
+    DEFAULTS_WHY=$TSV_WHY; return 1
+  fi
+  DEFAULTS_ROW=("${TSV_FIELDS[@]}")
+  if (( ${#DEFAULTS_ROW[@]} != 6 )); then
     DEFAULTS_WHY="it does not have six fields, separated by tabs"; return 1
   fi
   local domain=${DEFAULTS_ROW[0]} key=${DEFAULTS_ROW[1]} type=${DEFAULTS_ROW[2]}
@@ -342,6 +366,70 @@ defaults_table() {
   if (( bad == 0 && ${#DT_DOMAIN[@]} == 0 )); then
     err "config/defaults.tsv lists no key"; bad=1
   fi
+  return "$bad"
+}
+
+# defaults_desc_row LINE — split LINE, an entry of
+# docs/defaults/descriptions.tsv, into the array DESC_ROW: domain, key, title,
+# category, default, preference, description, why and background, each with
+# its escapes undone by mrk_tsv_fields. Return 0 when LINE is one description.
+# When it is not, leave the reason in DESC_WHY and return 1.
+#
+# The prose fields may hold a newline. The domain and key are those of
+# config/defaults.tsv, and the title and category are one line each.
+defaults_desc_row() {
+  local id_re='^[A-Za-z0-9][A-Za-z0-9._-]*$' i
+  local field_names=(domain key title category default preference description why background)
+  DESC_ROW=() DESC_WHY=""
+  if ! mrk_tsv_fields "$1"; then
+    DESC_WHY=$TSV_WHY; return 1
+  fi
+  DESC_ROW=("${TSV_FIELDS[@]}")
+  if (( ${#DESC_ROW[@]} != 9 )); then
+    DESC_WHY="it does not have nine fields, separated by tabs"; return 1
+  fi
+  if [[ ! "${DESC_ROW[0]}" =~ $id_re ]]; then
+    DESC_WHY="the domain is not NSGlobalDomain or a bundle id: ${DESC_ROW[0]}"; return 1
+  fi
+  for i in 1 2 3; do
+    if [[ -z "${DESC_ROW[i]//[[:space:]]/}" || "${DESC_ROW[i]}" == *[[:cntrl:]]* ]]; then
+      DESC_WHY="the ${field_names[i]} is empty, or holds a tab or a newline"; return 1
+    fi
+  done
+  if [[ -z "${DESC_ROW[6]//[[:space:]]/}" ]]; then
+    DESC_WHY="the description is empty"; return 1
+  fi
+  case "${DESC_ROW[5]}" in
+    true|false) ;;
+    *) DESC_WHY="preference is not true or false: ${DESC_ROW[5]}"; return 1 ;;
+  esac
+  return 0
+}
+
+# defaults_desc_table FILE — read FILE, docs/defaults/descriptions.tsv, into
+# the arrays DD_DOMAIN and DD_KEY: one element for each description, in the
+# order of the file. Say what is wrong with each line that is not one
+# description, and with a domain and key on a second line. Return 1 when there
+# is any such line, or when FILE cannot be read. check-defaults-desc reads the
+# file with this.
+defaults_desc_table() {
+  local file=$1 entry id seen=$'\n' bad=0
+  DD_DOMAIN=() DD_KEY=()
+  if [[ ! -r "$file" ]]; then
+    err "Cannot read $file"; return 1
+  fi
+  while IFS= read -r entry; do
+    if ! defaults_desc_row "$entry"; then
+      err "Not one description, in docs/defaults/descriptions.tsv ($DESC_WHY): $entry"; bad=1; continue
+    fi
+    id="${DESC_ROW[0]}"$'\t'"${DESC_ROW[1]}"
+    case "$seen" in
+      *$'\n'"$id"$'\n'*)
+        err "docs/defaults/descriptions.tsv has ${DESC_ROW[0]} ${DESC_ROW[1]} on two lines"; bad=1; continue ;;
+    esac
+    seen+="$id"$'\n'
+    DD_DOMAIN+=("${DESC_ROW[0]}");  DD_KEY+=("${DESC_ROW[1]}")
+  done < <(mrk_config_entries "$file")
   return "$bad"
 }
 

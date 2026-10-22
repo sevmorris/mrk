@@ -4,8 +4,9 @@
 # writes them. Before it changes a key, it records the value the key had in
 # ~/.mrk/defaults-rollback.sh, so the change can be undone. Its --check
 # compares each line with this Mac and changes nothing. MRK-1, the defaults
-# reference, shows each key with its description from docs/defaults/script.js,
-# and check-defaults-desc fails when a key has none.
+# reference, shows each key with its description from
+# docs/defaults/descriptions.tsv, and check-defaults-desc fails when a key has
+# none.
 #
 # One key on each line: six fields, separated by tabs.
 #   domain   the defaults domain: NSGlobalDomain, or the bundle id of an app
