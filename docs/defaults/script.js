@@ -936,7 +936,7 @@ class DefaultsDocGenerator {
     
     init() {
         this.setupEventListeners();
-        this.loadScript();
+        this.loadTable();
     }
     
     setupEventListeners() {
@@ -996,30 +996,40 @@ class DefaultsDocGenerator {
         });
     }
     
-    async loadScript() {
-        const url = 'https://raw.githubusercontent.com/sevmorris/mrk/main/scripts/defaults.sh';
+    // config/defaults.tsv on main, which defaults.sh reads. Served from a
+    // clone on localhost (python3 -m http.server, from the top of the
+    // repository), the page reads that clone's copy instead, so a change to
+    // the file can be seen before it is pushed.
+    tableUrl() {
+        const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+        return local ? new URL('../../config/defaults.tsv', location.href).href
+                     : 'https://raw.githubusercontent.com/sevmorris/mrk/main/config/defaults.tsv';
+    }
+
+    async loadTable() {
+        const url = this.tableUrl();
         try {
             const response = await fetch(url);
 
             // fetch only rejects on a network failure, so without this an HTTP
-            // error resolved normally and response.text() handed parseScript the
-            // error body. Parsing "404: Not Found" yields zero sections and zero
-            // entries, so the page rendered completely blank — and the catch
-            // below never fired, which meant loadDemoData(), the fallback that
-            // exists for exactly this, could never run. raw.githubusercontent.com
-            // rate-limits unauthenticated requests, so this is reachable in
-            // ordinary use, not just if the repo moves.
+            // error resolved normally and response.text() handed the parser
+            // the error body. Parsing "404: Not Found" yields zero sections and
+            // zero entries, so the page rendered completely blank — and the
+            // catch below never fired, which meant loadDemoData(), the fallback
+            // that exists for exactly this, could never run.
+            // raw.githubusercontent.com rate-limits unauthenticated requests,
+            // so this is reachable in ordinary use, not just if the repo moves.
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status} ${response.statusText} for ${url}`);
             }
 
-            const scriptContent = await response.text();
-            this.parseScript(scriptContent);
+            const table = await response.text();
+            this.parseTable(table);
         } catch (error) {
-            console.error('Failed to load script:', error);
-            // Say so. The demo set is one section and two entries standing in for
-            // 27 and 143; rendered silently it looks like a real reference that
-            // happens to be nearly empty, which is worse than an error.
+            console.error('Failed to load the table:', error);
+            // Say so. The demo set is one section and one entry standing in for
+            // the whole table; rendered silently it looks like a real reference
+            // that happens to be nearly empty, which is worse than an error.
             // Order matters: loadDemoData() ends in renderSections(), which
             // assigns content.innerHTML and would wipe a notice prepended before
             // it. Render first, then put the warning above the result.
@@ -1037,105 +1047,67 @@ class DefaultsDocGenerator {
         notice.style.cssText = 'border:2px solid #b00;padding:1rem;margin:1rem 0;' +
                                'background:#fff4f4;color:#500;font-weight:600;';
         notice.textContent =
-            'Could not load defaults.sh from GitHub (' + (error && error.message ? error.message : 'unknown error') +
+            'Could not load config/defaults.tsv from GitHub (' + (error && error.message ? error.message : 'unknown error') +
             '). The entries below are a small demo set, not the real reference. ' +
-            'Reload to try again, or read scripts/defaults.sh in the repository.';
+            'Reload to try again, or read config/defaults.tsv in the repository.';
         content.prepend(notice);
     }
-    
-    parseScript(content) {
-        const lines = content.split('\n');
-        let currentSection = { name: 'General', entries: [], description: '' };
-        let pendingComment = '';
-        let sections = [];
-        let domainLoop = null;
-        
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            
-            // Skip empty lines
-            if (!line) continue;
-            
-            // Check for section banners (3-line format)
-            if (this.isSectionBanner(lines, i)) {
-                // Save current section if it has entries
-                if (currentSection.entries.length > 0) {
-                    sections.push(currentSection);
-                }
-                
-                // Extract section name
-                const sectionName = this.extractSectionName(lines, i + 1);
-                currentSection = {
-                    name: sectionName || 'Unnamed Section',
-                    entries: [],
-                    description: this.getSectionDescription(sectionName)
-                };
-                pendingComment = '';
-                i += 2; // Skip the next 2 lines of the banner
-                continue;
-            }
-            
-            // Collect comments (skip Why: lines — those are sourced from DEFAULT_DESCRIPTIONS)
-            if (line.startsWith('#') && !line.match(/^#+\s*$/)) {
-                const comment = line.replace(/^#\s*/, '');
-                if (comment && !comment.match(/^-+$/) && !comment.startsWith('Why:')) {
-                    pendingComment = comment;
-                }
-                continue;
-            }
-            
-            // Track `for domain in A B; do` so write_default "$domain" ... can be
-            // resolved to a real domain instead of the literal string '$domain'.
-            const loopMatch = line.match(/^for\s+domain\s+in\s+(.+?)\s*;\s*do\s*$/);
-            if (loopMatch) {
-                domainLoop = loopMatch[1].trim().split(/\s+/).filter(Boolean);
-                continue;
-            }
-            if (line === 'done') {
-                domainLoop = null;
-                continue;
-            }
 
-            // Parse write_default commands
-            if (line.startsWith('write_default ')) {
-                const entry = this.parseWriteDefault(line, pendingComment, domainLoop);
-                if (entry) {
-                    currentSection.entries.push(entry);
-                }
-                pendingComment = '';
+    // A field of config/defaults.tsv as text: \t is a tab, \n a newline and \\
+    // a backslash. null for a backslash before anything else.
+    unescapeField(field) {
+        let bad = false;
+        const text = field.replace(/\\(.?)/g, (m, c) => {
+            if (c === 't') return '\t';
+            if (c === 'n') return '\n';
+            if (c === '\\') return '\\';
+            bad = true;
+            return m;
+        });
+        return bad ? null : text;
+    }
+
+    // config/defaults.tsv has one key on each line: domain, key, type, value,
+    // when and section, separated by tabs. A line that starts with # is a
+    // comment. The sections keep the order in which they first appear, and
+    // the entries the order of the file. The same key, type and value in two
+    // domains of one section is one setting: the entry of the first domain,
+    // with the others as alsoDomains. check-defaults-desc counts it the same
+    // way, and wants a description for the first domain only.
+    parseTable(content) {
+        const sections = new Map();
+
+        for (const line of content.split('\n')) {
+            if (line.startsWith('#') || !line.trim()) continue;
+            const fields = line.split('\t').map(f => this.unescapeField(f));
+            if (fields.length !== 6 || fields.includes(null)) continue;
+            const [domain, key, type, tableValue, when, name] = fields;
+            // A string that starts with ~/ is a path in the home directory.
+            // $HOME, not ~, because the command puts the value in quotes.
+            const value = type === 'string' && tableValue.startsWith('~/')
+                ? '$HOME/' + tableValue.slice(2) : tableValue;
+
+            if (!sections.has(name)) sections.set(name, { name, entries: [], when: new Set() });
+            const section = sections.get(name);
+            section.when.add(when);
+
+            const first = section.entries.find(e => e.key === key && e.type === type && e.value === value);
+            if (first) {
+                first.alsoDomains.push(domain);
+            } else {
+                section.entries.push(this.makeEntry(domain, key, type, value));
             }
         }
-        
-        // Add the last section
-        if (currentSection.entries.length > 0) {
-            sections.push(currentSection);
-        }
-        
-        this.sections = sections;
+
+        // A section that only --with-trackpad writes says so in its name.
+        this.sections = [...sections.values()].map(({ name, entries, when }) => {
+            const shown = when.size === 1 && when.has('trackpad') ? `${name} (opt-in: --with-trackpad)` : name;
+            return { name: shown, entries, description: this.getSectionDescription(shown) };
+        });
         this.renderSections();
         this.updateNav();
     }
-    
-    isSectionBanner(lines, index) {
-        if (index + 2 >= lines.length) return false;
-        
-        const line1 = lines[index].trim();
-        const line2 = lines[index + 1].trim();
-        const line3 = lines[index + 2].trim();
-        
-        return line1.match(/^#+/) && 
-               line2.startsWith('#') && 
-               line3.match(/^#+/);
-    }
-    
-    extractSectionName(lines, index) {
-        if (index >= lines.length) return null;
-        
-        const line = lines[index].trim();
-        const match = line.match(/^#\s*(.+?)\s*#+?\s*$/);
-        return match ? match[1].trim() : null;
-    }
-    
+
     getSectionDescription(sectionName) {
         const descriptions = {
             'General UI / UX': 'Core interface and experience settings that affect the overall look, feel, and behavior of macOS — animations, dialogs, scrollbars, text handling, and miscellaneous system-wide polish.',
@@ -1159,60 +1131,23 @@ class DefaultsDocGenerator {
         return descriptions[sectionName] || 'System configuration settings.';
     }
     
-    // Split a shell argument list on whitespace, but keep a double-quoted run
-    // together and drop its quotes. `write_default com.apple.Terminal
-    // "Default Window Settings" string Pro` must yield 4 tokens, not 6.
-    tokenizeShell(line) {
-        const tokens = [];
-        const re = /"([^"]*)"|(\S+)/g;
-        let m;
-        while ((m = re.exec(line)) !== null) {
-            tokens.push(m[1] !== undefined ? m[1] : m[2]);
-        }
-        return tokens;
-    }
-
     // Quote a domain or key for display only when the shell would need it.
     shellQuote(s) {
         return /[^A-Za-z0-9._-]/.test(s) ? `"${s}"` : s;
     }
 
-    parseWriteDefault(line, comment, domainLoop) {
-        // Remove any shell error handling
-        const cleanLine = line.split('||')[0].split('&&')[0].trim();
-        const parts = this.tokenizeShell(cleanLine);
-
-        if (parts.length < 5 || parts[0] !== 'write_default') {
-            return null;
-        }
-
-        // Inside `for domain in A B; do`, defaults.sh writes the same key to
-        // every domain in the list. Use the first as canonical, and keep the
-        // rest so the entry can show that the setting covers both.
-        let domain = parts[1];
-        let alsoDomains = [];
-        if (domain === '$domain' && domainLoop && domainLoop.length) {
-            domain = domainLoop[0];
-            alsoDomains = domainLoop.slice(1);
-        }
-
-        const key = parts[2];
-        const type = parts[3];
-        const value = parts.slice(4).join(' ').replace(/['"]/g, '');
-
-        const domainKey = `${domain}.${key}`;
-        const description = DEFAULT_DESCRIPTIONS[domainKey];
-
+    makeEntry(domain, key, type, value) {
+        const description = DEFAULT_DESCRIPTIONS[`${domain}.${key}`];
         const dq = this.shellQuote(domain);
         const kq = this.shellQuote(key);
 
         return {
             domain,
-            alsoDomains,
+            alsoDomains: [],
             key,
             type,
             value,
-            comment: comment || (description ? description.title : key),
+            comment: description ? description.title : key,
             description: description ? description.description : this.generateGenericDescription(key, value, type),
             background: description ? (description.background || null) : null,
             category: description ? description.category : 'System',

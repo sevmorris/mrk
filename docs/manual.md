@@ -31,7 +31,7 @@ Keep both repositories current. You can then restore the full setup on a new mac
 > 4. Edit `config/login-items.txt`. It lists the apps that open at login, one path on each line. Also edit `MRK_NOT_AT_LOGIN` in `scripts/lib.sh`. It names the two apps that mrk deletes from the login items.
 > 5. Edit `config/app-prefs.tsv`. It lists the apps whose preferences `snapshot-prefs` exports and Phase 3 imports, one app on each line. `snapshot-prefs` also exports every `io.github.sevmorris.*` domain but KeyVault's, as a group.
 > 6. Edit `config/dock.txt`. It lists the items of the Dock from left to right, one path on each line. `dock-setup` deletes every item from the Dock before it adds the items in the list.
-> 7. Read `scripts/defaults.sh` before you run it. It writes 133 preference keys, and each key is a personal choice.
+> 7. Edit `config/defaults.tsv` before you run `make defaults`. The file lists 133 preference keys, and each key is a personal choice. `scripts/defaults.sh` writes them.
 > 8. Edit `config/companion-apps.txt`. It lists my own applications, and a fork wants none of them. Delete the lines, or replace them with yours. Then set `GITHUB_APP_TEAM_ID` in `scripts/install-apps` to your Developer ID team. The installer refuses any app that this team did not sign.
 >
 > Use `make setup-dry` and `make sync ARGS=-n` to see the result of a phase before you apply it.
@@ -67,7 +67,7 @@ It runs under the bash 3.2 that macOS ships, so it needs nothing installed first
 | `.zshrc` | Zsh interactive shell config |
 | `Makefile` | mrk commands available from `~/` |
 - Symlinks `scripts/` and `bin/` into `~/bin`, which puts the tools on your PATH.
-- Applies the macOS system preferences with `scripts/defaults.sh`.
+- Applies the macOS system preferences that `config/defaults.tsv` lists, with `scripts/defaults.sh`. It reads the whole file first. When a line is not one key, it changes nothing.
 - Sets zsh as the login shell, registering it in `/etc/shells` first, with sudo. `chsh` refuses a shell that is not listed there and Homebrew does not register its own zsh, so without this the `chsh` failed and the login shell silently stayed `/bin/zsh`.
 - Clones oh-my-zsh and two zsh plugins: zsh-autosuggestions and zsh-syntax-highlighting. Phase 1 skips a clone when the directory exists. A failed clone gives a warning, and Phase 1 continues.
 - The two plugins are pinned to release tags, because `omz update` does not update a custom plugin, and to the commit each tag names, because a tag can be moved: Phase 1 refuses a tag that no longer names its commit, and installs nothing. To move to a newer plugin release, change the tag and the commit together in `scripts/setup` and delete the plugin directory. oh-my-zsh itself is not pinned: it publishes no tags, and `.zshrc` sets it to update itself.
@@ -340,7 +340,7 @@ dock-setup reads the whole list before it changes the Dock. If the file is absen
 
 ## How to keep a macOS setting
 
-A setting you change in System Settings is the one change that no mrk command records. To keep it, add its key to `scripts/defaults.sh`. **`defaults-watch`** finds the key.
+A setting you change in System Settings is the one change that no mrk command records. To keep it, add its key to `config/defaults.tsv`. **`defaults-watch`** finds the key.
 
 ```bash
 defaults-watch            # Snapshot, wait for Return, snapshot again, compare
@@ -348,10 +348,14 @@ defaults-watch            # Snapshot, wait for Return, snapshot again, compare
 
 1. Run `defaults-watch`, and wait for it to ask.
 2. Change the one setting in System Settings, and then press Return.
-3. defaults-watch shows each key that changed, with its old value and its new one. For a key that `defaults.sh` already writes, it says whether the new value is the one mrk sets. For any other key, it shows the `write_default` line to add.
-4. Add that line to `scripts/defaults.sh`, and a description of the key to `docs/defaults/script.js`. `make check` fails until the description is there.
+3. defaults-watch shows each key that changed, with its old value and its new one. For a key that `config/defaults.tsv` already sets, it says whether the new value is the one mrk sets. For any other key, it shows the line to add to the file.
+4. Add that line to `config/defaults.tsv`, with a tab between the fields.
+5. Add a description of the key to `docs/defaults/script.js`. `make check` fails until the description is there.
+6. Run `mrk-defaults --check` to compare the file with this Mac. A line that ends in `set` shows a key that has the value mrk sets.
 
-defaults-watch changes nothing. It lists window positions, timestamps and counters apart, as probably not the setting. `write_default` cannot write a key for this Mac alone (`-currentHost`), a key for all users, or a dictionary. For those, defaults-watch says what to use instead.
+Each line of `config/defaults.tsv` has six fields, separated by tabs. They are the domain, the key, the type, the value, when mrk writes the key, and the section of the [defaults reference](https://sevmorris.github.io/mrk/defaults/). The comments at the top of the file give the details.
+
+defaults-watch changes nothing. It lists window positions, timestamps and counters apart, as probably not the setting. `config/defaults.tsv` cannot hold a key for this Mac alone (`-currentHost`), a key for all users, or a dictionary. For those, defaults-watch says what to use instead.
 
 ## How to keep the login items current
 
@@ -640,6 +644,8 @@ cd ~/mrk && make setup && exec zsh
 ```
 
 This step configures the shell, symlinks the dotfiles, and applies the macOS system preferences.
+
+Phase 1 skips two keys until their apps have preferences: one for Mail and one for TextEdit. Both apps keep their preferences in a container, which the app makes when you set it up or first use it. After you set up Mail and use TextEdit, run `make defaults` again.
 
 ## Step 3 — Add your SSH key to GitHub, if you need to
 

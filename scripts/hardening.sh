@@ -281,7 +281,7 @@ fi
 # an unsigned app is still refused, and `spctl` is untouched. What it removes is
 # the extra confirmation on an app that has already passed those checks.
 #
-# It lives in this script rather than in defaults.sh because it is a security
+# It lives in this script rather than in config/defaults.tsv because it is a security
 # decision, and because `make harden` writes a rollback — `make defaults` would
 # too, but grouping it with the firewall and the sleep password keeps the whole
 # security posture in one file and one rollback.
@@ -310,9 +310,9 @@ defaults write com.apple.LaunchServices LSQuarantine -bool false
 # 5) Stop sending Mac Analytics to Apple
 #
 # This lives in a system plist, so it needs sudo, which is why it is here and
-# not in defaults.sh. It is the last of the three telemetry channels: Siri data
-# sharing and personalised advertising are already off in defaults.sh, and this
-# is the usage-and-crash one.
+# not in config/defaults.tsv. It is the last of the three telemetry channels:
+# Siri data sharing and personalised advertising are already off there, and
+# this is the usage-and-crash one.
 if $have_sudo; then
   log "Turning off Mac Analytics submission"
   DIAG="/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist"

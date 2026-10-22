@@ -56,7 +56,7 @@ defaults write com.apple.Safari AutoOpenSafeDownloads -bool false || failed=$(( 
 # Why: reduces exposure if the browser is accessed without authorization or on a shared machine
 defaults write com.apple.Safari AutoFillCreditCardData -bool false || failed=$(( failed + 1 ))
 
-# The Develop menu is left hidden: defaults.sh writes
+# The Develop menu is left hidden: config/defaults.tsv sets
 # com.apple.Safari.SandboxBroker ShowDevelopMenu false, the value on the old Mac
 # on 2026-09-02. Until 2026-09-28 this script wrote IncludeDevelopMenu and the
 # two WebKit developer-extras keys true, so Phase 1 and Phase 3 disagreed.
