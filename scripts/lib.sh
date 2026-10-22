@@ -369,6 +369,14 @@ defaults_table() {
   return "$bad"
 }
 
+# defaults_domain_exists DOMAIN — whether DOMAIN has preferences yet. A key of
+# config/defaults.tsv whose when is existing is written only when it does:
+# defaults.sh skips it until then, and mrk-status does not count it as a key
+# that differs.
+defaults_domain_exists() {
+  defaults read "$1" >/dev/null 2>&1
+}
+
 # defaults_desc_row LINE — split LINE, an entry of
 # docs/defaults/descriptions.tsv, into the array DESC_ROW: domain, key, title,
 # category, default, preference, description, why and background, each with

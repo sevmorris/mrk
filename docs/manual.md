@@ -470,7 +470,7 @@ A KeyVault backup goes out as one passphrase-encrypted OpenPGP archive. Any `gpg
 
 > **Caution:** `snapshot-prefs` does not export the KeyVault preferences, and it must not: they are a manifest of what the vault holds. From 2026-09-02 until 2026-09-30 it did, because the export of every `io.github.sevmorris.*` domain took KeyVault's with the rest. It now leaves KeyVault out, and deletes a saved copy that it finds. Use the KeyVault export for the API keys, the notes and the stored files. Use `make snapshot-keys` for the key files.
 
-**[Dipstick](https://github.com/sevmorris/Dipstick)** shows the `mrk-status` dashboard in the menu bar. It runs `mrk-status --json` and shows the same four panels. Its icon shows the worst result. Each fix is a button that shows its command. The button runs the command in a terminal, in `~/mrk`, as the `f` key does in `mrk-status`. Dipstick does no checks of its own, so the menu bar and the dashboard always agree.
+**[Dipstick](https://github.com/sevmorris/Dipstick)** shows the `mrk-status` dashboard in the menu bar. It runs `mrk-status --json` and shows the same four panels. Its icon shows the worst result. Each fix is a button that shows its command. The button runs the command in a terminal, in `~/mrk`, as the `f` key does in `mrk-status`. Dipstick does no checks of its own, so the menu bar and the dashboard agree, with one exception. mrk-status checks the login items only from a terminal, because System Events would ask Dipstick for Automation access.
 
 Phase 3 installs Dipstick, and `config/login-items.txt` lists it, so Phase 3 adds Dipstick to the login items too.
 
@@ -906,7 +906,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 
 `make status` shows four panels as text. The `status` command shows the same panels in the mrk-status dashboard, where **f** runs a panel's fix. Both are one program: until 2026-09-30 `make status` ran a separate bash copy of the checks, and the two kept drifting apart. The daily panels come first:
 
-- **Unrecorded** — What the next Mac would not get. Homebrew packages that are installed but not in the Brewfile, and Brewfile entries that are not installed, as `sync` itself counts them. Uncommitted changes and unpushed commits in `~/mrk` and in each repository in `~/Projects`. The repositories that the manifest does not record, and those with no origin remote.
+- **Unrecorded** — What the next Mac would not get. Homebrew packages that are installed but not in the Brewfile, and Brewfile entries that are not installed, as `sync` itself counts them. The login items that `config/login-items.txt` does not track, and the tracked apps that are not login items, as `sync-login-items` counts them. mrk-status checks the login items only from a terminal. Uncommitted changes and unpushed commits in `~/mrk` and in each repository in `~/Projects`. The repositories that the manifest does not record, and those with no origin remote. The app preference changes that the next `snapshot-prefs` would commit.
 - **Upkeep** — `~/mrk` behind `origin/main`, as of the last fetch. The Go tools that are older than their source. The outdated Homebrew packages. The macOS updates for the installed version; a major upgrade is named, and never counted. Safari and the Command Line Tools count as updates, whatever their version.
 - **Time Machine Backups** — Whether Time Machine has a destination, and how old the last backup is. The panel warns after a day, and shows an error after seven.
 - **Installation** — The installation checks, as one panel:
@@ -916,7 +916,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
   - **PATH** — Whether `~/bin` is on the PATH.
   - **Homebrew** — The installed version.
   - **Brewfile** — How many formulae and casks it tracks. What is installed against it is under Unrecorded.
-  - **macOS Defaults** — Whether mrk applied the defaults. The rollback script is the evidence.
+  - **macOS Defaults** — How many keys of `config/defaults.tsv` have the value that mrk sets, as `mrk-defaults --check` counts them, and each key that differs or is absent. It includes the trackpad keys only when you applied them with `make trackpad`.
   - **Security Hardening** — Whether mrk applied the hardening.
   - **Displaced files** — Shown *only when backups exist*: how many, and the most recent. This is a report, not a health check, so with nothing to report it is left out. See [What the backups are](#what-the-backups-are).
 
