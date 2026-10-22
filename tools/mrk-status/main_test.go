@@ -75,7 +75,7 @@ func TestBrewDriftFailureIsAFailureNotMissingPackages(t *testing.T) {
 	if d.err == nil || !strings.Contains(d.err.Error(), "brew list --formula failed") {
 		t.Fatalf("a failed sync --check should be an error naming sync's last word, got %v", d.err)
 	}
-	un := checkUnrecorded(repo, t.TempDir(), d)
+	un := checkUnrecorded(repo, t.TempDir(), drifts{brew: d})
 	for _, l := range un.lines {
 		if strings.Contains(l.text, "not installed") {
 			t.Errorf("a check that could not run reported packages as not installed: %q", l.text)

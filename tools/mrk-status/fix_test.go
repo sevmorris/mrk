@@ -50,7 +50,9 @@ func TestEveryFixCommandResolves(t *testing.T) {
 	groups := []group{
 		checkDotfiles(tmp, tmp),
 		checkTools(tmp, bin),
-		checkDefaults(tmp),
+		checkDefaults(defaultsDrift{notApplied: true}),
+		checkDefaults(defaultsDrift{unset: []string{"NSGlobalDomain A"}}),
+		checkDefaults(defaultsDrift{trackpad: true, unset: []string{"NSGlobalDomain A"}}),
 		checkHardening(tmp),
 		checkPATH(tmp, bin),
 		checkShell(),

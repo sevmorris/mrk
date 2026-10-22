@@ -203,26 +203,38 @@ func countLines(path, pattern string) (int, error) {
 	return n, sc.Err()
 }
 
-func checkDefaults(stateDir string) group {
-	rollback := filepath.Join(stateDir, "defaults-rollback.sh")
-	if _, err := os.Stat(rollback); err != nil {
-		return group{"macOS Defaults", sevInfo,
+// checkDefaults counts the keys of config/defaults.tsv that hold what mrk sets,
+// by defaults.sh --check (readDefaultsDrift, daily.go). Until 2026-10-22 it
+// said "Applied" whenever the rollback script had a line, and a key changed
+// since in System Settings, or added to the table since, went unreported.
+func checkDefaults(d defaultsDrift) group {
+	const name = "macOS Defaults"
+	switch {
+	case d.notApplied:
+		return group{name, sevInfo,
 			[]statusLine{sl(sevInfo, "Not applied — run: make defaults")}, "make defaults"}
+	case d.err != nil:
+		return group{name, sevWarn, []statusLine{sl(sevWarn, d.err.Error())}, ""}
 	}
-	n, err := countLines(rollback, `defaults write|defaults delete`)
-	if err != nil {
-		return group{"macOS Defaults", sevWarn,
-			[]statusLine{sl(sevWarn, "Cannot read the rollback script: "+err.Error())}, ""}
+	head := fmt.Sprintf("%d of %d set", d.set, d.set+len(d.unset)+len(d.waiting))
+	if d.trackpad {
+		head += ", the trackpad keys included"
 	}
-	if n == 0 {
-		return group{"macOS Defaults", sevInfo,
-			[]statusLine{sl(sevInfo, "Rollback script present but empty")}, ""}
+	if len(d.waiting) > 0 {
+		head += fmt.Sprintf("; %s until its app has preferences", plural(len(d.waiting), "key waits", "keys wait"))
 	}
-	return group{"macOS Defaults", sevOK, []statusLine{
-		sl(sevOK, "Applied"),
-		sl(sevInfo, fmt.Sprintf("%d change(s) tracked in rollback script", n)),
-		sl(sevInfo, "Rollback: "+rollback),
-	}, ""}
+	if len(d.unset) == 0 {
+		return group{name, sevOK, []statusLine{sl(sevOK, head)}, ""}
+	}
+	// make trackpad writes every key make defaults does, and the trackpad keys.
+	fix := "make defaults"
+	if d.trackpad {
+		fix = "make trackpad"
+	}
+	return group{name, sevWarn, []statusLine{
+		sl(sevWarn, head),
+		slFix(sevWarn, plural(len(d.unset), "key is not as mrk sets it", "keys are not as mrk sets them")+": "+names(d.unset), fix),
+	}, fix}
 }
 
 func checkHardening(stateDir string) group {
@@ -803,14 +815,16 @@ Usage:
 
 Panels, daily work first:
   Unrecorded            What the next Mac would not get: Homebrew packages
-                        the Brewfile lacks or no longer has, work in ~/mrk
-                        and ~/Projects not committed or pushed, repositories
-                        the manifest does not record
+                        the Brewfile lacks or no longer has, login items
+                        config/login-items.txt does not track (from a
+                        terminal only), work in ~/mrk and ~/Projects not
+                        committed or pushed, repositories the manifest does
+                        not record, app preferences not snapshotted
   Upkeep                ~/mrk behind origin, Go tools older than their source,
                         outdated Homebrew packages, macOS updates
   Time Machine Backups  A destination, and the age of the last backup
   Installation          Dotfiles, ~/bin links, shell, PATH, Homebrew, the
-                        Brewfile, macOS defaults, hardening
+                        Brewfile, the macOS defaults set, hardening
 
 A line's fix is shown beside it; f runs the panel's first one.
 
