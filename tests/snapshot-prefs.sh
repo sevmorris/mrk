@@ -74,11 +74,11 @@ ln -s "$REAL_GIT" "$S/git"
 # fixtures THEME MODE TICK ORDER [WORD...] — write the domains. THEME and MODE
 # are settings; TICK drives every key that changes on its own (Sparkle's check
 # time, a window frame, launch counters at the top and nested, MBM's and
-# Gearbox's update checks); ORDER 1 writes the same JSON and archived
-# dictionary in another order. gamma adds a domain holding nothing but a
-# Sparkle time; no-theme takes Alpha's theme out; beta-keys adds four keys to
-# Beta: one plain, and one each with a tab, a newline and a backslash in its
-# name.
+# Gearbox's update checks, and the pane Gearbox shows); ORDER 1 writes the
+# same JSON and archived dictionary in another order. gamma adds a domain
+# holding nothing but a Sparkle time; no-theme takes Alpha's theme out;
+# beta-keys adds four keys to Beta: one plain, and one each with a tab, a
+# newline and a backslash in its name.
 cat > "$W/fixtures.py" <<'PY'
 import datetime, json, plistlib, sys
 from plistlib import UID
@@ -105,7 +105,8 @@ domains = {
         "launchCount": tick, "panel": {"launchCount": tick, "width": 300},
         "blob": json.dumps(blob).encode(), "archive": archive(pairs)},
     "io.github.sevmorris.BackupRestore": {"BackupSettings": "kept", "MBM_lastUpdateCheckDate": t},
-    "io.github.sevmorris.Gearbox": {"selectedPane": "dock", "lastUpdateCheck": t},
+    "io.github.sevmorris.Gearbox": {"selectedPane": ["dock", "defaults", "loginItems", "prefs"][tick % 4],
+                                    "lastUpdateCheck": t},
     "io.github.sevmorris.Beta": {"mode": mode},
     "io.github.sevmorris.KeyVault": {"CollapsedNoteCategories": ["Work"]},
 }
