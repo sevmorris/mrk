@@ -1,936 +1,13 @@
-// macOS defaults documentation and descriptions
-const DEFAULT_DESCRIPTIONS = {
-    'com.apple.sharingd.DiscoverableMode': {
-        title: 'AirDrop Discoverability',
-        description: 'Limits AirDrop to your contacts. The accepted values are "Everyone", "Contacts Only" and "Off".',
-        category: 'Security',
-        why: 'With "Everyone", any device in range can raise a transfer prompt on this Mac. That is the setting unsolicited AirDrop relies on.',
-        systemDefault: 'Contacts Only'
-    },
-
-    'com.apple.voicetrigger.VoiceTrigger Enabled': {
-        title: 'Voice Trigger Daemon',
-        description: 'Stops the voice-trigger daemon from listening for the wake word.',
-        category: 'Security',
-        why: 'This is a second wake-word switch, in its own domain. Turning off the one in com.apple.Siri leaves this at true, and the detector keeps running.',
-        systemDefault: 'true'
-    },
-    'com.apple.Sharing.SharingPeopleSuggestionsDisabled': {
-        title: 'Share Sheet Suggestions',
-        description: 'Removes the suggested people from the top row of the share sheet.',
-        category: 'Security',
-        systemDefault: 'false'
-    },
-    'com.apple.amp.mediasharingd.home-sharing-enabled': {
-        title: 'Home Sharing',
-        description: 'Turns off Home Sharing, so the music and video library is not offered to other devices on the network.',
-        category: 'Security',
-        systemDefault: '0'
-    },
-    'com.apple.amp.mediasharingd.photo-sharing-enabled': {
-        title: 'Photo Sharing to Apple TV',
-        description: 'Stops the Mac offering its photo library to an Apple TV.',
-        category: 'Security',
-        systemDefault: '0'
-    },
-    'com.apple.amp.mediasharingd.public-sharing-enabled': {
-        title: 'Guest Media Sharing',
-        description: 'Stops the Mac sharing its media library with guests on the network.',
-        category: 'Security',
-        systemDefault: '0'
-    },
-    'com.apple.messages.nicknames.MeCardSharingEnabled': {
-        title: 'Messages Name and Photo',
-        description: 'Stops Messages sharing your name and photo with the people you write to.',
-        category: 'Security',
-        systemDefault: 'true'
-    },
-    'com.apple.chronod.remoteWidgetsEnabled': {
-        title: 'iPhone Widgets',
-        description: 'Stops widgets from a paired iPhone appearing on this Mac.',
-        category: 'Interface',
-        systemDefault: 'true'
-    },
-    'com.apple.TelephonyUtilities.relayCallingDisabled': {
-        title: 'iPhone Call Relay',
-        description: 'Stops this Mac from ringing for a call that arrives on a paired iPhone.',
-        category: 'Interface',
-        systemDefault: 'false'
-    },
-    'com.apple.airplay.showInMenuBarIfPresent': {
-        title: 'AirPlay Menu Bar Icon',
-        description: 'Removes the AirPlay item from the menu bar.',
-        category: 'Menu Bar',
-        systemDefault: 'true'
-    },
-    'com.apple.TextInputMenu.visible': {
-        title: 'Input Source Menu Bar Icon',
-        description: 'Removes the input-source item from the menu bar. It is only useful with more than one keyboard layout.',
-        category: 'Menu Bar',
-        systemDefault: 'true'
-    },
-    'com.apple.Passwords.showMenuBarExtra': {
-        title: 'Passwords Menu Bar Icon',
-        description: 'Removes the Passwords item from the menu bar.',
-        category: 'Menu Bar',
-        systemDefault: 'true'
-    },
-    'com.apple.Passwords.EnableMenuBarExtra': {
-        title: 'Passwords Menu Bar Switch',
-        description: 'The second switch for the Passwords menu bar item. Set both, or the item comes back.',
-        category: 'Menu Bar',
-        systemDefault: 'true'
-    },
-    'com.apple.FolderActionsDispatcher.folderActionsEnabled': {
-        title: 'Folder Actions',
-        description: 'Turns off Folder Actions, the AppleScript hooks that run when a folder changes.',
-        category: 'Applications',
-        systemDefault: 'false'
-    },
-    'com.apple.SpeechRecognitionCore.AllowAudioDucking': {
-        title: 'Speech Audio Ducking',
-        description: 'Stops macOS lowering other audio when speech recognition runs.',
-        category: 'Audio',
-        why: 'Ducking interrupts playback in the middle of audio work.',
-        systemDefault: 'true'
-    },
-    'com.apple.Safari.SandboxBroker.ShowDevelopMenu': {
-        title: 'Safari Develop Menu',
-        description: 'Keeps the Develop menu out of the Safari menu bar.',
-        category: 'Applications',
-        systemDefault: 'false'
-    },
-    'com.apple.assistant.support.Assistant Enabled': {
-        title: 'Siri',
-        description: 'Turns Siri off. The Ask Siri feature stops, and macOS does not send a request to Apple\'s servers.',
-        category: 'Security',
-        systemDefault: 'true'
-    },
-    'com.apple.Siri.VoiceTriggerUserEnabled': {
-        title: 'Hey Siri Wake Word',
-        description: 'Stops the Mac from listening for the Siri wake word. Wake-word detection keeps the microphone active at all times.',
-        category: 'Security',
-        why: 'Every other route into Siri on this Mac is already closed. The wake word was the one part still running for a feature that is never used.',
-        systemDefault: 'true'
-    },
-    'com.apple.Siri.StatusMenuVisible': {
-        title: 'Siri Menu Bar Icon',
-        description: 'Removes the Siri icon from the menu bar.',
-        category: 'Menu Bar',
-        systemDefault: 'true'
-    },
-    'com.apple.Siri.SuggestionsEnabled': {
-        title: 'Siri Suggestions',
-        description: 'Turns off Siri Suggestions in Spotlight, Safari and the Look Up panel.',
-        category: 'Security',
-        systemDefault: 'true'
-    },
-    'NSGlobalDomain.ContextMenuGesture': {
-        title: 'Secondary Click Gesture',
-        description: 'Sets how a secondary click is made on a trackpad. 1 is a click in the bottom-right corner.',
-        category: 'Input',
-        why: 'This is the global half of the setting. The two trackpad domains carry TrackpadCornerSecondaryClick, and the corner click does not work unless both are set.',
-        systemDefault: '0'
-    },
-    'com.apple.HIToolbox.AppleFnUsageType': {
-        title: 'Globe Key Action',
-        description: 'Sets what the globe key does. 0 is nothing, 1 changes the input source, 2 shows the emoji picker and 3 starts dictation.',
-        why: 'Dictation is off on this Mac, so the key would otherwise open a feature that is disabled.',
-        category: 'Keyboard',
-        systemDefault: '1 (change input source)'
-    },
-    'com.apple.assistant.support.Dictation Enabled': {
-        title: 'Dictation',
-        description: 'Turns Dictation off. macOS then does not offer to transcribe speech into a text field, and it does not download the on-device speech model.',
-        category: 'Keyboard',
-        why: 'The prompt that appears when you press the globe key turns Dictation on with one click, which is how it came to be enabled here. The speech model is close to a gigabyte, and nothing on this Mac had used it since 2024.',
-        systemDefault: 'false'
-    },
-    'com.apple.assistant.support.Siri Data Sharing Opt-In Status': {
-        title: 'Siri Audio Sharing',
-        description: 'Records the answer to "Improve Siri & Dictation". 0 means the question was never put, 1 opts in and 2 opts out.',
-        category: 'Security',
-        why: 'The value is an explicit answer rather than a default, so 2 is a decision and 0 is only an unanswered prompt.',
-        systemDefault: '0 (not yet asked)'
-    },
-    'com.apple.speech.synthesis.general.prefs.SpokenUIUseSpeakingHotKeyFlag': {
-        title: 'Speak Selection',
-        description: 'Lets a shortcut key speak the text you have selected.',
-        category: 'System',
-        systemDefault: 'false'
-    },
-    'com.apple.Accessibility.SpeakThisEnabled': {
-        title: 'Speak Selection (Accessibility)',
-        description: 'The newer mirror of the Speak Selection switch, in the Accessibility domain. Set both, or the two panes disagree.',
-        category: 'System',
-        systemDefault: '0'
-    },
-    'com.apple.Terminal.NewTabWorkingDirectoryBehavior': {
-        title: 'New Tab Directory',
-        description: 'Sets the directory a new Terminal tab opens in. 1 is the default working directory rather than the directory of the current tab.',
-        category: 'Terminal',
-        systemDefault: '2 (same directory)'
-    },
-    'com.apple.mail.AddressesIncludeNameOnPasteboard': {
-        title: 'Copy Bare Email Address',
-        description: 'Copies only the address when you copy a name from a message header. Mail otherwise copies the display name and the address together.',
-        category: 'Applications',
-        why: 'Pasting a name and an address into a terminal or a web form is almost never the intent.',
-        systemDefault: 'true'
-    },
-    'com.apple.iCal.CalDefaultCalendar': {
-        title: 'Default Calendar',
-        description: 'Puts a new event in the calendar you last selected. The alternative value is the identifier of one specific calendar.',
-        category: 'Applications',
-        why: 'A calendar identifier is different on each machine, so the sentinel is the only value that travels.',
-        systemDefault: 'The first calendar in the list'
-    },
-    'com.apple.dt.Xcode.IDESourceControlWarnUncommittedChangesDefaultsKey': {
-        title: 'Xcode Uncommitted Changes Warning',
-        description: 'Stops Xcode from warning before a source-control operation that touches uncommitted work.',
-        category: 'Applications',
-        systemDefault: 'true'
-    },
-    'NSGlobalDomain.AppleActionOnDoubleClick': {
-        title: 'Double-Click Title Bar Action',
-        description: 'A double-click on a window title bar minimises the window. The other accepted value is "Maximize", which zooms the window instead.',
-        category: 'Interface',
-        why: 'Zoom is already on the green button. Minimise is the action with no other one-step control.',
-        systemDefault: 'Maximize'
-    },
-    'NSGlobalDomain.AppleHighlightColor': {
-        title: 'Selection Highlight Colour',
-        description: 'Sets the tint behind selected text and selected items. The value is three space-separated floats: red, green and blue, each from 0 to 1.',
-        category: 'Appearance',
-        systemDefault: 'Blue (0.698039 0.843137 1.000000)'
-    },
-    'NSGlobalDomain.NSTableViewDefaultSizeMode': {
-        title: 'Sidebar Icon Size',
-        description: 'Sets the icon size in the sidebar of Finder, Mail and System Settings. 1 is small, 2 is medium, 3 is large.',
-        category: 'Interface',
-        systemDefault: '2 (medium)'
-    },
-    'NSGlobalDomain.AppleEnableSwipeNavigateWithScrolls': {
-        title: 'Swipe Between Pages',
-        description: 'Turns off the two-finger horizontal swipe that moves back and forward through pages.',
-        category: 'Input',
-        why: 'A sideways scroll inside a wide table or a code view otherwise navigates away and discards the half-completed form.',
-        systemDefault: 'true'
-    },
-    'NSGlobalDomain.com.apple.trackpad.forceClick': {
-        title: 'Force Click',
-        description: 'Turns off Force Click and its haptic feedback. A firm press then does nothing extra.',
-        category: 'Input',
-        systemDefault: 'true'
-    },
-    'NSGlobalDomain.com.apple.mouse.doubleClickThreshold': {
-        title: 'Double-Click Speed',
-        description: 'Sets the longest gap, in seconds, that still counts as a double-click. A larger number gives you more time between the two clicks.',
-        category: 'Input',
-        systemDefault: '0.5'
-    },
-    'NSGlobalDomain.com.apple.sound.beep.sound': {
-        title: 'Alert Sound',
-        description: 'Sets which system sound plays for an alert. The value is a full path to an audio file in /System/Library/Sounds.',
-        category: 'Audio',
-        systemDefault: '/System/Library/Sounds/Funk.aiff'
-    },
-    'NSGlobalDomain.WebAutomaticSpellingCorrectionEnabled': {
-        title: 'Autocorrect in Web Views',
-        description: 'Turns off automatic spelling correction inside WebKit text fields. This covers Safari and any app that shows web content.',
-        category: 'Keyboard',
-        why: 'This is a separate key from NSAutomaticSpellingCorrectionEnabled. Set only that one and Safari still corrects your typing.',
-        systemDefault: 'true'
-    },
-    'com.apple.finder.ShowPathbar': {
-        title: 'Finder Path Bar',
-        description: 'Shows the path bar along the bottom of a Finder window. The bar gives the folder chain, and each part of it accepts a drop.',
-        category: 'Finder',
-        systemDefault: 'false'
-    },
-    'com.apple.finder.ShowStatusBar': {
-        title: 'Finder Status Bar',
-        description: 'Shows the status bar along the bottom of a Finder window. It reports the item count and the free space on the disk.',
-        category: 'Finder',
-        systemDefault: 'false'
-    },
-    'com.apple.finder._FXShowPosixPathInTitle': {
-        title: 'POSIX Path in Title',
-        description: 'Puts the full POSIX path of the current folder in the Finder window title, instead of the folder name alone.',
-        category: 'Finder',
-        why: 'The title is then something you can read a path out of and paste into a terminal.',
-        systemDefault: 'false'
-    },
-    'com.apple.finder._FXSortFoldersFirst': {
-        title: 'Folders First',
-        description: 'Keeps folders above files when a Finder window sorts by name.',
-        category: 'File Management',
-        systemDefault: 'false'
-    },
-    'com.apple.finder.FXPreferredViewStyle': {
-        title: 'Default Finder View',
-        description: 'Sets the view a new Finder window opens in. "Nlsv" is list, "icnv" is icon, "clmv" is column and "glyv" is gallery.',
-        category: 'Finder',
-        systemDefault: 'icnv (icon view)'
-    },
-    'com.apple.finder.FXDefaultSearchScope': {
-        title: 'Default Search Scope',
-        description: 'Sets where a Finder search starts. "SCcf" searches the current folder, "SCev" searches the whole Mac and "SCsp" searches the previous scope.',
-        category: 'Finder',
-        why: 'A search that starts at the whole Mac returns thousands of results when you meant the folder in front of you.',
-        systemDefault: 'SCev (This Mac)'
-    },
-    'com.apple.finder.FXEnableExtensionChangeWarning': {
-        title: 'Extension Change Warning',
-        description: 'Turns off the confirmation that appears when you change a file extension.',
-        category: 'File Management',
-        why: 'The dialog fires on every rename that touches the extension, which teaches you to dismiss it without reading.',
-        systemDefault: 'true'
-    },
-    'com.apple.finder.WarnOnEmptyTrash': {
-        title: 'Empty Trash Warning',
-        description: 'Turns off the confirmation that appears when you empty the Trash.',
-        category: 'File Management',
-        systemDefault: 'true'
-    },
-    'com.apple.finder.NewWindowTarget': {
-        title: 'New Finder Window Target',
-        description: 'Sets the folder a new Finder window opens. "PfDe" is the Desktop, "PfHm" is the home folder and "PfAF" is Recents.',
-        category: 'Finder',
-        why: 'A target other than these three also needs NewWindowTargetPath, which holds an absolute path and does not move between machines.',
-        systemDefault: 'PfAF (Recents)'
-    },
-    'com.apple.finder.ShowHardDrivesOnDesktop': {
-        title: 'Hard Disks on Desktop',
-        description: 'Shows the internal hard disks on the Desktop.',
-        category: 'Finder',
-        systemDefault: 'false'
-    },
-    'com.apple.finder.ShowMountedServersOnDesktop': {
-        title: 'Servers on Desktop',
-        description: 'Keeps connected network servers off the Desktop.',
-        category: 'Finder',
-        systemDefault: 'false'
-    },
-    'com.apple.finder.QuitMenuItem': {
-        title: 'Quit Finder',
-        description: 'Adds a Quit item to the Finder menu, so Cmd-Q closes Finder. Finder restarts when you next open a window.',
-        category: 'Finder',
-        systemDefault: 'false'
-    },
-    'com.apple.finder.FinderSpawnTab': {
-        title: 'Open Folders in Windows',
-        description: 'Opens a folder in a new window rather than a new tab.',
-        category: 'Finder',
-        systemDefault: 'true'
-    },
-    'com.apple.screencapture.showsClicks': {
-        title: 'Show Clicks in Recordings',
-        description: 'Draws a circle at each mouse click in a screen recording.',
-        category: 'Screenshots',
-        why: 'A recording of a workflow is hard to follow when the clicks are invisible.',
-        systemDefault: 'false'
-    },
-    'com.apple.menuextra.clock.FlashDateSeparators': {
-        title: 'Flashing Time Separators',
-        description: 'Flashes the colon between the hours and the minutes once a second.',
-        category: 'Menu Bar',
-        systemDefault: 'false'
-    },
-    'com.apple.AdLib.allowApplePersonalizedAdvertising': {
-        title: 'Personalised Ads',
-        description: 'Turns off personalised advertising in the App Store, Apple News and Stocks.',
-        category: 'Security',
-        systemDefault: 'true'
-    },
-    'com.apple.AdLib.forceLimitAdTracking': {
-        title: 'Limit Ad Tracking',
-        description: 'Stops Apple\'s advertising platform from using the advertising identifier to target you.',
-        category: 'Security',
-        systemDefault: 'false'
-    },
-    'com.apple.CrashReporter.DialogType': {
-        title: 'Crash Reporter Dialog',
-        description: 'Stops the crash reporter dialog from appearing. "none" hides it, "basic" shows it and "developer" adds the full report.',
-        category: 'System',
-        why: 'A background process that crashes should not put a dialog in front of you for a report you do not send.',
-        systemDefault: 'basic'
-    },
-    'com.apple.WindowManager.EnableStandardClickToShowDesktop': {
-        title: 'Click Wallpaper to Show Desktop',
-        description: 'Stops a click on the wallpaper from hiding every window to reveal the Desktop.',
-        category: 'Interface',
-        why: 'macOS Sonoma turned this on by default. A stray click near the edge of the screen then clears the screen.',
-        systemDefault: 'true'
-    },
-    'com.apple.WindowManager.AppWindowGroupingBehavior': {
-        title: 'Stage Manager Grouping',
-        description: 'Sets how Stage Manager groups windows. 1 shows one window at a time, 0 groups every window of an application.',
-        category: 'Interface',
-        systemDefault: '0 (group by application)'
-    },
-    'com.apple.dt.Xcode.IDEDisableGitSupportForNewProjects': {
-        title: 'Xcode Git for New Projects',
-        description: 'Stops Xcode from creating a git repository when you make a new project.',
-        category: 'Applications',
-        why: 'The repository layout is a per-project decision, and the new-project sheet is the wrong place to make it.',
-        systemDefault: 'false'
-    },
-    'com.apple.dt.Xcode.IDEWorkspaceSuppressCleanBuildPrompt': {
-        title: 'Xcode Clean Build Prompt',
-        description: 'Stops Xcode from asking for confirmation before it cleans the build folder.',
-        category: 'Applications',
-        systemDefault: 'false'
-    },
-    'com.apple.AppleMultitouchTrackpad.ActuateDetents': {
-        title: 'Silent Clicking',
-        description: 'Turns off the haptic detent the trackpad fires on a click. The click still registers, without the tap you feel.',
-        category: 'Input',
-        systemDefault: '1 (haptic feedback on)'
-    },
-    // General UI / UX
-    'NSGlobalDomain.AppleInterfaceStyle': {
-        title: 'Dark Mode',
-        description: 'Turns on Dark Mode for the whole system. It changes the menu bar, the Dock, the window frames and most built-in apps. The key accepts only the string "Dark". There is no "Light" value, so you delete the key to go back to Light Mode: defaults delete NSGlobalDomain AppleInterfaceStyle.',
-        category: 'Appearance',
-        preference: true,
-        systemDefault: 'Key absent (Light Mode)',
-        background: 'macOS 10.14 Mojave introduced Dark Mode in 2018. A partial dark menu bar existed from Yosemite (10.10), but it used a different mechanism.'
-    },
-    'NSGlobalDomain.AppleShowScrollBars': {
-        title: 'Always Show Scrollbars',
-        description: 'Sets when macOS shows the scrollbars. "Always" keeps them visible. "Automatic" lets macOS decide from the input device: hidden for a trackpad, visible for a mouse. "WhenScrolling" hides them until you scroll. "Always" overrides the automatic device detection.',
-        category: 'Interface',
-        why: 'Overlay scrollbars appear and disappear dynamically, shifting layout and moving click targets. Always-visible scrollbars provide a consistent, predictable interface.',
-        systemDefault: '"Automatic"',
-        background: 'Scrollbars were always visible before OS X 10.7 Lion, which ported the iOS overlay-scrollbar paradigm to the Mac.'
-    },
-    'NSGlobalDomain.AppleShowAllExtensions': {
-        title: 'Show All File Extensions',
-        description: 'Makes Finder show the file extension for every file. This includes the types that macOS hides by default, such as .jpg, .txt and .mov. A single file can still override this with its own "Hide extension" attribute.',
-        category: 'Security',
-        why: 'Hidden extensions can make malicious files appear harmless — a macOS app bundle named "invoice.pdf.app" displays as "invoice.pdf" with extensions hidden.',
-        background: 'This setting is also CIS Benchmark control 6.2 for macOS hardening.'
-    },
-    'NSGlobalDomain.NSAutomaticWindowAnimationsEnabled': {
-        title: 'Disable Window Open Animations',
-        description: 'Turns off the scale-up animation that plays when a window first appears, so a window opens at once. It applies only to the apps that you start after you apply it. Start a running app again for the change to reach it. The compositor handles some animations in newer macOS, and this key does not change those.',
-        category: 'Performance',
-        why: 'Eliminates visual delay when rapidly switching or tiling windows.',
-        background: 'OS X 10.7 Lion introduced this key.'
-    },
-    'NSGlobalDomain.NSWindowResizeTime': {
-        title: 'Sheet (Dialog) Animation Duration',
-        description: 'Sets the speed of the sheet animation, not the window resize speed that the key name suggests. A sheet is a dialog that rolls down from the title bar of a window, such as Save or Print. The default is 0.2 seconds. A value of 0.001 makes a dialog appear almost at once.',
-        category: 'Performance',
-        why: 'The default 0.2s delay is perceptible and compounds across dozens of daily Save/Print interactions.',
-        systemDefault: '0.2',
-        background: 'Despite its name, this key does not affect general window resizing, and many dotfiles misidentify it as a window-resize setting. Robservatory.com measured a 47% time reduction for repeated Save dialog workflows.'
-    },
-    'NSGlobalDomain.NSQuitAlwaysKeepsWindows': {
-        title: 'Disable Window Restoration (Resume)',
-        description: 'Turns off Resume. Resume restores all the windows from your last session when you start an app again. A value of false matches "Close windows when quitting an app" in System Settings → Desktop & Dock.',
-        category: 'Performance',
-        why: 'Stale windows from a previous session can cause confusion after crashes or updates — apps reopen to whatever state they were in, which is rarely useful.',
-        systemDefault: 'true (window restoration enabled)',
-        background: 'Resume arrived in OS X 10.7 Lion and was immediately controversial; "how do I disable Resume?" was among the most-searched Lion questions in 2011. Apple finally surfaced it as a visible toggle in Ventura.'
-    },
-    'NSGlobalDomain.NSNavPanelExpandedStateForSaveMode': {
-        title: 'Expanded Save Dialogs',
-        description: 'Makes a Save dialog open in expanded mode, which shows the full directory browser. Set this key together with its "2" variant. The second key covers the other Save panel contexts that document-scoped saving added.',
-        category: 'Interface',
-        why: 'The collapsed panel hides the destination path. Files frequently end up saved to the wrong location because the user accepted a default they couldn\'t see.',
-        background: 'Apple introduced the simplified collapsed Save dialog in OS X 10.7 Lion. Before that, Save dialogs always showed the full hierarchy.'
-    },
-    'NSGlobalDomain.NSNavPanelExpandedStateForSaveMode2': {
-        title: 'Expanded Save Dialogs (Extended)',
-        description: 'Works with NSNavPanelExpandedStateForSaveMode. It covers the other document-saving contexts, which use a separate code path. Set both keys together, so all apps behave the same way.',
-        category: 'Interface'
-    },
-    'NSGlobalDomain.PMPrintingExpandedStateForPrint': {
-        title: 'Expanded Print Dialogs',
-        description: 'Makes a Print dialog open fully expanded. The expanded dialog shows the paper size, the orientation, the quality and the other options at once. Set this key together with its "2" variant.',
-        category: 'Interface',
-        background: 'The simplified collapsed Print dialog arrived in OS X 10.7 Lion alongside the collapsed Save dialog, and was equally unpopular.'
-    },
-    'NSGlobalDomain.PMPrintingExpandedStateForPrint2': {
-        title: 'Expanded Print Dialogs (Extended)',
-        description: 'Works with PMPrintingExpandedStateForPrint. It covers the other print dialog contexts. Set both keys together, so all apps behave the same way.',
-        category: 'Interface'
-    },
-    'NSGlobalDomain.NSDocumentSaveNewDocumentsToCloud': {
-        title: 'Default New Documents to Local Storage',
-        description: 'Stops the iCloud-aware apps from using iCloud Drive as the default location for a new document. These apps include TextEdit, Pages, Preview, Numbers and Keynote. A value of false keeps local storage as the default. You can still save to iCloud by hand.',
-        category: 'File Management',
-        why: 'Avoids accidental sync of sensitive or work-in-progress files to iCloud without explicit intent.',
-        systemDefault: 'true (saves to iCloud by default)',
-        background: 'Apple introduced iCloud document storage in OS X Mountain Lion (10.8, 2012) and set it as the default save location — a decision that surprised many users who later found their documents "missing" (stored in iCloud, not locally).'
-    },
-    'NSGlobalDomain.QLPanelAnimationDuration': {
-        title: 'Quick Look Animation Duration',
-        description: 'Sets the speed of the Quick Look panel animation. A value of 0 stops the animation, but only for the close (zoom-out) step. The open (zoom-in) animation does not change.',
-        category: 'Performance',
-        preference: true,
-        background: 'Quick Look debuted in Mac OS X 10.5 Leopard (2007). The close-only behaviour dates from El Capitan (10.11); community reports from 2016 confirmed it is intentional, not a bug.'
-    },
-
-    // Sound
-    'NSGlobalDomain.com.apple.sound.beep.volume': {
-        title: 'System Alert Volume',
-        description: 'Sets the system alert volume. A value of 0 makes the alert silent. The key changes only the alert audio channel: the error sounds, the notification chimes and the volume-limit feedback. It does not change media playback in an app such as Spotify or Safari. Core Audio routes the alert channel separately from the main output volume.',
-        category: 'Audio',
-        preference: true
-    },
-    'NSGlobalDomain.com.apple.sound.uiaudio.enabled': {
-        title: 'UI Sound Effects',
-        description: 'Turns off the interface sound effects. These include the drag-to-trash swoosh, the empty-trash rumble and the other interaction sounds. A value of 0 matches "Play user interface sound effects" turned off in System Settings → Sound.',
-        category: 'Audio',
-        preference: true
-    },
-
-    // Keyboard & input
-    'NSGlobalDomain.KeyRepeat': {
-        title: 'Key Repeat Rate',
-        description: 'Sets the interval between repeated characters when you hold a key. The unit is about 16.7 ms, so a value of 2 gives about 33 ms. The System Settings slider covers a limited range, and defaults write accepts a value below that minimum. A value of 1 is faster than System Settings can set. Log out and log in again for the change to take effect.',
-        category: 'Keyboard',
-        preference: true,
-        systemDefault: '6 (~100ms)'
-    },
-    'NSGlobalDomain.InitialKeyRepeat': {
-        title: 'Key Repeat Delay',
-        description: 'Do not set a value below 10, which is about 167 ms: a delay that short repeats characters by accident. This key sets the delay before key repeat starts when you hold a key. The unit is about 16.7 ms, so a value of 15 gives about 250 ms. That is shorter than the System Settings minimum of 25, which is about 420 ms. Log out and log in again for the change to take effect.',
-        category: 'Keyboard',
-        preference: true,
-        systemDefault: '25 (~420ms)'
-    },
-    'NSGlobalDomain.ApplePressAndHoldEnabled': {
-        title: 'Disable Accent Picker, Restore Key Repeat',
-        description: 'Turns off the accent-character picker that appears when you hold a key, and restores the traditional key repeat. macOS gives no System Settings toggle for this key. Use defaults write, or a third-party tool such as TinkerTool.',
-        category: 'Keyboard',
-        why: 'The accent picker interrupts keyboard-driven navigation and editing. Holding j or k in a text editor should repeat the character, not open a popup.',
-        systemDefault: 'true (accent picker enabled)',
-        background: 'The popup arrived in OS X 10.7 Lion as a direct port of iOS keyboard behavior, replacing decades of key-repeat defaults. It was one of the first popular Lion customization tips — osxdaily.com covered it within days of Lion\'s July 2011 release — and as of 2024 Apple still provides no System Settings toggle.'
-    },
-    'NSGlobalDomain.AppleKeyboardUIMode': {
-        title: 'Full Keyboard Navigation',
-        description: 'Turns on full keyboard navigation, so Tab moves the focus to every control. This includes the buttons, the checkboxes and the radio buttons, not only the text fields and the lists. A value of 2 turns it on, and values 2 and 3 behave the same way on current macOS. The System Settings toggle is Keyboard → "Keyboard navigation". Press Control-F7 to toggle it without a settings change.',
-        category: 'Keyboard',
-        why: 'Allows Tab to cycle through all controls — buttons, radio buttons, checkboxes — without reaching for the mouse.',
-        systemDefault: '0 (text fields and lists only)'
-    },
-    'NSGlobalDomain.NSAutomaticCapitalizationEnabled': {
-        title: 'Disable Auto-Capitalization',
-        description: 'Turns off the automatic capitalization of the first word after a period. It matches "Capitalize words automatically" turned off in System Settings → Keyboard → Text Replacements.',
-        category: 'Keyboard',
-        why: 'Breaks commands, code, and domain names entered in text fields outside terminals.',
-        background: 'This key belongs to the NSAutomatic* family of text-correction features, ported from iOS keyboard intelligence to macOS.'
-    },
-    'NSGlobalDomain.NSAutomaticDashSubstitutionEnabled': {
-        title: 'Disable Smart Dashes',
-        description: 'Turns off the automatic dash substitution. macOS otherwise replaces two hyphens with an en dash (–), and three hyphens with an em dash (—).',
-        category: 'Keyboard',
-        why: 'Silently converts "--" to an em dash, breaking markdown, CLI flags, and code pasted into apps with smart dashes enabled.'
-    },
-    'NSGlobalDomain.NSAutomaticPeriodSubstitutionEnabled': {
-        title: 'Disable Double-Space Period',
-        description: 'Turns off the double-space substitution. macOS otherwise inserts a period and a space when you type two spaces.',
-        category: 'Keyboard',
-        why: 'Interferes with intentional double-spacing in code, indentation, and command entry.',
-        background: 'The gesture is a port of the iOS keyboard behavior.'
-    },
-    'NSGlobalDomain.NSAutomaticQuoteSubstitutionEnabled': {
-        title: 'Disable Smart Quotes',
-        description: 'Turns off the smart-quote substitution. macOS otherwise replaces the straight apostrophes and quotation marks with curly typographic ones.',
-        category: 'Keyboard',
-        why: 'Curly quotes break shell scripts, JSON, code snippets, and command-line arguments. The substitution is invisible until something fails.'
-    },
-    'NSGlobalDomain.NSAutomaticSpellingCorrectionEnabled': {
-        title: 'Disable Autocorrect',
-        description: 'Turns off the automatic spelling correction. It matches "Correct spelling automatically" turned off in System Settings → Keyboard → Text Replacements.',
-        category: 'Keyboard',
-        why: 'Mangles technical terms, hostnames, variable names, and other domain-specific vocabulary that the system dictionary doesn\'t recognize.'
-    },
-
-    // Dock
-    'com.apple.dock.orientation': {
-        title: 'Dock Position',
-        description: 'Sets the position of the Dock on the screen. The values are "left", "bottom" and "right". Run killall Dock for the change to take effect. With more than one display, the Dock appears on the display that System Settings → Displays → Arrangement makes primary.',
-        category: 'Dock',
-        preference: true,
-        systemDefault: '"bottom"'
-    },
-    'com.apple.dock.tilesize': {
-        title: 'Dock Icon Size',
-        description: 'Sets the size of the Dock icons in pixels. The range is about 16 to 128. The System Settings slider starts near 36 to 48, which depends on the display resolution. Run killall Dock for the change to take effect.',
-        category: 'Dock',
-        preference: true,
-        systemDefault: '~48px (varies by display resolution)'
-    },
-    'com.apple.dock.mineffect': {
-        title: 'Window Minimize Effect',
-        description: 'Sets the window minimize animation. "genie" uses the stretchy drain-into-Dock effect. "scale" shrinks the window in place. A third value, "suck", also works, but it never appears in System Settings.',
-        category: 'Dock',
-        preference: true,
-        systemDefault: '"genie"',
-        background: 'The "suck" value is a vacuum-like animation. It has existed since macOS 10.0, reportedly even in pre-release builds, but has never appeared in System Preferences; the popular theory is that Apple kept it hidden because of the name. All three values work on macOS 15.'
-    },
-    'com.apple.dock.minimize-to-application': {
-        title: 'Minimize Windows into App Icon',
-        description: 'Makes a minimized window shrink into the Dock icon of its app. The window does not become a separate thumbnail in the minimized-windows area of the Dock.',
-        category: 'Dock',
-        why: 'Minimized windows otherwise accumulate as separate thumbnails in the Dock, cluttering it. This keeps the Dock layout stable regardless of how many windows are minimized.',
-        systemDefault: 'false (minimized windows appear as separate thumbnails)'
-    },
-    'com.apple.dock.no-bouncing': {
-        title: 'Disable Dock Icon Bouncing',
-        description: 'Turns off both kinds of Dock icon bounce. These are the launch bounce, which plays while an app starts, and the alert bounce, which plays when an app wants your attention.',
-        category: 'Dock',
-        why: 'Eliminates attention-hijacking animations during focused work. If an app needs attention, the notification will still appear — it just won\'t be accompanied by a bouncing icon.',
-        systemDefault: 'false (bouncing enabled)',
-        background: 'In macOS 10.3 Panther these were two separate keys: launchanim controlled the launch bounce and had a UI checkbox in Dock preferences, while no-bouncing controlled the notification bounce. Both remain independently settable today.'
-    },
-    'com.apple.dock.show-recents': {
-        title: 'Hide Recent Apps in Dock',
-        description: 'Hides the "Recent Applications" section of the Dock. A divider separates this section, and it shows the apps that you used recently but did not pin.',
-        category: 'Dock',
-        preference: true,
-        systemDefault: 'true (recent apps shown)',
-        background: 'macOS 10.14 Mojave introduced this section in 2018 and turns it on by default. Power users with curated Dock layouts typically disable it.'
-    },
-    'com.apple.dock.autohide-delay': {
-        title: 'Dock Auto-Hide Delay',
-        description: 'Sets the delay before a hidden Dock appears again when the cursor reaches the screen edge. The default is about 0.5 seconds, and a value of 0 shows the Dock at once. The delay is visible only when Dock auto-hide is on. This script does not turn auto-hide on, but the value applies if you turn it on later.',
-        category: 'Dock',
-        preference: true,
-        systemDefault: '0.5 (seconds)'
-    },
-
-    // Finder
-    'com.apple.finder.DisableAllAnimations': {
-        title: 'Disable Finder Animations',
-        description: 'Turns off the Finder animations. These include the Get Info window, the icon movement and the scroll overscroll bounce. Run killall Finder for the change to take effect. Some animations in newer macOS use compositor layers, and this key does not change those.',
-        category: 'Finder',
-        why: 'Makes file operations feel instant. Each animation adds visible latency per action, which compounds across a day of file management.',
-        background: 'This is one of the earliest macOS performance tips, documented since about 2007.'
-    },
-
-    // Screenshots
-    'com.apple.screencapture.disable-shadow': {
-        title: 'Disable Screenshot Window Shadow',
-        description: 'Turns off the drop shadow that macOS adds to a window screenshot, which you take with Cmd+Shift+4 and then Space. A value of true gives a clean PNG file with no shadow padding. The key changes the window captures only. A region capture and a full-screen capture never have a shadow. Run killall SystemUIServer for the change to take effect.',
-        category: 'Screenshots',
-        why: 'Shadows add invisible padding around the image canvas and visual noise in documentation, where a clean window edge is more useful than a soft drop shadow.',
-        systemDefault: 'false (shadow enabled)',
-        background: 'The shadow adds transparent padding around the image, and it was a celebrated feature of Mac screenshots from the Leopard era.'
-    },
-    'com.apple.screencapture.show-thumbnail': {
-        title: 'Disable Screenshot Thumbnail Preview',
-        description: 'On macOS 15 Sequoia this preference may not persist, because it can reset itself without warning. The key hides the floating thumbnail preview that appears after you take a screenshot.',
-        category: 'Screenshots',
-        why: 'The thumbnail overlays the screen for several seconds after each capture and delays access to the file path — it adds friction without adding information.',
-        systemDefault: 'true (thumbnail shown)',
-        background: 'macOS 10.14 Mojave introduced the thumbnail. Multiple reports, including MacRumors forum threads specific to 15.3.2, confirm the setting spontaneously resets itself on Sequoia, sometimes multiple times per day.'
-    },
-    'com.apple.screencapture.include-date': {
-        title: 'Exclude Date from Screenshot Filenames',
-        description: 'Sets whether the capture date and time appear in the screenshot filename. A value of true gives a name such as "Screenshot 2025-03-20 at 13.27.20.png". A value of false gives "Screenshot.png", and adds a number to each later capture. Run killall SystemUIServer for the change to take effect.',
-        category: 'Screenshots',
-        why: 'Predictable, date-free filenames are easier to reference in scripts, automation, and documentation without needing to know the exact capture time.',
-        systemDefault: 'true (date included)'
-    },
-    'com.apple.screencapture.location': {
-        title: 'Screenshot Save Location',
-        description: 'Sets the default save location for every screenshot. Make sure that the directory exists: if it is absent, a screenshot can fail without a message. Run killall SystemUIServer for the change to take effect.',
-        category: 'Screenshots',
-        preference: true,
-        background: 'Before macOS 10.14 Mojave you could change this only with defaults write, because no UI option existed. Mojave added the location picker to the Shift-Cmd-5 screenshot toolbar.'
-    },
-
-    // Desktop Services
-    'com.apple.desktopservices.DSDontWriteNetworkStores': {
-        title: 'No .DS_Store Files on Network Volumes',
-        description: 'Stops Finder from creating .DS_Store and ._ (AppleDouble) sidecar files on a network volume. This covers AFP, SMB, NFS and WebDAV. A .DS_Store file stores the view preferences of a directory, and on a network share it can also slow SMB browsing. The key does not delete the .DS_Store files that already exist.',
-        category: 'File Management',
-        why: '.DS_Store files expose directory metadata and appear as visible clutter to Windows and Linux users on shared volumes.',
-        background: 'Apple has an official support article (HT208209) recommending this setting for enterprise SMB environments.'
-    },
-    'com.apple.desktopservices.DSDontWriteUSBStores': {
-        title: 'No .DS_Store Files on USB Volumes',
-        description: 'Stops macOS from writing .DS_Store and ._ (AppleDouble) sidecar files to a USB drive, an SD card and other removable media.',
-        category: 'File Management',
-        why: 'Portable drives are frequently shared across OSes. .DS_Store files are invisible on macOS but show up as junk on Windows and Linux.'
-    },
-
-    // Disk images
-    'com.apple.frameworks.diskimages.skip-verify': {
-        title: 'Skip DMG Checksum Verification',
-        description: 'Skips the checksum check when macOS mounts a disk image (.dmg) file. This key is probably not effective on current macOS: DiskImageMounter appears to ignore it, but it writes without an error. The checksum check finds corruption and tampering, so skipping it for a downloaded image is a security trade-off.',
-        category: 'Performance',
-        why: 'Verification is redundant when the source is trusted and skips multi-second delays on large installers. Note: likely a no-op since El Capitan.',
-        background: 'Community reports indicate DiskImageMounter has ignored these keys since OS X 10.11.3 El Capitan, although they still write without an error.'
-    },
-    'com.apple.frameworks.diskimages.skip-verify-locked': {
-        title: 'Skip Locked DMG Verification',
-        description: 'Skips the checksum check for a locked disk image. Like skip-verify, this key is probably not effective on current macOS.',
-        category: 'Performance'
-    },
-    'com.apple.frameworks.diskimages.skip-verify-remote': {
-        title: 'Skip Remote DMG Verification',
-        description: 'Skips the "Verifying..." spinner for a disk image that you downloaded from the internet. Like the other two verify keys, this key is probably not effective on current macOS.',
-        category: 'Performance',
-        background: 'Of the three verify keys, this one was historically the most visible to the user.'
-    },
-
-    // Time Machine
-    'com.apple.TimeMachine.DoNotOfferNewDisksForBackup': {
-        title: 'Suppress Time Machine New Disk Prompt',
-        description: 'Stops the "Do you want to use [disk] to back up with Time Machine?" dialog that appears when you connect a blank external drive. The key hides the prompt only. It does not turn Time Machine off, and it does not change an existing backup destination. Clicking "Don\'t Use" normally writes an invisible .com.apple.timemachine.donotpresent marker file to that one volume. This key instead hides the prompt for every new disk.',
-        category: 'System',
-        why: 'Prevents Time Machine dialogs from interrupting when external drives are connected for other purposes — archiving, file transfers, etc.'
-    },
-
-    // Activity Monitor
-    'com.apple.ActivityMonitor.IconType': {
-        title: 'Activity Monitor Dock Icon Display',
-        description: 'Sets what the Activity Monitor Dock icon shows while the app runs. The values are 0 for the standard icon, 2 for the network usage and 3 for the disk usage. Value 5 gives the CPU meter bar, and value 6 gives the CPU history graph. This script uses 2, which shows mirrored network line graphs.',
-        category: 'System Monitoring',
-        why: 'Makes system activity visible at a glance in the Dock without needing to switch windows.',
-        systemDefault: '0 (standard app icon)',
-        background: 'Most dotfiles use 5, the CPU meter, for at-a-glance load visibility.'
-    },
-    'com.apple.ActivityMonitor.ShowCategory': {
-        title: 'Activity Monitor Default Process Filter',
-        description: 'Sets the default process filter. Value 100 shows All Processes. The other values are 101 for My Processes, 102 for System Processes and 103 for Other Processes. Value 106 shows Active Processes, and value 107 shows Windowed Processes.',
-        category: 'System Monitoring',
-        why: 'The default "My Processes" view hides background and system processes that may be consuming significant resources.',
-        systemDefault: '101 (My Processes only)'
-    },
-    'com.apple.ActivityMonitor.SortColumn': {
-        title: 'Activity Monitor Sort Column',
-        description: 'Sets the default sort column. CPUUsage sorts by CPU consumption, which puts a runaway process at the top. The other values include CPUTime, PID, ProcessName, RealPrivateMemory and PhysicalMemory.',
-        category: 'System Monitoring',
-        why: 'Surfaces the highest-load process immediately on open, without manually clicking a column header each time.'
-    },
-    'com.apple.ActivityMonitor.SortDirection': {
-        title: 'Activity Monitor Sort Direction',
-        description: 'Sets the sort direction. Value 0 sorts descending, which puts the highest values first, and value 1 sorts ascending. Value 0 with CPUUsage puts the most CPU-hungry processes at the top.',
-        category: 'System Monitoring'
-    },
-    'com.apple.ActivityMonitor.UpdatePeriod': {
-        title: 'Activity Monitor Refresh Rate',
-        description: 'Sets the refresh interval of Activity Monitor in seconds. Value 1 refreshes every second and is the most responsive. Value 2 refreshes every 2 seconds, and value 5 every 5 seconds. A more frequent refresh adds a small amount of CPU overhead from the monitoring process.',
-        category: 'System Monitoring',
-        why: 'The 5s default misses short-lived CPU spikes. A runaway process can max out a core and settle down before the display refreshes.',
-        systemDefault: '5 (seconds)'
-    },
-
-    // TextEdit
-    'com.apple.TextEdit.RichText': {
-        title: 'Default to Plain Text',
-        description: 'Makes a new TextEdit document open as plain text (.txt) instead of rich text (.rtf).',
-        category: 'Applications',
-        why: 'RTF creates binary files that can\'t be read by other editors, diffed in git, or inspected as plain text. TextEdit is most useful as a scratch-pad for plain text.',
-        systemDefault: '1 (Rich Text / RTF)',
-        background: 'The default RTF mode has confused many users who expected a plain text editor — pasting code into an RTF document silently corrupts formatting with invisible markup. This is one of the most commonly cited macOS developer setup tips, and it has existed as a preference since early Mac OS X.'
-    },
-
-    // Terminal
-    'com.apple.Terminal.FocusFollowsMouse': {
-        title: 'Terminal Focus Follows Mouse',
-        description: 'Take care with this key: if the cursor drifts over a Terminal window while you type elsewhere, that window takes the input. The key turns on X11-style focus-follows-mouse for Terminal. A Terminal window under the cursor accepts keyboard input without a click. macOS does not raise the window, so the focus moves silently.',
-        category: 'Terminal',
-        why: 'Avoids needing to click to focus a terminal window when working across multiple panes, reducing hand movement.',
-        systemDefault: 'false (click to focus)'
-    },
-    'com.apple.Terminal.SecureKeyboardEntry': {
-        title: 'Secure Keyboard Entry',
-        description: 'Stops other processes from reading the keystrokes that you type into Terminal. These processes include the screen readers, the accessibility tools, TextExpander and a possible keylogger. The trade-off is that TextExpander and similar keyboard-monitoring utilities stop working in a Terminal window.',
-        category: 'Terminal',
-        why: 'Prevents other processes from intercepting keystrokes typed into Terminal — including passwords, private keys, and API tokens.',
-        systemDefault: 'false (not secure)',
-        background: 'This is a Level 1 recommendation in the CIS Apple macOS benchmarks — control 6.4.1 in the Ventura benchmark, with equivalents in earlier versions.'
-    },
-    'com.apple.Terminal.ShowLineMarks': {
-        title: 'Hide Terminal Line Marks',
-        description: 'Turns off the line mark gutter. The gutter shows a small arrow in the left margin of Terminal, at the start of each shell prompt. The arrows help you move between command outputs. A value of false hides them.',
-        category: 'Terminal',
-        preference: true,
-        systemDefault: 'true (line marks shown)'
-    },
-
-    // Menu bar clock
-    'com.apple.menuextra.clock.IsAnalog': {
-        title: 'Digital Clock (not Analog)',
-        description: 'Run killall ControlCenter for a clock change to take effect. killall SystemUIServer does not work for the clock keys, and the wrong process leaves no visible change. This key sets the menu bar clock to digital with false, or to an analog circular face with true.',
-        category: 'Menu Bar',
-        preference: true,
-        background: 'The clock keys moved to ControlCenter in macOS Big Sur (11.0). Before that, killall SystemUIServer applied them.'
-    },
-    'com.apple.menuextra.clock.ShowAMPM': {
-        title: 'Show AM/PM Indicator',
-        description: 'Shows the AM/PM designator in the menu bar clock for 12-hour time. Run killall ControlCenter for the change to take effect, not killall SystemUIServer.',
-        category: 'Menu Bar',
-        preference: true
-    },
-    'com.apple.menuextra.clock.ShowDayOfWeek': {
-        title: 'Show Day of Week',
-        description: 'Shows the abbreviated day of the week, such as "Thu", in the menu bar clock. Run killall ControlCenter for the change to take effect, not killall SystemUIServer.',
-        category: 'Menu Bar',
-        preference: true
-    },
-    'com.apple.menuextra.clock.ShowDate': {
-        title: 'Show Date in Menu Bar Clock',
-        description: 'Sets when the menu bar clock shows the date. Value 0 never shows it, value 1 always shows it, and value 2 shows it when space allows. Run killall ControlCenter for the change to take effect, not killall SystemUIServer.',
-        category: 'Menu Bar',
-        preference: true,
-        background: 'macOS 12.4 Monterey introduced this key to replace the older boolean ShowDayOfMonth key, which had no "when space allows" middle option. A dotfile that still sets ShowDayOfMonth uses the deprecated predecessor.'
-    },
-
-
-    // Terminal.app — window profile
-    'com.apple.Terminal.Default Window Settings': {
-        title: 'Default Terminal Profile',
-        description: 'Sets the profile that Terminal uses for a new window. "Pro" is a built-in profile with a dark background and light text. This key holds the profile name as a string, so the name must match a profile that Terminal has.',
-        category: 'Interface',
-        preference: true,
-        systemDefault: '"Basic"',
-        background: 'The key name contains spaces, which is unusual for a defaults key. Quote it on the command line, or the shell splits it into three arguments.'
-    },
-    'com.apple.Terminal.Startup Window Settings': {
-        title: 'Startup Terminal Profile',
-        description: 'Sets the profile that Terminal uses for the window it opens at startup. Set this key together with "Default Window Settings". If you set only one of the two, the first window does not match the windows that you open later.',
-        category: 'Interface',
-        preference: true,
-        systemDefault: '"Basic"'
-    },
-
-    // Trackpad (opt-in: --with-trackpad)
-    'com.apple.AppleMultitouchTrackpad.Clicking': {
-        title: 'Disable Tap to Click',
-        description: 'Turns off tap-to-click. You must press the trackpad until it clicks. A tap alone does nothing.',
-        category: 'Input',
-        preference: true,
-        why: 'A resting finger can register a tap and move the cursor or select text by accident.',
-        systemDefault: 'false on a desktop trackpad; true on many notebooks after Setup Assistant'
-    },
-    'com.apple.AppleMultitouchTrackpad.ForceSuppressed': {
-        title: 'Suppress Force Click',
-        description: 'Turns off Force Touch. A hard press no longer triggers a force click, and it no longer gives haptic feedback for that gesture.',
-        category: 'Input',
-        preference: true,
-        why: 'A force click fires on a firm ordinary click and opens a lookup panel that interrupts the task.',
-        systemDefault: 'false (Force Touch active)',
-        background: 'Apple added Force Touch to the trackpad with the Retina MacBook in 2015. The trackpad does not move; a Taptic Engine simulates the click.'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadCornerSecondaryClick': {
-        title: 'Secondary Click in the Bottom-Right Corner',
-        description: 'Sets the secondary click to the bottom-right corner of the trackpad. Value 2 selects the bottom-right corner. Value 1 selects the bottom-left corner. Value 0 turns the corner click off.',
-        category: 'Input',
-        preference: true,
-        systemDefault: '0 (corner click off; two-finger click instead)'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadPinch': {
-        title: 'Disable Pinch to Zoom',
-        description: 'Turns off the two-finger pinch that zooms in and out.',
-        category: 'Input',
-        preference: true,
-        why: 'The pinch fires during ordinary two-finger scrolling and changes the zoom level without intent.',
-        systemDefault: 'true (pinch to zoom on)'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadRightClick': {
-        title: 'Disable Two-Finger Secondary Click',
-        description: 'Turns off the two-finger secondary click. Use the bottom-right corner instead. See TrackpadCornerSecondaryClick.',
-        category: 'Input',
-        preference: true,
-        systemDefault: 'true (two-finger secondary click on)'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadRotate': {
-        title: 'Disable Rotate Gesture',
-        description: 'Turns off the two-finger rotate gesture.',
-        category: 'Input',
-        preference: true,
-        why: 'The rotate gesture can turn an image or a PDF page by accident during a two-finger scroll.',
-        systemDefault: 'true (rotate on)'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadThreeFingerDrag': {
-        title: 'Disable Three-Finger Drag',
-        description: 'Turns off three-finger drag. You cannot move a window with three fingers.',
-        category: 'Input',
-        preference: true,
-        systemDefault: 'false (three-finger drag off)',
-        background: 'macOS Sierra moved this control out of the Trackpad pane and into Accessibility → Pointer Control → Trackpad Options. The defaults key still works.'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadThreeFingerTapGesture': {
-        title: 'Disable Three-Finger Tap',
-        description: 'Turns off the three-finger tap that looks up a word or shows data detectors. Value 0 turns the gesture off. Value 2 turns it on.',
-        category: 'Input',
-        preference: true,
-        systemDefault: '2 (look up on)'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadTwoFingerDoubleTapGesture': {
-        title: 'Disable Smart Zoom',
-        description: 'Turns off the two-finger double tap that zooms into a page or an image.',
-        category: 'Input',
-        preference: true,
-        systemDefault: '1 (smart zoom on)'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadTwoFingerFromRightEdgeSwipeGesture': {
-        title: 'Disable Notification Centre Swipe',
-        description: 'Turns off the two-finger swipe from the right edge that opens Notification Centre.',
-        category: 'Input',
-        preference: true,
-        why: 'The gesture fires when you scroll near the right edge, and the panel covers the window.',
-        systemDefault: '3 (swipe on)'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadThreeFingerHorizSwipeGesture': {
-        title: 'Disable Three-Finger Horizontal Swipe',
-        description: 'Turns off the three-finger horizontal swipe that moves between full-screen apps and Spaces.',
-        category: 'Input',
-        preference: true,
-        systemDefault: '2 (swipe on)'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadThreeFingerVertSwipeGesture': {
-        title: 'Disable Three-Finger Vertical Swipe',
-        description: 'Turns off the three-finger vertical swipe that opens Mission Control and App Expose.',
-        category: 'Input',
-        preference: true,
-        systemDefault: '2 (swipe on)'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadFourFingerHorizSwipeGesture': {
-        title: 'Disable Four-Finger Horizontal Swipe',
-        description: 'Turns off the four-finger horizontal swipe that moves between full-screen apps and Spaces.',
-        category: 'Input',
-        preference: true,
-        systemDefault: '2 (swipe on)'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadFourFingerVertSwipeGesture': {
-        title: 'Disable Four-Finger Vertical Swipe',
-        description: 'Turns off the four-finger vertical swipe that opens Mission Control.',
-        category: 'Input',
-        preference: true,
-        systemDefault: '2 (swipe on)'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadFourFingerPinchGesture': {
-        title: 'Disable Four-Finger Pinch',
-        description: 'Turns off the four-finger pinch that opens Launchpad, and the four-finger spread that shows the desktop.',
-        category: 'Input',
-        preference: true,
-        systemDefault: '2 (pinch on)'
-    },
-    'com.apple.AppleMultitouchTrackpad.TrackpadFiveFingerPinchGesture': {
-        title: 'Disable Five-Finger Pinch',
-        description: 'Turns off the five-finger pinch that opens Launchpad.',
-        category: 'Input',
-        preference: true,
-        systemDefault: '2 (pinch on)'
-    },
-};
+// MRK-1, the macOS defaults reference. The keys are config/defaults.tsv and
+// their descriptions docs/defaults/descriptions.tsv; the page reads both when
+// it loads, and check-defaults-desc keeps the two in step.
 
 class DefaultsDocGenerator {
     constructor() {
         this.sections = [];
         this.filteredSections = [];
         this.searchTerm = '';
+        this.descriptions = new Map();
         this.init();
     }
     
@@ -996,35 +73,51 @@ class DefaultsDocGenerator {
         });
     }
     
-    // config/defaults.tsv on main, which defaults.sh reads. Served from a
+    // A file of the repository on main: config/defaults.tsv, which
+    // defaults.sh reads, or docs/defaults/descriptions.tsv. Served from a
     // clone on localhost (python3 -m http.server, from the top of the
     // repository), the page reads that clone's copy instead, so a change to
-    // the file can be seen before it is pushed.
-    tableUrl() {
+    // either file can be seen before it is pushed. Both files always come
+    // from the same place.
+    repoFileUrl(path) {
         const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
-        return local ? new URL('../../config/defaults.tsv', location.href).href
-                     : 'https://raw.githubusercontent.com/sevmorris/mrk/main/config/defaults.tsv';
+        return local ? new URL('../../' + path, location.href).href
+                     : 'https://raw.githubusercontent.com/sevmorris/mrk/main/' + path;
+    }
+
+    // fetch only rejects on a network failure, so without the status check
+    // an HTTP error resolved normally and response.text() handed the parser
+    // the error body. Parsing "404: Not Found" yields zero sections and zero
+    // entries, so the page rendered completely blank — and the catch in
+    // loadTable never fired, which meant loadDemoData(), the fallback that
+    // exists for exactly this, could never run. raw.githubusercontent.com
+    // rate-limits unauthenticated requests, so this is reachable in ordinary
+    // use, not just if the repo moves.
+    async fetchText(url) {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status} ${response.statusText} for ${url}`);
+        }
+        return response.text();
     }
 
     async loadTable() {
-        const url = this.tableUrl();
+        // The descriptions load beside the table. Without them every key is
+        // still shown, with a generic description, under a notice that says so.
+        const descriptionsUrl = this.repoFileUrl('docs/defaults/descriptions.tsv');
+        const descriptions = this.fetchText(descriptionsUrl).then(
+            text => { this.parseDescriptions(text); return null; },
+            error => error);
         try {
-            const response = await fetch(url);
-
-            // fetch only rejects on a network failure, so without this an HTTP
-            // error resolved normally and response.text() handed the parser
-            // the error body. Parsing "404: Not Found" yields zero sections and
-            // zero entries, so the page rendered completely blank — and the
-            // catch below never fired, which meant loadDemoData(), the fallback
-            // that exists for exactly this, could never run.
-            // raw.githubusercontent.com rate-limits unauthenticated requests,
-            // so this is reachable in ordinary use, not just if the repo moves.
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status} ${response.statusText} for ${url}`);
-            }
-
-            const table = await response.text();
+            const table = await this.fetchText(this.repoFileUrl('config/defaults.tsv'));
+            const descriptionsError = await descriptions;
             this.parseTable(table);
+            if (descriptionsError) {
+                console.error('Failed to load the descriptions:', descriptionsError);
+                this.showLoadFailure('Could not load docs/defaults/descriptions.tsv from GitHub (' +
+                    this.errorText(descriptionsError) + '). Each key below has a generic description ' +
+                    'in place of its own. Reload to try again, or read the file in the repository.');
+            }
         } catch (error) {
             console.error('Failed to load the table:', error);
             // Say so. The demo set is one section and one entry standing in for
@@ -1034,11 +127,17 @@ class DefaultsDocGenerator {
             // assigns content.innerHTML and would wipe a notice prepended before
             // it. Render first, then put the warning above the result.
             this.loadDemoData();
-            this.showLoadFailure(error);
+            this.showLoadFailure('Could not load config/defaults.tsv from GitHub (' + this.errorText(error) +
+                '). The entries below are a small demo set, not the real reference. ' +
+                'Reload to try again, or read config/defaults.tsv in the repository.');
         }
     }
 
-    showLoadFailure(error) {
+    errorText(error) {
+        return error && error.message ? error.message : 'unknown error';
+    }
+
+    showLoadFailure(message) {
         const content = document.getElementById('content');
         if (!content) return;
         const notice = document.createElement('div');
@@ -1046,15 +145,32 @@ class DefaultsDocGenerator {
         notice.setAttribute('role', 'alert');
         notice.style.cssText = 'border:2px solid #b00;padding:1rem;margin:1rem 0;' +
                                'background:#fff4f4;color:#500;font-weight:600;';
-        notice.textContent =
-            'Could not load config/defaults.tsv from GitHub (' + (error && error.message ? error.message : 'unknown error') +
-            '). The entries below are a small demo set, not the real reference. ' +
-            'Reload to try again, or read config/defaults.tsv in the repository.';
+        notice.textContent = message;
         content.prepend(notice);
     }
 
-    // A field of config/defaults.tsv as text: \t is a tab, \n a newline and \\
-    // a backslash. null for a backslash before anything else.
+    // docs/defaults/descriptions.tsv has one description on each line:
+    // domain, key, title, category, default, preference, description, why and
+    // background, separated by tabs. A line that starts with # is a comment.
+    // check-defaults-desc refuses a line in any other shape, so the page
+    // passes over one.
+    parseDescriptions(content) {
+        this.descriptions = new Map();
+        for (const line of content.split('\n')) {
+            if (line.startsWith('#') || !line.trim()) continue;
+            const fields = line.split('\t').map(f => this.unescapeField(f));
+            if (fields.length !== 9 || fields.includes(null)) continue;
+            const [domain, key, title, category, systemDefault, preference, description, why, background] = fields;
+            this.descriptions.set(`${domain}\t${key}`, {
+                title, category, systemDefault, description, why, background,
+                preference: preference === 'true'
+            });
+        }
+    }
+
+    // A field of config/defaults.tsv or descriptions.tsv as text: \t is a
+    // tab, \n a newline and \\ a backslash. null for a backslash before
+    // anything else.
     unescapeField(field) {
         let bad = false;
         const text = field.replace(/\\(.?)/g, (m, c) => {
@@ -1137,7 +253,7 @@ class DefaultsDocGenerator {
     }
 
     makeEntry(domain, key, type, value) {
-        const description = DEFAULT_DESCRIPTIONS[`${domain}.${key}`];
+        const description = this.descriptions.get(`${domain}\t${key}`);
         const dq = this.shellQuote(domain);
         const kq = this.shellQuote(key);
 

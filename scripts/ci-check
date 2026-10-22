@@ -27,7 +27,7 @@ ci-check takes no options other than --help. It runs check-picker-desc,
 check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
-check-picker-desc, topgrade-npm, picard-settings, snapshot-prefs, plist-import-order, setup-safety, undo-files,
+check-picker-desc, check-defaults-desc, topgrade-npm, picard-settings, snapshot-prefs, plist-import-order, setup-safety, undo-files,
 dock-setup, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, update-full, maintain, tidy-projects, prune-deployments, install-apps, make-pull, gitconfig, dead-functions and docs-drift tests in tests/, shellcheck over every tracked bash script,
 and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
@@ -152,6 +152,13 @@ log "sync"
 # added in Barkeep got no description, and turned check-picker-desc red.
 log "check-picker-desc --fix"
 "$REPO_ROOT/tests/check-picker-desc.sh"
+
+# check-defaults-desc on copies of the two files it holds together: a key with
+# no description, a description with no key, and each line it refuses. The
+# descriptions were a JavaScript object until 2026-10-21, found by a regular
+# expression; other programs read them now, so their shape is checked whole.
+log "check-defaults-desc"
+"$REPO_ROOT/tests/check-defaults-desc.sh"
 
 # topgrade's npm steps, with a stub nvm in a throwaway HOME: until 2026-09-23
 # they sourced nvm from Homebrew's prefix, where mrk never installs it, and

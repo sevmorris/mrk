@@ -164,7 +164,7 @@ else
   fail "a ~/ path (line $shots):"; show
 fi
 if has "com.example.watch  Answer" && has "41 → 42" && has $'      com.example.watch\tAnswer\tint\t42\talways\tApplications' \
-   && has "describe 'com.example.watch.Answer' in docs/defaults/script.js, which check-defaults-desc requires."; then
+   && has "and add its description to docs/defaults/descriptions.tsv, which check-defaults-desc requires."; then
   pass "a key config/defaults.tsv lacks: the line to add, and the description it will need"
 else
   fail "a key config/defaults.tsv lacks:"; show

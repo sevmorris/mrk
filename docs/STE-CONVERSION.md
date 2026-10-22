@@ -140,7 +140,7 @@ neither verb now.
 | `docs/bin/mrk-usage.html` | Full STE on all prose. HTML structure and callout classes kept. | Done — commit `89fd1af`; ignore-list and self-populate prose added in the `login-items-ignore` work; the text added from 2026-09-28 to 2026-10-01 brought back to the rules on 2026-10-01 |
 | `docs/manual.md` | Full STE. Procedures strict; descriptions STE-descriptive. | Done — commit `292485f`; ignore-list and self-populate prose added in the `login-items-ignore` work; the text added from 2026-09-28 to 2026-10-01 brought back to the rules on 2026-10-01 |
 | `scripts/sync-login-items` | The doc-emitting template only. | Done — commit `292485f` |
-| `docs/defaults/script.js` | Data reconcile + full STE on all 77 entries. | Done — reconcile `7f3d8de`; the 59 legacy entries split across five batches |
+| `docs/defaults/descriptions.tsv` (was `docs/defaults/script.js`) | Data reconcile + full STE on all 77 entries. | Done — reconcile `7f3d8de`; the 59 legacy entries split across five batches. The entries moved, word for word, from a JavaScript object in `script.js` to `descriptions.tsv` on 2026-10-21 |
 | `README.md`, `docs/index.html` | Optional, low priority. | Not started |
 
 ### `docs/bin/mrk-usage.html`
@@ -162,7 +162,11 @@ the old wording, so an STE rewrite of that sentence alone would have made the ne
 fail its drift guard and exit 1. The sentence, the template and the regex were changed
 together, and the round trip was verified by driving the real script through a pty.
 
-### `docs/defaults/script.js` — reconcile and prose split both done
+### `docs/defaults/descriptions.tsv` — reconcile and prose split both done
+
+The descriptions were the `DEFAULT_DESCRIPTIONS` object in `docs/defaults/script.js` until
+2026-10-21. They are now lines of `docs/defaults/descriptions.tsv`, one for each setting, with
+the same words in the same fields. The notes below name the object as it was then.
 
 The reconcile is complete: 77 parsed keys, 77 descriptions, 0 keys without a
 description, 0 orphans, and no command containing an unexpanded variable.
@@ -302,12 +306,12 @@ Widening the first grep to all of `docs/` is now clean too. It previously report
 from the 59 unconverted descriptions in `docs/defaults/script.js` — the note here named
 "approximately 16–128" in the Dock icon-size entry, which now reads "about 16 to 128".
 
-The defaults page carries prose in a data structure rather than in Markdown, so these
-greps check it too:
+The defaults page carries prose in a data file rather than in Markdown, so these
+check it too:
 
 ```bash
-node --check docs/defaults/script.js
-grep -c "approximately" docs/defaults/script.js          # 0
+scripts/check-defaults-desc                              # every line is one description
+grep -c "approximately" docs/defaults/descriptions.tsv   # 0
 ```
 
 Sentence length, one-idea-per-sentence and voice need a human read. For the defaults

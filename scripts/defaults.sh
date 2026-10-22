@@ -135,12 +135,6 @@ exact_string(){
 # undo line, and no restart.
 if $CHECK; then
   command -v defaults >/dev/null 2>&1 || { err "defaults not found, so there is nothing to compare"; exit 1; }
-  # check_field TEXT — TEXT as a field of config/defaults.tsv
-  check_field(){
-    local s=${1//\\/\\\\}
-    s=${s//$'\t'/\\t}
-    printf '%s' "${s//$'\n'/\\n}"
-  }
   for i in "${!DT_DOMAIN[@]}"; do
     [[ "${DT_WHEN[i]}" == trackpad ]] && ! $WITH_TRACKPAD && continue
     domain=${DT_DOMAIN[i]} key=${DT_KEY[i]} state=absent current=""
@@ -160,8 +154,8 @@ if $CHECK; then
     else
       current=""
     fi
-    printf '%s\t%s\t%s\t%s\t%s\n' "$(check_field "$domain")" "$(check_field "$key")" \
-      "$(check_field "${DT_VALUE[i]}")" "$(check_field "$current")" "$state" >&3
+    printf '%s\t%s\t%s\t%s\t%s\n' "$(mrk_tsv_escape "$domain")" "$(mrk_tsv_escape "$key")" \
+      "$(mrk_tsv_escape "${DT_VALUE[i]}")" "$(mrk_tsv_escape "$current")" "$state" >&3
   done
   exit 0
 fi
