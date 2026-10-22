@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -226,6 +227,72 @@ func TestPrefsDriftReadsSnapshotPrefsCheck(t *testing.T) {
 
 	if l, ok := line(checkUnrecorded(repo, t.TempDir(), drifts{}), "App preferences: nothing new to snapshot"); !ok || l.sev != sevOK {
 		t.Errorf("no change should read as nothing new")
+	}
+}
+
+// unpushedCount runs snapshot-prefs' own unpushed_count, cut from the script.
+func unpushedCount(t *testing.T, dir string) int {
+	t.Helper()
+	out := run(t, ".", "bash", "-c", `eval "$(sed -n '/^unpushed_count() {/,/^}/p' "$1")"; unpushed_count "$2"`,
+		"bash", filepath.Join("..", "..", "scripts", "snapshot-prefs"), dir)
+	n, err := strconv.Atoi(strings.TrimSpace(out))
+	if err != nil {
+		t.Fatalf("unpushed_count printed %q", out)
+	}
+	return n
+}
+
+// On 2026-10-22 snapshot-prefs --check printed no line for a commit that an
+// earlier run made and did not push, and the panel said there was nothing new
+// to snapshot. The next run pushes that commit; until then the next Mac does
+// not get it.
+func TestUnrecordedPrefsCommitsNotPushed(t *testing.T) {
+	repo := mrkRepo(t)
+	home := t.TempDir()
+	prefs := filepath.Join(home, ".mrk", "preferences")
+
+	count := func(want int, state string) {
+		t.Helper()
+		if got, script := readPrefsUnpushed(prefs), unpushedCount(t, prefs); got != want || script != want {
+			t.Errorf("%s: readPrefsUnpushed = %d, snapshot-prefs' unpushed_count = %d, want %d", state, got, script, want)
+		}
+	}
+	count(0, "no ~/.mrk/preferences")
+	run(t, home, "git", "init", "-q", "-b", "main", prefs)
+	count(0, "a repository with no commit")
+	os.RemoveAll(prefs)
+	newRepo(t, prefs, true)
+	count(0, "everything pushed")
+	if l, ok := line(checkUnrecorded(repo, home, drifts{}), "App preferences: nothing new to snapshot"); !ok || l.sev != sevOK {
+		t.Errorf("a pushed ~/.mrk/preferences with no change should read as nothing new")
+	}
+
+	write(t, filepath.Join(prefs, "README"), "a snapshot whose push failed\n")
+	run(t, prefs, "git", "commit", "-qam", "snapshot")
+	count(1, "one commit ahead of its upstream")
+	g := checkUnrecorded(repo, home, drifts{})
+	l, ok := line(g, "~/.mrk/preferences: 1 commit not pushed to mrk-prefs")
+	if !ok || l.sev != sevWarn || l.fix != fixSnapshot || g.fix != fixSnapshot {
+		t.Errorf("a snapshot commit not pushed should warn with %q:\n%s", fixSnapshot, texts(g))
+	}
+	if _, ok := line(g, "nothing new to snapshot"); ok {
+		t.Errorf("a commit not pushed must not read as nothing new:\n%s", texts(g))
+	}
+
+	g = checkUnrecorded(repo, home, drifts{prefs: prefsDrift{changes: []string{"Foo Bar"}}})
+	if _, ok := line(g, "1 app preference change not snapshotted: Foo Bar"); !ok {
+		t.Errorf("a change to commit should still be named:\n%s", texts(g))
+	}
+	if _, ok := line(g, "1 commit not pushed to mrk-prefs"); !ok {
+		t.Errorf("a commit not pushed should be named beside a change to commit:\n%s", texts(g))
+	}
+
+	// snapshot-prefs pushes with -u, so a branch with no upstream sends every
+	// commit it holds.
+	run(t, prefs, "git", "switch", "-q", "-c", "loose")
+	count(2, "a branch with no upstream")
+	if _, ok := line(checkUnrecorded(repo, home, drifts{}), "~/.mrk/preferences: 2 commits not pushed to mrk-prefs"); !ok {
+		t.Errorf("a branch with no upstream should count every commit:\n%s", texts(checkUnrecorded(repo, home, drifts{})))
 	}
 }
 

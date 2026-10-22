@@ -288,7 +288,7 @@ snapshot-prefs
 
 You can run snapshot-prefs more than once. When nothing changed, or nothing but those keys, it reports "No changes to push." If the push of an earlier run failed, the next run pushes that commit, and the output ends with "Pushed to". "No changes to push." thus means that mrk-prefs has the last commit. To see what it would commit first, run `snapshot-prefs --dry-run`: it exports into a scratch copy, reports, and leaves `~/.mrk/preferences/` as it was.
 
-`snapshot-prefs --check` shows the same commit as lines for a program to read. Each line has the file, the key and the change, separated by tabs. The change is `added`, `deleted` or `changed`. It also changes nothing.
+`snapshot-prefs --check` shows the same commit as lines for a program to read. Each line has the file, the key and the change, separated by tabs. The change is `added`, `deleted` or `changed`. It also changes nothing. It shows no line for a commit that an earlier run did not push. `make status` shows that commit under Unrecorded.
 
 To keep the preferences of one more app:
 
@@ -908,7 +908,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 
 `make status` shows four panels as text. The `status` command shows the same panels in the mrk-status dashboard, where **f** runs a panel's fix. Both are one program: until 2026-09-30 `make status` ran a separate bash copy of the checks, and the two kept drifting apart. The daily panels come first:
 
-- **Unrecorded** — What the next Mac would not get. Homebrew packages that are installed but not in the Brewfile, and Brewfile entries that are not installed, as `sync` itself counts them. The login items that `config/login-items.txt` does not track, and the tracked apps that are not login items, as `sync-login-items` counts them. mrk-status checks the login items only from a terminal. Uncommitted changes and unpushed commits in `~/mrk` and in each repository in `~/Projects`. The repositories that the manifest does not record, and those with no origin remote. The app preference changes that the next `snapshot-prefs` would commit.
+- **Unrecorded** — What the next Mac would not get. Homebrew packages that are installed but not in the Brewfile, and Brewfile entries that are not installed, as `sync` itself counts them. The login items that `config/login-items.txt` does not track, and the tracked apps that are not login items, as `sync-login-items` counts them. mrk-status checks the login items only from a terminal. Uncommitted changes and unpushed commits in `~/mrk` and in each repository in `~/Projects`. The repositories that the manifest does not record, and those with no origin remote. The app preference changes that the next `snapshot-prefs` would commit. The commits in `~/.mrk/preferences` that mrk-prefs does not have, which the next `snapshot-prefs` pushes.
 - **Upkeep** — `~/mrk` behind `origin/main`, as of the last fetch. The Go tools that are older than their source. The outdated Homebrew packages. The macOS updates for the installed version; a major upgrade is named, and never counted. Safari and the Command Line Tools count as updates, whatever their version.
 - **Time Machine Backups** — Whether Time Machine has a destination, and how old the last backup is. The panel warns after a day, and shows an error after seven.
 - **Installation** — The installation checks, as one panel:
