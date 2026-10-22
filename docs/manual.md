@@ -889,7 +889,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | `make uninstall` | Delete the symlinks, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |
 | `make pull` | Fast-forward the mrk repository to origin, then rebuild and relink what the pulled commits changed. That is the Go tools when `tools/` changed, the `~/bin` links when `scripts/` or `bin/` did, and the dotfile links when `dotfiles/` did. A pull that changed none of these does nothing more. `PULL_BUILD=0` skips the rebuild. The check-updates prompt at shell start and `update-full` both pull this way |
-| `make check` | Run every gate in `scripts/ci-check`: the picker and defaults descriptions, a secret scan over every tracked file, the commit gates, each test in `tests/`, shellcheck over every tracked bash script, and go test. BIN-1 §2.21 names each test and what it guards |
+| `make check` | Run every gate in `scripts/ci-check`: the picker and defaults descriptions, a secret scan over every tracked file, the commit gates, each test in `tests/`, shellcheck over every tracked bash script, and gofmt, go vet and go test. BIN-1 §2.21 names each test and what it guards |
 | `make ci` | Run the local validation, and build the TUI binaries |
 | `make tidy` | Run `go mod tidy` in every Go tool directory |
 

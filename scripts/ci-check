@@ -29,7 +29,7 @@ the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
 check-picker-desc, check-defaults-desc, topgrade-npm, picard-settings, snapshot-prefs, plist-import-order, setup-safety, undo-files,
 dock-setup, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, update-full, maintain, tidy-projects, prune-deployments, install-apps, make-pull, gitconfig, dead-functions and docs-drift tests in tests/, shellcheck over every tracked bash script,
-and `go test` for each
+and gofmt, `go vet` and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
 EOF
@@ -352,8 +352,23 @@ fi
 
 # Every module under tools/, from its go.mod, so a new one is tested without an
 # edit here; make tidy reads the same list (audit 19, W-25).
+#
+# gofmt and go vet first. Until 2026-10-22 neither ran here: the audits ran
+# them by hand, with staticcheck, and the 2026-10-22 sweep found that the
+# staticcheck in ~/go/bin could no longer read Go 1.27's packages. Both ship
+# with go, so they cannot go stale apart from it. gofmt -l exits 0 whether or
+# not it names a file, so the names are the test.
 for gomod in "$REPO_ROOT"/tools/*/go.mod; do
   dir=$(basename "$(dirname "$gomod")")
+  log "gofmt, go vet: tools/$dir"
+  unformatted=$(cd "$REPO_ROOT/tools/$dir" && gofmt -l .)
+  if [[ -n "$unformatted" ]]; then
+    err "gofmt would change these files in tools/$dir:"
+    printf '    %s\n' "$unformatted" >&2
+    info "  run: gofmt -w tools/$dir"
+    exit 1
+  fi
+  (cd "$REPO_ROOT/tools/$dir" && go vet ./...)
   log "go test: tools/$dir"
   # -count=1: no cached result. mrk-status's tests run scripts/lib.sh and
   # read scripts/sync, which Go does not count as the test's inputs, and on

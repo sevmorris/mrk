@@ -250,11 +250,11 @@ app_prefs_why() {
   return 0
 }
 
-# mrk_tsv_fields LINE — split LINE, a line of config/defaults.tsv or of
-# docs/defaults/descriptions.tsv, into the array TSV_FIELDS, each field with
-# its escapes undone (\t a tab, \n a newline, \\ a backslash). Return 1, with
-# the reason in TSV_WHY, when LINE holds a control character other than a tab
-# or a backslash before anything else.
+# mrk_tsv_fields LINE — split LINE, a line of config/defaults.tsv, of
+# docs/defaults/descriptions.tsv or of docs/defaults/sections.tsv, into the
+# array TSV_FIELDS, each field with its escapes undone (\t a tab, \n a newline,
+# \\ a backslash). Return 1, with the reason in TSV_WHY, when LINE holds a
+# control character other than a tab or a backslash before anything else.
 #
 # A variable rather than stdout, because $( ) drops the newlines a field ends
 # in. The fields are split here, not with `IFS=$'\t' read`, which takes two
@@ -447,6 +447,43 @@ defaults_desc_table() {
     esac
     seen+="$id"$'\n'
     DD_DOMAIN+=("${DESC_ROW[0]}");  DD_KEY+=("${DESC_ROW[1]}")
+  done < <(mrk_config_entries "$file")
+  return "$bad"
+}
+
+# defaults_sections_table FILE — read FILE, docs/defaults/sections.tsv, into
+# the array DS_SECTION: one element for each section it describes, in the
+# order of the file. Say what is wrong with each line that is not one section
+# (two fields, the section and its description, each with its escapes undone
+# by mrk_tsv_fields, neither empty, the section on one line), and with a
+# section on a second line. Return 1 when there is any such line, or when FILE
+# cannot be read. check-defaults-desc reads the file with this.
+defaults_sections_table() {
+  local file=$1 entry why seen=$'\n' bad=0
+  DS_SECTION=()
+  if [[ ! -r "$file" ]]; then
+    err "Cannot read $file"; return 1
+  fi
+  while IFS= read -r entry; do
+    why=""
+    if ! mrk_tsv_fields "$entry"; then
+      why=$TSV_WHY
+    elif (( ${#TSV_FIELDS[@]} != 2 )); then
+      why="it does not have two fields, separated by tabs"
+    elif [[ -z "${TSV_FIELDS[0]//[[:space:]]/}" || "${TSV_FIELDS[0]}" == *[[:cntrl:]]* ]]; then
+      why="the section is empty, or holds a tab or a newline"
+    elif [[ -z "${TSV_FIELDS[1]//[[:space:]]/}" ]]; then
+      why="the description is empty"
+    fi
+    if [[ -n "$why" ]]; then
+      err "Not one section, in docs/defaults/sections.tsv ($why): $entry"; bad=1; continue
+    fi
+    case "$seen" in
+      *$'\n'"${TSV_FIELDS[0]}"$'\n'*)
+        err "docs/defaults/sections.tsv has ${TSV_FIELDS[0]} on two lines"; bad=1; continue ;;
+    esac
+    seen+="${TSV_FIELDS[0]}"$'\n'
+    DS_SECTION+=("${TSV_FIELDS[0]}")
   done < <(mrk_config_entries "$file")
   return "$bad"
 }

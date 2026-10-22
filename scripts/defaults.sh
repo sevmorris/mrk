@@ -332,11 +332,18 @@ log "Writing rollback helper to $ROLLBACK"
 backup_line "killall Finder >/dev/null 2>&1 || true"
 backup_line "killall Dock >/dev/null 2>&1 || true"
 backup_line "killall SystemUIServer >/dev/null 2>&1 || true"
+backup_line "killall ControlCenter >/dev/null 2>&1 || true"
 
-# Apply immediate effects
+# Apply immediate effects. ControlCenter draws the menu bar clock and most of
+# the menu bar's items, and reads com.apple.menuextra.clock only when it
+# starts. Until 2026-10-22 only SystemUIServer was restarted here, so a clock
+# key changed by a run showed only after the next login. launchd starts
+# ControlCenter again, as it does SystemUIServer: its KeepAlive restarts it on
+# any exit but a clean one.
 killall Finder >/dev/null 2>&1 || true
 killall Dock >/dev/null 2>&1 || true
 killall SystemUIServer >/dev/null 2>&1 || true
+killall ControlCenter >/dev/null 2>&1 || true
 
 # Exit 1 when any write failed, after every write has been tried and the undo
 # lines written, as the six app-defaults scripts have since 2026-09-11. Until

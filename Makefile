@@ -57,7 +57,7 @@ help: ## Show available make commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-check: ## Run every gate in scripts/ci-check: descriptions, secret scan, commit gates, each test in tests/, shellcheck, go test
+check: ## Run every gate in scripts/ci-check: descriptions, secret scan, commit gates, each test in tests/, shellcheck, gofmt, go vet, go test
 	@"$(SCRIPTS)/ci-check"
 
 ci: check build-tools ## Full CI pipeline locally (check + build all TUIs)
