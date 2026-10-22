@@ -121,11 +121,12 @@ mrk's bookkeeping (rollback scripts, backups) lives in `~/.mrk`. Configuration c
 
 ## Companion apps
 
-Three native macOS apps ship alongside mrk. `make post-install` installs all three from their latest GitHub release.
+Four native macOS apps ship alongside mrk. `make post-install` installs Barkeep, KeyVault and Dipstick from their latest GitHub release. Gearbox has no release yet, so build it from its repository with `./build.sh`.
 
 - **[Barkeep](https://github.com/sevmorris/Barkeep)** — visually manage your Homebrew Brewfile, and adopt packages the Brewfile doesn't track yet.
 - **[KeyVault](https://github.com/sevmorris/KeyVault)** — manage SSH keys, GPG keys, API keys, secure notes, and encrypted files. API keys, notes and stored files are KeyVault's own: the API keys and notes live in the login Keychain, the files live encrypted in `~/Library/Application Support/KeyVault/Files`, and all three back up to a passphrase-encrypted OpenPGP archive that plain `gpg` can read. SSH and GPG keys stay in `~/.ssh` and `~/.gnupg` — KeyVault reads and generates them, but never copies the private keys into the Keychain or the archive.
 - **[Dipstick](https://github.com/sevmorris/Dipstick)** — the `mrk-status` dashboard in the menu bar. It runs `mrk-status --json`, shows the same four panels, and puts the worst result in its icon. Each fix is a button that runs the fix in a terminal in `~/mrk`, as `f` does in the dashboard. It does no checks of its own, so the two always agree.
+- **[Gearbox](https://github.com/sevmorris/Gearbox)** — a Settings window over mrk's lists in `config/`: app preferences, macOS defaults, login items and the Dock. Each pane shows what `snapshot-prefs`, `defaults.sh`, `sync-login-items` or `dock-setup` finds in its check mode, and makes its changes through that script's own options. Anything that changes the Mac runs in a terminal. Gearbox never commits; `mrk-push` and `pushall` do.
 
 The installs are one-shot: post-install skips an app that is already in `/Applications`, so it never overwrites a newer copy. To update, use the app itself, or delete it and re-run the phase.
 

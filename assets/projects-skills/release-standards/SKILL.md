@@ -44,11 +44,11 @@ missing ones as a list, and the repo state a release would trip over.
 | `dmg-verify` | Shipping a disk image with no installer window, undetected. | dmgbuild only |
 | `dmg-signed` | A disk image that spctl reports as `no usable signature` despite a valid stapled ticket, because only the app inside it was ever signed. | every app |
 | `app-stapled` | An app that loses its notarization the moment it is dragged out of the DMG, because only the image was stapled. Gatekeeper then has to ask Apple on first launch, which fails with no network. Also verifies the ticket on the shipped copy, not the build product. | every app |
-| `generic-dest` | xcodebuild silently building one architecture. | Xcode apps; PasswordGen and Dipstick build with `swift build` and check the binary's architecture instead |
+| `generic-dest` | xcodebuild silently building one architecture. | Xcode apps; PasswordGen, Dipstick and Gearbox build with `swift build` and check the binary's architecture instead |
 | `v-tag-filter` | A dependency or checkpoint tag being read as the previous release and truncating the notes. | every app |
 | `exit-trap` / `signal-trap` | A failed *or interrupted* release stranding a version bump in the working tree. zsh does not run an EXIT trap on a signal. | every app |
 | `shared-files` | Byte-identical files drifting between repos. The siblings are looked for beside the repo's main checkout, so a release from a worktree compares too: on 2026-09-24 one looked beside the worktree, compared nothing, and still reported the files in sync. Comparing nothing now fails when siblings are checked out, and only warns in a lone clone. | repos with siblings |
-| `tests` | Releasing a build whose tests never ran with the Xcode that built it. CI pins Xcode 26.3, and its `xcode-27` leg is a preview with no uptime promise; this runs the suite on the release Mac, before the version bump, so a failure leaves nothing to undo. Until 2026-10-04 only FilmStrip and Magic Backup Machine did. PasswordGen and Dipstick, the Swift packages, run `swift test`. `--skip-tests` is the emergency override. | apps with a test target |
+| `tests` | Releasing a build whose tests never ran with the Xcode that built it. CI pins Xcode 26.3, and its `xcode-27` leg is a preview with no uptime promise; this runs the suite on the release Mac, before the version bump, so a failure leaves nothing to undo. Until 2026-10-04 only FilmStrip and Magic Backup Machine did. PasswordGen, Dipstick and Gearbox, the Swift packages, run `swift test`. `--skip-tests` is the emergency override. | apps with a test target |
 | `min-macos` | The in-app updater offering a release to a Mac below its minimum macOS, so the user drags in an app that will not open over the one that works. The script reads `LSMinimumSystemVersion` from the built app, stops before notarizing if it is missing, and ends the notes with a "Requires macOS" line and a `<!-- minimum-macos: X -->` marker, which the updaters read and GitHub does not render. Added 2026-10-04 ahead of the move to macOS 15. DoublEnder Cloud carries the same as `minimumSystemVersion` in its update manifest. | every app |
 | `last-per-os` | Pruning deleting the last release a Mac on an older macOS can run, and with it the download the docs and release notes send those users to. Pruning keeps the newest N pages, so WaxOnWaxOff 2.14.1, the last for macOS 14, would have gone ten releases later. The script reads each release's minimum-macos marker and never prunes the newest release for each minimum. Added 2026-10-04. | every app |
 
@@ -57,7 +57,7 @@ plain image with `hdiutil create` has no dmgbuild to crash and no installer
 window to check. No app does that now. Barkeep moved to the shared dmgbuild
 settings on 2026-09-27, and PasswordGen on 2026-10-04, when `release.sh`
 replaced its `distribute.sh`; a new app should start there, not with
-`hdiutil create`, as Dipstick did on 2026-10-18. WireHack, retired and archived on 2026-09-23 with ClipHack
+`hdiutil create`, as Dipstick did on 2026-10-18 and Gearbox on 2026-10-22. WireHack, retired and archived on 2026-09-23 with ClipHack
 superseding it, has no clone here any more and so does not appear.
 
 DoublEnder Cloud has a row of its own: it is released by
