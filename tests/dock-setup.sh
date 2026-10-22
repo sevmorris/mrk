@@ -9,13 +9,19 @@
 #
 # dock-setup empties the Dock before it adds anything, so a list it cannot use
 # (no file, no app in it, a line that is not a path) must stop it before the
-# first dockutil call. --dry-run must call nothing at all, and so must --check,
-# which shows each item as a line for a program to read.
+# first dockutil call. --dry-run must call nothing at all. --check, which shows
+# each item as a line for a program to read, must call only dockutil --list:
+# it says whether each item is in the Dock now, and names each item in the
+# Dock that the list does not have, which make dock would delete. On
+# 2026-10-22 the Dock held Signal, which the list did not, and --check could
+# not see it. Safari is in the Dock by its cryptex path, which
+# /Applications/Safari.app is a symlink to, and must still match.
 #
 # dock-setup runs from a copy of the repository under a throwaway HOME, with
 # `env -i` and PATH cut to stubs and the system directories. dockutil,
 # defaults, killall and brew are stubs that record their arguments, so nothing
-# reaches the real Dock. The /Applications paths in the copy of config/dock.txt
+# reaches the real Dock. dockutil --list shows $SANDBOX/dock-list, in
+# dockutil's own form, and fails when there is no such file. The /Applications paths in the copy of config/dock.txt
 # point into the sandbox. Each case runs under /bin/bash and under the bash
 # running this file. ci-check runs it.
 
@@ -83,7 +89,16 @@ cat > "$S/record" <<'EOF'
 #!/bin/bash
 { printf '%s' "${0##*/}"; printf ' %q' "$@"; printf '\n'; } >> "$SANDBOX/calls"
 EOF
-for cmd in dockutil killall brew; do cp "$S/record" "$S/$cmd"; done
+for cmd in killall brew; do cp "$S/record" "$S/$cmd"; done
+cat > "$S/dockutil" <<'EOF'
+#!/bin/bash
+{ printf 'dockutil'; printf ' %q' "$@"; printf '\n'; } >> "$SANDBOX/calls"
+if [[ "${1:-}" == --list ]]; then
+  [[ -f "$SANDBOX/dock-list" ]] || exit 1
+  cat "$SANDBOX/dock-list"
+fi
+exit 0
+EOF
 cat > "$S/defaults" <<'EOF'
 #!/bin/bash
 { printf 'defaults'; printf ' %q' "$@"; printf '\n'; } >> "$SANDBOX/calls"
@@ -173,34 +188,110 @@ run_check() {
   RC=$?
 }
 TAB=$'\t'
+PLIST="$H/Library/Preferences/com.apple.dock.plist"
+# dock_item LABEL PATH SECTION — one line of dockutil --list for PATH: its URL
+# percent encoded and ending in /, as dockutil shows a file in the Dock
+dock_item() {
+  printf '%s\t%s\t%s\t%s\t\n' "$1" \
+    "$(python3 -c 'import sys, urllib.parse; print("file://" + urllib.parse.quote(sys.argv[1]) + "/")' "$2")" \
+    "$3" "$PLIST"
+}
 # The folder's name holds a backslash and a tab, which the line must escape.
 odd="$H/Odd\\name${TAB}here"
 rm -rf "$H"; mkdir -p "$H/Work Apps" "$odd"
 for app in "${DOCK_APPS[@]}"; do mkdir -p "$app"; done
 rm -rf "$gone"
+# Safari as macOS has it: the app in a cryptex, and a symlink to it.
+safari="$APPS/Safari.app"
+crypt_safari="$W/Preboot/Cryptexes/App/System/Applications/Safari.app"
+rm -rf "$safari"; mkdir -p "$crypt_safari"; ln -s "$crypt_safari" "$safari"
+undocked="${DOCK_APPS[2]}"
+if [[ "$undocked" == "$safari" || "$undocked" == "$gone" ]] || ! printf '%s\n' "${DOCK_APPS[@]}" | grep -qxF "$safari"; then
+  fail "the list's apps are not as this test needs them: Safari, and a third app that is neither Safari nor the second"
+  exit 1
+fi
+signal="$APPS/Signal Desktop.app"; mkdir -p "$signal"
+ghost="$W/Gone Café.app"
 # shellcheck disable=SC2088  # the literal line, as the file holds it
 printf '~/Odd\\name\there\n' >> "$LIST"
-want=""
-for app in "${DOCK_APPS[@]}"; do
-  state=present; [[ "$app" == "$gone" ]] && state=missing
-  want+="app$TAB$app$TAB$app$TAB$state"$'\n'
-done
-want+="folder$TAB~/Work Apps$TAB$H/Work Apps${TAB}present"$'\n'
-want+="folder$TAB~/Odd\\\\name\\there$TAB$H/Odd\\\\name\\there${TAB}present"
+
+# The Dock: each app of the list but one, the missing app among them, Safari
+# by its cryptex path, Work Apps, and two apps the list does not have, one of
+# them no longer installed. Then three items --check does not show: a spacer,
+# a web link and a recent app.
+{
+  for app in "${DOCK_APPS[@]}"; do
+    case "$app" in
+      "$undocked") ;;
+      "$safari") dock_item Safari "$crypt_safari" persistentApps ;;
+      *) dock_item "$(basename "$app" .app)" "$app" persistentApps ;;
+    esac
+  done
+  dock_item Signal "$signal" persistentApps
+  printf '\t\tpersistentApps\t%s\t\n' "$PLIST"
+  dock_item Gone "$ghost" persistentApps
+  dock_item "Work Apps" "$H/Work Apps" persistentOthers
+  printf 'Docs\thttps://example.com/docs/\tpersistentOthers\t%s\t\n' "$PLIST"
+  dock_item Notes "$APPS/Notes.app" recentApps
+} > "$W/dock-list"
+
+# want_lines [DOCK] — the lines --check shows: with no DOCK, for the Dock
+# above; with one, every item of the list with DOCK as its Dock state
+want_lines() {
+  local app state docked
+  for app in "${DOCK_APPS[@]}"; do
+    state=present; [[ "$app" == "$gone" ]] && state=missing
+    docked=${1:-docked}; [[ -z "${1:-}" && "$app" == "$undocked" ]] && docked=undocked
+    printf 'app\t%s\t%s\t%s\t%s\n' "$app" "$app" "$state" "$docked"
+  done
+  printf 'folder\t~/Work Apps\t%s\tpresent\t%s\n' "$H/Work Apps" "${1:-docked}"
+  printf 'folder\t~/Odd\\\\name\\there\t%s\tpresent\t%s\n' "$H/Odd\\\\name\\there" "${1:-undocked}"
+  if [[ -z "${1:-}" ]]; then
+    printf 'unlisted\t\t%s\tpresent\tdocked\n' "$signal"
+    printf 'unlisted\t\t%s\tmissing\tdocked\n' "$ghost"
+  fi
+}
+want=$(want_lines)
 run_check --check
-if [[ $RC == 0 && "$(cat "$W/stdout")" == "$want" && ! -s "$W/calls" && ! -e "$H/.mrk" ]]; then
-  pass "--check: app or folder, the line, the path and present or missing, in the order of the file; calls nothing"
+if [[ $RC == 0 && "$(cat "$W/stdout")" == "$want" && "$(cat "$W/calls")" == "dockutil --list" && ! -e "$H/.mrk" ]]; then
+  pass "--check: app or folder, the line, the path, present or missing, and docked or undocked, then each unlisted item; calls only dockutil --list"
 else
   fail "--check (exit $RC)"
   diff <(printf '%s\n' "$want") "$W/stdout" | sed 's/^/      /' >&2
   sed 's/^/      /' "$W/stderr" "$W/calls" >&2
 fi
+if [[ "$(grep -F "$safari" "$W/stdout")" == "app$TAB$safari$TAB$safari${TAB}present${TAB}docked" ]] \
+   && grep -qxF "unlisted$TAB$TAB$signal${TAB}present${TAB}docked" "$W/stdout"; then
+  pass "--check: Safari in the Dock by its cryptex path is docked, and Signal, not in the list, is unlisted"
+else
+  fail "--check: Safari or Signal: $(grep -E 'Safari|Signal' "$W/stdout" | tr '\n' ' ')"
+fi
 run_check --dry-run --check
-if [[ $RC == 0 && "$(cat "$W/stdout")" == "$want" && ! -s "$W/calls" ]]; then
+if [[ $RC == 0 && "$(cat "$W/stdout")" == "$want" && "$(cat "$W/calls")" == "dockutil --list" ]]; then
   pass "--check takes precedence over --dry-run"
 else
   fail "--dry-run --check (exit $RC)"; sed 's/^/      /' "$W/stdout" "$W/stderr" >&2
 fi
+
+# No Dock to read: each item unknown, no unlisted line, and still exit 0.
+mv "$W/dock-list" "$W/dock-list.saved"
+run_check --check
+if [[ $RC == 0 && "$(cat "$W/stdout")" == "$(want_lines unknown)" ]] && grep -q 'dockutil --list failed' "$W/stderr"; then
+  pass "--check when dockutil --list fails: each item unknown, no unlisted line, exit 0"
+else
+  fail "--check with dockutil --list failing (exit $RC)"
+  diff <(want_lines unknown) "$W/stdout" | sed 's/^/      /' >&2; sed 's/^/      /' "$W/stderr" >&2
+fi
+mv "$W/dock-list.saved" "$W/dock-list"
+mv "$S/dockutil" "$W/dockutil.saved"
+run_check --check
+if [[ $RC == 0 && "$(cat "$W/stdout")" == "$(want_lines unknown)" && ! -s "$W/calls" ]] && grep -q 'dockutil not found' "$W/stderr"; then
+  pass "--check with no dockutil: each item unknown, nothing called, exit 0"
+else
+  fail "--check with no dockutil (exit $RC)"
+  diff <(want_lines unknown) "$W/stdout" | sed 's/^/      /' >&2; sed 's/^/      /' "$W/stderr" >&2
+fi
+mv "$W/dockutil.saved" "$S/dockutil"
 cp -p "$W/dock.orig" "$LIST"
 printf 'Applications/Safari.app\n' >> "$LIST"
 run_check --check

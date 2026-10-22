@@ -96,6 +96,9 @@ Usage: scripts/sync [options]
                   Nothing else on stdout, nothing changed, no picker. Exits 0
                   when it could tell, drift or none; 1 when brew failed.
                   mrk-status reads it. Takes precedence over the other options.
+                  A field escapes a tab, a newline and a backslash as \t, \n
+                  and \\. A later version may add fields at the end of a line,
+                  and never removes or reorders one.
   --details       With --check: three more fields on each line, for a program
                   that shows the drift. For an add: the section sync files a
                   cask under (empty for a formula), why, and the description
@@ -412,9 +415,11 @@ n_stale=$(( ${#stale_formulae_arr[@]} + ${#stale_casks_arr[@]} ))
 # --details adds what a program needs to show a decision before it is made:
 # where sync would file each new cask and why, and the words the description
 # table will hold. Three fields more, after the three mrk-status reads, which
-# keeps them out of its way: its parser takes a line of exactly three fields.
-# They cost a `brew info` for each new package, about 0.3 s here, which is why
-# they are asked for rather than always there.
+# reads the first three of a line and ignores any after them. They cost a
+# `brew info` for each new package, about 0.3 s here, which is why they are
+# asked for rather than always there. Each line is mrk_check_line's, so a
+# backslash in a description shows as \\. brew_describe and the table already
+# keep a description to one line with no tab.
 
 # The description table as name → description, for --details and the checks.
 declare -A table_desc=()
@@ -424,24 +429,12 @@ if [[ -f "$DESC_TABLE" ]]; then
   done < "$DESC_TABLE"
 fi
 
-# check_line ACTION KIND NAME [SECTION WHY DESCRIPTION] — one --check line.
-# A tab or a newline inside a field would split it, so each becomes a space.
-check_line() {
-  local out="$1" f
-  shift
-  for f in "$@"; do
-    f="${f//$'\t'/ }"
-    out+=$'\t'"${f//$'\n'/ }"
-  done
-  printf '%s\n' "$out"
-}
-
 if (( CHECK )); then
   if (( ! DETAILS )); then
-    for pkg in ${new_formulae_arr[@]+"${new_formulae_arr[@]}"};     do check_line add formula "$pkg"; done
-    for pkg in ${new_casks_arr[@]+"${new_casks_arr[@]}"};           do check_line add cask "$pkg"; done
-    for pkg in ${stale_formulae_arr[@]+"${stale_formulae_arr[@]}"}; do check_line prune formula "$pkg"; done
-    for pkg in ${stale_casks_arr[@]+"${stale_casks_arr[@]}"};       do check_line prune cask "$pkg"; done
+    for pkg in ${new_formulae_arr[@]+"${new_formulae_arr[@]}"};     do mrk_check_line add formula "$pkg"; done
+    for pkg in ${new_casks_arr[@]+"${new_casks_arr[@]}"};           do mrk_check_line add cask "$pkg"; done
+    for pkg in ${stale_formulae_arr[@]+"${stale_formulae_arr[@]}"}; do mrk_check_line prune formula "$pkg"; done
+    for pkg in ${stale_casks_arr[@]+"${stale_casks_arr[@]}"};       do mrk_check_line prune cask "$pkg"; done
     exit 0
   fi
 
@@ -472,14 +465,14 @@ if (( CHECK )); then
     if [[ "$kind" == formula ]]; then list=(${new_formulae_arr[@]+"${new_formulae_arr[@]}"})
     else list=(${new_casks_arr[@]+"${new_casks_arr[@]}"}); fi
     for pkg in ${list[@]+"${list[@]}"}; do
-      check_line add "$kind" "$pkg" "${d_section[$kind:$pkg]:-}" "${d_reason[$kind:$pkg]:-}" "${d_desc[$kind:$pkg]:-}"
+      mrk_check_line add "$kind" "$pkg" "${d_section[$kind:$pkg]:-}" "${d_reason[$kind:$pkg]:-}" "${d_desc[$kind:$pkg]:-}"
     done
   done
   for kind in formula cask; do
     if [[ "$kind" == formula ]]; then list=(${stale_formulae_arr[@]+"${stale_formulae_arr[@]}"})
     else list=(${stale_casks_arr[@]+"${stale_casks_arr[@]}"}); fi
     for pkg in ${list[@]+"${list[@]}"}; do
-      check_line prune "$kind" "$pkg" "${brewfile_section[$kind:$pkg]:-}" "" "${table_desc[$pkg]:-}"
+      mrk_check_line prune "$kind" "$pkg" "${brewfile_section[$kind:$pkg]:-}" "" "${table_desc[$pkg]:-}"
     done
   done
   exit 0

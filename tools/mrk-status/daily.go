@@ -208,10 +208,13 @@ func readBrewDrift(repoRoot string) brewDrift {
 		}
 		return brewDrift{err: fmt.Errorf("sync --check failed: %s", msg)}
 	}
+	// At least three fields: a later sync may add fields at the end of a
+	// line, as --details does, and never removes or reorders one. A package
+	// name holds no tab, newline or backslash, so it has no escape to undo.
 	var d brewDrift
 	for _, line := range strings.Split(string(out), "\n") {
 		f := strings.Split(line, "\t")
-		if len(f) != 3 {
+		if len(f) < 3 {
 			continue
 		}
 		name := f[2]

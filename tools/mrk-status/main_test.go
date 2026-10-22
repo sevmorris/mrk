@@ -52,13 +52,15 @@ func TestBrewDriftReadsSyncCheck(t *testing.T) {
 	withStubBrew(t, "#!/bin/sh\nexit 0\n")
 	repo := repoWithSync(t, "#!/bin/sh\n[ \"$1\" = --check ] || exit 9\n"+
 		"printf 'add\\tformula\\tjq\\nadd\\tcask\\tfirefox\\nprune\\tformula\\twget\\nnoise line\\n'\n"+
+		// A field added at the end of a line, which a later sync may do.
+		"printf 'add\\tcask\\tzed\\tCasks - Dev\\n'\n"+
 		"echo '  ▸ Scanning installed Homebrew packages...' >&2\n")
 	d := readBrewDrift(repo)
 	if d.err != nil || d.noBrew {
 		t.Fatalf("a successful sync --check should be read, got err=%v noBrew=%v", d.err, d.noBrew)
 	}
-	if got := strings.Join(d.adds, ","); got != "jq,firefox (cask)" {
-		t.Errorf("adds = %q, want jq,firefox (cask)", got)
+	if got := strings.Join(d.adds, ","); got != "jq,firefox (cask),zed (cask)" {
+		t.Errorf("adds = %q, want jq,firefox (cask),zed (cask)", got)
 	}
 	if got := strings.Join(d.prunes, ","); got != "wget" {
 		t.Errorf("prunes = %q, want wget", got)

@@ -42,9 +42,12 @@ Options:
                   tab-separated: the file, the key, and added, deleted or
                   changed. The key is empty for a change to a whole file: a
                   file the commit adds or deletes, or one that is not a plist.
-                  Nothing else on stdout, and nothing changed: it exports as
-                  --dry-run does, and its progress goes to stderr. Exits 0
-                  when it could tell, 1 when it refused, 2 for a bad option.
+                  A field escapes a tab, a newline and a backslash as \t, \n
+                  and \\. A later version may add fields at the end of a line,
+                  and never removes or reorders one. Nothing else on stdout,
+                  and nothing changed: it exports as --dry-run does, and its
+                  progress goes to stderr. Exits 0 when it could tell, 1 when
+                  it refused, 2 for a bad option.
   -h, --help      Show this help
 
 snapshot-prefs exports the preferences of the apps that config/app-prefs.tsv
@@ -729,11 +732,12 @@ PREFS_NOISE=(
 )
 
 # plist_changes PATH... — compare each plist as staged with HEAD's copy. Prints
-# "noise<TAB>PATH" for one that differs only in PREFS_NOISE keys, and
-# "real<TAB>PATH<TAB>KEYS" otherwise, KEYS being the top-level keys that changed,
-# shortened for the report. After a real line, one "key<TAB>PATH<TAB>CHANGE<TAB>KEY"
-# for each of those keys, whole, for --check: CHANGE is added, deleted or
-# changed, and a tab or a newline in KEY becomes a space.
+# records, each field ended by a NUL: "noise PATH" for one that differs only in
+# PREFS_NOISE keys, and "real PATH KEYS" otherwise, KEYS being the top-level
+# keys that changed, shortened for the report. After a real record, one
+# "key PATH CHANGE KEY" for each of those keys, whole, for --check: CHANGE is
+# added, deleted or changed. A NUL, because a key can hold a tab or a newline,
+# and --check shows it as it is, escaped by mrk_check_line.
 #
 # Values are compared as what they hold, not as bytes: a value that is itself a
 # plist, an NSKeyedArchiver archive or JSON is decoded first. Ice wrote the same
@@ -807,10 +811,17 @@ def load(spec):
         return None
     return d if isinstance(d, dict) else None
 
+# A path is bytes on disk, which Python holds with surrogates; give it back.
+sys.stdout.reconfigure(errors="surrogateescape")
+
+def record(*fields):
+    # bash cannot hold a NUL, so one in a key is dropped, not split on.
+    sys.stdout.write("".join(f.replace("\0", "") + "\0" for f in fields))
+
 for path in sys.argv[2:]:
     old, new = load("HEAD:" + path), load(":" + path)
     if old is None or new is None:
-        print("real\t" + path)
+        record("real", path, "")
         continue
     pats = [k for f, k in rules if fnmatch.fnmatchcase(path, f)]
     real, keys = [], []
@@ -823,24 +834,14 @@ for path in sys.argv[2:]:
         name = " ".join(str(k).split())
         real.append(name if len(name) <= 60 else name[:59] + "…")
         change = "added" if a is MISSING else "deleted" if b is MISSING else "changed"
-        whole = str(k).replace("\t", " ").replace("\r", " ").replace("\n", " ")
-        keys.append("key\t%s\t%s\t%s" % (path, change, whole))
-    print(("real\t%s\t%s" % (path, ", ".join(real))) if real else "noise\t" + path)
-    for line in keys:
-        print(line)
+        keys.append((change, str(k)))
+    if real:
+        record("real", path, ", ".join(real))
+    else:
+        record("noise", path)
+    for change, key in keys:
+        record("key", path, change, key)
 PYEOF
-}
-
-# check_line FIELD... — one --check line. A tab or a newline inside a field
-# would split it, so each becomes a space.
-check_line() {
-  local out="" f sep=""
-  for f in "$@"; do
-    f="${f//$'\t'/ }"
-    out+="$sep${f//$'\n'/ }"
-    sep=$'\t'
-  done
-  printf '%s\n' "$out"
 }
 
 declare -A PLIST_KEYS=()   # path → the keys that changed, for the report
@@ -851,19 +852,24 @@ while IFS= read -r -d '' f; do
   [[ "$f" == *.plist ]] && modified+=("$f")
 done < <(git diff --cached --name-only --diff-filter=M -z)
 if (( ${#modified[@]} > 0 )); then
+  # A file, not $( ), which would drop the NULs between the fields.
+  changes=""
   if ! command -v python3 >/dev/null 2>&1; then
     warn "python3 not found — every changed plist is committed, keys that change on their own included"
-  elif changes=$(plist_changes "${modified[@]}"); then
-    while IFS=$'\t' read -r kind path a b; do
+  elif changes=$(mrk_mktemp) && plist_changes "${modified[@]}" > "$changes"; then
+    while IFS= read -r -d '' kind && IFS= read -r -d '' path; do
       case "$kind" in
         noise) left_out+=("$path") ;;
-        real)  PLIST_KEYS["$path"]="${a:-}" ;;
-        key)   PLIST_CHECK["$path"]+="$(check_line "$path" "${b:-}" "$a")"$'\n' ;;
+        real)  IFS= read -r -d '' keys || keys=""; PLIST_KEYS["$path"]=$keys ;;
+        key)   IFS= read -r -d '' change || break
+               IFS= read -r -d '' key || break
+               PLIST_CHECK["$path"]+="$(mrk_check_line "$path" "$key" "$change")"$'\n' ;;
       esac
-    done <<< "$changes"
+    done < "$changes"
   else
     warn "could not compare the changed plists with the last commit — every one is committed"
   fi
+  [[ -z "$changes" ]] || rm -f "$changes"
 fi
 if (( ${#left_out[@]} > 0 )); then
   # Index and working tree both, so ~/.mrk/preferences is left clean: a file
@@ -921,12 +927,12 @@ check_report() {
   local status path
   while IFS= read -r -d '' status && IFS= read -r -d '' path; do
     case "$status" in
-      A) check_line "$path" "" added ;;
-      D) check_line "$path" "" deleted ;;
+      A) mrk_check_line "$path" "" added ;;
+      D) mrk_check_line "$path" "" deleted ;;
       *) if [[ -n "${PLIST_CHECK[$path]:-}" ]]; then
            printf '%s' "${PLIST_CHECK[$path]}"
          else
-           check_line "$path" "" changed
+           mrk_check_line "$path" "" changed
          fi ;;
     esac
   done < <(git diff --cached --name-status --no-renames -z)
