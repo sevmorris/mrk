@@ -1,0 +1,191 @@
+# mrk macOS defaults
+#
+# The preference keys that defaults.sh (make defaults) writes, in the order it
+# writes them. Before it changes a key, it records the value the key had in
+# ~/.mrk/defaults-rollback.sh, so the change can be undone. Its --check
+# compares each line with this Mac and changes nothing. MRK-1, the defaults
+# reference, shows each key with its description from docs/defaults/script.js,
+# and check-defaults-desc fails when a key has none.
+#
+# One key on each line: six fields, separated by tabs.
+#   domain   the defaults domain: NSGlobalDomain, or the bundle id of an app
+#   key      the key
+#   type     bool, int, float or string
+#   value    true or false for a bool, a whole number for an int, a number
+#            such as 0.5 for a float, and any text for a string. A string that
+#            starts with ~/ is a path in your home directory.
+#   when     always: on every run.
+#            trackpad: only with --with-trackpad, as make trackpad runs it.
+#            existing: only when the domain exists. defaults write cannot make
+#            the domain of a sandboxed app, such as Mail, and the domain exists
+#            only after the app is set up.
+#   section  the heading that MRK-1 shows the key under
+# In a field, a backslash starts an escape: \t is a tab, \n is a newline and \\
+# is a backslash. A space and a quote need no escape. A line that starts with #
+# is a comment, and an empty line is ignored. defaults.sh refuses the file,
+# before it writes anything, when a line is not one key or when two lines have
+# the same domain and key.
+#
+# The same key, type and value in two domains of one section is one setting:
+# MRK-1 shows it once, and check-defaults-desc wants one description, for the
+# first of the domains. The trackpad keys are like this.
+#
+# Not here:
+# - Software Update and the App Store. softwareupdated reads its settings from
+#   /Library/Preferences, not from your domain, so a key here changes nothing.
+#   A write to the system domain turns automatic downloads back on, and they
+#   were turned off on 2026-09-15 to stop a macOS 27 download. Audit 15, T-3.
+# - Music. Music's own Settings keep its preferences. The System Policy of
+#   macOS 26 stops any other process writing com.apple.Music, so on a new Mac
+#   the writes fail on every run. Full Disk Access does not change that, and
+#   neither does opening Music first. Audit 11, R-1.
+NSGlobalDomain	AppleInterfaceStyle	string	Dark	always	General UI / UX
+NSGlobalDomain	AppleShowScrollBars	string	Always	always	General UI / UX
+NSGlobalDomain	AppleShowAllExtensions	bool	true	always	General UI / UX
+NSGlobalDomain	NSAutomaticWindowAnimationsEnabled	bool	false	always	General UI / UX
+NSGlobalDomain	NSWindowResizeTime	float	0.001	always	General UI / UX
+NSGlobalDomain	NSQuitAlwaysKeepsWindows	bool	false	always	General UI / UX
+NSGlobalDomain	NSNavPanelExpandedStateForSaveMode	bool	true	always	General UI / UX
+NSGlobalDomain	NSNavPanelExpandedStateForSaveMode2	bool	true	always	General UI / UX
+NSGlobalDomain	PMPrintingExpandedStateForPrint	bool	true	always	General UI / UX
+NSGlobalDomain	PMPrintingExpandedStateForPrint2	bool	true	always	General UI / UX
+NSGlobalDomain	NSDocumentSaveNewDocumentsToCloud	bool	false	always	General UI / UX
+NSGlobalDomain	QLPanelAnimationDuration	float	0	always	General UI / UX
+NSGlobalDomain	AppleActionOnDoubleClick	string	Minimize	always	General UI / UX
+NSGlobalDomain	AppleHighlightColor	string	0.764700 0.976500 0.568600	always	General UI / UX
+NSGlobalDomain	NSTableViewDefaultSizeMode	int	1	always	General UI / UX
+NSGlobalDomain	AppleEnableSwipeNavigateWithScrolls	bool	false	always	General UI / UX
+NSGlobalDomain	com.apple.trackpad.forceClick	bool	false	always	General UI / UX
+NSGlobalDomain	com.apple.mouse.doubleClickThreshold	float	0.8	always	General UI / UX
+NSGlobalDomain	com.apple.sound.beep.volume	float	0	always	Sound
+NSGlobalDomain	com.apple.sound.uiaudio.enabled	bool	false	always	Sound
+NSGlobalDomain	com.apple.sound.beep.sound	string	/System/Library/Sounds/Tink.aiff	always	Sound
+NSGlobalDomain	KeyRepeat	int	2	always	Keyboard & input
+NSGlobalDomain	InitialKeyRepeat	int	15	always	Keyboard & input
+NSGlobalDomain	ApplePressAndHoldEnabled	bool	false	always	Keyboard & input
+NSGlobalDomain	AppleKeyboardUIMode	int	2	always	Keyboard & input
+NSGlobalDomain	NSAutomaticCapitalizationEnabled	bool	false	always	Keyboard & input
+NSGlobalDomain	NSAutomaticDashSubstitutionEnabled	bool	false	always	Keyboard & input
+NSGlobalDomain	NSAutomaticPeriodSubstitutionEnabled	bool	false	always	Keyboard & input
+NSGlobalDomain	NSAutomaticQuoteSubstitutionEnabled	bool	false	always	Keyboard & input
+NSGlobalDomain	NSAutomaticSpellingCorrectionEnabled	bool	false	always	Keyboard & input
+NSGlobalDomain	WebAutomaticSpellingCorrectionEnabled	bool	false	always	Keyboard & input
+com.apple.HIToolbox	AppleFnUsageType	int	2	always	Keyboard & input
+com.apple.dock	orientation	string	left	always	Dock
+com.apple.dock	tilesize	int	36	always	Dock
+com.apple.dock	mineffect	string	scale	always	Dock
+com.apple.dock	minimize-to-application	bool	true	always	Dock
+com.apple.dock	no-bouncing	bool	true	always	Dock
+com.apple.dock	show-recents	bool	false	always	Dock
+com.apple.dock	autohide-delay	float	0	always	Dock
+com.apple.finder	DisableAllAnimations	bool	true	always	Finder
+com.apple.finder	ShowPathbar	bool	true	always	Finder
+com.apple.finder	ShowStatusBar	bool	true	always	Finder
+com.apple.finder	_FXShowPosixPathInTitle	bool	true	always	Finder
+com.apple.finder	_FXSortFoldersFirst	bool	true	always	Finder
+com.apple.finder	FXPreferredViewStyle	string	Nlsv	always	Finder
+com.apple.finder	FXDefaultSearchScope	string	SCcf	always	Finder
+com.apple.finder	FXEnableExtensionChangeWarning	bool	false	always	Finder
+com.apple.finder	WarnOnEmptyTrash	bool	false	always	Finder
+com.apple.finder	NewWindowTarget	string	PfDe	always	Finder
+com.apple.finder	ShowHardDrivesOnDesktop	bool	true	always	Finder
+com.apple.finder	ShowMountedServersOnDesktop	bool	false	always	Finder
+com.apple.finder	QuitMenuItem	bool	true	always	Finder
+com.apple.finder	FinderSpawnTab	bool	false	always	Finder
+com.apple.screencapture	disable-shadow	bool	true	always	Screenshots
+com.apple.screencapture	show-thumbnail	bool	false	always	Screenshots
+com.apple.screencapture	include-date	bool	false	always	Screenshots
+com.apple.screencapture	location	string	~/Desktop	always	Screenshots
+com.apple.screencapture	showsClicks	bool	true	always	Screenshots
+com.apple.desktopservices	DSDontWriteNetworkStores	bool	true	always	Desktop Services
+com.apple.desktopservices	DSDontWriteUSBStores	bool	true	always	Desktop Services
+com.apple.frameworks.diskimages	skip-verify	bool	true	always	Disk images
+com.apple.frameworks.diskimages	skip-verify-locked	bool	true	always	Disk images
+com.apple.frameworks.diskimages	skip-verify-remote	bool	true	always	Disk images
+com.apple.TimeMachine	DoNotOfferNewDisksForBackup	bool	true	always	Time Machine
+com.apple.ActivityMonitor	IconType	int	2	always	Activity Monitor
+com.apple.ActivityMonitor	ShowCategory	int	100	always	Activity Monitor
+com.apple.ActivityMonitor	SortColumn	string	CPUUsage	always	Activity Monitor
+com.apple.ActivityMonitor	SortDirection	int	0	always	Activity Monitor
+com.apple.ActivityMonitor	UpdatePeriod	int	1	always	Activity Monitor
+com.apple.TextEdit	RichText	int	0	always	TextEdit
+com.apple.Terminal	Default Window Settings	string	Pro	always	Terminal.app
+com.apple.Terminal	Startup Window Settings	string	Pro	always	Terminal.app
+com.apple.Terminal	FocusFollowsMouse	bool	true	always	Terminal.app
+com.apple.Terminal	SecureKeyboardEntry	bool	true	always	Terminal.app
+com.apple.Terminal	ShowLineMarks	bool	false	always	Terminal.app
+com.apple.Terminal	NewTabWorkingDirectoryBehavior	int	1	always	Terminal.app
+com.apple.menuextra.clock	IsAnalog	bool	false	always	Menu bar clock
+com.apple.menuextra.clock	ShowAMPM	bool	true	always	Menu bar clock
+com.apple.menuextra.clock	ShowDayOfWeek	bool	true	always	Menu bar clock
+com.apple.menuextra.clock	ShowDate	int	0	always	Menu bar clock
+com.apple.menuextra.clock	FlashDateSeparators	bool	true	always	Menu bar clock
+com.apple.AppleMultitouchTrackpad	Clicking	bool	false	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	ForceSuppressed	bool	true	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	ActuateDetents	int	0	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadCornerSecondaryClick	int	2	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadFiveFingerPinchGesture	int	0	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadFourFingerHorizSwipeGesture	int	0	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadFourFingerPinchGesture	int	0	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadFourFingerVertSwipeGesture	int	0	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadPinch	bool	false	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadRightClick	bool	false	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadRotate	bool	false	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadThreeFingerDrag	bool	false	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadThreeFingerHorizSwipeGesture	int	0	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadThreeFingerTapGesture	int	0	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadThreeFingerVertSwipeGesture	int	0	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadTwoFingerDoubleTapGesture	int	0	trackpad	Trackpad
+com.apple.AppleMultitouchTrackpad	TrackpadTwoFingerFromRightEdgeSwipeGesture	int	0	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	Clicking	bool	false	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	ForceSuppressed	bool	true	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	ActuateDetents	int	0	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadCornerSecondaryClick	int	2	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadFiveFingerPinchGesture	int	0	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadFourFingerHorizSwipeGesture	int	0	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadFourFingerPinchGesture	int	0	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadFourFingerVertSwipeGesture	int	0	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadPinch	bool	false	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadRightClick	bool	false	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadRotate	bool	false	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadThreeFingerDrag	bool	false	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadThreeFingerHorizSwipeGesture	int	0	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadThreeFingerTapGesture	int	0	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadThreeFingerVertSwipeGesture	int	0	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadTwoFingerDoubleTapGesture	int	0	trackpad	Trackpad
+com.apple.driver.AppleBluetoothMultitouch.trackpad	TrackpadTwoFingerFromRightEdgeSwipeGesture	int	0	trackpad	Trackpad
+NSGlobalDomain	ContextMenuGesture	int	1	trackpad	Trackpad
+com.apple.AdLib	allowApplePersonalizedAdvertising	bool	false	always	Privacy & diagnostics
+com.apple.AdLib	forceLimitAdTracking	bool	true	always	Privacy & diagnostics
+com.apple.CrashReporter	DialogType	string	none	always	Privacy & diagnostics
+com.apple.WindowManager	EnableStandardClickToShowDesktop	bool	false	always	Windows & Stage Manager
+com.apple.WindowManager	AppWindowGroupingBehavior	int	1	always	Windows & Stage Manager
+com.apple.assistant.support	Assistant Enabled	bool	false	always	Siri, dictation & spoken content
+com.apple.Siri	VoiceTriggerUserEnabled	bool	false	always	Siri, dictation & spoken content
+com.apple.voicetrigger	VoiceTrigger Enabled	bool	false	always	Siri, dictation & spoken content
+com.apple.Siri	StatusMenuVisible	bool	false	always	Siri, dictation & spoken content
+com.apple.Siri	SuggestionsEnabled	bool	false	always	Siri, dictation & spoken content
+com.apple.assistant.support	Dictation Enabled	bool	false	always	Siri, dictation & spoken content
+com.apple.assistant.support	Siri Data Sharing Opt-In Status	int	2	always	Siri, dictation & spoken content
+com.apple.speech.synthesis.general.prefs	SpokenUIUseSpeakingHotKeyFlag	bool	true	always	Siri, dictation & spoken content
+com.apple.Accessibility	SpeakThisEnabled	int	1	always	Siri, dictation & spoken content
+com.apple.mail	AddressesIncludeNameOnPasteboard	bool	false	existing	Mail & Calendar
+com.apple.iCal	CalDefaultCalendar	string	UseLastSelectedAsDefaultCalendar	always	Mail & Calendar
+com.apple.sharingd	DiscoverableMode	string	Contacts Only	always	Sharing & handoff
+com.apple.Sharing	SharingPeopleSuggestionsDisabled	bool	true	always	Sharing & handoff
+com.apple.amp.mediasharingd	home-sharing-enabled	int	0	always	Sharing & handoff
+com.apple.amp.mediasharingd	photo-sharing-enabled	int	0	always	Sharing & handoff
+com.apple.amp.mediasharingd	public-sharing-enabled	int	0	always	Sharing & handoff
+com.apple.messages.nicknames	MeCardSharingEnabled	bool	false	always	Sharing & handoff
+com.apple.chronod	remoteWidgetsEnabled	bool	false	always	Sharing & handoff
+com.apple.TelephonyUtilities	relayCallingDisabled	bool	true	always	Sharing & handoff
+com.apple.airplay	showInMenuBarIfPresent	bool	false	always	Menu bar extras
+com.apple.TextInputMenu	visible	bool	false	always	Menu bar extras
+com.apple.Passwords	showMenuBarExtra	bool	false	always	Menu bar extras
+com.apple.Passwords	EnableMenuBarExtra	bool	false	always	Menu bar extras
+com.apple.FolderActionsDispatcher	folderActionsEnabled	bool	false	always	Applications
+com.apple.SpeechRecognitionCore	AllowAudioDucking	bool	false	always	Applications
+com.apple.Safari.SandboxBroker	ShowDevelopMenu	bool	false	always	Applications
+com.apple.dt.Xcode	IDEDisableGitSupportForNewProjects	bool	true	always	Xcode
+com.apple.dt.Xcode	IDEWorkspaceSuppressCleanBuildPrompt	bool	true	always	Xcode
+com.apple.dt.Xcode	IDESourceControlWarnUncommittedChangesDefaultsKey	bool	false	always	Xcode

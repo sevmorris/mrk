@@ -3,7 +3,7 @@ set -euo pipefail
 
 # mrk trim-services — stop background agents this Mac does not need running.
 #
-# These are not `defaults` keys, so they do not belong in defaults.sh. They are
+# These are not `defaults` keys, so they do not belong in config/defaults.tsv. They are
 # launchd jobs, and the tool for turning one off permanently is
 # `launchctl disable`, which writes to launchd's override database rather than
 # to the job's plist. That matters for Apple's agents: their plists live under

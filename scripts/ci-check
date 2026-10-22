@@ -89,7 +89,9 @@ log "cleanempties"
 zsh -f -i "$REPO_ROOT/tests/cleanempties.zsh"
 
 # The undo script make defaults writes, round-tripped on a plist in a temporary
-# directory: until 2026-09-11 it restored 7 of 23 kinds of value wrongly.
+# directory: until 2026-09-11 it restored 7 of 23 kinds of value wrongly. Then
+# defaults.sh whole against a stub defaults: config/defaults.tsv written in
+# order, --check, and a bad line refused before any write.
 log "defaults rollback"
 "$REPO_ROOT/tests/defaults-rollback.sh"
 
@@ -226,7 +228,7 @@ log "check updates"
 "$REPO_ROOT/tests/check-updates.sh"
 
 # defaults-watch against a stub defaults whose second snapshot differs from its
-# first: each kind of change named, with what defaults.sh does about it, and
+# first: each kind of change named, with what config/defaults.tsv does about it, and
 # nothing written. New on 2026-09-30: until then a System Settings change was
 # the one change nothing recorded.
 log "defaults watch"

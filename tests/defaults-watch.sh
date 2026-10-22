@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # defaults-watch.sh — prove that defaults-watch names the key a setting change
-# writes, says what scripts/defaults.sh does about it, and changes nothing.
+# writes, says what config/defaults.tsv does about it, and changes nothing.
 #
 # defaults-watch is new on 2026-09-30. Until then a change made in System
 # Settings was the one change nothing in mrk recorded, and finding its key
@@ -8,17 +8,16 @@
 #
 # defaults is a stub first on PATH. Its first `domains` call serves the
 # "before" fixtures and its second the "after" ones, so the two snapshots see
-# one change of each kind defaults-watch tells apart: a key defaults.sh writes,
-# at its value and at another, a quoted key, a key of the trackpad loop's second
-# domain, a key defaults.sh lacks, a nested dictionary, a deleted key, a new
-# domain, a -currentHost key, a key for all users, and window frames, dates
-# and the other keys that change on their own.
-# The real scripts/defaults.sh is read, never run. uname says Darwin.
+# one change of each kind defaults-watch tells apart: a key config/defaults.tsv
+# sets, at its value and at another, a key with spaces in it, a key of the
+# trackpad's second domain, a path in the home directory, a key the file lacks,
+# a nested dictionary, a deleted key, a new domain, a -currentHost key, a key
+# for all users, and window frames, dates and the other keys that change on
+# their own.
+# The real config/defaults.tsv is read. uname says Darwin.
 # Nothing reaches the real HOME or any preferences.
 # It runs under /bin/bash and under the bash running this file. ci-check runs it.
 
-# The expected output holds a literal $domain and $(( … )), as defaults.sh does.
-# shellcheck disable=SC2016
 
 set -uo pipefail
 
@@ -26,6 +25,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [[ "${1:-}" != --inner ]]; then
   run_under() {
+    # shellcheck disable=SC2016  # expanded by the inner bash, not this one
     printf '  under bash %s\n' "$("$1" -c 'echo "${BASH_VERSION%%(*}"')"
     "$1" "${BASH_SOURCE[0]}" --inner "$1"
   }
@@ -77,9 +77,9 @@ chmod +x "$S/defaults" "$S/uname"
 ln -s "$BASH_UNDER_TEST" "$S/bash"
 
 # Fixtures: CASE/phaseN/{user,host,system}/DOMAIN.plist
-python3 - "$FIX" <<'PY'
+python3 - "$FIX" "$W/home" <<'PY'
 import datetime, os, plistlib, sys
-root = sys.argv[1]
+root, home = sys.argv[1:3]
 def put(case, phase, kind, domain, d):
     p = os.path.join(root, case, f"phase{phase}", kind)
     os.makedirs(p, exist_ok=True)
@@ -88,12 +88,15 @@ def put(case, phase, kind, domain, d):
 t0, t1 = datetime.datetime(2026, 9, 30, 8), datetime.datetime(2026, 9, 30, 9)
 for phase, on in ((1, False), (2, True)):
     put("changes", phase, "user", "NSGlobalDomain", {
-        "AppleShowScrollBars": "Always" if on else "Automatic",   # defaults.sh writes Always
-        "AppleShowAllExtensions": not on,                         # defaults.sh writes true
+        "AppleShowScrollBars": "Always" if on else "Automatic",   # the file sets Always
+        "AppleShowAllExtensions": not on,                         # the file sets true
     })
+    # The file sets ~/Desktop, which is home + /Desktop.
+    put("changes", phase, "user", "com.apple.screencapture", {"location": f"{home}/{'Desktop' if on else 'Pictures'}"})
     put("changes", phase, "user", "com.apple.Terminal", {"Default Window Settings": "Basic" if on else "Pro"})
     put("changes", phase, "user", "com.apple.driver.AppleBluetoothMultitouch.trackpad", {"Clicking": not on})
-    put("changes", phase, "user", "com.example.watch", {"Answer": 42 if on else 41, **({} if on else {"Gone": "soon"})})
+    put("changes", phase, "user", "com.example.watch", {"Answer": 42 if on else 41, "Folder": f"{home}/Work" if on else "",
+                                                        **({} if on else {"Gone": "soon"})})
     put("changes", phase, "user", "com.apple.symbolichotkeys", {"AppleSymbolicHotKeys": {"64": {"enabled": not on, "value": {"type": "standard"}}}})
     put("changes", phase, "user", "com.apple.systempreferences", {"NSWindow Frame Main Window": f"{phase} 0 800 600", "LastSeen": t1 if on else t0})
     # versionLastLaunched and SUUpdateGroupIdentifier are in lib.sh's list of
@@ -121,45 +124,57 @@ watch() { # CASE ARGS... — output in $W/out, exit status in RC
 }
 show() { sed 's/^/    /' "$W/out" "$W/err"; }
 has() { grep -qF -- "$1" "$W/out"; }
-line_of() { grep -n -- "$1" "$REPO_ROOT/scripts/defaults.sh" | head -1 | cut -d: -f1; }
+line_of() { grep -n -- "$1" "$REPO_ROOT/config/defaults.tsv" | head -1 | cut -d: -f1; }
 
 # ── 1. One change of each kind ───────────────────────────────────────────────
 
 watch changes --seconds 0
-scroll=$(line_of 'write_default NSGlobalDomain AppleShowScrollBars ')
-ext=$(line_of 'write_default NSGlobalDomain AppleShowAllExtensions ')
-term=$(line_of 'write_default com.apple.Terminal "Default Window Settings" ')
-click=$(line_of 'write_default "$domain" Clicking ')
+scroll=$(line_of $'^NSGlobalDomain\tAppleShowScrollBars\t')
+ext=$(line_of $'^NSGlobalDomain\tAppleShowAllExtensions\t')
+term=$(line_of $'^com.apple.Terminal\tDefault Window Settings\t')
+click=$(line_of $'^com.apple.driver.AppleBluetoothMultitouch.trackpad\tClicking\t')
+shots=$(line_of $'^com.apple.screencapture\tlocation\t')
 
 if (( RC == 0 )) && has "NSGlobalDomain  AppleShowScrollBars" && has '"Automatic" → "Always"' \
-   && has "defaults.sh line $scroll writes \"Always\": this is the value mrk sets."; then
-  pass "a key defaults.sh writes, changed to its value: said to be the value mrk sets"
+   && has "config/defaults.tsv line $scroll sets \"Always\": this is the value mrk sets."; then
+  pass "a key config/defaults.tsv sets, changed to its value: said to be the value mrk sets"
 else
-  fail "a key at defaults.sh's value (line $scroll):"; show
+  fail "a key at config/defaults.tsv's value (line $scroll):"; show
 fi
-if has "defaults.sh line $ext writes bool true, so make defaults would put that back." \
-   && has 'write_default NSGlobalDomain AppleShowAllExtensions bool false || failed=$(( failed + 1 ))'; then
-  pass "a key defaults.sh writes, changed to another value: the line to change it to"
+if has "config/defaults.tsv line $ext sets bool true, so make defaults would put that back." \
+   && has $'      NSGlobalDomain\tAppleShowAllExtensions\tbool\tfalse\talways\tGeneral UI / UX'; then
+  pass "a key config/defaults.tsv sets, changed to another value: the line to change it to, its section kept"
 else
-  fail "a key at another value than defaults.sh's (line $ext):"; show
+  fail "a key at another value than config/defaults.tsv's (line $ext):"; show
 fi
-if has "defaults.sh line $term writes string Pro" && has 'write_default com.apple.Terminal "Default Window Settings" string Basic'; then
-  pass "a key with a space in it: found in defaults.sh, and quoted as defaults.sh quotes it"
+if has "config/defaults.tsv line $term sets string Pro" \
+   && has $'      com.apple.Terminal\tDefault Window Settings\tstring\tBasic\talways\tTerminal.app'; then
+  pass "a key with spaces in it: found in config/defaults.tsv, and its line given with the spaces as they are"
 else
-  fail "a quoted key (line $term):"; show
+  fail "a key with spaces (line $term):"; show
 fi
-if has "com.apple.driver.AppleBluetoothMultitouch.trackpad  Clicking" && has "defaults.sh line $click writes false: this is the value mrk sets."; then
-  pass "a key of the trackpad loop's second domain: found through the loop"
+if has "com.apple.driver.AppleBluetoothMultitouch.trackpad  Clicking" && has "config/defaults.tsv line $click sets false: this is the value mrk sets."; then
+  pass "a key of the trackpad's second domain: found on its own line"
 else
-  fail "the trackpad loop's second domain (line $click):"; show
+  fail "the trackpad's second domain (line $click):"; show
 fi
-if has "com.example.watch  Answer" && has "41 → 42" && has 'write_default com.example.watch Answer int 42 || failed=$(( failed + 1 ))' \
+if has "com.apple.screencapture  location" && has "config/defaults.tsv line $shots sets \"$W/home/Desktop\": this is the value mrk sets."; then
+  pass "a path the file writes as ~/: compared as a path in the home directory"
+else
+  fail "a ~/ path (line $shots):"; show
+fi
+if has "com.example.watch  Answer" && has "41 → 42" && has $'      com.example.watch\tAnswer\tint\t42\talways\tApplications' \
    && has "describe 'com.example.watch.Answer' in docs/defaults/script.js, which check-defaults-desc requires."; then
-  pass "a key defaults.sh lacks: the write_default line to add, and the description it will need"
+  pass "a key config/defaults.tsv lacks: the line to add, and the description it will need"
 else
-  fail "a key defaults.sh lacks:"; show
+  fail "a key config/defaults.tsv lacks:"; show
 fi
-if has "com.example.fresh  Fresh" && has "(absent) → true" && has 'write_default com.example.fresh Fresh bool true'; then
+if has $'      com.example.watch\tFolder\tstring\t~/Work\talways\tApplications'; then
+  pass "a new path in the home directory: its line has ~/, so it suits another Mac"
+else
+  fail "a new path in the home directory:"; show
+fi
+if has "com.example.fresh  Fresh" && has "(absent) → true" && has $'      com.example.fresh\tFresh\tbool\ttrue\talways\tApplications'; then
   pass "a domain that did not exist before: its key reported as added"
 else
   fail "a new domain:"; show
@@ -169,8 +184,8 @@ if has "com.example.watch  Gone" && has '"soon" → (absent)' && has "defaults d
 else
   fail "a deleted key:"; show
 fi
-if has "AppleSymbolicHotKeys/64/enabled: true → false" && has "write_default writes bool, int, float and string only"; then
-  pass "a change inside a dictionary: the path to it, and why write_default cannot write it"
+if has "AppleSymbolicHotKeys/64/enabled: true → false" && has "config/defaults.tsv holds bool, int, float and string only"; then
+  pass "a change inside a dictionary: the path to it, and why config/defaults.tsv cannot hold it"
 else
   fail "a nested change:"; show
 fi

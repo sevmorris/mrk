@@ -250,6 +250,101 @@ app_prefs_why() {
   return 0
 }
 
+# defaults_row LINE — split LINE, an entry of config/defaults.tsv, into the
+# array DEFAULTS_ROW: domain, key, type, value, when and section, each with its
+# escapes undone (\t a tab, \n a newline, \\ a backslash). Return 0 when LINE
+# is one key. When it is not, leave the reason in DEFAULTS_WHY and return 1.
+#
+# A variable rather than stdout, because $( ) drops the newlines a value ends
+# in. The fields are split here, not with `IFS=$'\t' read`, which takes two
+# tabs as one and so loses an empty string value. Only a string value may
+# hold a tab or a newline: a domain or key with one would break the undo file
+# and the --check line. Bash 3.2, as mrk_config_entries is.
+defaults_row() {
+  local rest="$1" f out c n=0
+  local id_re='^[A-Za-z0-9][A-Za-z0-9._-]*$' int_re='^-?[0-9]+$'
+  local float_re='^-?([0-9]+(\.[0-9]*)?|\.[0-9]+)$'
+  DEFAULTS_ROW=() DEFAULTS_WHY=""
+  if [[ "${rest//$'\t'/}" == *[[:cntrl:]]* ]]; then
+    DEFAULTS_WHY="it holds a control character other than a tab"; return 1
+  fi
+  while :; do
+    f=${rest%%$'\t'*} out=""
+    while [[ -n "$f" ]]; do
+      case "$f" in
+        \\t*)   out+=$'\t'; f=${f:2} ;;
+        \\n*)   out+=$'\n'; f=${f:2} ;;
+        \\\\*) out+=\\; f=${f:2} ;;
+        \\*)    DEFAULTS_WHY="a backslash is not one of \\t, \\n and \\\\"; return 1 ;;
+        *)      c=${f%%\\*}; out+=$c; f=${f:${#c}} ;;
+      esac
+    done
+    DEFAULTS_ROW[n]=$out; n=$((n + 1))
+    [[ "$rest" == *$'\t'* ]] || break
+    rest=${rest#*$'\t'}
+  done
+  if (( n != 6 )); then
+    DEFAULTS_WHY="it does not have six fields, separated by tabs"; return 1
+  fi
+  local domain=${DEFAULTS_ROW[0]} key=${DEFAULTS_ROW[1]} type=${DEFAULTS_ROW[2]}
+  local value=${DEFAULTS_ROW[3]} when=${DEFAULTS_ROW[4]} section=${DEFAULTS_ROW[5]}
+  if [[ ! "$domain" =~ $id_re ]]; then
+    DEFAULTS_WHY="the domain is not NSGlobalDomain or a bundle id: $domain"; return 1
+  fi
+  if [[ -z "$key" || "$key" == *[[:cntrl:]]* ]]; then
+    DEFAULTS_WHY="the key is empty, or holds a tab or a newline"; return 1
+  fi
+  case "$type" in
+    bool)   [[ "$value" == true || "$value" == false ]] || DEFAULTS_WHY="a bool is true or false: $value" ;;
+    int)    [[ "$value" =~ $int_re ]] || DEFAULTS_WHY="an int is a whole number: $value" ;;
+    float)  [[ "$value" =~ $float_re ]] || DEFAULTS_WHY="a float is a number such as 0.5: $value" ;;
+    string) ;;
+    *)      DEFAULTS_WHY="the type is not bool, int, float or string: $type" ;;
+  esac
+  [[ -z "$DEFAULTS_WHY" ]] || return 1
+  case "$when" in
+    always|trackpad|existing) ;;
+    *) DEFAULTS_WHY="when is not always, trackpad or existing: $when"; return 1 ;;
+  esac
+  if [[ -z "$section" || "$section" == *[[:cntrl:]]* ]]; then
+    DEFAULTS_WHY="the section is empty, or holds a tab or a newline"; return 1
+  fi
+  return 0
+}
+
+# defaults_table FILE — read FILE, config/defaults.tsv, into the arrays
+# DT_DOMAIN, DT_KEY, DT_TYPE, DT_VALUE, DT_WHEN and DT_SECTION: one element
+# for each key, in the order of the file. Say what is wrong with each line that
+# is not one key, and with a domain and key on a second line. Return 1 when
+# there is any such line, when FILE lists no key, or when it cannot be read.
+# defaults.sh reads the table with this, and so does check-defaults-desc, so
+# make check refuses a line that defaults.sh would refuse.
+defaults_table() {
+  local file=$1 entry id seen=$'\n' bad=0
+  DT_DOMAIN=() DT_KEY=() DT_TYPE=() DT_VALUE=() DT_WHEN=() DT_SECTION=()
+  if [[ ! -r "$file" ]]; then
+    err "Cannot read $file"; return 1
+  fi
+  while IFS= read -r entry; do
+    if ! defaults_row "$entry"; then
+      err "Not one key, in config/defaults.tsv ($DEFAULTS_WHY): $entry"; bad=1; continue
+    fi
+    id="${DEFAULTS_ROW[0]}"$'\t'"${DEFAULTS_ROW[1]}"
+    case "$seen" in
+      *$'\n'"$id"$'\n'*)
+        err "config/defaults.tsv has ${DEFAULTS_ROW[0]} ${DEFAULTS_ROW[1]} on two lines"; bad=1; continue ;;
+    esac
+    seen+="$id"$'\n'
+    DT_DOMAIN+=("${DEFAULTS_ROW[0]}");  DT_KEY+=("${DEFAULTS_ROW[1]}")
+    DT_TYPE+=("${DEFAULTS_ROW[2]}");    DT_VALUE+=("${DEFAULTS_ROW[3]}")
+    DT_WHEN+=("${DEFAULTS_ROW[4]}");    DT_SECTION+=("${DEFAULTS_ROW[5]}")
+  done < <(mrk_config_entries "$file")
+  if (( bad == 0 && ${#DT_DOMAIN[@]} == 0 )); then
+    err "config/defaults.tsv lists no key"; bad=1
+  fi
+  return "$bad"
+}
+
 # The lines of an undo file that delete a whole preferences domain: those
 # post-install appends to defaults-rollback.sh for each plist it imports,
 # `defaults delete DOMAIN >/dev/null 2>&1 || true`. Every other line there puts

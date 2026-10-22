@@ -4,7 +4,7 @@ set -euo pipefail
 # check-defaults-desc — verify the defaults reference documents every key
 # defaults.sh writes.
 #
-# The MRK-1 page parses scripts/defaults.sh at load time and looks each key up
+# The MRK-1 page reads config/defaults.tsv at load time and looks each key up
 # in the DEFAULT_DESCRIPTIONS map in docs/defaults/script.js. A key with no
 # entry renders with no description, and an entry with no key is dead weight.
 # Both have happened before: audit finding N-12 deleted 24 dead entries and
@@ -33,18 +33,21 @@ Options:
   -h, --help      Show this help
 
 check-defaults-desc takes no options other than --help. It compares the keys
-written by scripts/defaults.sh against the descriptions in
-docs/defaults/script.js, which the MRK-1 page reads at load time, and fails
-when either side has a key the other does not.
+in config/defaults.tsv against the descriptions in docs/defaults/script.js,
+which the MRK-1 page reads at load time, and fails when either side has a key
+the other does not. It also fails on a line of config/defaults.tsv that
+defaults.sh would refuse. The same key, type and value in two domains of one
+section is one setting, as MRK-1 shows it: it wants one description, for the
+first of the domains.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"
 
-DEFAULTS_SH="$REPO_ROOT/scripts/defaults.sh"
+DEFAULTS_TSV="$REPO_ROOT/config/defaults.tsv"
 SCRIPT_JS="$REPO_ROOT/docs/defaults/script.js"
 
-if [[ ! -f "$DEFAULTS_SH" ]]; then
-  echo "check-defaults-desc: defaults.sh not found: $DEFAULTS_SH" >&2
+if ! defaults_table "$DEFAULTS_TSV"; then
+  echo "check-defaults-desc: config/defaults.tsv has a line defaults.sh would refuse (see above)" >&2
   exit 1
 fi
 if [[ ! -f "$SCRIPT_JS" ]]; then
@@ -52,27 +55,19 @@ if [[ ! -f "$SCRIPT_JS" ]]; then
   exit 1
 fi
 
-# The first domain of the `for domain in ...` loop. script.js resolves
-# "$domain" to this one and carries the rest as alsoDomains, emitting a single
-# entry per key — so the mirror domains must NOT be counted separately here.
-# `|| true`: the loop is optional, and a grep that finds nothing exits 1, which
-# under `set -e` would kill this script with no output at all. The pattern also
-# has to tolerate leading whitespace — the loop sits inside an `if` block.
-loop_domain=$(grep -oE '^[[:space:]]*for domain in [A-Za-z0-9._ -]+' "$DEFAULTS_SH" \
-  | head -1 | awk '{print $4}' || true)
-: "${loop_domain:=com.apple.AppleMultitouchTrackpad}"
-
+# One id, domain.key, for each setting. A line whose section, key, type and
+# value are those of an earlier line is that setting in a second domain: MRK-1
+# shows it as the earlier line's entry, with this domain beside the first, so
+# it needs no description of its own. The trackpad keys are written so, to
+# com.apple.AppleMultitouchTrackpad and its Bluetooth twin.
 script_keys=()
-while IFS= read -r id; do
-  [[ -n "$id" ]] && script_keys+=("$id")
-done < <(
-  grep -oE '^[[:space:]]*write_default[[:space:]]+"?[A-Za-z0-9._$-]+"?[[:space:]]+"?[A-Za-z0-9._ -]+"?[[:space:]]+(bool|int|float|string)[[:space:]]' "$DEFAULTS_SH" \
-    | sed -E 's/^[[:space:]]*write_default[[:space:]]+//; s/[[:space:]]+(bool|int|float|string)[[:space:]]*$//' \
-    | tr -d '"' \
-    | sed -E "s/^\\\$domain /$loop_domain /" \
-    | awk '{ key=$2; for (i=3;i<=NF;i++) key=key" "$i; printf "%s.%s\n", $1, key }' \
-    | sort -u
-)
+settings=$'\n'
+for i in "${!DT_DOMAIN[@]}"; do
+  setting="${DT_SECTION[i]}"$'\t'"${DT_KEY[i]}"$'\t'"${DT_TYPE[i]}"$'\t'"${DT_VALUE[i]}"
+  case "$settings" in *$'\n'"$setting"$'\n'*) continue ;; esac
+  settings+="$setting"$'\n'
+  script_keys+=("${DT_DOMAIN[i]}.${DT_KEY[i]}")
+done
 
 desc_keys=()
 while IFS= read -r id; do
@@ -104,11 +99,11 @@ if (( ${#missing[@]} == 0 && ${#orphan[@]} == 0 )); then
 fi
 
 if (( ${#missing[@]} > 0 )); then
-  echo "check-defaults-desc: written by defaults.sh, undocumented in script.js (${#missing[@]}):" >&2
+  echo "check-defaults-desc: in config/defaults.tsv, undocumented in script.js (${#missing[@]}):" >&2
   printf '  %s\n' "${missing[@]}" >&2
 fi
 if (( ${#orphan[@]} > 0 )); then
-  echo "check-defaults-desc: documented in script.js, not written by defaults.sh (${#orphan[@]}):" >&2
+  echo "check-defaults-desc: documented in script.js, not in config/defaults.tsv (${#orphan[@]}):" >&2
   printf '  %s\n' "${orphan[@]}" >&2
 fi
 exit 1
