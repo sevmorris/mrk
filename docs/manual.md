@@ -483,9 +483,11 @@ Phase 3 installs Dipstick, and `config/login-items.txt` lists it, so Phase 3 add
 - **Login Items** compares `config/login-items.txt` with the login items of this Mac. Its buttons run `sync-login-items --add`, `--ignore` and `--remove`.
 - **Dock** changes `config/dock.txt`, the list that `make dock` uses. `dock-setup --check` checks each item.
 
-Gearbox runs `make snapshot-prefs`, `make defaults` and `make dock` in a terminal, so you see each prompt. Gearbox does not commit. Use `mrk-push` or `pushall` to commit its changes.
+Gearbox runs `make snapshot-prefs`, `make defaults` and `make dock` in its console, a sheet over its window. The console is a terminal of Gearbox's own, so you see each prompt and type your answer there. When the command stops, the pane checks mrk again. Gearbox does not commit. Use `mrk-push` or `pushall` to commit its changes.
 
 The Login Items pane needs permission to control System Events. macOS asks once. If you decline, the pane tells you where to give the permission.
+
+macOS checks the permissions of Gearbox, not of Terminal, for the commands in the console. If macOS asks whether Gearbox can get the data of another app, or `make defaults` cannot write a key in a protected domain, give the permission to Gearbox in System Settings → Privacy & Security.
 
 
 ## Standalone Utilities
