@@ -26,6 +26,13 @@
 !.claude/skills/
 dotfiles/.claude/
 
+# State that a tool writes under $HOME, written here by a test that used the
+# repository as its HOME or XDG directory. gh's .local/state/gh/device-id was
+# committed that way in #94.
+/.local/
+/.config/
+/.cache/
+
 # Scratch files at the top of the repository, and Go test binaries. Rooted, so
 # that a script under tests/ named test-*.sh is never ignored without a word.
 /test-*
