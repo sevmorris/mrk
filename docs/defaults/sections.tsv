@@ -28,7 +28,7 @@ Time Machine	Time Machine does not ask to use each new disk that you connect as 
 Activity Monitor	How Activity Monitor shows processes: which processes it lists, the sort order, how often it refreshes, and what its Dock icon shows.
 TextEdit	A new TextEdit document is plain text, not rich text. TextEdit keeps its preferences in its container, which exists only after you start TextEdit once. make defaults writes this key only after that.
 Terminal.app	The Terminal profile, Secure Keyboard Entry, focus that follows the mouse pointer, and the directory where a new tab starts. Secure Keyboard Entry stops other apps from reading what you type in Terminal.
-Menu bar clock	How the menu bar clock shows the time and the date. A change to these keys shows only after ControlCenter starts again: run killall ControlCenter, or log out.
+Menu bar clock	How the menu bar clock shows the time and the date. ControlCenter draws the clock, and reads these keys only when it starts. make defaults restarts ControlCenter, so a change shows at once.
 Trackpad	Trackpad gestures, which mrk writes only with --with-trackpad, as make trackpad runs it. They turn off tap to click, Force Click and most multi-finger gestures. A click in the bottom-right corner is the secondary click. Each key goes to two domains: com.apple.AppleMultitouchTrackpad and the Bluetooth trackpad domain.
 Privacy & diagnostics	Personalised advertising and the crash reporter. mrk turns off personalised ads, limits ad tracking, and stops the dialog that shows after an app crashes.
 Windows & Stage Manager	How Stage Manager groups windows, and whether a click on the wallpaper hides the windows to show the desktop.

@@ -207,6 +207,18 @@ else
   tail -3 "$T/locked/err" >&2
 fi
 
+# The restarts, and the undo file's own. ControlCenter draws the menu bar
+# clock and reads its keys only when it starts; until 2026-10-22 a run
+# restarted SystemUIServer alone, and a changed clock key waited for a login.
+restarts=$'killall Finder\nkillall Dock\nkillall SystemUIServer\nkillall ControlCenter'
+if [[ "$(grep '^killall' "$T/clean/calls")" == "$restarts" ]] \
+   && [[ "$(grep '^killall' "$T/clean/home/.mrk/defaults-rollback.sh" | sed 's/ >.*//')" == "$restarts" ]]; then
+  ok "a run restarts Finder, the Dock, SystemUIServer and ControlCenter, and the undo file restarts the same four"
+else
+  fail "the restarts of a run, or of its undo file, are not Finder, Dock, SystemUIServer and ControlCenter:"
+  grep '^killall' "$T/clean/calls" "$T/clean/home/.mrk/defaults-rollback.sh" >&2
+fi
+
 mkdir -p "$T/full/store"
 /usr/bin/defaults write "$T/full/store/com.apple.mail" Seeded -bool true       # Mail is set up
 /usr/bin/defaults write "$T/full/store/com.apple.TextEdit" Seeded -bool true   # TextEdit has been used
