@@ -8,8 +8,9 @@
 # Any other path is a folder: dock-setup adds it beside the Trash, as a stack
 # shown as a list and sorted by name. A line that starts with # is a comment,
 # and an empty line is ignored.
-/Applications/Helium.app
+/Applications/DuckDuckGo.app
 /Applications/Google Chrome.app
+/Applications/Helium.app
 /Applications/Safari.app
 /Applications/iZotope RX 12 Audio Editor.app
 /Applications/WaxOnWaxOff.app
