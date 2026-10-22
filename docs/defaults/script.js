@@ -1,6 +1,7 @@
-// MRK-1, the macOS defaults reference. The keys are config/defaults.tsv and
-// their descriptions docs/defaults/descriptions.tsv; the page reads both when
-// it loads, and check-defaults-desc keeps the two in step.
+// MRK-1, the macOS defaults reference. The keys are config/defaults.tsv,
+// their descriptions docs/defaults/descriptions.tsv, and the text under each
+// section heading docs/defaults/sections.tsv; the page reads all three when it
+// loads, and check-defaults-desc keeps them in step.
 
 class DefaultsDocGenerator {
     constructor() {
@@ -8,6 +9,7 @@ class DefaultsDocGenerator {
         this.filteredSections = [];
         this.searchTerm = '';
         this.descriptions = new Map();
+        this.sectionDescriptions = new Map();
         this.init();
     }
     
@@ -108,15 +110,25 @@ class DefaultsDocGenerator {
         const descriptions = this.fetchText(descriptionsUrl).then(
             text => { this.parseDescriptions(text); return null; },
             error => error);
+        const sections = this.fetchText(this.repoFileUrl('docs/defaults/sections.tsv')).then(
+            text => { this.parseSections(text); return null; },
+            error => error);
         try {
             const table = await this.fetchText(this.repoFileUrl('config/defaults.tsv'));
             const descriptionsError = await descriptions;
+            const sectionsError = await sections;
             this.parseTable(table);
             if (descriptionsError) {
                 console.error('Failed to load the descriptions:', descriptionsError);
                 this.showLoadFailure('Could not load docs/defaults/descriptions.tsv from GitHub (' +
                     this.errorText(descriptionsError) + '). Each key below has a generic description ' +
                     'in place of its own. Reload to try again, or read the file in the repository.');
+            }
+            if (sectionsError) {
+                console.error('Failed to load the section descriptions:', sectionsError);
+                this.showLoadFailure('Could not load docs/defaults/sections.tsv from GitHub (' +
+                    this.errorText(sectionsError) + '). The sections below have no description. ' +
+                    'Reload to try again, or read the file in the repository.');
             }
         } catch (error) {
             console.error('Failed to load the table:', error);
@@ -168,6 +180,20 @@ class DefaultsDocGenerator {
         }
     }
 
+    // docs/defaults/sections.tsv has one section on each line: the section,
+    // as config/defaults.tsv names it, and its description, separated by a
+    // tab. check-defaults-desc refuses a line in any other shape, so the page
+    // passes over one.
+    parseSections(content) {
+        this.sectionDescriptions = new Map();
+        for (const line of content.split('\n')) {
+            if (line.startsWith('#') || !line.trim()) continue;
+            const fields = line.split('\t').map(f => this.unescapeField(f));
+            if (fields.length !== 2 || fields.includes(null)) continue;
+            this.sectionDescriptions.set(fields[0], fields[1]);
+        }
+    }
+
     // A field of config/defaults.tsv or descriptions.tsv as text: \t is a
     // tab, \n a newline and \\ a backslash. null for a backslash before
     // anything else.
@@ -215,38 +241,16 @@ class DefaultsDocGenerator {
             }
         }
 
-        // A section that only --with-trackpad writes says so in its name.
+        // A section that only --with-trackpad writes says so in its name. Its
+        // description is under the name config/defaults.tsv gives it.
         this.sections = [...sections.values()].map(({ name, entries, when }) => {
             const shown = when.size === 1 && when.has('trackpad') ? `${name} (opt-in: --with-trackpad)` : name;
-            return { name: shown, entries, description: this.getSectionDescription(shown) };
+            return { name: shown, entries, description: this.sectionDescriptions.get(name) || null };
         });
         this.renderSections();
         this.updateNav();
     }
 
-    getSectionDescription(sectionName) {
-        const descriptions = {
-            'General UI / UX': 'Core interface and experience settings that affect the overall look, feel, and behavior of macOS — animations, dialogs, scrollbars, text handling, and miscellaneous system-wide polish.',
-            'Sound': 'Audio feedback settings for system events and UI interactions. The interface sound effects system dates to the classic Mac OS era; these defaults let you silence it globally without entering Sound preferences.',
-            'Keyboard & input': 'Keyboard behavior, repeat rates, and automatic text substitution settings. macOS ships with conservative key-repeat defaults tuned for casual users — power users routinely crank InitialKeyRepeat and KeyRepeat to their minimums.',
-            'Dock': 'Dock appearance, auto-hide behavior, and launch animation settings. The Dock was introduced in Mac OS X 10.0 as a replacement for the Launcher and Application Switcher; many of its animation defaults remain unchanged since 10.4 Tiger.',
-            'Finder': 'Finder display and behavior settings. Finder has been the macOS file manager since System 1 (1984); the defaults domain com.apple.finder controls everything from icon sizes to whether the Quit menu item even appears.',
-            'Screenshots': 'Screen capture output settings — format, save location, shadow, and thumbnail behavior. The built-in screenshot system was unified under com.apple.screencapture in macOS 10.14 Mojave when Screenshot.app replaced the older Grab utility.',
-            'Desktop Services': 'Metadata file suppression settings for network shares and USB drives. .DS_Store files store Finder layout data per-folder; disabling them on external volumes prevents littering other operating systems with invisible macOS housekeeping files.',
-            'Disk images': 'Disk image mount and verification settings. The skip-verify keys were added to speed up mounting of trusted disk images; note that some of these keys have had no effect since macOS 10.11.3 El Capitan due to Gatekeeper enforcement changes.',
-            'Time Machine': 'Time Machine backup behavior settings. DoNotOfferNewDisksForBackup suppresses the recurring prompt to use every newly attached drive as a backup destination — useful on machines with many external drives.',
-            'Software Update & App Store': 'Automatic update and app purchase settings across both the system software update mechanism and the Mac App Store. These keys control background download, auto-install, and critical update behavior independently.',
-            'Activity Monitor': 'Activity Monitor display and update settings. The app is the modern successor to ProcessViewer and CPU Monitor, consolidated in OS X 10.9 Mavericks. These defaults control dock icon behavior and how frequently the display refreshes.',
-            'TextEdit': 'TextEdit format and behavior settings. TextEdit has shipped with every version of Mac OS X; RichText defaults to 1 (RTF), which surprises developers who expect a plain-text editor — setting it to 0 makes TextEdit behave like a simple code-friendly notepad.',
-            'Terminal.app': 'Terminal.app security and usability settings. Secure Keyboard Entry (enabled here) prevents other apps and processes from reading keystrokes while Terminal is focused — important when typing passwords in a terminal on a shared or untrusted machine.',
-            'Menu bar clock': 'Menu bar clock format and display settings. The clock lives in com.apple.menuextra.clock and supports a rich custom format string. Changes require restarting ControlCenter (not the older SystemUIServer, which handled this prior to macOS 11 Big Sur).',
-            'Trackpad (opt-in: --with-trackpad)': 'Trackpad gesture and sensitivity settings. This section is opt-in — it only runs when defaults.sh is invoked with the --with-trackpad flag — because trackpad preferences are highly personal and the system defaults are reasonable for most users.',
-            'Finish up': 'Post-configuration cleanup — kills and restarts affected system processes so that all the changes applied above take effect immediately without requiring a logout or reboot.'
-        };
-
-        return descriptions[sectionName] || 'System configuration settings.';
-    }
-    
     // Quote a domain or key for display only when the shell would need it.
     shellQuote(s) {
         return /[^A-Za-z0-9._-]/.test(s) ? `"${s}"` : s;
@@ -381,7 +385,7 @@ class DefaultsDocGenerator {
                         ${section.name}
                         <span class="section__count">${section.entries.length}</span>
                     </h2>
-                    ${section.description ? `<p class="section__description">${section.description}</p>` : ''}
+                    ${section.description ? `<p class="section__description">${this.escapeHtml(section.description)}</p>` : ''}
                     <div class="section__actions">
                         <button class="button copy-section-button" data-section="${section.name}">
                             Copy All Commands

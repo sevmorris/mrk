@@ -141,6 +141,7 @@ neither verb now.
 | `docs/manual.md` | Full STE. Procedures strict; descriptions STE-descriptive. | Done — commit `292485f`; ignore-list and self-populate prose added in the `login-items-ignore` work; the text added from 2026-09-28 to 2026-10-01 brought back to the rules on 2026-10-01 |
 | `scripts/sync-login-items` | The doc-emitting template only. | Done — commit `292485f` |
 | `docs/defaults/descriptions.tsv` (was `docs/defaults/script.js`) | Data reconcile + full STE on all 77 entries. | Done — reconcile `7f3d8de`; the 59 legacy entries split across five batches. The entries moved, word for word, from a JavaScript object in `script.js` to `descriptions.tsv` on 2026-10-21 |
+| `docs/defaults/sections.tsv` (was `docs/defaults/script.js`) | Full STE on all 22 section descriptions. | Done — written new on 2026-10-22, when the section text left `script.js`. The old text was not moved: two of its entries described sections that were gone, eight sections had none, and the rest mixed trivia, some of it wrong, with what the keys do |
 | `README.md`, `docs/index.html` | Optional, low priority. | Not started |
 
 ### `docs/bin/mrk-usage.html`
