@@ -29,6 +29,7 @@ ClipHack.app|sevmorris/ClipHack-releases|ClipHack
 Dipstick.app|sevmorris/Dipstick|Dipstick
 DoublEnder.app|sevmorris/DoublEnder|DoublEnder
 FilmStrip.app|sevmorris/FilmStrip|FilmStrip
+Gearbox.app|sevmorris/Gearbox|Gearbox
 KeyVault.app|sevmorris/KeyVault|KeyVault
 Magic Backup Machine.app|sevmorris/magic-backup-machine|Magic Backup Machine
 WaxOnWaxOff.app|sevmorris/WaxOnWaxOff|WaxOnWaxOff
