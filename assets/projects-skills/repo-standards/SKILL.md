@@ -93,12 +93,12 @@ JSON
 
 **Licences follow the family.** Most apps are GPL-3.0: WaxOnWaxOff, ClipHack
 (and ClipHack-releases), FilmStrip, Barkeep and PasswordGen (`ppg`).
-DoublEnder, DoublEnder-Windows, KeyVault and Dipstick are MIT. The tools,
-guides and sites are MIT: mrk, sevmac, homebrew-tap, dead-city-sf, wp-sim-93
-and the Raspberry Pi guide. A new app has no one family to follow, so ask:
-Dipstick went MIT to match mrk, which it is a front end for. It is always the
-owner's decision, and a repository published without a licence may be that way
-on purpose.
+DoublEnder, DoublEnder-Windows, KeyVault, Dipstick and Gearbox are MIT. The
+tools, guides and sites are MIT: mrk, sevmac, homebrew-tap, dead-city-sf,
+wp-sim-93 and the Raspberry Pi guide. A new app has no one family to follow, so
+ask: Dipstick and Gearbox went MIT to match mrk, which they are front ends for.
+It is always the owner's decision, and a repository published without a licence
+may be that way on purpose.
 
 **Tests in CI.** WaxOnWaxOff's `.github/workflows/ci.yml` is the reference.
 Its `build-and-test` job:

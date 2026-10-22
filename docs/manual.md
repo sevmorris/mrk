@@ -454,7 +454,7 @@ The `nuke-mrk` entry is under Nuclear options. To confirm it, type the word `nuk
 
 ## Companion apps
 
-Three native macOS apps come with mrk. Each app has its own repository, and the links below go to them. `make post-install` installs all three from their releases.
+Four native macOS apps come with mrk. Each app has its own repository, and the links below go to them. `make post-install` installs Barkeep, KeyVault and Dipstick from their releases.
 
 **[Barkeep](https://github.com/sevmorris/Barkeep)** manages your Homebrew Brewfile in a window.
 
@@ -473,6 +473,19 @@ A KeyVault backup goes out as one passphrase-encrypted OpenPGP archive. Any `gpg
 **[Dipstick](https://github.com/sevmorris/Dipstick)** shows the `mrk-status` dashboard in the menu bar. It runs `mrk-status --json` and shows the same four panels. Its icon shows the worst result. Each fix is a button that shows its command. The button runs the command in a terminal, in `~/mrk`, as the `f` key does in `mrk-status`. Dipstick does no checks of its own, so the menu bar and the dashboard always agree.
 
 Phase 3 installs Dipstick, and `config/login-items.txt` lists it, so Phase 3 adds Dipstick to the login items too.
+
+**[Gearbox](https://github.com/sevmorris/Gearbox)** shows four lists of mrk in one window. Each pane runs the check mode of one mrk script and shows the result.
+
+- **App Preferences** shows the changes that `snapshot-prefs --check` finds.
+- **macOS Defaults** shows each key that `defaults.sh --check` compares with this Mac, with the description of the key.
+- **Login Items** compares `config/login-items.txt` with the login items of this Mac. Its buttons run `sync-login-items --add`, `--ignore` and `--remove`.
+- **Dock** changes `config/dock.txt`, the list that `make dock` uses. `dock-setup --check` checks each item.
+
+Gearbox runs `make snapshot-prefs`, `make defaults` and `make dock` in a terminal, so you see each prompt. Gearbox does not commit. Use `mrk-push` or `pushall` to commit its changes.
+
+The Login Items pane needs permission to control System Events. macOS asks once. If you decline, the pane tells you where to give the permission.
+
+Gearbox has no release yet, so Phase 3 does not install it. To use it now, clone its repository. Then run `./build.sh` in it.
 
 ## Standalone Utilities
 

@@ -723,6 +723,9 @@ PREFS_NOISE=(
   'MacWhisper.plist|knownRanVersions' 'MacWhisper.plist|*Cache'
   'Thaw.plist|StaleIdentifierMissCounts' 'Thaw.plist|MenuBarItemManager.knownItemIdentifiers'
   'sevmorris-apps/io.github.sevmorris.BackupRestore.plist|MBM_lastUpdateCheckDate'
+  # Gearbox's update check stamps this at most once an hour while Gearbox runs.
+  # It is here by design (sevmorris/Gearbox#1), not from the history above.
+  'sevmorris-apps/io.github.sevmorris.Gearbox.plist|lastUpdateCheck'
 )
 
 # plist_changes PATH... — compare each plist as staged with HEAD's copy. Prints
