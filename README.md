@@ -23,7 +23,7 @@ exec zsh
 ```
 
 On anyone else's, that clones a `mrk-prefs` you cannot read, adds seven login items you
-did not choose, rearranges the Dock, and installs eight apps of mine. Fork first — see
+did not choose, rearranges the Dock, and installs nine apps of mine. Fork first — see
 [Adapting it](#adapting-it).
 
 ## Phases
@@ -103,7 +103,7 @@ data in them is not.
 | Snapshotted apps | `config/app-prefs.tsv` | The apps whose preferences `snapshot-prefs` saves and Phase 3 restores, one app a line: domain, plist, app path and name. The Application Support trees I care about are in `scripts/snapshot-prefs`. |
 | Dock | `config/dock.txt` | The Dock, left to right, one path a line. `make dock` wipes the Dock before it rebuilds it. |
 | macOS defaults | `config/defaults.tsv` | 133 keys, each one a preference of mine, one line each with tabs between the fields. `make defaults` writes them, and `scripts/defaults.sh --check` compares them with the Mac. Documented in the [defaults reference](https://sevmorris.github.io/mrk/defaults/). |
-| My own apps | `config/companion-apps.txt` | Installs eight apps of mine — Barkeep, ClipHack, Dipstick, DoublEnder, FilmStrip, KeyVault, Magic Backup Machine and WaxOn/WaxOff — one a line, and refuses any app not signed by `GITHUB_APP_TEAM_ID` in `scripts/install-apps`, my Developer ID team. |
+| My own apps | `config/companion-apps.txt` | Installs nine apps of mine — Barkeep, ClipHack, Dipstick, DoublEnder, FilmStrip, Gearbox, KeyVault, Magic Backup Machine and WaxOn/WaxOff — one a line, and refuses any app not signed by `GITHUB_APP_TEAM_ID` in `scripts/install-apps`, my Developer ID team. |
 | Dotfiles | `dotfiles/` | My shell, aliases and git config. |
 
 `make setup-dry`, `make sync ARGS=-n`, `make dock ARGS=-n` and `make snapshot-keys ARGS=-n` all preview without
@@ -121,7 +121,7 @@ mrk's bookkeeping (rollback scripts, backups) lives in `~/.mrk`. Configuration c
 
 ## Companion apps
 
-Four native macOS apps ship alongside mrk. `make post-install` installs Barkeep, KeyVault and Dipstick from their latest GitHub release. Gearbox has no release yet, so build it from its repository with `./build.sh`.
+Four native macOS apps ship alongside mrk. `make post-install` installs all four from their latest GitHub release.
 
 - **[Barkeep](https://github.com/sevmorris/Barkeep)** — visually manage your Homebrew Brewfile, and adopt packages the Brewfile doesn't track yet.
 - **[KeyVault](https://github.com/sevmorris/KeyVault)** — manage SSH keys, GPG keys, API keys, secure notes, and encrypted files. API keys, notes and stored files are KeyVault's own: the API keys and notes live in the login Keychain, the files live encrypted in `~/Library/Application Support/KeyVault/Files`, and all three back up to a passphrase-encrypted OpenPGP archive that plain `gpg` can read. SSH and GPG keys stay in `~/.ssh` and `~/.gnupg` — KeyVault reads and generates them, but never copies the private keys into the Keychain or the archive.
