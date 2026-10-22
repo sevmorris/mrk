@@ -16,9 +16,12 @@
 #            starts with ~/ is a path in your home directory.
 #   when     always: on every run.
 #            trackpad: only with --with-trackpad, as make trackpad runs it.
-#            existing: only when the domain exists. defaults write cannot make
-#            the domain of a sandboxed app, such as Mail, and the domain exists
-#            only after the app is set up.
+#            existing: only when the domain exists. A sandboxed app, such as
+#            Mail or TextEdit, keeps its preferences in its container, and
+#            makes them when it is set up or first used. Before that, defaults
+#            write fails for Mail, and for TextEdit it writes a file outside
+#            the container that TextEdit never reads. Run make defaults again
+#            after you set up the app.
 #   section  the heading that MRK-1 shows the key under
 # In a field, a backslash starts an escape: \t is a tab, \n is a newline and \\
 # is a backslash. A space and a quote need no escape. A line that starts with #
@@ -108,7 +111,7 @@ com.apple.ActivityMonitor	ShowCategory	int	100	always	Activity Monitor
 com.apple.ActivityMonitor	SortColumn	string	CPUUsage	always	Activity Monitor
 com.apple.ActivityMonitor	SortDirection	int	0	always	Activity Monitor
 com.apple.ActivityMonitor	UpdatePeriod	int	1	always	Activity Monitor
-com.apple.TextEdit	RichText	int	0	always	TextEdit
+com.apple.TextEdit	RichText	int	0	existing	TextEdit
 com.apple.Terminal	Default Window Settings	string	Pro	always	Terminal.app
 com.apple.Terminal	Startup Window Settings	string	Pro	always	Terminal.app
 com.apple.Terminal	FocusFollowsMouse	bool	true	always	Terminal.app

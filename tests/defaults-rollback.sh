@@ -191,8 +191,9 @@ else
   tail -3 "$T/clean/err" >&2
 fi
 if [[ "$(writes clean)" == "$(expected always "$T/clean/home")" ]] \
-   && grep -q 'com.apple.mail AddressesIncludeNameOnPasteboard (its domain does not exist yet)' "$T/clean/err"; then
-  ok "it writes the $(writes clean | wc -l | tr -d ' ') always rows of config/defaults.tsv, in order, ~/ as the home directory; Mail's waits for a domain"
+   && grep -q 'com.apple.mail AddressesIncludeNameOnPasteboard (its domain does not exist yet)' "$T/clean/err" \
+   && grep -q 'com.apple.TextEdit RichText (its domain does not exist yet)' "$T/clean/err"; then
+  ok "it writes the $(writes clean | wc -l | tr -d ' ') always rows of config/defaults.tsv, in order, ~/ as the home directory; Mail's and TextEdit's wait for a domain"
 else
   fail "the writes are not config/defaults.tsv's always rows, in order:"
   diff <(expected always "$T/clean/home") <(writes clean) | head -5 >&2
@@ -207,13 +208,15 @@ else
 fi
 
 mkdir -p "$T/full/store"
-/usr/bin/defaults write "$T/full/store/com.apple.mail" Seeded -bool true   # Mail is set up
+/usr/bin/defaults write "$T/full/store/com.apple.mail" Seeded -bool true       # Mail is set up
+/usr/bin/defaults write "$T/full/store/com.apple.TextEdit" Seeded -bool true   # TextEdit has been used
 run full --with-trackpad; rc_full=$RC
 if [[ $rc_full == 0 && "$(writes full)" == "$(expected 'always|trackpad|existing' "$T/full/home")" ]] \
-   && grep -q 'Applying trackpad defaults' "$T/full/err"; then
-  ok "with --with-trackpad and Mail set up: all $(writes full | wc -l | tr -d ' ') rows, the trackpad and Mail ones where the file has them"
+   && grep -q 'Applying trackpad defaults' "$T/full/err" && ! grep -q 'does not exist yet' "$T/full/err" \
+   && grep -qx $'com.apple.TextEdit\tRichText\tint\t0' <(writes full); then
+  ok "with --with-trackpad, Mail set up and TextEdit used: all $(writes full | wc -l | tr -d ' ') rows, TextEdit's RichText among them, each where the file has it"
 else
-  fail "with --with-trackpad and Mail set up: exit $rc_full, or not every row in order:"
+  fail "with --with-trackpad, Mail set up and TextEdit used: exit $rc_full, or not every row in order:"
   diff <(expected 'always|trackpad|existing' "$T/full/home") <(writes full) | head -5 >&2
 fi
 n_full=$(calls full); undo_full=$(undo full)

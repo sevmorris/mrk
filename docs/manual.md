@@ -645,6 +645,8 @@ cd ~/mrk && make setup && exec zsh
 
 This step configures the shell, symlinks the dotfiles, and applies the macOS system preferences.
 
+Phase 1 skips two keys until their apps have preferences: one for Mail and one for TextEdit. Both apps keep their preferences in a container, which the app makes when you set it up or first use it. After you set up Mail and use TextEdit, run `make defaults` again.
+
 ## Step 3 — Add your SSH key to GitHub, if you need to
 
 If you cloned over HTTPS, add your SSH key now. Do this before Phase 3.

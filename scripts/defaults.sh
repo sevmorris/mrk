@@ -299,13 +299,18 @@ for i in "${!DT_DOMAIN[@]}"; do
       fi
       ;;
     existing)
-      # A sandboxed app's domain, such as Mail's, lives in its container and
-      # does not exist until the app is set up. `defaults write` cannot make
-      # it: the write fails outright. Without this test, a Mac where Mail was
-      # never set up reported a failed write on every run, and a warning that
-      # is always there hides a real failure. Reading the domain is the test:
-      # the container directory exists before the domain does. Once the app
-      # is set up, the next run writes the key.
+      # A sandboxed app keeps its preferences in its container, and they do
+      # not exist until the app is set up or first used. Before that, a write
+      # goes wrong in one of two ways. For Mail, `defaults write` fails
+      # outright: a Mac where Mail was never set up reported a failed write
+      # on every run, and a warning that is always there hides a real
+      # failure. For TextEdit, the write succeeds into ~/Library/Preferences,
+      # which TextEdit never reads once it has a container: on this Mac
+      # RichText=0 sat there from 2026-09-15, and TextEdit never saw it.
+      # Reading the domain is the test: the container directory exists
+      # before the domain does. Once the app has preferences, `defaults`
+      # reads and writes them in the container, and the next run writes the
+      # key there.
       if ! defaults read "${DT_DOMAIN[i]}" >/dev/null 2>&1; then
         logskip "${DT_DOMAIN[i]} ${DT_KEY[i]}" "its domain does not exist yet"
         continue
