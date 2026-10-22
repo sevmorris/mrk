@@ -31,6 +31,10 @@
 # 7. README and the manual give the number of keys defaults.sh writes, and it
 #    is the number check-defaults-desc counts. On 2026-09-28 seven keys left
 #    (audit 15, T-3) and both said 143 until they were edited by hand.
+# 8. The manual's table of managed app preferences names the apps of
+#    config/app-prefs.tsv, which snapshot-prefs and post-install read, by the
+#    name the table gives each. Its third column is the manual's own: what
+#    mrk writes into the app after the import.
 #
 # Read-only, apart from that dry run, which a scratch HOME keeps to itself.
 # ci-check runs it.
@@ -179,6 +183,18 @@ if [[ -n "$n_keys" && "$readme_keys" == "$n_keys" && "$manual_keys" == "$n_keys"
   pass "README and the manual say defaults.sh writes $n_keys keys, and it does"
 else
   fail "defaults.sh writes ${n_keys:-an uncounted number of} keys; README says ${readme_keys:-nothing}, the manual ${manual_keys:-nothing}"
+fi
+
+# ── 8. The manual's managed app preferences ──────────────────────────────────
+
+table_apps=$(mrk_config_entries "$REPO_ROOT/config/app-prefs.tsv" | cut -f4 | LC_ALL=C sort)
+manual_apps=$(awk '/^\*\*Managed app preferences:\*\*/ { p = 1; next } p && /^\| / { print; t = 1; next } p && t && !/^\|/ { exit }' "$MANUAL" \
+  | awk -F' *\\| *' 'NR > 1 { print $2 }' | LC_ALL=C sort)
+if [[ -n "$table_apps" && "$manual_apps" == "$table_apps" ]]; then
+  pass "the manual's managed app preferences are the $(grep -c . <<<"$table_apps") apps of config/app-prefs.tsv"
+else
+  fail "the manual's managed app preferences differ from config/app-prefs.tsv (< table, > manual):"
+  diff <(printf '%s\n' "$table_apps") <(printf '%s\n' "$manual_apps") | sed 's/^/    /' >&2
 fi
 
 (( fails == 0 ))

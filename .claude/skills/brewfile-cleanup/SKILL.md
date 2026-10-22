@@ -88,9 +88,9 @@ The reasoning behind the rows:
   uninstall` only after the owner says yes in this conversation, and only after
   `brew uses --installed <name>` shows no dependents. Homebrew then autoremoves
   the dependencies nothing else needs. Report which it removed.
-- **Apps that are gone.** Removing an app from `scripts/snapshot-prefs` and
-  `scripts/post-install` leaves its saved plist in mrk-prefs, which is what the
-  owner usually wants, so say so when asking.
+- **Apps that are gone.** Removing an app's line from `config/app-prefs.tsv`
+  leaves its saved plist in mrk-prefs, which is what the owner usually wants,
+  so say so when asking.
 - **Cache folders.** A missing folder means the app is not installed, or has
   never been opened. Slack on a fresh Mac is the second case, so leave those
   alone. When you remove a block, keep any comment that records a hard-won
@@ -132,8 +132,11 @@ single questions.
   it makes (Adopt uses `# Adopted`). Refile a line under a comment Barkeep made
   into its `##` section, add `greedy: true` to a bare cask, and drop the
   comment.
-- `scripts/snapshot-prefs`, `scripts/post-install` (`import_plist`) and
-  `config/login-items.txt` hold the per-app lists.
+- `config/app-prefs.tsv` (the preferences that snapshot-prefs saves and
+  post-install restores), `config/login-items.txt` and
+  `config/companion-apps.txt` hold the per-app lists. The manual's table of
+  managed app preferences names the apps of `config/app-prefs.tsv`, and
+  `tests/docs-drift.sh` holds the two to each other.
 - `bin/clear-app-caches`, `scripts/trim-services` (launchd labels such as
   Samsung Magician's and Google's updater) and `config/dock.txt` each name
   apps.

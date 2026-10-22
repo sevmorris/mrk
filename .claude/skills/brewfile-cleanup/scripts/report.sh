@@ -182,10 +182,10 @@ done
 list "$TMP/ids"
 
 h "App counts the docs give for snapshot-prefs and post-install"
-# grep -c prints 0 and exits 1 on no match, so no `|| echo 0` here.
-n=$($GREP -c '^snapshot_plist "' "$REPO/scripts/snapshot-prefs" 2>/dev/null); n=${n:-0}
-m=$($GREP -c '^[[:space:]]*import_plist "' "$REPO/scripts/post-install" 2>/dev/null); m=${m:-0}
-echo "  snapshot-prefs exports $n named domains; post-install imports $m"
+# Both read config/app-prefs.tsv: an app is a line that is not a comment and
+# not empty. grep -c prints 0 and exits 1 on no match, so no `|| echo 0` here.
+n=$($GREP -cvE '^(#|[[:space:]]*$)' "$REPO/config/app-prefs.tsv" 2>/dev/null); n=${n:-0}
+echo "  config/app-prefs.tsv lists $n apps, which snapshot-prefs exports and post-install imports"
 count_re='exports [0-9]+ named plist domains|The [0-9]+ plist domains|plists for [0-9]+ named applications|exports the [0-9]+ app preference plists|Plist imports \([0-9]+ apps\)|imports preferences for [0-9]+ applications'
 for doc in "$REPO/README.md" "$REPO/docs/manual.md" "$REPO/docs/bin/mrk-usage.html" "$SEVMAC/docs/index.html"; do
   [[ -f "$doc" ]] || continue

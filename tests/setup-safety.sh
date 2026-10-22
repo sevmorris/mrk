@@ -72,10 +72,10 @@ cat > "$R/scripts/install-apps" <<'EOF'
 #!/usr/bin/env bash
 install_companion_apps() { COMPANION_FAILED=0; }
 EOF
-for f in "$R/scripts/setup" "$R/scripts/post-install" "$R"/config/*.txt "$R"/assets/*/*.sh; do
+for f in "$R/scripts/setup" "$R/scripts/post-install" "$R"/config/* "$R"/assets/*/*.sh; do
   sed "s#/Applications/#$APPS/#g" "$f" > "$W/rewrite" && cat "$W/rewrite" > "$f"
 done
-if grep -n '/Applications/' "$R/scripts/setup" "$R/scripts/post-install" "$R"/config/*.txt "$R"/assets/*/*.sh | grep -vF "$APPS/"; then
+if grep -n '/Applications/' "$R/scripts/setup" "$R/scripts/post-install" "$R"/config/* "$R"/assets/*/*.sh | grep -vF "$APPS/"; then
   fail "a real /Applications path survived the rewrite — refusing to run"
   exit 1
 fi

@@ -211,6 +211,45 @@ mrk_config_entries() {
   done < "$1"
 }
 
+# app_prefs_why LINE — say why LINE, an entry of config/app-prefs.tsv, is not
+# one app, and return 1. Say nothing and return 0 when it is: four fields
+# separated by tabs, none empty, which are a defaults domain, the name of a
+# plist at the top of mrk-prefs, the full path of an app, and a name to show.
+#
+# snapshot-prefs writes to a path built from the file field, and post-install
+# imports from one, so a field that could leave ~/.mrk/preferences is refused.
+# So is an io.github.sevmorris.* domain: snapshot-prefs saves those as a group,
+# and must never save KeyVault's. The prefix is written out in snapshot-prefs
+# and post-install as well. Bash 3.2, as mrk_config_entries is.
+app_prefs_why() {
+  local line="$1" domain file app name rest
+  local id_re='^[A-Za-z0-9][A-Za-z0-9._-]*$' file_re='^[A-Za-z0-9][A-Za-z0-9._-]*\.plist$'
+  if [[ "${line//$'\t'/}" == *[[:cntrl:]]* ]]; then
+    echo "it holds a control character"; return 1
+  fi
+  case "$line" in
+    $'\t'* | *$'\t' | *$'\t\t'*) echo "a field is empty"; return 1 ;;
+  esac
+  IFS=$'\t' read -r domain file app name rest <<< "$line"
+  if [[ -z "$name" || -n "$rest" ]]; then
+    echo "it does not have four fields, separated by tabs"; return 1
+  fi
+  if [[ ! "$domain" =~ $id_re ]]; then
+    echo "the domain is not a bundle id: $domain"; return 1
+  fi
+  if [[ "$domain" == io.github.sevmorris.* ]]; then
+    echo "snapshot-prefs saves the io.github.sevmorris.* domains as a group: $domain"; return 1
+  fi
+  if [[ ! "$file" =~ $file_re ]]; then
+    echo "the file is not the name of a plist, with no directory: $file"; return 1
+  fi
+  case "$app" in
+    /*.app) ;;
+    *) echo "the app is not a full path that ends in .app: $app"; return 1 ;;
+  esac
+  return 0
+}
+
 # The lines of an undo file that delete a whole preferences domain: those
 # post-install appends to defaults-rollback.sh for each plist it imports,
 # `defaults delete DOMAIN >/dev/null 2>&1 || true`. Every other line there puts

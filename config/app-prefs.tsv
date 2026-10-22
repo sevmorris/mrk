@@ -1,0 +1,35 @@
+# mrk app preferences
+#
+# The apps whose preferences mrk keeps. snapshot-prefs exports the plist of
+# each app that is installed and has preferences, into mrk-prefs. post-install
+# imports it again on a new Mac, into each app that is installed and has no
+# preferences yet. Both read this file, so they cannot list different apps.
+#
+# One app on each line: four fields, separated by tabs.
+#   domain   the defaults domain, which is the bundle id of the app
+#   file     the name of the plist in mrk-prefs, at its top level
+#   app      the full path of the app, which ends in .app
+#   name     the name that snapshot-prefs and post-install show
+# A line that starts with # is a comment, and an empty line is ignored. Keep
+# the lines in byte order (LC_ALL=C sort), which is the order of the domains.
+#
+# Not here: the io.github.sevmorris.* domains. snapshot-prefs saves each of
+# them as a group, KeyVault's excepted, and post-install imports each one
+# whether the app is installed or not. Both scripts refuse a line for one.
+abnerworks.Typora	Typora.plist	/Applications/Typora.app	Typora
+com.WavesAudio.central	WavesCentral.plist	/Applications/Waves Central.app	Waves Central
+com.aone.keka	Keka.plist	/Applications/Keka.app	Keka
+com.goodsnooze.MacWhisper	MacWhisper.plist	/Applications/MacWhisper.app	MacWhisper
+com.googlecode.iterm2	iTerm2.plist	/Applications/iTerm.app	iTerm2
+com.hegenberg.BetterSnapTool	BetterSnapTool.plist	/Applications/BetterSnapTool.app	BetterSnapTool
+com.raycast.macos	Raycast.plist	/Applications/Raycast.app	Raycast
+com.rogueamoeba.Loopback	Loopback.plist	/Applications/Loopback.app	Loopback
+com.rogueamoeba.Piezo	Piezo.plist	/Applications/Piezo.app	Piezo
+com.rogueamoeba.audiohijack	AudioHijack.plist	/Applications/Audio Hijack.app	Audio Hijack
+com.rogueamoeba.farrago	Farrago.plist	/Applications/Farrago.app	Farrago
+com.rogueamoeba.soundsource	SoundSource.plist	/Applications/SoundSource.app	SoundSource
+com.stonerl.Thaw	Thaw.plist	/Applications/Thaw.app	Thaw
+com.tclementdev.timemachineeditor.application	TimeMachineEditor.plist	/Applications/TimeMachineEditor.app	TimeMachineEditor
+eu.exelban.Stats	Stats.plist	/Applications/Stats.app	Stats
+net.imput.helium	Helium.plist	/Applications/Helium.app	Helium
+org.musicbrainz.Picard	Picard.plist	/Applications/MusicBrainz Picard.app	MusicBrainz Picard

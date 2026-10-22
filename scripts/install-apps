@@ -36,35 +36,18 @@ Normally run as `make apps`, and as part of `make post-install`.'
 # The Developer ID team every app installed this way must be signed by. A
 # release asset is only as trustworthy as the GitHub account that uploaded it;
 # the signature ties it to the one key that account's owner signs with.
+#
+# It stays here, in code, while the list of apps is data: the list says where
+# to look, and this says whom to trust. A program that edits the list (the
+# Settings app) must not be able to change the second.
 GITHUB_APP_TEAM_ID="T9RLNAXPWU"
 
-# The apps this Mac runs that are published from its owner's own repos, as
+# The apps this Mac runs that are published from its owner's own repos:
+# config/companion-apps.txt, one app a line, as
 #   <bundle name>|<repo holding the releases>|<display name>
-#
-# Kept as data so adding an app is one line. Two things this list encodes
-# that are easy to get wrong:
-#
-#   - ClipHack's DMGs are published to a SEPARATE repo, ClipHack-releases. Its
-#     source repo has no release assets at all.
-#   - Magic Backup Machine's bundle is "Magic Backup Machine.app" while its DMG
-#     is MagicBackupMachine-*.dmg. install_github_app compares bundle names, so
-#     the spacing here is load-bearing.
-#
-# Perfect Passwords Grabber is absent because it is not installed on this Mac.
-# WireHack, JustLoop and JustIn are retired: ClipHack supersedes WireHack, and
-# WaxOn/WaxOff covers JustIn. Cypher/FL2601 is retired too (2026-09-23), and
-# never came from here: being sandboxed with no network entitlement, it could
-# not check for its own updates, so it was a Homebrew cask.
-COMPANION_APPS=(
-  "Barkeep.app|sevmorris/Barkeep|Barkeep"
-  "ClipHack.app|sevmorris/ClipHack-releases|ClipHack"
-  "Dipstick.app|sevmorris/Dipstick|Dipstick"
-  "DoublEnder.app|sevmorris/DoublEnder|DoublEnder"
-  "FilmStrip.app|sevmorris/FilmStrip|FilmStrip"
-  "KeyVault.app|sevmorris/KeyVault|KeyVault"
-  "Magic Backup Machine.app|sevmorris/magic-backup-machine|Magic Backup Machine"
-  "WaxOnWaxOff.app|sevmorris/WaxOnWaxOff|WaxOnWaxOff"
-)
+# Its comments say what the list encodes that is easy to get wrong: ClipHack's
+# releases repo, and Magic Backup Machine's bundle name.
+COMPANION_APPS_FILE="$(cd "$INSTALL_APPS_DIR/.." && pwd)/config/companion-apps.txt"
 
 # github_app_trusted APP — true when APP's signature verifies in full, it is
 # signed by GITHUB_APP_TEAM_ID, and Gatekeeper accepts it, which for a
@@ -205,16 +188,48 @@ install_github_app(){
   ok "$name → $app_path"
 }
 
-# install_companion_apps — install every app in COMPANION_APPS, and leave the
-# number that failed in COMPANION_FAILED, and the number skipped because a
-# private repo cannot be read without gh logged in in COMPANION_SKIPPED. A single app failing never stops the
-# rest: a GitHub outage or one unsigned release should not cost a new Mac its
-# other six apps.
+# companion_app_ok LINE — whether LINE, an entry of config/companion-apps.txt,
+# is one app: a bundle name that ends in .app, an owner/repo, and a name to
+# show, separated by two |. The bundle name goes after /Applications/, so it
+# must hold no /.
+companion_app_ok(){
+  local line="$1" bundle repo name
+  local repo_re='^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
+  [[ "$line" == *'|'*'|'* && "$line" != *'|'*'|'*'|'* ]] || return 1
+  [[ "$line" != *[[:cntrl:]]* ]] || return 1
+  bundle="${line%%|*}"
+  repo="${line#*|}"; repo="${repo%%|*}"
+  name="${line##*|}"
+  [[ "$bundle" == ?*.app && "$bundle" != */* && "$repo" =~ $repo_re && -n "$name" ]]
+}
+
+# install_companion_apps — install every app in COMPANION_APPS_FILE, and leave
+# the number that failed in COMPANION_FAILED, and the number skipped because a
+# private repo cannot be read without gh logged in in COMPANION_SKIPPED. A
+# single app failing never stops the rest: a GitHub outage or one unsigned
+# release should not cost a new Mac its other apps. A line that is not
+# one app counts as a failure, and a list that cannot be read as one.
 install_companion_apps(){
   COMPANION_FAILED=0
   COMPANION_SKIPPED=0
   local entry bundle repo name rc
-  for entry in "${COMPANION_APPS[@]}"; do
+  local -a entries=()
+  if [[ ! -r "$COMPANION_APPS_FILE" ]]; then
+    log "Warning: cannot read $COMPANION_APPS_FILE, so no app was installed"
+    COMPANION_FAILED=1
+    return 0
+  fi
+  # Read whole before the first download, so nothing it runs can read the list
+  # as its stdin.
+  while IFS= read -r entry; do
+    entries+=("$entry")
+  done < <(mrk_config_entries "$COMPANION_APPS_FILE")
+  for entry in ${entries[@]+"${entries[@]}"}; do
+    if ! companion_app_ok "$entry"; then
+      log "Warning: not one app, in config/companion-apps.txt: $entry"
+      COMPANION_FAILED=$(( COMPANION_FAILED + 1 ))
+      continue
+    fi
     bundle="${entry%%|*}"
     repo="${entry#*|}"; repo="${repo%%|*}"
     name="${entry##*|}"

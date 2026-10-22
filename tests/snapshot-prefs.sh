@@ -4,6 +4,13 @@
 # changed, and that --dry-run commits, pushes and writes nothing. And that a
 # commit whose push failed is pushed by the next run, also when that run finds
 # nothing new: "No changes to push." must mean the remote has the last commit.
+# And that --check shows the same commit as lines, file, key and change, with
+# nothing else on stdout and nothing written.
+#
+# The named apps are config/app-prefs.tsv. The committed table must be one app
+# a line, in byte order, each domain and file once, and every PREFS_NOISE rule
+# for a top-level plist must name a file of it. A copy of the script that reads
+# a bad table must stop before it exports anything.
 #
 # Until 2026-09-30 any difference from the last commit made a commit, and in
 # the sixty snapshots before then a plist had changed in nothing but update
@@ -64,16 +71,18 @@ fi
 ln -s "$BASH" "$S/bash"
 ln -s "$REAL_GIT" "$S/git"
 
-# fixtures THEME MODE TICK ORDER [GAMMA] — write the domains. THEME and MODE
+# fixtures THEME MODE TICK ORDER [WORD...] — write the domains. THEME and MODE
 # are settings; TICK drives every key that changes on its own (Sparkle's check
 # time, a window frame, launch counters at the top and nested, MBM's update
 # check); ORDER 1 writes the same JSON and archived dictionary in another order.
-# GAMMA adds a fourth domain holding nothing but a Sparkle time.
+# gamma adds a fourth domain holding nothing but a Sparkle time; no-theme takes
+# Alpha's theme out; beta-keys adds two keys to Beta, one with a tab in its name.
 cat > "$W/fixtures.py" <<'PY'
 import datetime, json, plistlib, sys
 from plistlib import UID
 d, theme, mode, tick, order = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]), int(sys.argv[5])
-gamma = len(sys.argv) > 6
+words = set(sys.argv[6:])
+gamma = "gamma" in words
 t = datetime.datetime(2026, 9, 1) + datetime.timedelta(hours=tick)
 def archive(pairs):
     objs, ks, vs = ["$null"], [], []
@@ -99,6 +108,10 @@ domains = {
 }
 if gamma:
     domains["io.github.sevmorris.Gamma"] = {"SULastCheckTime": t}
+if "no-theme" in words:
+    del domains["io.github.sevmorris.Alpha"]["theme"]
+if "beta-keys" in words:
+    domains["io.github.sevmorris.Beta"].update({"extra": 1, "two\twords": "x"})
 for name, value in domains.items():
     with open(f"{d}/{name}.plist", "wb") as f:
         plistlib.dump(value, f, fmt=plistlib.FMT_XML)
@@ -118,6 +131,15 @@ snap() {
   "${ENV[@]}" "$REPO_ROOT/scripts/snapshot-prefs" "$@" > "$W/out" 2>&1
   RC=$?
 }
+# check [ARGS] — snapshot-prefs --check. stdout in $W/check, stderr in
+# $W/check.err, exit status in RC.
+check() {
+  "${ENV[@]}" "$REPO_ROOT/scripts/snapshot-prefs" --check "$@" > "$W/check" 2> "$W/check.err"
+  RC=$?
+}
+show_check() { sed 's/^/    stdout: /' "$W/check"; sed 's/^/    stderr: /' "$W/check.err"; }
+# lines LINE... — the lines given, as --check would show them
+lines()    { printf '%s\n' "$@"; }
 show()     { sed 's/^/    /' "$W/out"; }
 pushed()   { "$REAL_GIT" -C "$ORIGIN" rev-list --count --all 2>/dev/null || echo 0; }
 # last_files — the files the last commit pushed changed
@@ -215,6 +237,53 @@ else
   fail "-n with only self-changing keys: rc $RC"; show
 fi
 
+# ── 7b. --check: the commit as lines, and nothing else ───────────────────────
+
+# The last commit holds Alpha light and Beta b. One real change, beside keys
+# that change on their own: the line for that key alone.
+P_A=sevmorris-apps/io.github.sevmorris.Alpha.plist
+P_B=sevmorris-apps/io.github.sevmorris.Beta.plist
+n_pushed=$(pushed)
+before=$(fingerprint)
+fixtures light c 5 1
+check
+if (( RC == 0 )) && [[ "$(cat "$W/check")" == "$(lines "$P_B"$'\t'mode$'\t'changed)" ]] \
+   && [[ "$(pushed)" == "$n_pushed" && "$(fingerprint)" == "$before" ]] && grep -q 'Left out, .*Alpha.plist' "$W/check.err"; then
+  pass "--check: one line, file, key and changed, for the real change; the plist that changed on its own left out; nothing written"
+else
+  fail "--check with one real change: rc $RC"; show_check
+fi
+
+# A key deleted, two added, one changed. A tab in a key's name is a space.
+fixtures light c 5 1 no-theme beta-keys
+check
+want=$(lines "$P_A"$'\t'theme$'\t'deleted "$P_B"$'\t'extra$'\t'added "$P_B"$'\t'mode$'\t'changed "$P_B"$'\t''two words'$'\t'added)
+if (( RC == 0 )) && [[ "$(cat "$W/check")" == "$want" && "$(fingerprint)" == "$before" ]] \
+   && ! awk -F'\t' 'NF != 3 { bad = 1 } END { exit !bad }' "$W/check"; then
+  pass "--check: deleted, added and changed keys, each on its own line of three fields, in file and key order"
+else
+  fail "--check with keys added and deleted: rc $RC"; show_check
+fi
+
+# Only keys that change on their own: nothing to commit, so no line.
+fixtures light b 6 1
+check
+if (( RC == 0 )) && [[ ! -s "$W/check" && "$(fingerprint)" == "$before" ]] && grep -q 'No changes to push' "$W/check.err"; then
+  pass "--check with only self-changing keys: no line, exit 0, and the run's progress on stderr"
+else
+  fail "--check with only self-changing keys: rc $RC"; show_check
+fi
+
+# A new plist: added, with no key. Alpha changed only on its own.
+fixtures light b 6 0 gamma
+check
+if (( RC == 0 )) && [[ "$(cat "$W/check")" == "$(lines sevmorris-apps/io.github.sevmorris.Gamma.plist$'\t'$'\t'added)" ]] \
+   && [[ "$(fingerprint)" == "$before" ]]; then
+  pass "--check: a new plist is one line, its key empty, added"
+else
+  fail "--check with a new plist: rc $RC"; show_check
+fi
+
 # ── 8. A new plist is committed, whatever it holds ───────────────────────────
 
 fixtures light b 6 0 gamma
@@ -242,6 +311,13 @@ if (( RC == 0 )) && [[ "$(pushed)" == "$n_pushed" && "$(fingerprint)" == "$befor
   pass "-n with a KeyVault copy saved: reported as a removal, and nothing written"
 else
   fail "-n with a KeyVault copy saved: rc $RC"; show
+fi
+check
+if (( RC == 0 )) && [[ "$(cat "$W/check")" == "$(lines sevmorris-apps/io.github.sevmorris.KeyVault.plist$'\t'$'\t'deleted)" ]] \
+   && [[ "$(pushed)" == "$n_pushed" && "$(fingerprint)" == "$before" ]]; then
+  pass "--check with a KeyVault copy saved: one line, its key empty, deleted; nothing written"
+else
+  fail "--check with a KeyVault copy saved: rc $RC"; show_check
 fi
 
 # ── 10. The saved KeyVault copy removed, and the removal pushed ──────────────
@@ -368,6 +444,13 @@ if (( RC == 1 )) && grep -q 'merge in progress in .*/.mrk/preferences' "$W/out" 
 else
   fail "the real run with a merge unfinished: rc $RC"; show
 fi
+check
+if (( RC == 1 )) && [[ ! -s "$W/check" ]] && grep -q 'merge in progress' "$W/check.err" \
+   && [[ "$(wc -l < "$W/calls")" == "$n_calls" && "$(fingerprint)" == "$before" ]]; then
+  pass "--check with a merge unfinished there: refused, exit 1, nothing on stdout"
+else
+  fail "--check with a merge unfinished: rc $RC"; show_check
+fi
 rm -f "$P/.git/MERGE_HEAD"
 
 # ── 15. An unknown argument: refused before any export ───────────────────────
@@ -379,6 +462,67 @@ if (( RC == 2 )) && [[ "$(wc -l < "$W/calls")" == "$n_calls" ]] && grep -q 'unkn
 else
   fail "an unknown argument: rc $RC, or defaults was called"; show
 fi
+
+check --bogus
+if (( RC == 2 )) && [[ ! -s "$W/check" && "$(wc -l < "$W/calls")" == "$n_calls" ]]; then
+  pass "--check with an unknown argument exits 2, with nothing on stdout"
+else
+  fail "--check with an unknown argument: rc $RC"; show_check
+fi
+
+# ── 15b. config/app-prefs.tsv ────────────────────────────────────────────────
+
+TABLE="$REPO_ROOT/config/app-prefs.tsv"
+entries=$(mrk_config_entries "$TABLE")
+n_table=$(grep -c . <<<"$entries")
+bad=$(while IFS= read -r l; do why=$(app_prefs_why "$l") || printf '%s (%s); ' "$l" "$why"; done <<<"$entries")
+twice=$(awk -F'\t' '{ print "domain " $1; print "file " $2 }' <<<"$entries" | sort | uniq -d | tr '\n' ' ')
+if (( n_table > 0 )) && [[ -z "$bad$twice" && "$entries" == "$(LC_ALL=C sort <<<"$entries")" ]]; then
+  pass "config/app-prefs.tsv: $n_table apps, one a line, in byte order, each domain and file once"
+else
+  fail "config/app-prefs.tsv: not one app: ${bad:-none}; listed twice: ${twice:-none}"
+fi
+
+# The PREFS_NOISE rules for a top-level plist, such as 'Raycast.plist|…'. A
+# rule for a file the table no longer lists is dead, and a renamed file loses
+# its rules without a word.
+noise_files=$(sed -n '/^PREFS_NOISE=(/,/^)/p' "$REPO_ROOT/scripts/snapshot-prefs" \
+  | grep -oE "'[A-Za-z0-9._-]+\.plist\|" | tr -d "'|" | sort -u)
+orphans=$(comm -23 <(printf '%s\n' "$noise_files") <(cut -f2 <<<"$entries" | sort -u) | tr '\n' ' ')
+if [[ -n "$noise_files" && -z "$orphans" ]]; then
+  pass "every PREFS_NOISE rule for a top-level plist names a file of config/app-prefs.tsv ($(grep -c . <<<"$noise_files") files)"
+else
+  fail "PREFS_NOISE names plists config/app-prefs.tsv does not list: ${orphans:-(no rules found)}"
+fi
+
+# A copy of the script, reading a table of its own. Each bad table stops the
+# run, exit 1, before defaults is called or ~/.mrk/preferences changes.
+C="$W/copy"
+mkdir -p "$C/scripts" "$C/config"
+cp -p "$REPO_ROOT/scripts/snapshot-prefs" "$REPO_ROOT/scripts/lib.sh" "$C/scripts/"
+good="com.example.One	One.plist	/Applications/One.app	One"
+refused() {  # refused WHAT TEXT [TABLE-LINE...] — the copy refuses that table
+  local what="$1" text="$2"
+  shift 2
+  if (( $# )); then printf '%s\n' "$@" > "$C/config/app-prefs.tsv"; else rm -f "$C/config/app-prefs.tsv"; fi
+  n_calls=$(wc -l < "$W/calls")
+  before=$(fingerprint)
+  "${ENV[@]}" "$C/scripts/snapshot-prefs" > "$W/out" 2>&1
+  RC=$?
+  if (( RC == 1 )) && grep -qF -- "$text" "$W/out" && grep -q 'Nothing was exported' "$W/out" \
+     && [[ "$(wc -l < "$W/calls")" == "$n_calls" && "$(fingerprint)" == "$before" ]]; then
+    pass "$what: refused, exit 1, before any export"
+  else
+    fail "$what: rc $RC, defaults calls $(( $(wc -l < "$W/calls") - n_calls ))"; show
+  fi
+}
+refused "a line of three fields in the table" "four fields" "$good" $'com.example.Two\tTwo.plist\t/Applications/Two.app'
+refused "KeyVault's domain in the table" "as a group: io.github.sevmorris.KeyVault" "$good" \
+  $'io.github.sevmorris.KeyVault\tKeyVault.plist\t/Applications/KeyVault.app\tKeyVault'
+refused "a file listed two times in the table" "lists the file One.plist two times" "$good" \
+  $'com.example.Two\tOne.plist\t/Applications/Two.app\tTwo'
+refused "a file path out of ~/.mrk/preferences" "not the name of a plist" $'com.example.Two\t../Two.plist\t/Applications/Two.app\tTwo'
+refused "no table" "Cannot read"
 
 # ── 16. defaults was only ever asked to read, and never about KeyVault ───────
 
