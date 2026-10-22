@@ -9,7 +9,8 @@ package main
 //
 // Where another mrk command already decides a question, the panel asks that
 // command rather than deciding it again: Brewfile drift is `sync --check`, app
-// preferences not yet saved are `snapshot-prefs --check`, login items not
+// preferences not yet saved are `snapshot-prefs --check` (and the commits not
+// yet pushed are its unpushed_count, read from git), login items not
 // tracked are `sync-login-items --check`, the macOS defaults are `defaults.sh
 // --check`, the list of projects is lib.sh's project_repos, and build
 // freshness is lib.sh's tool_freshness. scripts/status and this binary were
@@ -572,17 +573,43 @@ type drifts struct {
 }
 
 // repoReading is what Unrecorded reads from git: ~/mrk as mrk-push sees it,
-// and the repositories pushall sweeps. collect reads it beside the --check
-// modes, as it takes about a third of a second.
+// the repositories pushall sweeps, and the commits ~/.mrk/preferences has not
+// pushed. collect reads it beside the --check modes, as it takes about a third
+// of a second.
 type repoReading struct {
-	mrk      repoState
-	projects []project
-	err      error // project_repos failed
+	mrk           repoState
+	projects      []project
+	err           error // project_repos failed
+	prefsUnpushed int   // commits in ~/.mrk/preferences that mrk-prefs lacks
 }
 
 func readRepos(repoRoot, home string) repoReading {
 	ps, err := readProjects(repoRoot, filepath.Join(home, "Projects"))
-	return repoReading{mrk: readRepoState(repoRoot), projects: ps, err: err}
+	return repoReading{mrk: readRepoState(repoRoot), projects: ps, err: err,
+		prefsUnpushed: readPrefsUnpushed(filepath.Join(home, ".mrk", "preferences"))}
+}
+
+// readPrefsUnpushed is snapshot-prefs' unpushed_count: the commits dir holds
+// that its upstream lacks, as of the last fetch or push, with no network. A
+// branch with no upstream counts every commit, as snapshot-prefs pushes it
+// with -u. 0 when dir is no repository, or holds no commit. These are commits
+// an earlier run made and could not push. snapshot-prefs --check prints no
+// line for them, as there is nothing to commit, but its next run pushes them.
+func readPrefsUnpushed(dir string) int {
+	if fi, err := os.Stat(filepath.Join(dir, ".git")); err != nil || !fi.IsDir() {
+		return 0
+	}
+	if _, err := git(dir, "rev-parse", "--verify", "--quiet", "HEAD"); err != nil {
+		return 0
+	}
+	out, err := git(dir, "rev-list", "--count", "@{upstream}..HEAD")
+	if err != nil {
+		if out, err = git(dir, "rev-list", "--count", "HEAD"); err != nil {
+			return 0
+		}
+	}
+	n, _ := strconv.Atoi(out)
+	return n
 }
 
 func checkUnrecorded(repoRoot, home string, found drifts) group {
@@ -711,7 +738,9 @@ func unrecordedPanel(repoRoot, home string, found drifts, repos repoReading) gro
 		}
 	}
 
-	// App preferences, as the next snapshot would commit them.
+	// App preferences, as the next snapshot would commit and push them. Its
+	// push carries any commit an earlier run left unpushed, also when there is
+	// nothing new to commit.
 	switch prefs := found.prefs; {
 	case prefs.err != nil:
 		lines = append(lines, sl(sevWarn, "App preferences: "+prefs.err.Error()))
@@ -719,8 +748,13 @@ func unrecordedPanel(repoRoot, home string, found drifts, repos repoReading) gro
 		lines = append(lines, slFix(sevWarn,
 			plural(len(prefs.changes), "app preference change not snapshotted", "app preference changes not snapshotted")+": "+names(prefs.changes),
 			fixSnapshot))
-	default:
+	case repos.prefsUnpushed == 0:
 		lines = append(lines, sl(sevOK, "App preferences: nothing new to snapshot"))
+	}
+	if n := repos.prefsUnpushed; n > 0 {
+		lines = append(lines, slFix(sevWarn,
+			tilde(home, filepath.Join(home, ".mrk", "preferences"))+": "+plural(n, "commit not pushed to mrk-prefs", "commits not pushed to mrk-prefs"),
+			fixSnapshot))
 	}
 
 	return group{"Unrecorded", linesSev(lines), lines, firstFix(lines)}
