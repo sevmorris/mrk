@@ -129,15 +129,13 @@ func TestCheckDotfilesMissingDirWarns(t *testing.T) {
 // ── Rollback-backed checks ──────────────────────────────────────────────────
 
 // The macOS defaults are counted by defaults.sh --check, read through a stub
-// here: a checkout holding the real lib.sh, a config/defaults.tsv, and a
-// scripts/defaults.sh that records its arguments and prints the lines given.
-// The table's existing keys use a domain that cannot exist, which lib.sh's
-// defaults_domain_exists reads from the real defaults, and NSGlobalDomain,
-// which always does.
+// here: a checkout holding the real lib.sh, a config/defaults.tsv, which
+// lib.sh reads for the trackpad keys, and a scripts/defaults.sh that records
+// its arguments and prints the lines given.
 const defaultsTable = "NSGlobalDomain\tA\tbool\ttrue\talways\tTest\n" +
 	"NSGlobalDomain\tB\tint\t1\talways\tTest\n" +
 	"com.apple.AppleMultitouchTrackpad\tClicking\tint\t1\ttrackpad\tTest\n" +
-	"io.github.sevmorris.mrk-status-test.no-such-domain\tK\tbool\ttrue\texisting\tTest\n" +
+	"com.apple.mail\tK\tbool\ttrue\texisting\tTest\n" +
 	"NSGlobalDomain\tE\tbool\ttrue\texisting\tTest\n"
 
 func defaultsRepo(t *testing.T, check string) (repo, argsFile string) {
@@ -178,12 +176,16 @@ func TestDefaultsNotAppliedRunsNothing(t *testing.T) {
 }
 
 // A rollback says that make defaults ran, not what the keys hold now. A key
-// changed since in System Settings differs, and the count says so.
+// changed since in System Settings differs, and the count says so. A key
+// whose app has no preferences yet is nodomain: make defaults does not write
+// it, so it waits. A line may carry fields after the five, and a state word
+// this reader does not know is passed over.
 func TestDefaultsCountsTheCheckStates(t *testing.T) {
 	repo, argsFile := defaultsRepo(t, `NSGlobalDomain\tA\ttrue\ttrue\tset\n`+
-		`NSGlobalDomain\tB\t1\t2\tdiffers\n`+
-		`io.github.sevmorris.mrk-status-test.no-such-domain\tK\ttrue\t\tabsent\n`+
+		`NSGlobalDomain\tB\t1\t2\tdiffers\ta later field\n`+
+		`com.apple.mail\tK\ttrue\t\tnodomain\n`+
 		`NSGlobalDomain\tE\ttrue\t\tabsent\n`+
+		`NSGlobalDomain\tF\ttrue\t\ta-later-state\n`+
 		`a line of another shape\n`)
 	state := t.TempDir()
 	write(t, filepath.Join(state, "defaults-rollback.sh"), "#!/usr/bin/env bash\ndefaults write NSGlobalDomain A -bool false\n")
@@ -196,8 +198,8 @@ func TestDefaultsCountsTheCheckStates(t *testing.T) {
 		t.Errorf("with no trackpad key in the rollback, the check should run without them, got args %q", b)
 	}
 	if d.trackpad || d.set != 1 || strings.Join(d.unset, ",") != "NSGlobalDomain B,NSGlobalDomain E" ||
-		strings.Join(d.waiting, ",") != "io.github.sevmorris.mrk-status-test.no-such-domain K" {
-		t.Errorf("an existing key is waiting only while its domain does not exist, got %+v", d)
+		strings.Join(d.waiting, ",") != "com.apple.mail K" {
+		t.Errorf("set, differs, absent and nodomain should each be counted as such, got %+v", d)
 	}
 
 	g := checkDefaults(d)

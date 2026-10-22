@@ -194,10 +194,14 @@ func brewBin() string {
 }
 
 // checkLines runs scripts/<script> in one of its --check modes and returns its
-// lines of n tab-separated fields. Each --check mode prints those lines alone
-// on stdout, and its progress on stderr, so a line of any other shape is passed
-// over. When the script fails, the error is the reason it gave: the last line
-// lib.sh's err marked ✗, else its last line.
+// lines of at least n fields, each field with its escapes undone. Each --check
+// mode prints those lines alone on stdout, and its progress on stderr, by one
+// rule, lib.sh's mrk_check_line: fields split at each tab, \\, \t and \n
+// escaped in each. A later version may add fields at the end of a line, and
+// new words in a field that has a set of them, so a reader takes the fields it
+// knows and passes over a word it does not. When the script fails, the error
+// is the reason it gave: the last line lib.sh's err marked ✗, else its last
+// line.
 func checkLines(repoRoot, script string, n int, args ...string) ([][]string, error) {
 	cmd := exec.Command(filepath.Join(repoRoot, "scripts", script), args...)
 	var stderr bytes.Buffer
@@ -208,11 +212,51 @@ func checkLines(repoRoot, script string, n int, args ...string) ([][]string, err
 	}
 	var rows [][]string
 	for _, line := range strings.Split(string(out), "\n") {
-		if f := strings.Split(line, "\t"); len(f) == n {
-			rows = append(rows, f)
+		f := strings.Split(line, "\t")
+		if len(f) < n {
+			continue
 		}
+		for i := range f {
+			f[i] = unescapeField(f[i])
+		}
+		rows = append(rows, f)
 	}
 	return rows, nil
+}
+
+// unescapeField undoes mrk_tsv_escape: \\ is a backslash, \t a tab and \n a
+// newline. A backslash before any other character is kept as it is.
+func unescapeField(s string) string {
+	if !strings.Contains(s, `\`) {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) {
+			switch s[i+1] {
+			case '\\':
+				b.WriteByte('\\')
+				i++
+				continue
+			case 't':
+				b.WriteByte('\t')
+				i++
+				continue
+			case 'n':
+				b.WriteByte('\n')
+				i++
+				continue
+			}
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String()
+}
+
+// oneLine is a field as a status line shows it: a tab or a newline in it is a
+// space, so it cannot break the line it is in.
+func oneLine(s string) string {
+	return strings.NewReplacer("\t", " ", "\n", " ").Replace(s)
 }
 
 func failReason(stderr string, err error) string {
@@ -271,9 +315,9 @@ func readPrefsDrift(repoRoot string) prefsDrift {
 		file, key, change := f[0], f[1], f[2]
 		name := filepath.Base(file)
 		if key != "" {
-			d.changes = append(d.changes, strings.TrimSuffix(name, ".plist")+" "+key)
+			d.changes = append(d.changes, oneLine(strings.TrimSuffix(name, ".plist")+" "+key))
 		} else {
-			d.changes = append(d.changes, name+" ("+change+")")
+			d.changes = append(d.changes, oneLine(name+" ("+change+")"))
 		}
 	}
 	return d
@@ -317,13 +361,14 @@ func readLoginDrift(repoRoot string) loginDrift {
 	}
 	var d loginDrift
 	for _, f := range rows {
-		switch f[0] + " " + f[3] {
-		case "add new":
-			d.adds = append(d.adds, f[1])
-		case "remove stale":
-			d.stale = append(d.stale, f[1])
-		case "remove ignored":
-			d.ignored = append(d.ignored, f[1])
+		name := oneLine(f[1])
+		switch f[0] + "\t" + f[3] {
+		case "add\tnew":
+			d.adds = append(d.adds, name)
+		case "remove\tstale":
+			d.stale = append(d.stale, name)
+		case "remove\tignored":
+			d.ignored = append(d.ignored, name)
 		}
 	}
 	return d
@@ -338,38 +383,28 @@ type defaultsDrift struct {
 	trackpad   bool     // the rollback records trackpad keys, so the check has them too
 	set        int      // keys that hold what mrk sets
 	unset      []string // keys a run would write: they differ, or are absent
-	waiting    []string // absent, and skipped by a run until their app has preferences
+	waiting    []string // nodomain: a run does not write them until their app has preferences
 	err        error
 }
 
-// readDefaultsTable lists two sets of keys from config/defaults.tsv, as lib.sh
-// reads it. trackpad is the trackpad keys, each "domain key" as the undo
-// script spells it, with printf %q. waiting is the keys a run of make defaults
-// skips now, as their app has no preferences yet, each "domain<TAB>key" as
-// defaults.sh --check spells it, with mrk_tsv_escape.
-func readDefaultsTable(repoRoot string) (trackpad, waiting []string, err error) {
+// readTrackpadKeys lists the trackpad keys of config/defaults.tsv, as lib.sh
+// reads it, each "domain key" as the undo script spells it, with printf %q.
+func readTrackpadKeys(repoRoot string) ([]string, error) {
 	out, err := bashLib(repoRoot, `defaults_table "$1/config/defaults.tsv" || exit 1
 for i in "${!DT_DOMAIN[@]}"; do
-  case ${DT_WHEN[i]} in
-    trackpad) printf 'trackpad\t%q %q\n' "${DT_DOMAIN[i]}" "${DT_KEY[i]}" ;;
-    existing) defaults_domain_exists "${DT_DOMAIN[i]}" ||
-      printf 'waiting\t%s\t%s\n' "$(mrk_tsv_escape "${DT_DOMAIN[i]}")" "$(mrk_tsv_escape "${DT_KEY[i]}")" ;;
-  esac
-done`, repoRoot)
+  [[ ${DT_WHEN[i]} == trackpad ]] && printf '%q %q\n' "${DT_DOMAIN[i]}" "${DT_KEY[i]}"
+done
+exit 0`, repoRoot)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Cannot read config/defaults.tsv: %w", err)
+		return nil, fmt.Errorf("Cannot read config/defaults.tsv: %w", err)
 	}
+	var keys []string
 	for _, l := range strings.Split(out, "\n") {
-		kind, key, ok := strings.Cut(l, "\t")
-		switch {
-		case !ok:
-		case kind == "trackpad":
-			trackpad = append(trackpad, key)
-		case kind == "waiting":
-			waiting = append(waiting, key)
+		if l != "" {
+			keys = append(keys, l)
 		}
 	}
-	return trackpad, waiting, nil
+	return keys, nil
 }
 
 // trackpadApplied reports whether rollback, defaults.sh's undo script, has a
@@ -400,13 +435,15 @@ func trackpadApplied(rollback string, trackpad []string) (bool, error) {
 
 // readDefaultsDrift runs defaults.sh --check, with --with-trackpad only when
 // the rollback shows that make trackpad has run, and counts its states. A key
-// that a run skips until its app has preferences is waiting, not unset.
+// that --check calls nodomain is one a run does not write until its app has
+// preferences, such as Mail's before Mail is set up: it waits, and is not
+// counted as unset.
 func readDefaultsDrift(repoRoot, stateDir string) defaultsDrift {
 	rollback := filepath.Join(stateDir, "defaults-rollback.sh")
 	if _, err := os.Stat(rollback); err != nil {
 		return defaultsDrift{notApplied: true}
 	}
-	trackpad, waiting, err := readDefaultsTable(repoRoot)
+	trackpad, err := readTrackpadKeys(repoRoot)
 	if err != nil {
 		return defaultsDrift{err: err}
 	}
@@ -422,18 +459,14 @@ func readDefaultsDrift(repoRoot, stateDir string) defaultsDrift {
 	if err != nil {
 		return defaultsDrift{err: err}
 	}
-	skipped := map[string]bool{}
-	for _, k := range waiting {
-		skipped[k] = true
-	}
 	for _, f := range rows {
-		key := f[0] + " " + f[1]
-		switch {
-		case f[4] == "set":
+		key := oneLine(f[0] + " " + f[1])
+		switch f[4] {
+		case "set":
 			d.set++
-		case f[4] == "absent" && skipped[f[0]+"\t"+f[1]]:
+		case "nodomain":
 			d.waiting = append(d.waiting, key)
-		case f[4] == "absent" || f[4] == "differs":
+		case "absent", "differs":
 			d.unset = append(d.unset, key)
 		}
 	}

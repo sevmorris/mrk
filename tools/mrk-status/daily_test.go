@@ -205,12 +205,14 @@ func TestPrefsDriftReadsSnapshotPrefsCheck(t *testing.T) {
 		"echo '  ▸ Dry run: exporting into a scratch copy' >&2\n"+
 		"printf 'sevmorris-apps/io.github.sevmorris.ClipHack.plist\\tClipHackSettings\\tchanged\\n'\n"+
 		"printf 'fonts/Some Font.ttf\\t\\tadded\\n'\n"+
+		// A key with a tab in it, escaped, and a field a later version adds.
+		`printf 'Foo.plist\tWin\\tFrame\tchanged\tlater\n'`+"\n"+
 		"printf 'a line of another shape\\n'\n")
 	d := readPrefsDrift(repo)
 	if d.err != nil {
 		t.Fatal(d.err)
 	}
-	if got := strings.Join(d.changes, ","); got != "io.github.sevmorris.ClipHack ClipHackSettings,Some Font.ttf (added)" {
+	if got := strings.Join(d.changes, ","); got != "io.github.sevmorris.ClipHack ClipHackSettings,Some Font.ttf (added),Foo Win Frame" {
 		t.Errorf("changes = %q", got)
 	}
 
@@ -258,17 +260,19 @@ func TestLoginDriftReadsSyncLoginItemsCheck(t *testing.T) {
 		"printf 'add\\tRectangle\\t/Applications/Rectangle.app\\tnew\\n'\n"+
 		"printf 'remove\\tOld App\\t/Applications/Old App.app\\tstale\\n'\n"+
 		"printf 'remove\\tNoisy\\t/Applications/Noisy.app\\tignored\\n'\n"+
-		"printf 'remove\\tOdd\\t/Applications/Odd.app\\tunknown\\n'\n")
+		"printf 'remove\\tOdd\\t/Applications/Odd.app\\tunknown\\n'\n"+
+		// A backslash in a name, escaped, and a field a later version adds.
+		`printf 'add\tA\\\\B\t/Applications/A.app\tnew\tlater\n'`+"\n")
 	d := readLoginDrift(repo)
 	if d.err != nil || d.skipped {
 		t.Fatalf("a successful check should be read, got %+v", d)
 	}
-	if strings.Join(d.adds, ",") != "Stats,Rectangle" || strings.Join(d.stale, ",") != "Old App" || strings.Join(d.ignored, ",") != "Noisy" {
+	if strings.Join(d.adds, ",") != `Stats,Rectangle,A\B` || strings.Join(d.stale, ",") != "Old App" || strings.Join(d.ignored, ",") != "Noisy" {
 		t.Errorf("drift = %+v", d)
 	}
 
 	g := checkUnrecorded(repo, t.TempDir(), drifts{login: d})
-	if l, ok := line(g, "2 login items not in config/login-items.txt: Stats, Rectangle"); !ok || l.sev != sevWarn || l.fix != fixLoginItems {
+	if l, ok := line(g, `3 login items not in config/login-items.txt: Stats, Rectangle, A\B`); !ok || l.sev != sevWarn || l.fix != fixLoginItems {
 		t.Errorf("an untracked login item should warn with %q:\n%s", fixLoginItems, texts(g))
 	}
 	if l, ok := line(g, "1 login item tracked and also ignored: Noisy"); !ok || l.sev != sevWarn || l.fix != fixLoginItems {
@@ -329,6 +333,25 @@ func TestLoginDriftFailureIsAWarning(t *testing.T) {
 	}
 	if _, ok := line(g, "tracks every login item"); ok {
 		t.Errorf("a check that could not run must not read as every login item tracked:\n%s", texts(g))
+	}
+}
+
+// Every --check line is written by lib.sh's mrk_check_line, which escapes a
+// backslash, a tab and a newline in each field.
+func TestUnescapeField(t *testing.T) {
+	for in, want := range map[string]string{
+		`plain`:  "plain",
+		`a\\b`:   `a\b`,
+		`a\tb`:   "a\tb",
+		`a\nb`:   "a\nb",
+		`a\\tb`:  `a\tb`,
+		`a\xb`:   `a\xb`,
+		`ends\`:  `ends\`,
+		`\\\\\t`: "\\\\\t",
+	} {
+		if got := unescapeField(in); got != want {
+			t.Errorf("unescapeField(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
 

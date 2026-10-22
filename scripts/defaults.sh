@@ -305,7 +305,7 @@ for i in "${!DT_DOMAIN[@]}"; do
       # before the domain does. Once the app has preferences, `defaults`
       # reads and writes them in the container, and the next run writes the
       # key there.
-      if ! defaults_domain_exists "${DT_DOMAIN[i]}"; then
+      if ! defaults read "${DT_DOMAIN[i]}" >/dev/null 2>&1; then
         logskip "${DT_DOMAIN[i]} ${DT_KEY[i]}" "its domain does not exist yet"
         continue
       fi
