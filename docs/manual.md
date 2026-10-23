@@ -500,7 +500,7 @@ Gearbox runs `make snapshot-prefs`, `make defaults` and `make dock` in its conso
 
 The Login Items pane needs permission to control System Events. macOS asks once. If you decline, the pane tells you where to give the permission.
 
-macOS checks the permissions of Gearbox, not of Terminal, for the commands in the console. If macOS asks whether Gearbox can get the data of another app, or `make defaults` cannot write a key in a protected domain, give the permission to Gearbox in System Settings → Privacy & Security.
+macOS checks the permissions of Gearbox, not of Terminal, for the commands in the console. If macOS asks whether Gearbox can get the data of another app, or `make defaults` cannot write a key in a protected domain, give the permission to Gearbox in System Settings → Privacy & Security. Without Full Disk Access, Gearbox cannot read the keys of Mail, TextEdit and Passwords: `mrk-defaults --check` shows them as `noaccess`, and `make defaults` passes over them.
 
 
 ## Standalone Utilities
@@ -933,7 +933,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
   - **PATH** — Whether `~/bin` is on the PATH.
   - **Homebrew** — The installed version.
   - **Brewfile** — How many formulae and casks it tracks. What is installed against it is under Unrecorded.
-  - **macOS Defaults** — How many keys of `config/defaults.tsv` have the value that mrk sets, as `mrk-defaults --check` counts them, and each key that differs or is absent. It includes the trackpad keys only when you applied them with `make trackpad`. A key in `config/defaults-skip.tsv` is not in the count, and the line says how many keys are skipped.
+  - **macOS Defaults** — How many keys of `config/defaults.tsv` have the value that mrk sets, as `mrk-defaults --check` counts them, and each key that differs or is absent. It includes the trackpad keys only when you applied them with `make trackpad`. A key in `config/defaults-skip.tsv` is not in the count, and the line says how many keys are skipped. A key that the app that runs status cannot read without Full Disk Access is named on a line of its own.
   - **Security Hardening** — Whether mrk applied the hardening.
   - **Displaced files** — Shown *only when backups exist*: how many, and the most recent. This is a report, not a health check, so with nothing to report it is left out. See [What the backups are](#what-the-backups-are).
 

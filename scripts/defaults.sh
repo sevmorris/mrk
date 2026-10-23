@@ -21,9 +21,9 @@ Options:
       --check          Compare each key with this Mac, and change nothing.
                        One line for each key, tab-separated: the domain, the
                        key, the value mrk sets, the value it has now, and set,
-                       differs, absent, nodomain or skipped. Nothing else on
-                       stdout. Exits 0 when it could tell, 1 when it refused,
-                       2 for a bad option.
+                       differs, absent, nodomain, skipped or noaccess. Nothing
+                       else on stdout. Exits 0 when it could tell, 1 when it
+                       refused, 2 for a bad option.
   -h, --help           Show this help
 
 mrk-defaults writes the keys that config/defaults.tsv lists, in its order,
@@ -41,7 +41,10 @@ A key whose value is right but whose type is not differs, as a run would
 write it. A key that config/defaults.tsv writes only to a domain that exists
 (when existing) is nodomain when its domain does not exist yet: a run does
 not write it. A key that config/defaults-skip.tsv lists is skipped, whatever
-its value. --with-trackpad adds the trackpad keys to the check as well.
+its value. A key is noaccess when its app keeps its preferences in a
+container that macOS does not let this process read, as it keeps Mail's,
+TextEdit's and Passwords' from an app without Full Disk Access: its value
+cannot be known, the fourth field is empty, and a run passes it over. --with-trackpad adds the trackpad keys to the check as well.
 A later version may add fields at the end of a line, and never removes or
 reorders one.
 
@@ -61,7 +64,8 @@ options changes only the keys that it names.
                        ~/.mrk/defaults-rollback.sh. A key with no line there
                        stays as it is: mrk did not change it on this Mac.
 mrk-defaults changes the skip list first, then the keys. It checks every key
-before it changes anything. When a key changed, it restarts Finder, the Dock,
+before it changes anything, and refuses --key and --revert for a key that
+this process may not read. When a key changed, it restarts Finder, the Dock,
 SystemUIServer and ControlCenter, as a run does. It exits 0 when it is done,
 1 when it refuses or a write fails, and 2 for a bad option.
 EOF
@@ -224,6 +228,24 @@ domain_exists(){
   defaults read "$1" >/dev/null 2>&1
 }
 
+# domain_denied DOMAIN — true when DOMAIN's app keeps its preferences in a
+# container that this process may not read. macOS refuses to list the
+# container's Preferences folder ("Operation not permitted"): to a process
+# without Full Disk Access, Mail's, TextEdit's and Passwords'. defaults then
+# reads the domain from ~/Library/Preferences, where the app does not look,
+# or finds none at all. On 2026-10-23 Gearbox read Mail's key as nodomain and
+# TextEdit's as nodomain while Terminal read both as set, and a run from
+# Gearbox would have written Passwords' keys to the file outside the
+# container. So a key in such a domain is neither read nor written. A domain
+# with no container is only a stat; an app that macOS has not asked yet may be
+# asked once whether it may read other apps' data.
+domain_denied(){
+  local prefs="$HOME/Library/Containers/$1/Data/Library/Preferences" msg
+  [[ -d "$prefs" ]] || return 1
+  msg=$(LC_ALL=C ls "$prefs" 2>&1 >/dev/null) && return 1
+  [[ "$msg" == *"Operation not permitted"* ]]
+}
+
 # ── --check ──────────────────────────────────────────────────────────────────
 # Reads each key, as write_default does, and writes nothing: no default, no
 # undo line, and no restart.
@@ -232,7 +254,10 @@ if $CHECK; then
   for i in "${!DT_DOMAIN[@]}"; do
     [[ "${DT_WHEN[i]}" == trackpad ]] && ! $WITH_TRACKPAD && continue
     domain=${DT_DOMAIN[i]} key=${DT_KEY[i]} state=absent current=""
-    if current=$(defaults read "$domain" "$key" 2>/dev/null); then
+    # No value: what defaults would read is not the one the app uses.
+    if domain_denied "$domain"; then
+      state=noaccess
+    elif current=$(defaults read "$domain" "$key" 2>/dev/null); then
       current_type=$(defaults read-type "$domain" "$key" 2>/dev/null | awk '{print $NF}' || echo "string")
       if [[ "$current_type" == string && "$current" == *\\* ]] && exact_string "$domain" "$key"; then
         current=$EXACT_STRING
@@ -457,6 +482,15 @@ if $ONE_KEY; then
       exit 1
     fi
   done
+  # --skip and --unskip change only the list; --key and --revert change the
+  # key, which a process that cannot read it cannot do right.
+  for id in ${KEY[@]+"${KEY[@]}"} ${REVERT[@]+"${REVERT[@]}"}; do
+    if domain_denied "${id%%"$TAB"*}"; then
+      err "macOS does not let this process read ${id%%"$TAB"*}, so it cannot change $(shown "$id")."
+      info "Give Full Disk Access to the app that runs this (System Settings → Privacy & Security). Nothing was changed."
+      exit 1
+    fi
+  done
 
   # The skip list as it will be, checked as a run checks it, and then the
   # keys to write against it
@@ -561,14 +595,23 @@ init_rollback "$ROLLBACK" || exit 1
 
 log "Applying macOS defaults..."
 
-# Track failures
+# Track failures, and keys this process may not read
 failed=0
+denied=0
 said_trackpad=false
 
 for i in "${!DT_DOMAIN[@]}"; do
   [[ "${DT_WHEN[i]}" == trackpad ]] && ! $WITH_TRACKPAD && continue
   if skipped "${DT_DOMAIN[i]}" "${DT_KEY[i]}"; then
     logskip "${DT_DOMAIN[i]} ${DT_KEY[i]}" "config/defaults-skip.tsv skips it"
+    continue
+  fi
+  # Without access the key reads as absent, or from a file the app does not
+  # read: write_default would record the wrong undo line, and the write would
+  # fail or go to that file.
+  if domain_denied "${DT_DOMAIN[i]}"; then
+    logskip "${DT_DOMAIN[i]} ${DT_KEY[i]}" "macOS does not let this process read its app's data"
+    denied=$(( denied + 1 ))
     continue
   fi
   case "${DT_WHEN[i]}" in
@@ -602,6 +645,11 @@ done
 
 log "Writing rollback helper to $ROLLBACK"
 restart_ui
+
+if (( denied > 0 )); then
+  warn "$denied key(s) passed over: macOS does not let this process read their apps' data."
+  info "Give Full Disk Access to the app that runs make defaults (System Settings → Privacy & Security), and run it again."
+fi
 
 # Exit 1 when any write failed, after every write has been tried and the undo
 # lines written, as the six app-defaults scripts have since 2026-09-11. Until

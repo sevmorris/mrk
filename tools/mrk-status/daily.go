@@ -386,6 +386,7 @@ type defaultsDrift struct {
 	unset      []string // keys a run would write: they differ, or are absent
 	waiting    []string // nodomain: a run does not write them until their app has preferences
 	skipped    []string // config/defaults-skip.tsv lists them: a run does not write them
+	noAccess   []string // in a container this process may not read: their value is not known
 	err        error
 }
 
@@ -441,6 +442,9 @@ func trackpadApplied(rollback string, trackpad []string) (bool, error) {
 // preferences, such as Mail's before Mail is set up: it waits, and is not
 // counted as unset. A key it calls skipped is one config/defaults-skip.tsv
 // lists, which a run does not write at all: it is not counted as unset either.
+// A key it calls noaccess is in an app's container that macOS does not let
+// this process read, as Mail's from Dipstick without Full Disk Access: its
+// value is not known, so it is counted as neither set nor unset.
 func readDefaultsDrift(repoRoot, stateDir string) defaultsDrift {
 	rollback := filepath.Join(stateDir, "defaults-rollback.sh")
 	if _, err := os.Stat(rollback); err != nil {
@@ -471,6 +475,8 @@ func readDefaultsDrift(repoRoot, stateDir string) defaultsDrift {
 			d.waiting = append(d.waiting, key)
 		case "skipped":
 			d.skipped = append(d.skipped, key)
+		case "noaccess":
+			d.noAccess = append(d.noAccess, key)
 		case "absent", "differs":
 			d.unset = append(d.unset, key)
 		}
