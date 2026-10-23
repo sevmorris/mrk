@@ -10,16 +10,19 @@
 # A line that starts with # is a comment, and an empty line is ignored. Keep
 # the lines in byte order (LC_ALL=C sort).
 #
-# Kept as data so adding an app is one line. Two things this list encodes
+# Kept as data so adding an app is one line. Three things this list encodes
 # that are easy to get wrong:
 #
 #   - ClipHack's DMGs are published to a SEPARATE repo, ClipHack-releases. Its
 #     source repo has no release assets at all.
 #   - Magic Backup Machine's bundle is "Magic Backup Machine.app" while its DMG
-#     is MagicBackupMachine-*.dmg. install_github_app compares bundle names, so
-#     the spacing here is load-bearing.
+#     is MagicBackupMachine-*.dmg, and Perfect Passwords Grabber's bundle is
+#     "Perfect Passwords Grabber.app" while its DMG is
+#     PerfectPasswordsGrabber-*.dmg. install_github_app compares bundle names,
+#     so the spacing here is load-bearing.
+#   - Perfect Passwords Grabber's repo is sevmorris/ppg. Its clone in
+#     ~/Projects is named PasswordGen, which is not the repo's name.
 #
-# Perfect Passwords Grabber is absent because it is not installed on this Mac.
 # WireHack, JustLoop and JustIn are retired: ClipHack supersedes WireHack, and
 # WaxOn/WaxOff covers JustIn. Cypher/FL2601 is retired too (2026-09-23), and
 # never came from here: being sandboxed with no network entitlement, it could
@@ -32,4 +35,5 @@ FilmStrip.app|sevmorris/FilmStrip|FilmStrip
 Gearbox.app|sevmorris/Gearbox|Gearbox
 KeyVault.app|sevmorris/KeyVault|KeyVault
 Magic Backup Machine.app|sevmorris/magic-backup-machine|Magic Backup Machine
+Perfect Passwords Grabber.app|sevmorris/ppg|Perfect Passwords Grabber
 WaxOnWaxOff.app|sevmorris/WaxOnWaxOff|WaxOnWaxOff

@@ -46,7 +46,8 @@ GITHUB_APP_TEAM_ID="T9RLNAXPWU"
 # config/companion-apps.txt, one app a line, as
 #   <bundle name>|<repo holding the releases>|<display name>
 # Its comments say what the list encodes that is easy to get wrong: ClipHack's
-# releases repo, and Magic Backup Machine's bundle name.
+# releases repo, the bundle names that have spaces, and Perfect Passwords
+# Grabber's repo name.
 COMPANION_APPS_FILE="$(cd "$INSTALL_APPS_DIR/.." && pwd)/config/companion-apps.txt"
 
 # github_app_trusted APP — true when APP's signature verifies in full, it is
