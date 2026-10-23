@@ -103,7 +103,7 @@ data in them is not.
 | Snapshotted apps | `config/app-prefs.tsv` | The apps whose preferences `snapshot-prefs` saves and Phase 3 restores, one app a line: domain, plist, app path and name. The Application Support trees I care about are in `scripts/snapshot-prefs`. |
 | Dock | `config/dock.txt` | The Dock, left to right, one path a line. `make dock` wipes the Dock before it rebuilds it. |
 | macOS defaults | `config/defaults.tsv` | 133 keys, each one a preference of mine, one line each with tabs between the fields. `make defaults` writes them, and `scripts/defaults.sh --check` compares them with the Mac. Documented in the [defaults reference](https://sevmorris.github.io/mrk/defaults/). |
-| My own apps | `config/companion-apps.txt` | Installs nine apps of mine — Barkeep, ClipHack, Dipstick, DoublEnder, FilmStrip, Gearbox, KeyVault, Magic Backup Machine and WaxOn/WaxOff — one a line, and refuses any app not signed by `GITHUB_APP_TEAM_ID` in `scripts/install-apps`, my Developer ID team. |
+| My own apps | `config/companion-apps.txt` | Installs ten apps of mine — Barkeep, ClipHack, Dipstick, DoublEnder, FilmStrip, Gearbox, KeyVault, Magic Backup Machine, Perfect Passwords Grabber and WaxOn/WaxOff — one a line, and refuses any app not signed by `GITHUB_APP_TEAM_ID` in `scripts/install-apps`, my Developer ID team. |
 | Dotfiles | `dotfiles/` | My shell, aliases and git config. |
 
 `make setup-dry`, `make sync ARGS=-n`, `make dock ARGS=-n` and `make snapshot-keys ARGS=-n` all preview without
