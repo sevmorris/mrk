@@ -31,7 +31,7 @@ Keep both repositories current. You can then restore the full setup on a new mac
 > 4. Edit `config/login-items.txt`. It lists the apps that open at login, one path on each line. Also edit `MRK_NOT_AT_LOGIN` in `scripts/lib.sh`. It names the two apps that mrk deletes from the login items.
 > 5. Edit `config/app-prefs.tsv`. It lists the apps whose preferences `snapshot-prefs` exports and Phase 3 imports, one app on each line. `snapshot-prefs` also exports every `io.github.sevmorris.*` domain but KeyVault's, as a group.
 > 6. Edit `config/dock.txt`. It lists the items of the Dock from left to right, one path on each line. `dock-setup` deletes every item from the Dock before it adds the items in the list.
-> 7. Edit `config/defaults.tsv` before you run `make defaults`. The file lists 133 preference keys, and each key is a personal choice. `scripts/defaults.sh` writes them.
+> 7. Edit `config/defaults.tsv` before you run `make defaults`. The file lists 133 preference keys, and each key is a personal choice. `scripts/defaults.sh` writes them. To keep a key in the file but not write it, list it in `config/defaults-skip.tsv`.
 > 8. Edit `config/companion-apps.txt`. It lists my own applications, and a fork wants none of them. Delete the lines, or replace them with yours. Then set `GITHUB_APP_TEAM_ID` in `scripts/install-apps` to your Developer ID team. The installer refuses any app that this team did not sign.
 >
 > Use `make setup-dry` and `make sync ARGS=-n` to see the result of a phase before you apply it.
@@ -359,6 +359,15 @@ Each line of `config/defaults.tsv` has six fields, separated by tabs. They are t
 
 defaults-watch changes nothing. It lists window positions, timestamps and counters apart, as probably not the setting. `config/defaults.tsv` cannot hold a key for this Mac alone (`-currentHost`), a key for all users, or a dictionary. For those, defaults-watch says what to use instead.
 
+To stop mrk from writing a key, skip the key:
+
+```bash
+mrk-defaults --skip DOMAIN KEY --revert DOMAIN KEY     # Turn a key off
+mrk-defaults --unskip DOMAIN KEY --key DOMAIN KEY      # Turn it on again
+```
+
+`--skip` adds the key to `config/defaults-skip.tsv`, and `make defaults` then does not write it. `--revert` puts back the value that the key had before mrk wrote it. `--unskip` and `--key` do the opposite. The key stays in `config/defaults.tsv` and in the defaults reference. In Gearbox, the switch of a key does the same. Commit the list with `mrk-push` or `pushall`, so that it moves to your next Mac.
+
 ## How to keep the login items current
 
 **`sync-login-items`** compares the system login items against `config/login-items.txt`, and then updates the repository.
@@ -483,7 +492,7 @@ Phase 3 installs Dipstick, and `config/login-items.txt` lists it, so Phase 3 add
 **[Gearbox](https://github.com/sevmorris/Gearbox)** shows four lists of mrk in one window. Each pane runs the check mode of one mrk script and shows the result.
 
 - **App Preferences** shows the changes that `snapshot-prefs --check` finds.
-- **macOS Defaults** shows each key that `defaults.sh --check` compares with this Mac, with the description of the key.
+- **macOS Defaults** shows each key that `defaults.sh --check` compares with this Mac, with the description of the key. In Gearbox 0.4 and later, the switch of a key turns it off with `mrk-defaults --skip` and `--revert`, and on with `--unskip` and `--key`.
 - **Login Items** compares `config/login-items.txt` with the login items of this Mac. Its buttons run `sync-login-items --add`, `--ignore` and `--remove`.
 - **Dock** changes `config/dock.txt`, the list that `make dock` uses. `dock-setup --check` checks each item.
 
@@ -924,7 +933,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
   - **PATH** — Whether `~/bin` is on the PATH.
   - **Homebrew** — The installed version.
   - **Brewfile** — How many formulae and casks it tracks. What is installed against it is under Unrecorded.
-  - **macOS Defaults** — How many keys of `config/defaults.tsv` have the value that mrk sets, as `mrk-defaults --check` counts them, and each key that differs or is absent. It includes the trackpad keys only when you applied them with `make trackpad`.
+  - **macOS Defaults** — How many keys of `config/defaults.tsv` have the value that mrk sets, as `mrk-defaults --check` counts them, and each key that differs or is absent. It includes the trackpad keys only when you applied them with `make trackpad`. A key in `config/defaults-skip.tsv` is not in the count, and the line says how many keys are skipped.
   - **Security Hardening** — Whether mrk applied the hardening.
   - **Displaced files** — Shown *only when backups exist*: how many, and the most recent. This is a report, not a health check, so with nothing to report it is left out. See [What the backups are](#what-the-backups-are).
 

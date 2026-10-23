@@ -142,13 +142,15 @@ else
   fail "a key at config/defaults.tsv's value (line $scroll):"; show
 fi
 if has "config/defaults.tsv line $ext sets bool true, so make defaults would put that back." \
-   && has $'      NSGlobalDomain\tAppleShowAllExtensions\tbool\tfalse\talways\tGeneral UI / UX'; then
-  pass "a key config/defaults.tsv sets, changed to another value: the line to change it to, its section kept"
+   && has $'      NSGlobalDomain\tAppleShowAllExtensions\tbool\tfalse\talways\tGeneral UI / UX' \
+   && has "      mrk-defaults --skip NSGlobalDomain AppleShowAllExtensions"; then
+  pass "a key config/defaults.tsv sets, changed to another value: the line to change it to, its section kept, or the skip"
 else
   fail "a key at another value than config/defaults.tsv's (line $ext):"; show
 fi
 if has "config/defaults.tsv line $term sets string Pro" \
-   && has $'      com.apple.Terminal\tDefault Window Settings\tstring\tBasic\talways\tTerminal.app'; then
+   && has $'      com.apple.Terminal\tDefault Window Settings\tstring\tBasic\talways\tTerminal.app' \
+   && has "      mrk-defaults --skip com.apple.Terminal 'Default Window Settings'"; then
   pass "a key with spaces in it: found in config/defaults.tsv, and its line given with the spaces as they are"
 else
   fail "a key with spaces (line $term):"; show
@@ -216,6 +218,24 @@ if grep -q 'com.example.noisy  versionLastLaunched' <<<"$noise" && grep -q 'com.
   pass "keys from lib.sh's list, and a toolbar layout: listed apart too"
 else
   fail "the shared list of keys that change on their own:"; show
+fi
+
+# A key that config/defaults-skip.tsv skips: make defaults leaves it, so
+# there is nothing to put back and nothing to change. On a copy of the
+# repository, whose skip list names it.
+R="$W/repo"; mkdir -p "$R/scripts" "$R/config"
+cp "$REPO_ROOT/scripts/defaults-watch" "$REPO_ROOT/scripts/lib.sh" "$R/scripts/"
+cp "$REPO_ROOT/config/defaults.tsv" "$R/config/"
+{ cat "$REPO_ROOT/config/defaults-skip.tsv"; printf 'NSGlobalDomain\tAppleShowAllExtensions\n'; } > "$R/config/defaults-skip.tsv"
+DW_REAL=$DW DW="$R/scripts/defaults-watch"
+watch changes --seconds 0
+DW=$DW_REAL
+if (( RC == 0 )) && has "config/defaults.tsv line $ext sets bool true, but config/defaults-skip.tsv skips the key," \
+   && has "so make defaults leaves it as it is." && ! has $'      NSGlobalDomain\tAppleShowAllExtensions\tbool\tfalse' \
+   && ! has "mrk-defaults --skip NSGlobalDomain AppleShowAllExtensions"; then
+  pass "a skipped key at another value: make defaults leaves it, so no line to change and no skip to give"
+else
+  fail "a skipped key (line $ext):"; show
 fi
 
 # ── 2. Nothing changed ───────────────────────────────────────────────────────

@@ -385,6 +385,7 @@ type defaultsDrift struct {
 	set        int      // keys that hold what mrk sets
 	unset      []string // keys a run would write: they differ, or are absent
 	waiting    []string // nodomain: a run does not write them until their app has preferences
+	skipped    []string // config/defaults-skip.tsv lists them: a run does not write them
 	err        error
 }
 
@@ -438,7 +439,8 @@ func trackpadApplied(rollback string, trackpad []string) (bool, error) {
 // the rollback shows that make trackpad has run, and counts its states. A key
 // that --check calls nodomain is one a run does not write until its app has
 // preferences, such as Mail's before Mail is set up: it waits, and is not
-// counted as unset.
+// counted as unset. A key it calls skipped is one config/defaults-skip.tsv
+// lists, which a run does not write at all: it is not counted as unset either.
 func readDefaultsDrift(repoRoot, stateDir string) defaultsDrift {
 	rollback := filepath.Join(stateDir, "defaults-rollback.sh")
 	if _, err := os.Stat(rollback); err != nil {
@@ -467,6 +469,8 @@ func readDefaultsDrift(repoRoot, stateDir string) defaultsDrift {
 			d.set++
 		case "nodomain":
 			d.waiting = append(d.waiting, key)
+		case "skipped":
+			d.skipped = append(d.skipped, key)
 		case "absent", "differs":
 			d.unset = append(d.unset, key)
 		}

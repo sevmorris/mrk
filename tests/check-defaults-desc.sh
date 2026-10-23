@@ -2,7 +2,8 @@
 # check-defaults-desc.sh — prove that check-defaults-desc holds
 # docs/defaults/descriptions.tsv and docs/defaults/sections.tsv to
 # config/defaults.tsv, and refuses a line of either that is not one
-# description or one section.
+# description or one section. It refuses a line of config/defaults-skip.tsv
+# that defaults.sh refuses, too.
 #
 # MRK-1 reads both files when it loads, and other programs read the
 # descriptions too, so a line in the wrong shape is a fault even where the page
@@ -32,7 +33,7 @@ mkcopy() {
   local d="$W/$1"
   mkdir -p "$d/scripts" "$d/config" "$d/docs/defaults"
   cp -p "$REPO_ROOT/scripts/check-defaults-desc" "$REPO_ROOT/scripts/lib.sh" "$d/scripts/"
-  cp -p "$REPO_ROOT/config/defaults.tsv" "$d/config/"
+  cp -p "$REPO_ROOT/config/defaults.tsv" "$REPO_ROOT/config/defaults-skip.tsv" "$d/config/"
   cp -p "$DESC" "$SECT" "$d/docs/defaults/"
 }
 
@@ -266,6 +267,30 @@ for B in "${BASHES[@]}"; do
   else
     fail "a section on two lines (exit $RC, want 1): $OUT"
   fi
+
+  # ── The keys to skip ───────────────────────────────────────────────────────
+
+  # skip_case NAME WANT TEXT LINE... — the lines in config/defaults-skip.tsv:
+  # exit WANT, and TEXT in what it says
+  skip_case() {
+    local name=$1 want=$2 text=$3; shift 3
+    mkcopy "skip-$name-$v"
+    printf '%s\n' "$@" >> "$W/skip-$name-$v/config/defaults-skip.tsv"
+    check "skip-$name-$v" "$B"
+    if (( RC == want )) && [[ "$OUT" == *"$text"* ]]; then
+      pass "config/defaults-skip.tsv, $name: exit $want"
+    else
+      fail "config/defaults-skip.tsv, $name (exit $RC, want $want with \"$text\"): $OUT"
+    fi
+  }
+  skip_case "two keys of the table" 0 "OK ($n_settings keys" \
+    "com.apple.dock${TAB}tilesize" "NSGlobalDomain${TAB}AppleShowAllExtensions"
+  skip_case "a key not in the table" 1 "skips com.example.gone GoneKey, which is not a key of config/defaults.tsv" \
+    "com.example.gone${TAB}GoneKey"
+  skip_case "one field" 1 "it does not have two fields" "com.apple.dock tilesize"
+  skip_case "three fields" 1 "it does not have two fields" "com.apple.dock${TAB}tilesize${TAB}36"
+  skip_case "a key on two lines" 1 "has com.apple.dock tilesize on two lines" \
+    "com.apple.dock${TAB}tilesize" "com.apple.dock${TAB}tilesize"
 
   mkcopy "sect-absent-$v"
   rm "$W/sect-absent-$v/docs/defaults/sections.tsv"

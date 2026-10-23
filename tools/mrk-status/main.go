@@ -223,6 +223,10 @@ func checkDefaults(d defaultsDrift) group {
 	if len(d.waiting) > 0 {
 		head += fmt.Sprintf("; %s until its app has preferences", plural(len(d.waiting), "key waits", "keys wait"))
 	}
+	// A skipped key is not one of the keys mrk sets, so it is not in the count.
+	if len(d.skipped) > 0 {
+		head += "; " + plural(len(d.skipped), "key skipped", "keys skipped")
+	}
 	if len(d.unset) == 0 {
 		return group{name, sevOK, []statusLine{sl(sevOK, head)}, ""}
 	}

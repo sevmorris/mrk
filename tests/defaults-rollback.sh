@@ -18,7 +18,11 @@
 # writes the keys of config/defaults.tsv in order, with their gates, that a
 # second run writes nothing, how it ends when a write fails, what --check
 # shows and that it writes nothing, and that a bad line stops it before any
-# write. ci-check runs it.
+# write. Last, the options of one key, on a copy of the repository: --key
+# writes that key alone, --revert puts back the value it had before mrk,
+# --skip and --unskip edit config/defaults-skip.tsv and change nothing on the
+# Mac, a run and --check pass over a skipped key, and a bad option, key or
+# skip line changes nothing. ci-check runs it.
 
 set -uo pipefail
 
@@ -124,7 +128,8 @@ fi
 
 # defaults.sh whole. `defaults` is a stub that keeps every domain as a plist
 # file under $STORE, and adds each call to $CALLS: a write as its four fields,
-# escaped as config/defaults.tsv escapes them, and any other call as its verb.
+# escaped as config/defaults.tsv escapes them, a delete as its domain and key,
+# and any other call as its verb.
 # FAIL_DOMAIN makes writes to one domain fail, as a managed or locked key does;
 # killall records and does nothing. Until 2026-09-28 a failed write was warned
 # about, and then the script printed "Defaults applied" and exited 0, so
@@ -135,10 +140,12 @@ cat > "$DS/defaults" <<'EOF'
 #!/bin/bash
 esc() { local s=${1//\\/\\\\}; s=${s//$'\t'/\\t}; printf '%s' "${s//$'\n'/\\n}"; }
 verb="${1:-}"; dom="${2:-}"
-case "$verb" in read|read-type|write|export) ;; *) echo "defaults $*" >> "$STORE/refused"; exit 2 ;; esac
+case "$verb" in read|read-type|write|export|delete) ;; *) echo "defaults $*" >> "$STORE/refused"; exit 2 ;; esac
 case "$dom" in ""|-*|/*) echo "defaults $*" >> "$STORE/refused"; exit 2 ;; esac
 if [[ "$verb" == write ]]; then
   printf 'write\t%s\t%s\t%s\t%s\n' "$(esc "$dom")" "$(esc "$3")" "${4#-}" "$(esc "$5")" >> "$CALLS"
+elif [[ "$verb" == delete ]]; then
+  printf 'delete\t%s\t%s\n' "$(esc "$dom")" "$(esc "$3")" >> "$CALLS"
 else
   printf '%s\n' "$verb" >> "$CALLS"
 fi
@@ -361,4 +368,169 @@ if [[ $RC == 2 && ! -e "$T/opt/calls" ]] && grep -q 'unknown argument: --bogus' 
 else
   fail "an unknown argument: exit $RC"
 fi
+# ── One key at a time: --key, --revert, --skip and --unskip ──────────────────
+# On a copy of the repository, because --skip and --unskip write its
+# config/defaults-skip.tsv. Gearbox turns a key off with --skip and --revert
+# in one run, and on with --unskip and --key.
+
+K="$T/onekey"; mkdir -p "$K/scripts" "$K/config"
+cp "$REPO_ROOT/scripts/defaults.sh" "$REPO_ROOT/scripts/lib.sh" "$K/scripts/"
+cp "$REPO_ROOT/config/defaults.tsv" "$REPO_ROOT/config/defaults-skip.tsv" "$K/config/"
+SK="$K/config/defaults-skip.tsv"
+cp "$SK" "$T/skip.orig"
+since() { sed -n "$(( $2 + 1 )),\$p" "$T/$1/calls" 2>/dev/null; }   # since NAME N — the calls after the first N
+dock() { /usr/bin/defaults read "$T/$1/store/com.apple.dock" "$2" 2>/dev/null; }
+# no_stray — true when config/ holds the two files and no temporary one
+no_stray() { [[ "$(find "$K/config" -mindepth 1 | wc -l | tr -d ' ')" == 2 ]]; }
+
+mkdir -p "$T/one/store"
+/usr/bin/defaults write "$T/one/store/com.apple.dock" tilesize -int 48
+ROOT=$K run one --key com.apple.dock tilesize
+if [[ $RC == 0 && "$(writes one)" == $'com.apple.dock\ttilesize\tint\t36' && "$(dock one tilesize)" == 36 ]] \
+   && [[ "$(grep '^killall' "$T/one/calls")" == "$restarts" ]] \
+   && grep -qx 'defaults write com.apple.dock tilesize -int 48' "$T/one/home/.mrk/defaults-rollback.sh" \
+   && grep -qx 'killall Dock >/dev/null 2>&1 || true' "$T/one/home/.mrk/defaults-rollback.sh"; then
+  ok "--key writes that key alone, records the value it had, and restarts the four"
+else
+  fail "--key com.apple.dock tilesize: exit $RC; writes: $(writes one | tr '\n' ' ')"; tail -3 "$T/one/err" >&2
+fi
+n=$(calls one)
+ROOT=$K run one --key com.apple.dock tilesize
+if [[ $RC == 0 ]] && ! since one "$n" | grep -qE '^(write|killall)' && grep -q 'com.apple.dock tilesize is set already' "$T/one/err"; then
+  ok "--key on a key that is set writes nothing and restarts nothing"
+else
+  fail "--key a second time: exit $RC"; since one "$n" >&2
+fi
+undo_one=$(undo one); n=$(calls one)
+ROOT=$K run one --revert com.apple.dock tilesize
+if [[ $RC == 0 && "$(dock one tilesize)" == 48 && "$(undo one)" == "$undo_one" ]] \
+   && [[ "$(since one "$n" | grep '^killall')" == "$restarts" ]]; then
+  ok "--revert puts back the value the key had before mrk, restarts the four, and keeps the undo file"
+else
+  fail "--revert com.apple.dock tilesize: exit $RC, tilesize $(dock one tilesize)"; tail -3 "$T/one/err" >&2
+fi
+ROOT=$K run one --key NSGlobalDomain AppleShowAllExtensions
+ROOT=$K run one --revert NSGlobalDomain AppleShowAllExtensions
+if [[ $RC == 0 ]] && ! /usr/bin/defaults read "$T/one/store/NSGlobalDomain" AppleShowAllExtensions >/dev/null 2>&1 \
+   && grep -qx $'delete\tNSGlobalDomain\tAppleShowAllExtensions' "$T/one/calls"; then
+  ok "--revert of a key that was absent before mrk deletes it again"
+else
+  fail "--revert NSGlobalDomain AppleShowAllExtensions: exit $RC"; tail -3 "$T/one/err" >&2
+fi
+/usr/bin/defaults write "$T/one/store/com.apple.dock" orientation -string bottom
+n=$(calls one)
+ROOT=$K run one --revert com.apple.dock orientation
+if [[ $RC == 0 && "$(dock one orientation)" == bottom ]] && ! since one "$n" | grep -qE '^(write|delete|killall)' \
+   && grep -q 'com.apple.dock orientation has no line in' "$T/one/err"; then
+  ok "--revert of a key that mrk did not write on this Mac leaves it as it is, and restarts nothing"
+else
+  fail "--revert of a key with no undo line: exit $RC, orientation $(dock one orientation)"; since one "$n" >&2
+fi
+ROOT=$K run one --key com.apple.mail AddressesIncludeNameOnPasteboard
+if [[ $RC == 0 ]] && ! grep -q $'^write\tcom.apple.mail' "$T/one/calls" \
+   && grep -q 'com.apple.mail AddressesIncludeNameOnPasteboard (its domain does not exist yet)' "$T/one/err"; then
+  ok "--key passes over a key that waits for its domain, as a run does"
+else
+  fail "--key on a key with no domain yet: exit $RC"; tail -3 "$T/one/err" >&2
+fi
+
+# The skip list. A run of these options with no --key or --revert does not
+# read or write the Mac at all.
+ROOT=$K run skip --skip com.apple.dock tilesize --skip NSGlobalDomain AppleShowAllExtensions
+if [[ $RC == 0 && "$(cat "$SK")" == "$(cat "$T/skip.orig")"$'\nNSGlobalDomain\tAppleShowAllExtensions\ncom.apple.dock\ttilesize' ]] \
+   && [[ ! -e "$T/skip/calls" && ! -e "$T/skip/home/.mrk" ]] && no_stray; then
+  ok "--skip adds each key to config/defaults-skip.tsv in byte order, changes nothing on the Mac, and leaves no temporary file"
+else
+  fail "--skip of two keys: exit $RC"; cat "$SK" >&2; find "$K/config" >&2
+fi
+ROOT=$K run skip --check
+if [[ $RC == 0 && "$(grep $'\tskipped$' "$T/skip/out" | cut -f1,2)" == $'NSGlobalDomain\tAppleShowAllExtensions\ncom.apple.dock\ttilesize' ]]; then
+  ok "--check shows the two skipped keys as skipped, and no other"
+else
+  fail "--check with two keys skipped: exit $RC"; grep $'\tskipped$' "$T/skip/out" >&2
+fi
+ROOT=$K run skip
+if [[ $RC == 0 && "$(writes skip)" == "$(expected always "$T/skip/home" | grep -v -e $'^NSGlobalDomain\tAppleShowAllExtensions\t' -e $'^com.apple.dock\ttilesize\t')" ]] \
+   && grep -q 'com.apple.dock tilesize (config/defaults-skip.tsv skips it)' "$T/skip/err"; then
+  ok "a run writes every always row but the two skipped keys, and says it skips them"
+else
+  fail "a run with two keys skipped: exit $RC"
+  diff <(expected always "$T/skip/home") <(writes skip) | head -5 >&2
+fi
+cp "$SK" "$T/skip.two"; n=$(calls skip)
+ROOT=$K run skip --key com.apple.dock tilesize
+if [[ $RC == 1 && "$(calls skip)" == "$n" ]] && cmp -s "$SK" "$T/skip.two" && grep -q 'Give --unskip too' "$T/skip/err"; then
+  ok "--key refuses a skipped key, and changes nothing"
+else
+  fail "--key on a skipped key: exit $RC"; tail -2 "$T/skip/err" >&2
+fi
+ROOT=$K run skip --skip com.apple.dock tilesize
+if [[ $RC == 0 ]] && cmp -s "$SK" "$T/skip.two" && grep -q 'com.apple.dock tilesize was skipped already' "$T/skip/err" \
+   && no_stray; then
+  ok "--skip on a skipped key leaves the file as it was"
+else
+  fail "--skip a second time: exit $RC"; diff "$T/skip.two" "$SK" >&2
+fi
+n=$(calls skip)
+ROOT=$K run skip --unskip com.apple.dock tilesize --key com.apple.dock tilesize
+if [[ $RC == 0 && "$(cat "$SK")" == "$(cat "$T/skip.orig")"$'\nNSGlobalDomain\tAppleShowAllExtensions' ]] \
+   && [[ "$(since skip "$n" | grep '^write')" == $'write\tcom.apple.dock\ttilesize\tint\t36' ]]; then
+  ok "--unskip and --key in one run: the line goes, then the key is written"
+else
+  fail "--unskip and --key: exit $RC"; cat "$SK" >&2; since skip "$n" | grep '^write' >&2
+fi
+
+# A line goes in before the first key that sorts after it, and comments stay
+# where they are.
+{ cat "$T/skip.orig"; printf 'NSGlobalDomain\tAppleShowAllExtensions\n# kept by hand\ncom.apple.finder\tShowPathbar\n'; } > "$SK"
+ROOT=$K run skip --skip com.apple.dock tilesize --unskip NSGlobalDomain AppleShowAllExtensions
+if [[ $RC == 0 && "$(cat "$SK")" == "$(cat "$T/skip.orig")"$'\n# kept by hand\ncom.apple.dock\ttilesize\ncom.apple.finder\tShowPathbar' ]]; then
+  ok "--skip puts a line before the first key that sorts after it, --unskip deletes one, and a comment stays"
+else
+  fail "a skip list with a comment: exit $RC"; tail -4 "$SK" >&2
+fi
+cp "$T/skip.orig" "$SK"
+
+# A bad skip list stops a run, --check and every option before any change.
+for line in $'com.example.gone\tGoneKey' 'com.apple.dock tilesize' $'com.apple.dock\ttilesize\t36'; do
+  { cat "$T/skip.orig"; printf '%s\n' "$line"; } > "$SK"; cp "$SK" "$T/skip.bad"
+  bad=""
+  for args in "" "--check" "--key com.apple.dock tilesize" "--skip com.apple.finder ShowPathbar"; do
+    rm -rf "$T/badskip"
+    # shellcheck disable=SC2086  # the words of args are the options
+    ROOT=$K run badskip $args
+    if [[ $RC != 1 || -s "$T/badskip/out" || -e "$T/badskip/calls" || -e "$T/badskip/home/.mrk" ]] \
+       || ! grep -q 'Nothing was changed' "$T/badskip/err" || ! cmp -s "$SK" "$T/skip.bad"; then
+      bad+=" [${args:-a run}: exit $RC]"
+    fi
+  done
+  if [[ -z "$bad" ]]; then
+    ok "a skip line \"${line//$'\t'/<tab>}\": a run, --check, --key and --skip refuse it and change nothing"
+  else
+    fail "a skip line \"${line//$'\t'/<tab>}\":$bad"
+  fi
+done
+cp "$T/skip.orig" "$SK"
+
+# usage CASE WANT TEXT ARGS... — defaults.sh ARGS exits WANT, says TEXT, and
+# changes nothing
+usage_case() {
+  local what=$1 want=$2 text=$3; shift 3
+  rm -rf "$T/usage"
+  ROOT=$K run usage "$@"
+  if [[ $RC == "$want" && ! -e "$T/usage/calls" ]] && cmp -s "$SK" "$T/skip.orig" && grep -qF -- "$text" "$T/usage/err"; then
+    ok "$what: exit $want, and nothing changed"
+  else
+    fail "$what: exit $RC, want $want with \"$text\""; tail -2 "$T/usage/err" >&2
+  fi
+}
+usage_case "--key with no key" 2 "--key takes a domain and a key" --key com.apple.dock
+usage_case "--check with --skip" 2 "do not go with" --check --skip com.apple.dock tilesize
+usage_case "--with-trackpad with --key" 2 "do not go with" --with-trackpad --key com.apple.dock tilesize
+usage_case "--skip and --unskip of one key" 2 "--skip and --unskip both name com.apple.dock tilesize" \
+  --skip com.apple.dock tilesize --unskip com.apple.dock tilesize
+usage_case "--key and --revert of one key" 2 "--key and --revert both name com.apple.dock tilesize" \
+  --key com.apple.dock tilesize --revert com.apple.dock tilesize
+usage_case "a key that is not in the table" 1 "com.example.gone GoneKey is not a key of config/defaults.tsv" \
+  --skip com.apple.dock tilesize --skip com.example.gone GoneKey
 (( fails == 0 ))

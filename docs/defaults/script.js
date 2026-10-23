@@ -1,7 +1,8 @@
 // MRK-1, the macOS defaults reference. The keys are config/defaults.tsv,
 // their descriptions docs/defaults/descriptions.tsv, and the text under each
-// section heading docs/defaults/sections.tsv; the page reads all three when it
-// loads, and check-defaults-desc keeps them in step.
+// section heading docs/defaults/sections.tsv; the keys that make defaults
+// skips are config/defaults-skip.tsv. The page reads all four when it loads,
+// and check-defaults-desc keeps them in step.
 
 class DefaultsDocGenerator {
     constructor() {
@@ -10,6 +11,7 @@ class DefaultsDocGenerator {
         this.searchTerm = '';
         this.descriptions = new Map();
         this.sectionDescriptions = new Map();
+        this.skips = new Set();
         this.init();
     }
     
@@ -113,10 +115,14 @@ class DefaultsDocGenerator {
         const sections = this.fetchText(this.repoFileUrl('docs/defaults/sections.tsv')).then(
             text => { this.parseSections(text); return null; },
             error => error);
+        const skips = this.fetchText(this.repoFileUrl('config/defaults-skip.tsv')).then(
+            text => { this.parseSkips(text); return null; },
+            error => error);
         try {
             const table = await this.fetchText(this.repoFileUrl('config/defaults.tsv'));
             const descriptionsError = await descriptions;
             const sectionsError = await sections;
+            const skipsError = await skips;
             this.parseTable(table);
             if (descriptionsError) {
                 console.error('Failed to load the descriptions:', descriptionsError);
@@ -128,6 +134,12 @@ class DefaultsDocGenerator {
                 console.error('Failed to load the section descriptions:', sectionsError);
                 this.showLoadFailure('Could not load docs/defaults/sections.tsv from GitHub (' +
                     this.errorText(sectionsError) + '). The sections below have no description. ' +
+                    'Reload to try again, or read the file in the repository.');
+            }
+            if (skipsError) {
+                console.error('Failed to load the keys to skip:', skipsError);
+                this.showLoadFailure('Could not load config/defaults-skip.tsv from GitHub (' +
+                    this.errorText(skipsError) + '). A key that make defaults skips is not marked below. ' +
                     'Reload to try again, or read the file in the repository.');
             }
         } catch (error) {
@@ -191,6 +203,20 @@ class DefaultsDocGenerator {
             const fields = line.split('\t').map(f => this.unescapeField(f));
             if (fields.length !== 2 || fields.includes(null)) continue;
             this.sectionDescriptions.set(fields[0], fields[1]);
+        }
+    }
+
+    // config/defaults-skip.tsv has one key on each line: the domain and the
+    // key, separated by a tab. defaults.sh does not write these keys.
+    // defaults.sh and check-defaults-desc refuse a line in any other shape, so
+    // the page passes over one.
+    parseSkips(content) {
+        this.skips = new Set();
+        for (const line of content.split('\n')) {
+            if (line.startsWith('#') || !line.trim()) continue;
+            const fields = line.split('\t').map(f => this.unescapeField(f));
+            if (fields.length !== 2 || fields.includes(null)) continue;
+            this.skips.add(`${fields[0]}\t${fields[1]}`);
         }
     }
 
@@ -399,6 +425,18 @@ class DefaultsDocGenerator {
         `;
     }
     
+    // A note for an entry whose key config/defaults-skip.tsv lists, in one
+    // of its domains or all of them. Empty for any other entry.
+    skippedNote(entry) {
+        const domains = [entry.domain, ...(entry.alsoDomains || [])];
+        const skipped = domains.filter(d => this.skips.has(`${d}\t${entry.key}`));
+        if (!skipped.length) return '';
+        const where = skipped.length === domains.length ? ''
+            : ` in <code>${skipped.join('</code>, <code>')}</code>`;
+        return `<div class="default-entry__skipped"><span class="skipped-label">Skipped</span>` +
+            `config/defaults-skip.tsv lists this key${where}, so make defaults does not write it.</div>`;
+    }
+
     renderEntry(entry) {
         return `
             <div class="default-entry">
@@ -413,6 +451,7 @@ class DefaultsDocGenerator {
                 <div class="default-entry__main">
                     <p class="default-entry__description">${entry.description}</p>
                     ${entry.why ? `<div class="default-entry__why"><span class="why-label">Why this setting</span>${entry.why}</div>` : ''}
+                    ${this.skippedNote(entry)}
                     ${entry.preference ? `<div class="default-entry__preference"><span class="preference-label">Personal preference</span>This reflects a specific workflow and may not suit everyone. Review before applying.</div>` : ''}
                     ${entry.background ? `<div class="default-entry__background"><span class="background-label">Background — not Simplified Technical English</span>${entry.background}</div>` : ''}
                 </div>
