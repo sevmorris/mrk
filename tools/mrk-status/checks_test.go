@@ -187,6 +187,7 @@ func TestDefaultsCountsTheCheckStates(t *testing.T) {
 		`NSGlobalDomain\tB\t1\t2\tdiffers\ta later field\n`+
 		`com.apple.mail\tK\ttrue\t\tnodomain\n`+
 		`NSGlobalDomain\tS\ttrue\tfalse\tskipped\n`+
+		`com.apple.TextEdit\tRichText\t0\t\tnoaccess\n`+
 		`NSGlobalDomain\tE\ttrue\t\tabsent\n`+
 		`NSGlobalDomain\tF\ttrue\t\ta-later-state\n`+
 		`a line of another shape\n`)
@@ -201,19 +202,27 @@ func TestDefaultsCountsTheCheckStates(t *testing.T) {
 		t.Errorf("with no trackpad key in the rollback, the check should run without them, got args %q", b)
 	}
 	if d.trackpad || d.set != 1 || strings.Join(d.unset, ",") != "NSGlobalDomain B,NSGlobalDomain E" ||
-		strings.Join(d.waiting, ",") != "com.apple.mail K" || strings.Join(d.skipped, ",") != "NSGlobalDomain S" {
-		t.Errorf("set, differs, absent, nodomain and skipped should each be counted as such, got %+v", d)
+		strings.Join(d.waiting, ",") != "com.apple.mail K" || strings.Join(d.skipped, ",") != "NSGlobalDomain S" ||
+		strings.Join(d.noAccess, ",") != "com.apple.TextEdit RichText" {
+		t.Errorf("set, differs, absent, nodomain, skipped and noaccess should each be counted as such, got %+v", d)
 	}
 
 	g := checkDefaults(d)
 	if g.sev != sevWarn || g.fix != "make defaults" {
 		t.Errorf("keys not as mrk sets them should warn with make defaults, got sev=%v fix=%q", g.sev, g.fix)
 	}
-	if l := g.lines[0].text; l != "1 of 4 set; 1 key waits until its app has preferences; 1 key skipped" {
+	if l := g.lines[0].text; l != "1 of 5 set; 1 key waits until its app has preferences; 1 key skipped" {
 		t.Errorf("first line = %q", l)
 	}
 	if l, ok := line(g, "2 keys are not as mrk sets them: NSGlobalDomain B, NSGlobalDomain E"); !ok || l.fix != "make defaults" {
 		t.Errorf("the keys should be named, with their fix:\n%s", texts(g))
+	}
+	if l, ok := line(g, "1 key cannot be read without Full Disk Access for the app that runs this: com.apple.TextEdit RichText"); !ok || l.sev != sevInfo || l.fix != "" {
+		t.Errorf("a key this process may not read should be named, as information with no fix:\n%s", texts(g))
+	}
+	if g := checkDefaults(defaultsDrift{set: 2, noAccess: []string{"com.apple.mail K"}}); g.sev != sevOK || len(g.lines) != 2 ||
+		g.lines[0].text != "2 of 3 set" {
+		t.Errorf("keys that cannot be read are no warning on their own, got sev=%v:\n%s", g.sev, texts(g))
 	}
 }
 

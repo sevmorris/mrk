@@ -216,7 +216,7 @@ func checkDefaults(d defaultsDrift) group {
 	case d.err != nil:
 		return group{name, sevWarn, []statusLine{sl(sevWarn, d.err.Error())}, ""}
 	}
-	head := fmt.Sprintf("%d of %d set", d.set, d.set+len(d.unset)+len(d.waiting))
+	head := fmt.Sprintf("%d of %d set", d.set, d.set+len(d.unset)+len(d.waiting)+len(d.noAccess))
 	if d.trackpad {
 		head += ", the trackpad keys included"
 	}
@@ -227,18 +227,26 @@ func checkDefaults(d defaultsDrift) group {
 	if len(d.skipped) > 0 {
 		head += "; " + plural(len(d.skipped), "key skipped", "keys skipped")
 	}
+	// A key this process may not read is one mrk sets, so it is in the count,
+	// as not known to be set. Full Disk Access is the app's to be given, so it
+	// is said, and is not a warning with a fix.
+	var unread []statusLine
+	if len(d.noAccess) > 0 {
+		unread = append(unread, sl(sevInfo, plural(len(d.noAccess), "key cannot be read", "keys cannot be read")+
+			" without Full Disk Access for the app that runs this: "+names(d.noAccess)))
+	}
 	if len(d.unset) == 0 {
-		return group{name, sevOK, []statusLine{sl(sevOK, head)}, ""}
+		return group{name, sevOK, append([]statusLine{sl(sevOK, head)}, unread...), ""}
 	}
 	// make trackpad writes every key make defaults does, and the trackpad keys.
 	fix := "make defaults"
 	if d.trackpad {
 		fix = "make trackpad"
 	}
-	return group{name, sevWarn, []statusLine{
+	return group{name, sevWarn, append([]statusLine{
 		sl(sevWarn, head),
 		slFix(sevWarn, plural(len(d.unset), "key is not as mrk sets it", "keys are not as mrk sets them")+": "+names(d.unset), fix),
-	}, fix}
+	}, unread...), fix}
 }
 
 func checkHardening(stateDir string) group {

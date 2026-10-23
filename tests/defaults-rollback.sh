@@ -22,7 +22,9 @@
 # writes that key alone, --revert puts back the value it had before mrk,
 # --skip and --unskip edit config/defaults-skip.tsv and change nothing on the
 # Mac, a run and --check pass over a skipped key, and a bad option, key or
-# skip line changes nothing. ci-check runs it.
+# skip line changes nothing. And a key in a container that macOS does not let
+# the process read: noaccess, passed over by a run, refused by --key and
+# --revert. ci-check runs it.
 
 set -uo pipefail
 
@@ -155,6 +157,20 @@ exec /usr/bin/defaults "$verb" "$STORE/$dom" "$@"
 EOF
 # shellcheck disable=SC2016  # expanded by the stub, not here
 printf '#!/bin/bash\necho "killall $*" >> "$CALLS"\nexit 0\n' > "$DS/killall"
+# ls refuses the Preferences folder of each container that DENY names, as macOS
+# refuses Mail's to a process without Full Disk Access, and lists anything
+# else.
+cat > "$DS/ls" <<'EOF'
+#!/bin/bash
+for a in "$@"; do
+  for d in ${DENY:-}; do
+    if [[ "$a" == "$HOME/Library/Containers/$d/Data/Library/Preferences" ]]; then
+      echo "ls: $a: Operation not permitted" >&2; exit 1
+    fi
+  done
+done
+exec /bin/ls "$@"
+EOF
 chmod +x "$DS"/*
 
 # run NAME [ARGS...] — defaults.sh from ROOT (the repository, or a copy with a
@@ -165,7 +181,7 @@ run() {
   local name=$1; shift
   mkdir -p "$T/$name/home" "$T/$name/store"
   env -i HOME="$T/$name/home" PATH="$DS:/usr/bin:/bin:/usr/sbin:/sbin" TMPDIR="$T/tmp" \
-    STORE="$T/$name/store" CALLS="$T/$name/calls" FAIL_DOMAIN="${FAIL_DOMAIN:-}" \
+    STORE="$T/$name/store" CALLS="$T/$name/calls" FAIL_DOMAIN="${FAIL_DOMAIN:-}" DENY="${DENY:-}" \
     "$BASH" "${ROOT:-$REPO_ROOT}/scripts/defaults.sh" "$@" </dev/null > "$T/$name/out" 2> "$T/$name/err"
   RC=$?
 }
@@ -533,4 +549,58 @@ usage_case "--key and --revert of one key" 2 "--key and --revert both name com.a
   --key com.apple.dock tilesize --revert com.apple.dock tilesize
 usage_case "a key that is not in the table" 1 "com.example.gone GoneKey is not a key of config/defaults.tsv" \
   --skip com.apple.dock tilesize --skip com.example.gone GoneKey
+# ── A key that macOS does not let the process read ───────────────────────────
+# Mail's preferences are in a container that macOS keeps from a process
+# without Full Disk Access, and TextEdit's and Passwords' from one without
+# permission to get the data of other apps as well: their Preferences folder
+# cannot be listed, and defaults reads the domain from ~/Library/Preferences,
+# or finds none. On 2026-10-23 Gearbox, without Full Disk Access, read Mail's
+# key as nodomain; a launchd job, with neither permission, read Passwords'
+# from the copy outside the container, which a run would have written to.
+# Here the store holds values for Mail and Passwords, which a read would find,
+# and DENY makes the stub ls refuse them.
+
+mkdir -p "$T/deny/store"
+for d in com.apple.mail com.apple.Passwords com.apple.TextEdit; do
+  mkdir -p "$T/deny/home/Library/Containers/$d/Data/Library/Preferences"
+done
+/usr/bin/defaults write "$T/deny/store/com.apple.mail" AddressesIncludeNameOnPasteboard -bool false
+/usr/bin/defaults write "$T/deny/store/com.apple.Passwords" showMenuBarExtra -bool false
+export DENY="com.apple.mail com.apple.Passwords"
+ROOT=$K run deny --check
+denied_rows=$'com.apple.mail\tAddressesIncludeNameOnPasteboard\tfalse\t\tnoaccess\ncom.apple.Passwords\tshowMenuBarExtra\tfalse\t\tnoaccess\ncom.apple.Passwords\tEnableMenuBarExtra\tfalse\t\tnoaccess'
+if [[ $RC == 0 && "$(grep $'\tnoaccess$' "$T/deny/out" | sort)" == "$(sort <<<"$denied_rows")" ]] \
+   && grep -qx $'com.apple.TextEdit\tRichText\t0\t\tnodomain' "$T/deny/out"; then
+  ok "--check: a key in a container this process may not read is noaccess, with no value, though a read would find one; a readable container with no domain is still nodomain"
+else
+  fail "--check with Mail and Passwords denied: exit $RC"; grep -E $'\t(noaccess|nodomain)$' "$T/deny/out" >&2
+fi
+ROOT=$K run deny
+if [[ $RC == 0 ]] && ! writes deny | grep -qE '^com\.apple\.(mail|Passwords)'$'\t' \
+   && ! grep -qE 'com\.apple\.(mail|Passwords) ' "$T/deny/home/.mrk/defaults-rollback.sh" \
+   && grep -q 'com.apple.Passwords showMenuBarExtra (macOS does not let this process read its app' "$T/deny/err" \
+   && grep -q '3 key(s) passed over' "$T/deny/err" && grep -q 'Full Disk Access' "$T/deny/err"; then
+  ok "a run passes over the three keys, with no write and no undo line, and says to give Full Disk Access"
+else
+  fail "a run with Mail and Passwords denied: exit $RC"; writes deny | grep -E '^com\.apple\.(mail|Passwords)' >&2; tail -3 "$T/deny/err" >&2
+fi
+n=$(calls deny)
+ROOT=$K run deny --key com.apple.Passwords showMenuBarExtra
+rc_key=$RC
+ROOT=$K run deny --skip com.apple.Passwords showMenuBarExtra --revert com.apple.Passwords showMenuBarExtra
+if [[ $rc_key == 1 && $RC == 1 ]] && ! since deny "$n" | grep -qE '^(write|delete|killall)' \
+   && cmp -s "$SK" "$T/skip.orig" && grep -q 'cannot change com.apple.Passwords showMenuBarExtra' "$T/deny/err" \
+   && grep -q 'Nothing was changed' "$T/deny/err"; then
+  ok "--key and --revert refuse a key this process may not read, and the skip list stays as it was"
+else
+  fail "--key or --revert on a denied key: exit $rc_key and $RC"; tail -3 "$T/deny/err" >&2
+fi
+ROOT=$K run deny --skip com.apple.Passwords showMenuBarExtra
+if [[ $RC == 0 ]] && grep -qx $'com.apple.Passwords\tshowMenuBarExtra' "$SK"; then
+  ok "--skip alone changes only the list, so it takes a key this process may not read"
+else
+  fail "--skip of a denied key: exit $RC"; tail -2 "$T/deny/err" >&2
+fi
+cp "$T/skip.orig" "$SK"
+unset DENY
 (( fails == 0 ))
