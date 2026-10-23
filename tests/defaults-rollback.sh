@@ -158,8 +158,8 @@ EOF
 # shellcheck disable=SC2016  # expanded by the stub, not here
 printf '#!/bin/bash\necho "killall $*" >> "$CALLS"\nexit 0\n' > "$DS/killall"
 # ls refuses the Preferences folder of each container that DENY names, as macOS
-# refuses Mail's, TextEdit's and Passwords' to a process without Full Disk
-# Access, and lists anything else.
+# refuses Mail's to a process without Full Disk Access, and lists anything
+# else.
 cat > "$DS/ls" <<'EOF'
 #!/bin/bash
 for a in "$@"; do
@@ -550,13 +550,15 @@ usage_case "--key and --revert of one key" 2 "--key and --revert both name com.a
 usage_case "a key that is not in the table" 1 "com.example.gone GoneKey is not a key of config/defaults.tsv" \
   --skip com.apple.dock tilesize --skip com.example.gone GoneKey
 # ── A key that macOS does not let the process read ───────────────────────────
-# Mail's, TextEdit's and Passwords' preferences are in containers that macOS
-# keeps from a process without Full Disk Access: their Preferences folder
+# Mail's preferences are in a container that macOS keeps from a process
+# without Full Disk Access, and TextEdit's and Passwords' from one without
+# permission to get the data of other apps as well: their Preferences folder
 # cannot be listed, and defaults reads the domain from ~/Library/Preferences,
-# or finds none. On 2026-10-23 Gearbox, without it, read Mail's and TextEdit's
-# keys as nodomain, and a run from it would have written Passwords' keys to
-# the file outside the container. Here the store holds values for Mail and
-# Passwords, which a read would find, and DENY makes the stub ls refuse them.
+# or finds none. On 2026-10-23 Gearbox, without Full Disk Access, read Mail's
+# key as nodomain; a launchd job, with neither permission, read Passwords'
+# from the copy outside the container, which a run would have written to.
+# Here the store holds values for Mail and Passwords, which a read would find,
+# and DENY makes the stub ls refuse them.
 
 mkdir -p "$T/deny/store"
 for d in com.apple.mail com.apple.Passwords com.apple.TextEdit; do

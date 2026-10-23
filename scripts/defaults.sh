@@ -42,9 +42,11 @@ write it. A key that config/defaults.tsv writes only to a domain that exists
 (when existing) is nodomain when its domain does not exist yet: a run does
 not write it. A key that config/defaults-skip.tsv lists is skipped, whatever
 its value. A key is noaccess when its app keeps its preferences in a
-container that macOS does not let this process read, as it keeps Mail's,
-TextEdit's and Passwords' from an app without Full Disk Access: its value
-cannot be known, the fourth field is empty, and a run passes it over. --with-trackpad adds the trackpad keys to the check as well.
+container that macOS does not let this process read: Mail's, without Full
+Disk Access, and TextEdit's and Passwords', without permission to get the
+data of other apps as well. Its value cannot be known, the fourth field is
+empty, and a run passes it over. --with-trackpad adds the trackpad keys to
+the check as well.
 A later version may add fields at the end of a line, and never removes or
 reorders one.
 
@@ -230,13 +232,15 @@ domain_exists(){
 
 # domain_denied DOMAIN — true when DOMAIN's app keeps its preferences in a
 # container that this process may not read. macOS refuses to list the
-# container's Preferences folder ("Operation not permitted"): to a process
-# without Full Disk Access, Mail's, TextEdit's and Passwords'. defaults then
-# reads the domain from ~/Library/Preferences, where the app does not look,
-# or finds none at all. On 2026-10-23 Gearbox read Mail's key as nodomain and
-# TextEdit's as nodomain while Terminal read both as set, and a run from
-# Gearbox would have written Passwords' keys to the file outside the
-# container. So a key in such a domain is neither read nor written. A domain
+# container's Preferences folder ("Operation not permitted"): Mail's to a
+# process without Full Disk Access, and TextEdit's and Passwords' to one that
+# lacks permission to get the data of other apps as well. defaults then reads
+# the domain from ~/Library/Preferences, where the app does not look, or
+# finds none at all. On 2026-10-23 Gearbox, without Full Disk Access, read
+# Mail's key as nodomain while Terminal read it as set. A launchd job, with
+# neither permission, also read TextEdit's as nodomain, and Passwords' from
+# the copy outside the container, which a run would have written to. So a key
+# in such a domain is neither read nor written. A domain
 # with no container is only a stat; an app that macOS has not asked yet may be
 # asked once whether it may read other apps' data.
 domain_denied(){

@@ -500,7 +500,7 @@ Gearbox runs `make snapshot-prefs`, `make defaults` and `make dock` in its conso
 
 The Login Items pane needs permission to control System Events. macOS asks once. If you decline, the pane tells you where to give the permission.
 
-macOS checks the permissions of Gearbox, not of Terminal, for the commands in the console. If macOS asks whether Gearbox can get the data of another app, or `make defaults` cannot write a key in a protected domain, give the permission to Gearbox in System Settings → Privacy & Security. Without Full Disk Access, Gearbox cannot read the keys of Mail, TextEdit and Passwords: `mrk-defaults --check` shows them as `noaccess`, and `make defaults` passes over them.
+macOS checks the permissions of Gearbox, not of Terminal, for the commands in the console. If macOS asks whether Gearbox can get the data of another app, or `make defaults` cannot write a key in a protected domain, give the permission to Gearbox in System Settings → Privacy & Security. Without Full Disk Access, Gearbox cannot read the key of Mail. Without permission to get the data of other apps, it cannot read the keys of TextEdit and Passwords either. `mrk-defaults --check` shows such a key as `noaccess`, and `make defaults` passes over it.
 
 
 ## Standalone Utilities
