@@ -498,6 +498,27 @@ body {
     margin-bottom: 0.2rem;
 }
 
+/* Skipped callout: a key that config/defaults-skip.tsv lists */
+.default-entry__skipped {
+    margin-top: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    background-color: #f3f4f6;
+    border-left: 3px solid #6b7280;
+    font-size: 0.9rem;
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+.skipped-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #4b5563;
+    margin-bottom: 0.2rem;
+}
+
 /* Background note — deliberately NOT Simplified Technical English.
    Preserves historical and editorial material alongside the STE functional text. */
 .default-entry__background {

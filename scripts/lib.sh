@@ -387,6 +387,50 @@ defaults_table() {
   return "$bad"
 }
 
+# defaults_skips FILE — read FILE, config/defaults-skip.tsv, the keys that
+# defaults.sh passes over, into SKIP_IDS: the domain and key of each entry,
+# with a tab between them and a newline before and after each, for a test
+# such as [[ $SKIP_IDS == *$'\n'"$domain"$'\t'"$key"$'\n'* ]]. Read
+# config/defaults.tsv with defaults_table first, because each entry must name
+# one of its keys. Say what is wrong with each line that is not two fields, a
+# domain and a key, escaped as config/defaults.tsv escapes them, and with a
+# line that names no key of the table or a key a second time. Then return 1.
+# A FILE that does not exist skips nothing. defaults.sh reads the list with
+# this, and so does check-defaults-desc, so make check refuses a line that
+# defaults.sh would refuse. Bash 3.2, as defaults_table is.
+defaults_skips() {
+  local file=$1 entry id table=$'\n' bad=0 i
+  SKIP_IDS=$'\n'
+  [[ -e "$file" ]] || return 0
+  if [[ ! -r "$file" ]]; then
+    err "Cannot read $file"; return 1
+  fi
+  for i in "${!DT_DOMAIN[@]}"; do
+    table+="${DT_DOMAIN[i]}"$'\t'"${DT_KEY[i]}"$'\n'
+  done
+  while IFS= read -r entry; do
+    if ! mrk_tsv_fields "$entry"; then
+      err "Not one key, in config/defaults-skip.tsv ($TSV_WHY): $entry"; bad=1; continue
+    fi
+    if (( ${#TSV_FIELDS[@]} != 2 )); then
+      err "Not one key, in config/defaults-skip.tsv (it does not have two fields, separated by a tab): $entry"
+      bad=1; continue
+    fi
+    id="${TSV_FIELDS[0]}"$'\t'"${TSV_FIELDS[1]}"
+    case "$table" in
+      *$'\n'"$id"$'\n'*) ;;
+      *) err "config/defaults-skip.tsv skips ${TSV_FIELDS[0]} ${TSV_FIELDS[1]}, which is not a key of config/defaults.tsv"
+         bad=1; continue ;;
+    esac
+    case "$SKIP_IDS" in
+      *$'\n'"$id"$'\n'*)
+        err "config/defaults-skip.tsv has ${TSV_FIELDS[0]} ${TSV_FIELDS[1]} on two lines"; bad=1; continue ;;
+    esac
+    SKIP_IDS+="$id"$'\n'
+  done < <(mrk_config_entries "$file")
+  return "$bad"
+}
+
 # defaults_desc_row LINE — split LINE, an entry of
 # docs/defaults/descriptions.tsv, into the array DESC_ROW: domain, key, title,
 # category, default, preference, description, why and background, each with

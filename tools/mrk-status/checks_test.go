@@ -178,12 +178,15 @@ func TestDefaultsNotAppliedRunsNothing(t *testing.T) {
 // A rollback says that make defaults ran, not what the keys hold now. A key
 // changed since in System Settings differs, and the count says so. A key
 // whose app has no preferences yet is nodomain: make defaults does not write
-// it, so it waits. A line may carry fields after the five, and a state word
-// this reader does not know is passed over.
+// it, so it waits. A key that config/defaults-skip.tsv lists is skipped: make
+// defaults does not write it at all, so it is not in the count. A line may
+// carry fields after the five, and a state word this reader does not know is
+// passed over.
 func TestDefaultsCountsTheCheckStates(t *testing.T) {
 	repo, argsFile := defaultsRepo(t, `NSGlobalDomain\tA\ttrue\ttrue\tset\n`+
 		`NSGlobalDomain\tB\t1\t2\tdiffers\ta later field\n`+
 		`com.apple.mail\tK\ttrue\t\tnodomain\n`+
+		`NSGlobalDomain\tS\ttrue\tfalse\tskipped\n`+
 		`NSGlobalDomain\tE\ttrue\t\tabsent\n`+
 		`NSGlobalDomain\tF\ttrue\t\ta-later-state\n`+
 		`a line of another shape\n`)
@@ -198,15 +201,15 @@ func TestDefaultsCountsTheCheckStates(t *testing.T) {
 		t.Errorf("with no trackpad key in the rollback, the check should run without them, got args %q", b)
 	}
 	if d.trackpad || d.set != 1 || strings.Join(d.unset, ",") != "NSGlobalDomain B,NSGlobalDomain E" ||
-		strings.Join(d.waiting, ",") != "com.apple.mail K" {
-		t.Errorf("set, differs, absent and nodomain should each be counted as such, got %+v", d)
+		strings.Join(d.waiting, ",") != "com.apple.mail K" || strings.Join(d.skipped, ",") != "NSGlobalDomain S" {
+		t.Errorf("set, differs, absent, nodomain and skipped should each be counted as such, got %+v", d)
 	}
 
 	g := checkDefaults(d)
 	if g.sev != sevWarn || g.fix != "make defaults" {
 		t.Errorf("keys not as mrk sets them should warn with make defaults, got sev=%v fix=%q", g.sev, g.fix)
 	}
-	if l := g.lines[0].text; l != "1 of 4 set; 1 key waits until its app has preferences" {
+	if l := g.lines[0].text; l != "1 of 4 set; 1 key waits until its app has preferences; 1 key skipped" {
 		t.Errorf("first line = %q", l)
 	}
 	if l, ok := line(g, "2 keys are not as mrk sets them: NSGlobalDomain B, NSGlobalDomain E"); !ok || l.fix != "make defaults" {

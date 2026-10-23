@@ -14,47 +14,118 @@ mrk-defaults — apply the macOS defaults and record how to undo them
 
 Usage:
   mrk-defaults [--with-trackpad] [--check] [--help | -h]
+  mrk-defaults (--skip | --unskip | --key | --revert) DOMAIN KEY ...
 
 Options:
       --with-trackpad  Also apply the trackpad gesture settings
       --check          Compare each key with this Mac, and change nothing.
                        One line for each key, tab-separated: the domain, the
                        key, the value mrk sets, the value it has now, and set,
-                       differs, absent or nodomain. Nothing else on stdout.
-                       Exits 0 when it could tell, 1 when it refused, 2 for a
-                       bad option.
+                       differs, absent, nodomain or skipped. Nothing else on
+                       stdout. Exits 0 when it could tell, 1 when it refused,
+                       2 for a bad option.
   -h, --help           Show this help
 
 mrk-defaults writes the keys that config/defaults.tsv lists, in its order,
 and appends an undo line for each one to ~/.mrk/defaults-rollback.sh, so
 every change it makes can be reversed. It is idempotent: a second run leaves
 both the system state and the rollback script unchanged. It refuses the whole
-file, before it writes anything, when a line is not one key. Run it as
-`make defaults`, or with the trackpad keys as `make trackpad`.
+file, before it writes anything, when a line is not one key. It does not
+write a key that config/defaults-skip.tsv lists, and it refuses that file too
+when a line is not one key of config/defaults.tsv. Run it as `make defaults`,
+or with the trackpad keys as `make trackpad`.
 
 With --check, a field escapes a tab, a newline and a backslash as
 config/defaults.tsv does (\t, \n, \\), and a bool's value is true or false.
 A key whose value is right but whose type is not differs, as a run would
 write it. A key that config/defaults.tsv writes only to a domain that exists
 (when existing) is nodomain when its domain does not exist yet: a run does
-not write it. --with-trackpad adds the trackpad keys to the check as well.
+not write it. A key that config/defaults-skip.tsv lists is skipped, whatever
+its value. --with-trackpad adds the trackpad keys to the check as well.
 A later version may add fields at the end of a line, and never removes or
 reorders one.
+
+One key at a time, for a program such as the Settings app. Each option takes
+the domain and the key of a line of config/defaults.tsv, and refuses any
+other key. Give each option as many times as you need. A run with these
+options changes only the keys that it names.
+  --skip DOMAIN KEY    Add the key to config/defaults-skip.tsv, so that a run
+                       does not write it. This does not change the Mac.
+  --unskip DOMAIN KEY  Delete the key from config/defaults-skip.tsv. This does
+                       not change the Mac.
+  --key DOMAIN KEY     Write the key as a run writes it, with its undo line.
+                       It refuses a key that config/defaults-skip.tsv lists.
+                       A key that waits for its domain is not written.
+  --revert DOMAIN KEY  Put back the value that the key had before mrk wrote
+                       it, from the line of the key in
+                       ~/.mrk/defaults-rollback.sh. A key with no line there
+                       stays as it is: mrk did not change it on this Mac.
+mrk-defaults changes the skip list first, then the keys. It checks every key
+before it changes anything. When a key changed, it restarts Finder, the Dock,
+SystemUIServer and ControlCenter, as a run does. It exits 0 when it is done,
+1 when it refuses or a write fails, and 2 for a bad option.
 EOF
+}
+
+bad_usage() {
+  usage >&2
+  printf '\n%s\n' "$1" >&2
+  exit 2
 }
 
 WITH_TRACKPAD=false
 CHECK=false
-for arg in "$@"; do
-  case "$arg" in
+TAB=$'\t'
+# The keys that the options of one key name, each as its domain, a tab and the
+# key
+SKIP=() UNSKIP=() KEY=() REVERT=()
+while (( $# > 0 )); do
+  case "$1" in
     --with-trackpad) WITH_TRACKPAD=true ;;
     --check)         CHECK=true ;;
+    --skip|--unskip|--key|--revert)
+      if (( $# < 3 )) || [[ -z "$2" || -z "$3" ]]; then
+        bad_usage "$1 takes a domain and a key"
+      fi
+      case "$1" in
+        --skip)   SKIP+=("$2$TAB$3") ;;
+        --unskip) UNSKIP+=("$2$TAB$3") ;;
+        --key)    KEY+=("$2$TAB$3") ;;
+        --revert) REVERT+=("$2$TAB$3") ;;
+      esac
+      shift 2 ;;
     -h|--help)       usage; exit 0 ;;
-    *)               usage >&2
-                     printf '\nunknown argument: %s\n' "$arg" >&2
-                     exit 2 ;;
+    *)               bad_usage "unknown argument: $1" ;;
   esac
+  shift
 done
+
+# in_ids ID [ID...] — true when the first ID is one of the others
+in_ids() {
+  local id=$1 other; shift
+  for other in "$@"; do [[ "$other" == "$id" ]] && return 0; done
+  return 1
+}
+# shown ID — the domain and the key of ID, with a space between them
+shown() { printf '%s %s' "${1%%"$TAB"*}" "${1#*"$TAB"}"; }
+
+ONE_KEY=false
+if (( ${#SKIP[@]} + ${#UNSKIP[@]} + ${#KEY[@]} + ${#REVERT[@]} > 0 )); then
+  ONE_KEY=true
+  if $CHECK || $WITH_TRACKPAD; then
+    bad_usage "--check and --with-trackpad do not go with --skip, --unskip, --key or --revert"
+  fi
+  for id in ${SKIP[@]+"${SKIP[@]}"}; do
+    if in_ids "$id" ${UNSKIP[@]+"${UNSKIP[@]}"}; then
+      bad_usage "--skip and --unskip both name $(shown "$id")"
+    fi
+  done
+  for id in ${KEY[@]+"${KEY[@]}"}; do
+    if in_ids "$id" ${REVERT[@]+"${REVERT[@]}"}; then
+      bad_usage "--key and --revert both name $(shown "$id")"
+    fi
+  done
+fi
 
 # --check is for a program to read (the Settings app), on stdout, which holds
 # nothing else: fd 3 is stdout, and everything else goes to stderr. Modelled on
@@ -86,6 +157,17 @@ for i in "${!DT_VALUE[@]}"; do
     DT_VALUE[i]="$HOME/${DT_VALUE[i]#"~/"}"
   fi
 done
+
+# ── The keys to skip: config/defaults-skip.tsv ───────────────────────────────
+# Read whole and checked before anything is written, as the table is: a typo
+# in a line must not let a run write a key that the line was to skip.
+SKIP_FILE="$SCRIPT_DIR/../config/defaults-skip.tsv"
+if ! defaults_skips "$SKIP_FILE"; then
+  err "config/defaults-skip.tsv has a line mrk-defaults cannot use (see above). Nothing was changed."
+  exit 1
+fi
+# skipped DOMAIN KEY — true when config/defaults-skip.tsv lists the key
+skipped() { [[ "$SKIP_IDS" == *$'\n'"$1$TAB$2"$'\n'* ]]; }
 
 # default_is_set TYPE VALUE CURRENT CURRENT_TYPE — true when a key that
 # `defaults read` shows as CURRENT, of the type `defaults read-type` names
@@ -169,22 +251,13 @@ if $CHECK; then
         state=nodomain
       fi
     fi
+    # A run does not write a skipped key, so its value is not drift.
+    skipped "$domain" "$key" && state=skipped
     mrk_check_line "$domain" "$key" "${DT_VALUE[i]}" "$current" "$state" >&3
   done
   exit 0
 fi
 
-# Create rollback directory and script with error checking
-if ! mkdir -p "$ROLL_DIR"; then
-  echo "Error: Failed to create rollback directory: $ROLL_DIR" >&2
-  exit 1
-fi
-
-# Initialise the rollback script. This moved below the lib.sh source so that
-# both writers of this file can share one implementation; nothing between the
-# two depended on it. See init_rollback in lib.sh for why it no longer
-# truncates.
-init_rollback "$ROLLBACK" || exit 1
 backup_line(){ grep -qFx "$1" "$ROLLBACK" 2>/dev/null && return 0; echo "$1" >> "$ROLLBACK"; }
 
 # value_fragment DOMAIN KEY — print KEY's value as an XML plist fragment
@@ -218,10 +291,12 @@ value_fragment(){
 # Helper: capture current value (if any) and append the inverse to rollback.
 # Skips the write if the current value already matches the target (idempotent).
 # Uses `defaults read-type` for authoritative type detection.
+# Sets DEFAULT_WRITTEN to true when it wrote the key, and to false when not.
 # Usage: write_default <domain> <key> <type> <value>
 write_default(){
   local domain="$1" key="$2" type="$3" value="$4"
   local current current_type
+  DEFAULT_WRITTEN=false
 
   # Shell-escape with printf %q so values containing ", \, $, newlines, or
   # shell metacharacters survive re-evaluation in the rollback script intact.
@@ -289,7 +364,200 @@ write_default(){
     string) defaults write "$domain" "$key" -string "$value" || return 1 ;;
     *) log "Unknown type: $type" >&2; return 1 ;;
   esac
+  DEFAULT_WRITTEN=true
 }
+
+# restart_ui — give the undo script its restarts, and restart the four
+# processes now, so the changes show at once. ControlCenter draws the menu bar
+# clock and most of the menu bar's items, and reads com.apple.menuextra.clock
+# only when it starts. Until 2026-10-22 only SystemUIServer was restarted
+# here, so a clock key changed by a run showed only after the next login.
+# launchd starts ControlCenter again, as it does SystemUIServer: its KeepAlive
+# restarts it on any exit but a clean one.
+restart_ui(){
+  backup_line "killall Finder >/dev/null 2>&1 || true"
+  backup_line "killall Dock >/dev/null 2>&1 || true"
+  backup_line "killall SystemUIServer >/dev/null 2>&1 || true"
+  backup_line "killall ControlCenter >/dev/null 2>&1 || true"
+  killall Finder >/dev/null 2>&1 || true
+  killall Dock >/dev/null 2>&1 || true
+  killall SystemUIServer >/dev/null 2>&1 || true
+  killall ControlCenter >/dev/null 2>&1 || true
+}
+
+# ── One key at a time: --skip, --unskip, --key and --revert ──────────────────
+# For a program such as the Settings app, which turns one key off or on: off is
+# --skip and --revert, and on is --unskip and --key, in one run. Each key that
+# is named, and the skip list as it will be, is checked before anything
+# changes, as a run checks the table.
+
+# key_index ID — set KEY_INDEX to the index of ID in config/defaults.tsv, or
+# return 1 when the table has no such key
+key_index(){
+  local i
+  for i in "${!DT_DOMAIN[@]}"; do
+    if [[ "${DT_DOMAIN[i]}$TAB${DT_KEY[i]}" == "$1" ]]; then
+      KEY_INDEX=$i; return 0
+    fi
+  done
+  return 1
+}
+
+# skip_list_edit OUT — write config/defaults-skip.tsv to OUT with the keys of
+# SKIP added and those of UNSKIP deleted. A new line goes before the first
+# entry that sorts after it in byte order, or at the end, and a line leaves
+# by its key. Comments, empty lines and the order of the rest stay as they
+# are, as sync-login-items edits config/login-items.txt.
+skip_list_edit(){
+  local out=$1 id line i=0 adds=()
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && adds+=("$line")
+  done < <(
+    for id in ${SKIP[@]+"${SKIP[@]}"}; do
+      skipped "${id%%"$TAB"*}" "${id#*"$TAB"}" && continue
+      printf '%s\t%s\n' "$(mrk_tsv_escape "${id%%"$TAB"*}")" "$(mrk_tsv_escape "${id#*"$TAB"}")"
+    done | LC_ALL=C sort -u
+  )
+  {
+    if [[ -e "$SKIP_FILE" ]]; then
+      while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" != '#'* && -n "${line//[[:space:]]/}" ]]; then
+          mrk_tsv_fields "$line"
+          in_ids "${TSV_FIELDS[0]}$TAB${TSV_FIELDS[1]}" ${UNSKIP[@]+"${UNSKIP[@]}"} && continue
+          while (( i < ${#adds[@]} )) && ( LC_ALL=C; [[ "${adds[i]}" < "$line" ]] ); do
+            printf '%s\n' "${adds[i]}"; i=$((i + 1))
+          done
+        fi
+        printf '%s\n' "$line"
+      done < "$SKIP_FILE"
+    fi
+    while (( i < ${#adds[@]} )); do printf '%s\n' "${adds[i]}"; i=$((i + 1)); done
+  } > "$out"
+}
+
+# undo_line DOMAIN KEY — set UNDO_LINE to the line of the undo script that puts
+# KEY back, in either form write_default writes, or return 1 when it has none
+undo_line(){
+  local w d line
+  w="defaults write $(printf '%q' "$1") $(printf '%q' "$2") "
+  d="defaults delete $(printf '%q' "$1") $(printf '%q' "$2") "
+  [[ -r "$ROLLBACK" ]] || return 1
+  while IFS= read -r line; do
+    case "$line" in
+      "$w"*|"$d"*) UNDO_LINE=$line; return 0 ;;
+    esac
+  done < "$ROLLBACK"
+  return 1
+}
+
+if $ONE_KEY; then
+  for id in ${SKIP[@]+"${SKIP[@]}"} ${UNSKIP[@]+"${UNSKIP[@]}"} ${KEY[@]+"${KEY[@]}"} ${REVERT[@]+"${REVERT[@]}"}; do
+    if ! key_index "$id"; then
+      err "$(shown "$id") is not a key of config/defaults.tsv. Nothing was changed."
+      exit 1
+    fi
+  done
+
+  # The skip list as it will be, checked as a run checks it, and then the
+  # keys to write against it
+  new_list=""
+  if (( ${#SKIP[@]} + ${#UNSKIP[@]} > 0 )); then
+    was_skipped=$SKIP_IDS
+    # Beside the file, so that mv replaces it in one step
+    new_list=$(mktemp "$SKIP_FILE.XXXXXX") || { err "Cannot write a file beside $SKIP_FILE. Nothing was changed."; exit 1; }
+    trap 'rm -f "$new_list"' EXIT
+    skip_list_edit "$new_list"
+    if ! defaults_skips "$new_list"; then
+      err "config/defaults-skip.tsv would have a line mrk-defaults cannot use (see above). Nothing was changed."
+      exit 1
+    fi
+  fi
+  for id in ${KEY[@]+"${KEY[@]}"}; do
+    if skipped "${id%%"$TAB"*}" "${id#*"$TAB"}"; then
+      err "config/defaults-skip.tsv skips $(shown "$id"), so mrk-defaults does not write it. Give --unskip too. Nothing was changed."
+      exit 1
+    fi
+  done
+
+  if [[ -n "$new_list" ]]; then
+    if [[ ! -e "$SKIP_FILE" ]] || ! cmp -s "$new_list" "$SKIP_FILE"; then
+      chmod 644 "$new_list"
+      mv -f "$new_list" "$SKIP_FILE"
+    fi
+    for id in ${SKIP[@]+"${SKIP[@]}"}; do
+      if [[ "$was_skipped" == *$'\n'"$id"$'\n'* ]]; then
+        log "$(shown "$id") was skipped already"
+      else
+        ok "Skipped $(shown "$id"): make defaults does not write it"
+      fi
+    done
+    for id in ${UNSKIP[@]+"${UNSKIP[@]}"}; do
+      if [[ "$was_skipped" == *$'\n'"$id"$'\n'* ]]; then
+        ok "$(shown "$id") is not skipped now: make defaults writes it"
+      else
+        log "$(shown "$id") was not skipped"
+      fi
+    done
+  fi
+
+  changed=false
+  failed=0
+  if (( ${#KEY[@]} > 0 )); then
+    init_rollback "$ROLLBACK" || exit 1
+  fi
+  for id in ${KEY[@]+"${KEY[@]}"}; do
+    key_index "$id"; i=$KEY_INDEX
+    if [[ "${DT_WHEN[i]}" == existing ]] && ! domain_exists "${DT_DOMAIN[i]}"; then
+      logskip "$(shown "$id")" "its domain does not exist yet"
+      continue
+    fi
+    if ! write_default "${DT_DOMAIN[i]}" "${DT_KEY[i]}" "${DT_TYPE[i]}" "${DT_VALUE[i]}"; then
+      err "Could not write $(shown "$id")"
+      failed=$(( failed + 1 ))
+    elif $DEFAULT_WRITTEN; then
+      ok "Wrote $(shown "$id")"
+      changed=true
+    else
+      log "$(shown "$id") is set already"
+    fi
+  done
+  for id in ${REVERT[@]+"${REVERT[@]}"}; do
+    if ! undo_line "${id%%"$TAB"*}" "${id#*"$TAB"}"; then
+      log "$(shown "$id") has no line in $ROLLBACK, so mrk did not change it on this Mac. It stays as it is."
+      continue
+    fi
+    # The undo script's own line, which bash ~/.mrk/defaults-rollback.sh runs
+    # too: write_default made it with printf %q, so eval runs it as written.
+    if eval "$UNDO_LINE"; then
+      ok "Put back $(shown "$id") as it was before mrk"
+      changed=true
+    else
+      err "Could not put back $(shown "$id")"
+      failed=$(( failed + 1 ))
+    fi
+  done
+
+  if $changed; then
+    restart_ui
+  fi
+  if (( failed > 0 )); then
+    warn "$failed key(s) failed. Revert with: $ROLLBACK"
+    exit 1
+  fi
+  exit 0
+fi
+
+# Create rollback directory and script with error checking
+if ! mkdir -p "$ROLL_DIR"; then
+  echo "Error: Failed to create rollback directory: $ROLL_DIR" >&2
+  exit 1
+fi
+
+# Initialise the rollback script. This moved below the lib.sh source so that
+# both writers of this file can share one implementation; nothing between the
+# two depended on it. See init_rollback in lib.sh for why it no longer
+# truncates.
+init_rollback "$ROLLBACK" || exit 1
 
 log "Applying macOS defaults..."
 
@@ -298,9 +566,13 @@ failed=0
 said_trackpad=false
 
 for i in "${!DT_DOMAIN[@]}"; do
+  [[ "${DT_WHEN[i]}" == trackpad ]] && ! $WITH_TRACKPAD && continue
+  if skipped "${DT_DOMAIN[i]}" "${DT_KEY[i]}"; then
+    logskip "${DT_DOMAIN[i]} ${DT_KEY[i]}" "config/defaults-skip.tsv skips it"
+    continue
+  fi
   case "${DT_WHEN[i]}" in
     trackpad)
-      $WITH_TRACKPAD || continue
       if ! $said_trackpad; then
         log "Applying trackpad defaults..."
         said_trackpad=true
@@ -329,21 +601,7 @@ for i in "${!DT_DOMAIN[@]}"; do
 done
 
 log "Writing rollback helper to $ROLLBACK"
-backup_line "killall Finder >/dev/null 2>&1 || true"
-backup_line "killall Dock >/dev/null 2>&1 || true"
-backup_line "killall SystemUIServer >/dev/null 2>&1 || true"
-backup_line "killall ControlCenter >/dev/null 2>&1 || true"
-
-# Apply immediate effects. ControlCenter draws the menu bar clock and most of
-# the menu bar's items, and reads com.apple.menuextra.clock only when it
-# starts. Until 2026-10-22 only SystemUIServer was restarted here, so a clock
-# key changed by a run showed only after the next login. launchd starts
-# ControlCenter again, as it does SystemUIServer: its KeepAlive restarts it on
-# any exit but a clean one.
-killall Finder >/dev/null 2>&1 || true
-killall Dock >/dev/null 2>&1 || true
-killall SystemUIServer >/dev/null 2>&1 || true
-killall ControlCenter >/dev/null 2>&1 || true
+restart_ui
 
 # Exit 1 when any write failed, after every write has been tried and the undo
 # lines written, as the six app-defaults scripts have since 2026-09-11. Until

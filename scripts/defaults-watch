@@ -43,7 +43,8 @@ settings for all users. It waits while you change one setting, snapshots
 again, and prints each key that changed, with its old and new value.
 
 For a key config/defaults.tsv already lists, it says whether the new value
-is the one mrk sets. For any other, it shows the line of config/defaults.tsv
+is the one mrk sets, or that config/defaults-skip.tsv skips the key, so
+make defaults leaves it as it is. For any other, it shows the line of config/defaults.tsv
 that would keep it, and says that check-defaults-desc will then want its
 description in docs/defaults/descriptions.tsv. Window positions, timestamps
 and launch counters are listed apart, as probably not the setting. It changes
@@ -72,6 +73,7 @@ if [[ -z "$WAIT" && ! -t 0 ]]; then
 fi
 
 DEFAULTS_TSV="$REPO_ROOT/config/defaults.tsv"
+SKIP_TSV="$REPO_ROOT/config/defaults-skip.tsv"
 SYSTEM_PREFS="${DEFAULTS_WATCH_SYSTEM_DIR:-/Library/Preferences}"
 
 W=$(mrk_mktemp_d) || exit 1
@@ -138,10 +140,11 @@ fi
 log "Snapshotting again, and comparing…"
 snapshot "$W/after" || exit 1
 
-python3 - "$W/before" "$W/after" "$DEFAULTS_TSV" "$SYSTEM_PREFS" "$(printf '%s\n' "${MRK_SELF_CHANGING_KEYS[@]}")" <<'PYEOF'
-import datetime, fnmatch, os, plistlib, re, sys
+python3 - "$W/before" "$W/after" "$DEFAULTS_TSV" "$SYSTEM_PREFS" "$(printf '%s\n' "${MRK_SELF_CHANGING_KEYS[@]}")" "$SKIP_TSV" <<'PYEOF'
+import datetime, fnmatch, os, plistlib, re, shlex, sys
 
 before, after, defaults_tsv, system_dir = sys.argv[1:5]
+skip_tsv = sys.argv[6]
 
 # Keys an app or System Settings itself rewrites, not settings. The first part
 # is MRK_SELF_CHANGING_KEYS in lib.sh, the list snapshot-prefs leaves out of a
@@ -218,6 +221,24 @@ def table(path):
         fields = [unescape(f) for f in line.split("\t")]
         if len(fields) == 6 and None not in fields:
             out.setdefault((fields[0], fields[1]), (no, *fields[2:]))
+    return out
+
+
+def skips(path):
+    """(domain, key) for each line of config/defaults-skip.tsv, the keys
+    defaults.sh does not write. A line that is not two fields is left out:
+    defaults.sh and make check say what is wrong with it."""
+    out = set()
+    try:
+        lines = open(path, encoding="utf-8").read().split("\n")
+    except OSError:
+        return out
+    for line in lines:
+        if line.startswith("#") or not line.strip():
+            continue
+        fields = [unescape(f) for f in line.split("\t")]
+        if len(fields) == 2 and None not in fields:
+            out.add(tuple(fields))
     return out
 
 
@@ -303,6 +324,7 @@ def noisy(key, old, new):
 
 
 written = table(defaults_tsv)
+skipped = skips(skip_tsv)
 changes = []
 for kind in ("user", "host", "system"):
     a, b = load(before, kind), load(after, kind)
@@ -335,11 +357,16 @@ for kind, dom, key, old, new in real:
         line, wt, wv, when, section = w
         if new is not None and same(wt, wv, new):
             print(f"    config/defaults.tsv line {line} sets {show(new)}: this is the value mrk sets.")
+        elif (dom, str(key)) in skipped:
+            print(f"    config/defaults.tsv line {line} sets {wt} {wv}, but config/defaults-skip.tsv skips the key,")
+            print("    so make defaults leaves it as it is.")
         else:
             print(f"    config/defaults.tsv line {line} sets {wt} {wv}, so make defaults would put that back.")
             if isinstance(new, WRITABLE):
                 print(f"    To keep {show(new)} instead, change that line to this, with a tab between fields:")
                 print(f"      {row(dom, key, new, when, section)}")
+            print("    Or skip the key, so that make defaults leaves it as it is:")
+            print(f"      mrk-defaults --skip {shlex.quote(dom)} {shlex.quote(str(key))}")
         continue
     if new is None:
         flag = "-currentHost " if kind == "host" else ""

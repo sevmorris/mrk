@@ -1,0 +1,18 @@
+# mrk macOS defaults: the keys to skip
+#
+# The keys of config/defaults.tsv that defaults.sh (make defaults) does not
+# write. A key stays in config/defaults.tsv, with its description, so MRK-1
+# still shows it, and so it can come back. defaults.sh --check calls such a
+# key skipped, and Gearbox shows it as off.
+#
+# defaults.sh --skip DOMAIN KEY adds a line, and --unskip DOMAIN KEY deletes
+# one. Neither changes the Mac: --revert DOMAIN KEY puts back the value the
+# key had before mrk wrote it, and --key DOMAIN KEY writes mrk's value.
+#
+# One key on each line: the domain and the key, as config/defaults.tsv has
+# them, separated by a tab, with the same escapes. A line that starts with #
+# is a comment, and an empty line is ignored. Keep the lines in byte order
+# (LC_ALL=C sort): --skip adds a line before the first line that sorts after
+# it, and --unskip deletes a line by its exact text. defaults.sh refuses the
+# file, before it writes anything, when a line is not one key of
+# config/defaults.tsv or when two lines name one key.

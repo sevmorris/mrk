@@ -54,6 +54,10 @@ description, for the first of the domains.
 It compares the sections of config/defaults.tsv with
 docs/defaults/sections.tsv in the same way. Each section needs one line
 there, and each line needs a section.
+
+It fails on a line of config/defaults-skip.tsv that defaults.sh would refuse:
+a line that is not a domain and a key, that names no key of
+config/defaults.tsv, or that names a key a second time.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"
@@ -64,6 +68,10 @@ SECTIONS_TSV="$REPO_ROOT/docs/defaults/sections.tsv"
 
 if ! defaults_table "$DEFAULTS_TSV"; then
   echo "check-defaults-desc: config/defaults.tsv has a line defaults.sh would refuse (see above)" >&2
+  exit 1
+fi
+if ! defaults_skips "$REPO_ROOT/config/defaults-skip.tsv"; then
+  echo "check-defaults-desc: config/defaults-skip.tsv has a line defaults.sh would refuse (see above)" >&2
   exit 1
 fi
 if ! defaults_desc_table "$DESCRIPTIONS_TSV"; then
