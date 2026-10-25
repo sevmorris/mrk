@@ -87,8 +87,8 @@ for d in "${REPOS[@]}"; do
   hastests=0
   [[ -n $(find "$d" -maxdepth 3 -type d -name '*Tests' -not -path '*/build/*' -not -path '*/.build/*' 2>/dev/null | head -1) ]] && hastests=1
   # generic-dest pins xcodebuild's destination. A Swift package has no xcodebuild
-  # to pin: PasswordGen, Dipstick and Gearbox run swift build and check the
-  # binary's architecture.
+  # to pin: PasswordGen and Dipstick run swift build and check the binary's
+  # architecture.
   xcodeproj=0
   [[ -n $(find "$d" -maxdepth 3 -name '*.xcodeproj' -not -path '*/build/*' 2>/dev/null | head -1) ]] && xcodeproj=1
   printf '%-24s' "$name"
