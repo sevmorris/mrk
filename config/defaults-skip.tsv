@@ -3,7 +3,7 @@
 # The keys of config/defaults.tsv that defaults.sh (make defaults) does not
 # write. A key stays in config/defaults.tsv, with its description, so MRK-1
 # still shows it, and so it can come back. defaults.sh --check calls such a
-# key skipped, and Gearbox shows it as off.
+# key skipped, and Dipstick's mrk Settings shows it as off.
 #
 # defaults.sh --skip DOMAIN KEY adds a line, and --unskip DOMAIN KEY deletes
 # one. Neither changes the Mac: --revert DOMAIN KEY puts back the value the

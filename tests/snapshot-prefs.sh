@@ -73,8 +73,8 @@ ln -s "$REAL_GIT" "$S/git"
 
 # fixtures THEME MODE TICK ORDER [WORD...] — write the domains. THEME and MODE
 # are settings; TICK drives every key that changes on its own (Sparkle's check
-# time, a window frame, launch counters at the top and nested, MBM's and
-# Gearbox's update checks, and the pane Gearbox shows); ORDER 1 writes the
+# time, a window frame, launch counters at the top and nested, MBM's update
+# check, and the pane Dipstick shows); ORDER 1 writes the
 # same JSON and archived dictionary in another order. gamma adds a domain
 # holding nothing but a Sparkle time; no-theme takes Alpha's theme out;
 # beta-keys adds four keys to Beta: one plain, and one each with a tab, a
@@ -105,8 +105,8 @@ domains = {
         "launchCount": tick, "panel": {"launchCount": tick, "width": 300},
         "blob": json.dumps(blob).encode(), "archive": archive(pairs)},
     "io.github.sevmorris.BackupRestore": {"BackupSettings": "kept", "MBM_lastUpdateCheckDate": t},
-    "io.github.sevmorris.Gearbox": {"selectedPane": ["dock", "defaults", "loginItems", "prefs"][tick % 4],
-                                    "lastUpdateCheck": t},
+    "io.github.sevmorris.Dipstick": {"selectedPane": ["dock", "defaults", "loginItems", "preferences"][tick % 4],
+                                     "consoleStyle": "amber"},
     "io.github.sevmorris.Beta": {"mode": mode},
     "io.github.sevmorris.KeyVault": {"CollapsedNoteCategories": ["Work"]},
 }
@@ -188,7 +188,7 @@ snap
 if (( RC == 0 )) && [[ "$(pushed)" == 1 ]] && grep -q 'No changes to push' "$W/out" \
    && grep -q 'Left out, changed only in keys that change on their own: .*io.github.sevmorris.Alpha.plist' "$W/out" \
    && grep -q 'io.github.sevmorris.BackupRestore.plist' "$W/out" \
-   && grep -q 'io.github.sevmorris.Gearbox.plist' "$W/out" && clean; then
+   && grep -q 'io.github.sevmorris.Dipstick.plist' "$W/out" && clean; then
   pass "only self-changing keys, JSON and an archive reordered: no commit, and the tree left clean"
 else
   fail "only self-changing keys: rc $RC, $(pushed) commit(s), status: $("$REAL_GIT" -C "$P" status --porcelain | tr '\n' ' ')"; show

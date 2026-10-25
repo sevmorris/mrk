@@ -727,13 +727,12 @@ PREFS_NOISE=(
   'MacWhisper.plist|knownRanVersions' 'MacWhisper.plist|*Cache'
   'Thaw.plist|StaleIdentifierMissCounts' 'Thaw.plist|MenuBarItemManager.knownItemIdentifiers'
   'sevmorris-apps/io.github.sevmorris.BackupRestore.plist|MBM_lastUpdateCheckDate'
-  # Gearbox's update check stamps this at most once an hour while Gearbox runs.
-  # It is here by design (sevmorris/Gearbox#1), not from the history above.
-  'sevmorris-apps/io.github.sevmorris.Gearbox.plist|lastUpdateCheck'
-  # The pane Gearbox shows, saved each time you switch panes: where you were,
-  # not a setting, as Audio Hijack's homeWindowState is. On 2026-10-22 it made
-  # mrk-status warn of an unsaved preference after each use of Gearbox.
-  'sevmorris-apps/io.github.sevmorris.Gearbox.plist|selectedPane'
+  # The pane that Dipstick's mrk Settings shows, saved each time you switch
+  # panes: where you were, not a setting, as Audio Hijack's homeWindowState is.
+  # On 2026-10-22 it made mrk-status warn of an unsaved preference after each
+  # use of Gearbox, whose panes Dipstick took in with 0.4. Dipstick's update
+  # check keeps no date in defaults, so Gearbox's lastUpdateCheck rule went.
+  'sevmorris-apps/io.github.sevmorris.Dipstick.plist|selectedPane'
 )
 
 # plist_changes PATH... — compare each plist as staged with HEAD's copy. Prints
