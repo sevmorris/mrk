@@ -386,8 +386,8 @@ else
 fi
 # ── One key at a time: --key, --revert, --skip and --unskip ──────────────────
 # On a copy of the repository, because --skip and --unskip write its
-# config/defaults-skip.tsv. Gearbox turns a key off with --skip and --revert
-# in one run, and on with --unskip and --key.
+# config/defaults-skip.tsv. Dipstick's mrk Settings turns a key off with
+# --skip and --revert in one run, and on with --unskip and --key.
 
 K="$T/onekey"; mkdir -p "$K/scripts" "$K/config"
 cp "$REPO_ROOT/scripts/defaults.sh" "$REPO_ROOT/scripts/lib.sh" "$K/scripts/"
