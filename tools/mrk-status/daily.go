@@ -589,14 +589,37 @@ type drifts struct {
 type repoReading struct {
 	mrk           repoState
 	projects      []project
-	err           error // project_repos failed
-	prefsUnpushed int   // commits in ~/.mrk/preferences that mrk-prefs lacks
+	err           error     // project_repos failed
+	prefsUnpushed int       // commits in ~/.mrk/preferences that mrk-prefs lacks
+	prefsLast     time.Time // the last commit in ~/.mrk/preferences, or zero for none
 }
 
 func readRepos(repoRoot, home string) repoReading {
 	ps, err := readProjects(repoRoot, filepath.Join(home, "Projects"))
+	prefs := filepath.Join(home, ".mrk", "preferences")
 	return repoReading{mrk: readRepoState(repoRoot), projects: ps, err: err,
-		prefsUnpushed: readPrefsUnpushed(filepath.Join(home, ".mrk", "preferences"))}
+		prefsUnpushed: readPrefsUnpushed(prefs), prefsLast: readPrefsLast(prefs)}
+}
+
+// prefsStaleAge is how old the last snapshot can be before a preference change
+// not snapshotted warns. A change is otherwise information: most are an app's
+// mode or a list's sort order, set while using it, and a warning for each one
+// kept the menu bar icon at a warning most of the day. A week without a
+// snapshot, with a change waiting, is worth the warning.
+const prefsStaleAge = 7 * 24 * time.Hour
+
+// readPrefsLast is the date of the last commit in dir, which is the last
+// snapshot. Zero when dir is no repository, or holds no commit.
+func readPrefsLast(dir string) time.Time {
+	out, err := git(dir, "log", "-1", "--format=%ct", "HEAD")
+	if err != nil {
+		return time.Time{}
+	}
+	secs, err := strconv.ParseInt(out, 10, 64)
+	if err != nil {
+		return time.Time{}
+	}
+	return time.Unix(secs, 0)
 }
 
 // readPrefsUnpushed is snapshot-prefs' unpushed_count: the commits dir holds
@@ -750,14 +773,20 @@ func unrecordedPanel(repoRoot, home string, found drifts, repos repoReading) gro
 
 	// App preferences, as the next snapshot would commit and push them. Its
 	// push carries any commit an earlier run left unpushed, also when there is
-	// nothing new to commit.
+	// nothing new to commit. A change is information until the last snapshot
+	// is older than prefsStaleAge, or there is no snapshot.
 	switch prefs := found.prefs; {
 	case prefs.err != nil:
 		lines = append(lines, sl(sevWarn, "App preferences: "+prefs.err.Error()))
 	case len(prefs.changes) > 0:
-		lines = append(lines, slFix(sevWarn,
-			plural(len(prefs.changes), "app preference change not snapshotted", "app preference changes not snapshotted")+": "+names(prefs.changes),
-			fixSnapshot))
+		sev, text := sevInfo, plural(len(prefs.changes), "app preference change not snapshotted", "app preference changes not snapshotted")
+		switch age := now().Sub(repos.prefsLast); {
+		case repos.prefsLast.IsZero():
+			sev, text = sevWarn, text+", and no snapshot yet"
+		case age > prefsStaleAge:
+			sev, text = sevWarn, text+", last snapshot "+ago(age)
+		}
+		lines = append(lines, slFix(sev, text+": "+names(prefs.changes), fixSnapshot))
 	case repos.prefsUnpushed == 0:
 		lines = append(lines, sl(sevOK, "App preferences: nothing new to snapshot"))
 	}
