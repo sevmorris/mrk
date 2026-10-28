@@ -218,15 +218,72 @@ func TestPrefsDriftReadsSnapshotPrefsCheck(t *testing.T) {
 	}
 
 	// On 2026-10-22 this one change was all there was, and the panel said all
-	// clear.
+	// clear. How much it counts is TestUnrecordedPrefsChangeWarnsWhenStale's.
 	g := checkUnrecorded(repo, t.TempDir(), drifts{prefs: prefsDrift{changes: d.changes[:1]}})
-	l, ok := line(g, "1 app preference change not snapshotted: io.github.sevmorris.ClipHack ClipHackSettings")
-	if !ok || l.sev != sevWarn || l.fix != fixSnapshot || g.sev != sevWarn {
-		t.Errorf("a preference not snapshotted should warn with %q:\n%s", fixSnapshot, texts(g))
+	l, ok := line(g, "io.github.sevmorris.ClipHack ClipHackSettings")
+	if !ok || !strings.HasPrefix(l.text, "1 app preference change not snapshotted") || l.fix != fixSnapshot {
+		t.Errorf("a preference not snapshotted should be named with %q:\n%s", fixSnapshot, texts(g))
 	}
 
 	if l, ok := line(checkUnrecorded(repo, t.TempDir(), drifts{}), "App preferences: nothing new to snapshot"); !ok || l.sev != sevOK {
 		t.Errorf("no change should read as nothing new")
+	}
+}
+
+// Each change of a mode or a sort order made the menu bar icon warn, most of
+// the day. A change is information while the last snapshot is recent, and
+// warns once the snapshot is older than prefsStaleAge, or there is none. The
+// line keeps its fix in each case.
+func TestUnrecordedPrefsChangeWarnsWhenStale(t *testing.T) {
+	repo := mrkRepo(t)
+	at := time.Date(2026, 10, 27, 18, 0, 0, 0, time.Local)
+	defer func(old func() time.Time) { now = old }(now)
+	now = func() time.Time { return at }
+
+	found := drifts{prefs: prefsDrift{changes: []string{"io.github.sevmorris.WaxOnWaxOff lastMode"}}}
+	for _, c := range []struct {
+		name string
+		last time.Time
+		sev  severity
+		text string
+	}{
+		{"a snapshot this morning", at.Add(-5 * time.Hour), sevInfo,
+			"1 app preference change not snapshotted: io.github.sevmorris.WaxOnWaxOff lastMode"},
+		{"a snapshot six days ago", at.Add(-6 * 24 * time.Hour), sevInfo,
+			"1 app preference change not snapshotted: io.github.sevmorris.WaxOnWaxOff lastMode"},
+		{"a snapshot nine days ago", at.Add(-9 * 24 * time.Hour), sevWarn,
+			"1 app preference change not snapshotted, last snapshot 9 days ago: io.github.sevmorris.WaxOnWaxOff lastMode"},
+		{"no snapshot", time.Time{}, sevWarn,
+			"1 app preference change not snapshotted, and no snapshot yet: io.github.sevmorris.WaxOnWaxOff lastMode"},
+	} {
+		g := unrecordedPanel(repo, t.TempDir(), found, repoReading{prefsLast: c.last})
+		l, ok := line(g, "app preference change")
+		if !ok || l.text != c.text || l.sev != c.sev || l.fix != fixSnapshot {
+			t.Errorf("%s: got %q (sev %v, fix %q), want %q (sev %v):\n%s", c.name, l.text, l.sev, l.fix, c.text, c.sev, texts(g))
+		}
+		if c.sev == sevInfo && g.sev != sevOK {
+			t.Errorf("%s: a recent snapshot's change should leave the panel at ok, got %v:\n%s", c.name, g.sev, texts(g))
+		}
+		if c.sev == sevWarn && (g.sev != sevWarn || g.fix != fixSnapshot) {
+			t.Errorf("%s: a stale snapshot's change should warn with %q:\n%s", c.name, fixSnapshot, texts(g))
+		}
+	}
+}
+
+func TestReadPrefsLast(t *testing.T) {
+	home := t.TempDir()
+	prefs := filepath.Join(home, ".mrk", "preferences")
+	if got := readPrefsLast(prefs); !got.IsZero() {
+		t.Errorf("no ~/.mrk/preferences: got %v, want zero", got)
+	}
+	run(t, home, "git", "init", "-q", "-b", "main", prefs)
+	if got := readPrefsLast(prefs); !got.IsZero() {
+		t.Errorf("a repository with no commit: got %v, want zero", got)
+	}
+	os.RemoveAll(prefs)
+	newRepo(t, prefs, false)
+	if got := readPrefsLast(prefs); time.Since(got) > time.Minute || time.Since(got) < -time.Minute {
+		t.Errorf("a commit made now: got %v", got)
 	}
 }
 
