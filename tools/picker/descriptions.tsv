@@ -14,7 +14,6 @@ aldente	Battery charge limiter to extend MacBook battery life
 android-platform-tools	Android SDK Platform-Tools — Android SDK component
 antigravity	Google Antigravity — agent-first AI coding environment
 appcleaner	Completely uninstall apps and all their leftover files
-arctic	Browse and manage Final Cut Pro libraries
 audio-hijack	Record and process audio from any application
 balenaetcher	Flash OS images to SD cards and USB drives
 bash	Modern shell (Bash 5.x) with improved features
@@ -26,7 +25,6 @@ chromaprint	Audio fingerprinting library (AcoustID core component)
 claude	Claude — Anthropic's desktop app
 cliclick	Emulate mouse and keyboard events from the command line
 coreutils	GNU core utilities — enhanced versions of standard Unix tools
-cryptomator	Client-side encryption for files stored in the cloud
 deno	Secure JavaScript/TypeScript runtime by the Deno team
 disk-drill	Data recovery software and disk health monitoring
 dockutil	Command-line tool for managing Dock items — used by make dock
@@ -76,7 +74,6 @@ nmap	Network exploration and security auditing tool
 nordpass	NordPass — password manager desktop app
 nordvpn	NordVPN client for macOS
 omnidisksweeper	Disk usage analyzer for macOS
-onyx	System maintenance, tweaking, and cleaning for macOS
 openaudible	Audible audiobook manager and converter
 openjdk	OpenJDK — open-source Java Development Kit
 openmtp	Android file transfer for macOS
