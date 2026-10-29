@@ -252,6 +252,14 @@ else
   fail "--check (exit $RC, gum started $GUMS times):"
   diff <(printf '%s\n' "$want") "$W/out" | sed 's/^/      /' >&2; why
 fi
+# Each line has the fields and the words that scripts/mrk-contract names for
+# sync-login-items, no more: a word added here and not there fails (audit 22,
+# O-2).
+if "$REPO_ROOT/tests/lib/contract-lines" scripts/sync-login-items < "$W/out"; then
+  pass "--check: each line has the fields and words that mrk-contract names"
+else
+  fail "--check: lines that mrk-contract does not describe (above)"
+fi
 
 # on_tty OUT CMD... — CMD with stdout in OUT and stderr on a terminal from
 # script(1), as a run from Terminal has it, so lib.sh turns its colours on.

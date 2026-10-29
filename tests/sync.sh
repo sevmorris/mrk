@@ -512,12 +512,25 @@ if (( rc == 0 )) && [[ "$(cat "$W/decide.out")" == "$want" ]] && unchanged; then
 else
   fail "--check --details: rc $rc, got:"; diff <(printf '%s\n' "$want") "$W/decide.out" | sed 's/^/      /' >&2
 fi
+# Each line has the fields and the words that scripts/mrk-contract names for
+# --check --details, no more: a field or a word added here and not there fails
+# (audit 22, O-2).
+if "$REPO_ROOT/tests/lib/contract-lines" scripts/sync --details < "$W/decide.out"; then
+  pass "--check --details: each line has the fields and words that mrk-contract names"
+else
+  fail "--check --details: lines that mrk-contract does not describe (above)"
+fi
 decide --check
 if (( rc == 0 )) && [[ -s "$W/decide.out" ]] && awk -F'\t' 'NF != 3 { bad = 1 } END { exit bad }' "$W/decide.out" \
    && [[ "$(cut -f1-3 <<< "$want")" == "$(cat "$W/decide.out")" ]]; then
   pass "plain --check keeps the three fields mrk-status reads"
 else
   fail "plain --check:"; sed 's/^/      /' "$W/decide.out" >&2
+fi
+if "$REPO_ROOT/tests/lib/contract-lines" scripts/sync < "$W/decide.out"; then
+  pass "plain --check: each line has the fields and words that mrk-contract names"
+else
+  fail "plain --check: lines that mrk-contract does not describe (above)"
 fi
 
 # Refusals: what the picker would not have offered.
