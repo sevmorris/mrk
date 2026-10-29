@@ -687,6 +687,163 @@ else
   fail "after the prunes:"; printf '%s\n' "${out:-the table is out of order}" >&2
 fi
 
+# ── 8. What -c commits, and --push ──────────────────────────────────────────
+#
+# A scratch origin, as ~/mrk has one. -c and --push commit the Brewfile and the
+# table, and no other file. The message names the entries from the diff, so an
+# edit made before the run is named, and its table change goes with it: until
+# 2026-10-29 a sync -c after a removal in Barkeep committed "sync:" and left the
+# deleted descriptions behind. --push pushes that commit when it is the one
+# commit origin lacks, and keeps it here otherwise. No decision fails for it.
+git -C "$R" diff --quiet || git -C "$R" commit -qam "fixture: before --push"
+python3 - "$FIX/info" <<'PY'
+import json, sys
+for name in ['zq-push-a', 'zq-push-b', 'zq-push-c', 'zq-push-d', 'zq-push-e', 'zq-push-f']:
+    json.dump({'formulae': [{'name': name, 'full_name': name, 'desc': 'Pushes ' + name[8:]}], 'casks': []},
+              open(f'{sys.argv[1]}/{name}.json', 'w'))
+PY
+# A key in the shape of an AWS access key id, made here so that no tracked file
+# holds one for mrk's own secret scan to find.
+key="AK""IA$(printf 'Q%.0s' {1..16})"
+python3 - "$FIX/info/zq-push-key.json" "$key" <<'PY'
+import json, sys
+json.dump({'formulae': [{'name': 'zq-push-key', 'full_name': 'zq-push-key', 'desc': 'Holds ' + sys.argv[2]}],
+           'casks': []}, open(sys.argv[1], 'w'))
+PY
+decision_world
+printf '%s\n' zq-push-a zq-push-b zq-push-c zq-push-d zq-push-e zq-push-f zq-push-key >> "$FIX/leaves"
+printf '%s\n' zq-push-a zq-push-b zq-push-c zq-push-d zq-push-e zq-push-f zq-push-key >> "$FIX/formulae"
+# zq-gone: an entry, with its description, that nothing installs.
+python3 - "$R/Brewfile" <<'PY'
+import sys
+p = sys.argv[1]
+lines = open(p).read().split('\n')
+lines.insert(lines.index('brew "xcodegen"') + 1, 'brew "zq-gone"')
+open(p, 'w').write('\n'.join(lines))
+PY
+printf 'zq-gone\tGone things\n' > "$W/gone.tsv"
+picker_add_descriptions "$TABLE" "$W/gone.tsv"
+printf 'notes\n' > "$R/notes.txt"
+git -C "$R" add notes.txt && git -C "$R" commit -qam "fixture: zq-gone and notes"
+O="$W/origin.git"
+git init -q --bare "$O"
+git -C "$R" remote add origin "$O"
+git -C "$R" push -q -u origin HEAD 2>/dev/null
+BRANCH="$(git -C "$R" rev-parse --abbrev-ref HEAD)"
+origin_tip() { git -C "$O" rev-parse "$BRANCH"; }
+cat > "$W/stubs/gh" <<EOF
+#!/bin/bash
+echo "gh \$*" >> "$W/gh.calls"
+exit 1
+EOF
+chmod +x "$W/stubs/gh"
+two="Brewfile tools/picker/descriptions.tsv "
+head_files() { git -C "$R" show --name-only --format= HEAD | sort | tr '\n' ' '; }
+
+# --push: the commit of the two files, and the push. notes.txt, staged by hand,
+# stays staged and out of the commit.
+printf 'edited\n' >> "$R/notes.txt"
+git -C "$R" add notes.txt
+decide --add zq-push-a --section "## Repo essentials" --push
+if (( rc == 0 )) && [[ "$(git -C "$R" log -1 --format=%s)" == "sync: add zq-push-a" && "$(head_files)" == "$two" ]] \
+   && [[ "$(origin_tip)" == "$(git -C "$R" rev-parse HEAD)" ]] \
+   && [[ "$(git -C "$R" diff --cached --name-only)" == notes.txt ]] && grep -q 'Pushed: sync: add zq-push-a' "$W/decide.err"; then
+  pass "--push commits the Brewfile and the table alone, and pushes that commit; a file staged by hand stays staged"
+else
+  fail "--push: rc $rc, commit '$(git -C "$R" log -1 --format=%s)' with: $(head_files)"; sed 's/^/      /' "$W/decide.err" >&2
+fi
+
+# -c commits the same two files, and does not push.
+before="$(origin_tip)"
+decide --add zq-push-b --section "## Repo essentials" -c
+if (( rc == 0 )) && [[ "$(git -C "$R" log -1 --format=%s)" == "sync: add zq-push-b" && "$(head_files)" == "$two" ]] \
+   && [[ "$(origin_tip)" == "$before" ]] && [[ "$(git -C "$R" diff --cached --name-only)" == notes.txt ]]; then
+  pass "-c commits the Brewfile and the table alone, and pushes nothing"
+else
+  fail "-c: rc $rc, commit '$(git -C "$R" log -1 --format=%s)' with: $(head_files)"; sed 's/^/      /' "$W/decide.err" >&2
+fi
+git -C "$R" reset -q -- notes.txt && git -C "$R" checkout -q -- notes.txt
+
+# --push after that commit: two commits origin lacks, so it pushes neither.
+decide --add zq-push-c --section "## Repo essentials" --push
+if (( rc == 0 )) && [[ "$(git -C "$R" log -1 --format=%s)" == "sync: add zq-push-c" && "$(origin_tip)" == "$before" ]] \
+   && grep -q '1 earlier commit' "$W/decide.err"; then
+  pass "--push with an earlier commit not pushed: exit 0, the commit kept here, nothing pushed"
+else
+  fail "--push with an earlier commit: rc $rc, origin at $(origin_tip)"; sed 's/^/      /' "$W/decide.err" >&2
+fi
+git -C "$R" push -q
+
+# --push when origin has a commit that this clone lacks: the push fails, the
+# commit is kept, and the decision is done.
+git clone -q "$O" "$W/other"
+git -C "$W/other" -c user.name=other -c user.email=other@example.invalid commit -q --allow-empty -m "elsewhere"
+git -C "$W/other" push -q
+before="$(origin_tip)"
+decide --add zq-push-d --section "## Repo essentials" --push
+if (( rc == 0 )) && [[ "$(git -C "$R" log -1 --format=%s)" == "sync: add zq-push-d" && "$(origin_tip)" == "$before" ]] \
+   && grep -q 'push failed' "$W/decide.err"; then
+  pass "--push when origin is ahead: exit 0, the commit kept here, origin unchanged"
+else
+  fail "--push with origin ahead: rc $rc"; sed 's/^/      /' "$W/decide.err" >&2
+fi
+git -C "$R" pull -q --rebase && git -C "$R" push -q
+
+# An edit made before the run, as Barkeep makes one: zq-push-d's entry and its
+# description deleted. A prune with -c commits both removals, names both, and
+# takes the table with it.
+sed -i.bak '/^brew "zq-push-d"/d' "$R/Brewfile" && rm -f "$R/Brewfile.bak"
+picker_remove_descriptions "$TABLE" zq-push-d
+decide --prune zq-gone -c
+if (( rc == 0 )) && [[ "$(git -C "$R" log -1 --format=%s)" == "sync: remove zq-gone, zq-push-d" && "$(head_files)" == "$two" ]] \
+   && git -C "$R" diff --quiet HEAD && [[ -z "$(desc_of zq-push-d)$(desc_of zq-gone)" ]]; then
+  pass "-c names an edit made before the run, and commits the table it changed"
+else
+  fail "-c after an edit: rc $rc, commit '$(git -C "$R" log -1 --format=%s)' with: $(head_files)"
+  git -C "$R" status --short | sed 's/^/      /' >&2
+fi
+git -C "$R" push -q
+
+# The secret scan stops the commit, and with no terminal it does not ask.
+head="$(git -C "$R" rev-parse HEAD)"
+decide --add zq-push-key --section "## Repo essentials" --push
+if (( rc == 0 )) && [[ "$(git -C "$R" rev-parse HEAD)" == "$head" ]] && grep -q 'zq-push-key' "$R/Brewfile" \
+   && grep -q 'committed nothing' "$W/decide.err"; then
+  pass "a description that looks like a key: the Brewfile written, nothing committed or pushed, exit 0"
+else
+  fail "--push with a key: rc $rc, HEAD $(git -C "$R" log -1 --format=%s)"; sed 's/^/      /' "$W/decide.err" >&2
+fi
+git -C "$R" checkout -q -- Brewfile tools/picker/descriptions.tsv
+
+# No upstream: the commit, and no push.
+git -C "$R" branch -q --unset-upstream
+before="$(origin_tip)"
+decide --add zq-push-e --section "## Repo essentials" --push
+if (( rc == 0 )) && [[ "$(git -C "$R" log -1 --format=%s)" == "sync: add zq-push-e" && "$(origin_tip)" == "$before" ]] \
+   && grep -q 'no upstream' "$W/decide.err"; then
+  pass "--push with no upstream: the commit kept here, exit 0"
+else
+  fail "--push with no upstream: rc $rc"; sed 's/^/      /' "$W/decide.err" >&2
+fi
+
+# A merge not finished: no commit, which would conclude it.
+head="$(git -C "$R" rev-parse HEAD)"
+git -C "$R" rev-parse HEAD > "$R/.git/MERGE_HEAD"
+decide --add zq-push-f --section "## Repo essentials" -c
+if (( rc == 0 )) && [[ "$(git -C "$R" rev-parse HEAD)" == "$head" ]] && grep -q 'merge in progress' "$W/decide.err"; then
+  pass "-c during a merge: nothing committed, exit 0"
+else
+  fail "-c during a merge: rc $rc"; sed 's/^/      /' "$W/decide.err" >&2
+fi
+rm -f "$R/.git/MERGE_HEAD"
+git -C "$R" checkout -q -- Brewfile tools/picker/descriptions.tsv
+
+if [[ ! -e "$W/gh.calls" ]]; then
+  pass "--push to an origin that is not on GitHub prunes no deployments"
+else
+  fail "--push ran gh: $(cat "$W/gh.calls")"
+fi
+
 if (( fails > 0 )); then
   err "sync: $fails check(s) failed"
   exit 1

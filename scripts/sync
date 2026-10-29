@@ -29,6 +29,7 @@ check_macos
 
 DRY_RUN=0
 COMMIT=0
+PUSH=0
 PRUNE=0
 CHECK=0
 DETAILS=0
@@ -59,6 +60,7 @@ while (("$#")); do
   case "$1" in
     --dry-run|-n) DRY_RUN=1 ;;
     --commit|-c)  COMMIT=1 ;;
+    --push)       COMMIT=1; PUSH=1 ;;
     --prune|-p)
       # A name after it makes it one decision; alone it opens the selection.
       # No package name starts with a dash, so the next option is never
@@ -89,7 +91,12 @@ mrk sync — Snapshot installed Homebrew packages into the Brewfile
 
 Usage: scripts/sync [options]
   --dry-run, -n   Show what would be added without modifying the Brewfile
-  --commit, -c    Auto-commit the Brewfile after updating
+  --commit, -c    Commit the Brewfile and the description table after
+                  updating, and no other file. The secret scan runs first, and
+                  nothing is committed while a merge or rebase is unfinished.
+  --push          As --commit, then push that commit to origin. It pushes
+                  only when that commit is the one commit origin lacks; else,
+                  and when the push fails, it keeps the commit here and says so.
   --prune, -p     Remove Brewfile entries for packages that are no longer installed
   --check         Print what --dry-run would add and --prune would remove, one
                   line each, tab-separated: add or prune, formula or cask, name.
@@ -109,7 +116,9 @@ Usage: scripts/sync [options]
 
 One decision, made without the picker or a prompt (for a program, such as
 Barkeep). Each takes one package that --check lists, and refuses any other.
-With -n it shows what it would do; with -c it commits what it changed.
+With -n it shows what it would do; with -c it commits what it changed, and
+with --push it also pushes that commit. A decision that is done exits 0 when
+--commit or --push cannot commit or push, and says why on stderr.
   --add NAME      Add NAME as the picker would: in name order, with Homebrew's
                   description, and a cask filed by its app's category.
   --section NAME  The Brewfile section for a formula --add adds, as its "## "
@@ -183,7 +192,6 @@ BREWFILE_TMP=""
 PICKER_TMP=""
 TEMP_META=""
 TEMP_DESCS=""
-PICKER_CHANGED=0
 cleanup() {
   [[ -n "$TEMP_BREWFILE"   && -f "$TEMP_BREWFILE"   ]] && rm -f "$TEMP_BREWFILE"   || true
   [[ -n "$TEMP_INSERTIONS" && -f "$TEMP_INSERTIONS" ]] && rm -f "$TEMP_INSERTIONS" || true
@@ -719,7 +727,6 @@ if (( n_prune > 0 )); then
       # The Brewfile is already written, so a failure here leaves exactly the
       # state the old warning described. Say so, with the names, and go on.
       if picker_remove_descriptions "$DESC_TABLE" "${orphaned_descs[@]}"; then
-        PICKER_CHANGED=1
         log "Removed ${#orphaned_descs[@]} description(s) from tools/picker/descriptions.tsv: ${orphaned_descs[*]}"
       else
         warn "Delete these from tools/picker/descriptions.tsv by hand, or check-picker-desc will fail: ${orphaned_descs[*]}"
@@ -748,57 +755,119 @@ join_by() {
   printf '%s' "$out"
 }
 
-# commit_changes — section 11: commit what this run changed. A function, so
-# that the two exits in the add flow reach it too: until 2026-09-28 `sync -p -c`
-# that pruned and then added nothing stopped at "No packages selected" with the
-# prune uncommitted (audit 19, W-18).
+# brewfile_change_message — the commit message for the Brewfile as it stands:
+# "sync: add a, b; remove c", from the entries that it adds and deletes against
+# HEAD. Read from the diff, not from what this run selected, so that a run that
+# commits an edit made before it, by Barkeep or by hand, names that edit too.
+# Until 2026-10-29 such a commit read "sync:" alone. A name with a line on each
+# side, such as a cask that gains greedy: true, is neither added nor removed;
+# with no name either way the message is "sync: update the Brewfile".
+brewfile_change_message() {
+  local line kind
+  local -A plus=() minus=()
+  while IFS= read -r line; do
+    [[ "$line" =~ ^([+-])(brew|cask)\ \"([^\"]+)\" ]] || continue
+    kind=${BASH_REMATCH[1]}
+    if [[ "$kind" == + ]]; then plus["${BASH_REMATCH[3]}"]=1; else minus["${BASH_REMATCH[3]}"]=1; fi
+  done < <(git -C "$REPO_ROOT" diff --no-color --no-ext-diff -U0 HEAD -- Brewfile)
+  local name added=() removed=() parts=()
+  for name in "${!plus[@]}"; do [[ -n "${minus[$name]+x}" ]] || added+=("$name"); done
+  for name in "${!minus[@]}"; do [[ -n "${plus[$name]+x}" ]] || removed+=("$name"); done
+  if (( ${#added[@]} > 0 )); then
+    mapfile -t added < <(printf '%s\n' "${added[@]}" | LC_ALL=C sort)
+    parts+=("add $(join_by ', ' "${added[@]}")")
+  fi
+  if (( ${#removed[@]} > 0 )); then
+    mapfile -t removed < <(printf '%s\n' "${removed[@]}" | LC_ALL=C sort)
+    parts+=("remove $(join_by ', ' "${removed[@]}")")
+  fi
+  if (( ${#parts[@]} > 0 )); then
+    printf 'sync: %s' "$(join_by '; ' "${parts[@]}")"
+  else
+    printf 'sync: update the Brewfile'
+  fi
+}
+
+# commit_changes — section 11: commit the Brewfile and the description table,
+# and no other file. A function, so that the two exits in the add flow reach it
+# too: until 2026-09-28 `sync -p -c` that pruned and then added nothing stopped
+# at "No packages selected" with the prune uncommitted (audit 19, W-18).
+#
+# The table goes with the Brewfile whenever it differs from HEAD, because the
+# two change together: check-picker-desc holds them one to one. Until
+# 2026-10-29 sync committed it only when the run itself had written a
+# description, so a run that committed a removal Barkeep had made left the
+# descriptions that Barkeep deleted behind. `git commit -- PATHS` commits those
+# paths alone: a file staged by hand stays staged, out of this commit, where
+# `git add` and a plain commit took it in too.
+#
+# A commit that cannot be made is not a failure of the run, which has done what
+# it was asked: it says why on stderr and returns 0, and the change waits for
+# mrk-push. So does a commit that the secret scan stops, which asks at a
+# terminal and stops without one, as for Barkeep.
 commit_changes() {
   cd "$REPO_ROOT"
-  # Stage the description table only when this run edited it, so a run that
-  # wrote no description never commits someone's unrelated edit to that file.
   changed_files=()
-  git diff --quiet Brewfile 2>/dev/null || changed_files+=("Brewfile")
-  if (( PICKER_CHANGED )) && ! git diff --quiet tools/picker/descriptions.tsv 2>/dev/null; then
-    changed_files+=("tools/picker/descriptions.tsv")
-  fi
+  git diff --quiet HEAD -- Brewfile 2>/dev/null || changed_files+=("Brewfile")
+  git diff --quiet HEAD -- tools/picker/descriptions.tsv 2>/dev/null \
+    || changed_files+=("tools/picker/descriptions.tsv")
 
   if (( ${#changed_files[@]} == 0 )); then
     log "No changes to commit."
-  else
-    # Build commit message from adds and removes
-    added_pkgs=()
-    removed_pkgs=()
-    if (( ${#formula_section_map[@]} > 0 )); then
-      for pkg in "${!formula_section_map[@]}"; do
-        added_pkgs+=("$pkg")
-      done
-    fi
-    if (( ${#selected_casks[@]} > 0 )); then
-      for pkg in "${!selected_casks[@]}"; do
-        (( selected_casks["$pkg"] == 1 )) && added_pkgs+=("$pkg")
-      done
-    fi
-    if (( ${#prune_formulae[@]} > 0 )); then
-      for pkg in "${!prune_formulae[@]}"; do removed_pkgs+=("$pkg"); done
-    fi
-    if (( ${#prune_casks[@]} > 0 )); then
-      for pkg in "${!prune_casks[@]}"; do removed_pkgs+=("$pkg"); done
-    fi
+    return 0
+  fi
 
-    commit_parts=()
-    if (( ${#added_pkgs[@]} > 0 )); then
-      mapfile -t added_pkgs < <(printf '%s\n' "${added_pkgs[@]}" | sort)
-      commit_parts+=("add $(join_by ', ' "${added_pkgs[@]}")")
-    fi
-    if (( ${#removed_pkgs[@]} > 0 )); then
-      mapfile -t removed_pkgs < <(printf '%s\n' "${removed_pkgs[@]}" | sort)
-      commit_parts+=("remove $(join_by ', ' "${removed_pkgs[@]}")")
-    fi
+  local busy
+  if busy=$(git_in_progress "$REPO_ROOT"); then
+    warn "$busy in $REPO_ROOT, so sync committed nothing. Finish it, then commit with mrk-push."
+    return 0
+  fi
+  local scan=() f
+  for f in "${changed_files[@]}"; do scan+=("$REPO_ROOT/$f"); done
+  if ! require_clean_secrets "${scan[@]}"; then
+    warn "sync committed nothing. Read the lines above, then commit with mrk-push."
+    return 0
+  fi
 
-    commit_msg="sync: $(join_by '; ' "${commit_parts[@]}")"
-    git add "${changed_files[@]}"
-    git commit -m "$commit_msg"
-    log "Committed: $commit_msg"
+  commit_msg="$(brewfile_change_message)"
+  git commit -m "$commit_msg" -- "${changed_files[@]}"
+  log "Committed: $commit_msg"
+  (( PUSH )) && push_commit
+  return 0
+}
+
+# push_commit — --push: push the commit that commit_changes made, and only it.
+# The commit is pushed when it is the one commit that the upstream lacks, so
+# that --push never publishes an earlier commit that nobody has read. mrk is a
+# public repository, and mrk-push is where such a commit is read. With no
+# upstream, with earlier commits, and when the push fails, as when origin has
+# commits that this clone lacks, the commit stays here and sync says so. Then
+# the Pages deployments are pruned as mrk-push prunes them, for an origin on
+# GitHub: each push to main deploys the site.
+push_commit() {
+  local ahead remote repo
+  if ! git rev-parse -q --verify '@{upstream}' >/dev/null 2>&1; then
+    warn "This branch has no upstream, so sync pushed nothing. The commit is kept here: push it with mrk-push."
+    return 0
+  fi
+  ahead=$(git rev-list --count '@{upstream}..HEAD')
+  if (( ahead != 1 )); then
+    warn "$(( ahead - 1 )) earlier commit(s) are not pushed either, and sync pushes its own commit alone, so it pushed nothing. Read them, then push with mrk-push."
+    return 0
+  fi
+  if ! GIT_TERMINAL_PROMPT=0 git push -q >&2; then
+    warn "The push failed, so the commit is kept here. If origin has commits that this clone lacks, run make pull, then mrk-push."
+    return 0
+  fi
+  ok "Pushed: $commit_msg"
+
+  remote=$(git remote get-url origin 2>/dev/null || true)
+  repo=${remote#git@github.com:}
+  repo=${repo#https://github.com/}
+  repo=${repo%.git}
+  if [[ "$repo" != "$remote" && "$repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ && -x "$REPO_ROOT/bin/prune-deployments" ]]; then
+    "$REPO_ROOT/bin/prune-deployments" --repo "$repo" --keep 10 >&2 \
+      || warn "Deployment pruning reported errors."
   fi
 }
 
@@ -1383,7 +1452,6 @@ if (( ${#describe_pkgs[@]} > 0 )); then
     printf '%s\t%s\n' "$pkg" "${pkg_desc[$pkg]}" >> "$TEMP_DESCS"
   done
   if picker_add_descriptions "$DESC_TABLE" "$TEMP_DESCS"; then
-    PICKER_CHANGED=1
     log "Described ${#describe_pkgs[@]} package(s) in tools/picker/descriptions.tsv: ${describe_pkgs[*]}"
   else
     warn "Describe these in tools/picker/descriptions.tsv by hand, or check-picker-desc will fail: ${describe_pkgs[*]}"

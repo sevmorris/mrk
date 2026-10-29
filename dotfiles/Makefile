@@ -20,7 +20,7 @@ help: ## Show available make commands
 	@$(MAKE) -C $(MRK) help --no-print-directory 2>/dev/null
 	@echo ""
 
-sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to commit, ARGS=-n for dry run)
+sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to commit, ARGS=--push to commit and push, ARGS=-n for dry run)
 	@$(MAKE) -C $(MRK) sync ARGS="$(ARGS)"
 
 snapshot-prefs: ## Export app preferences and push to mrk-prefs  (ARGS=-n for dry run)
