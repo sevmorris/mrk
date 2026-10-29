@@ -230,25 +230,12 @@ domain_exists(){
   defaults read "$1" >/dev/null 2>&1
 }
 
-# domain_denied DOMAIN — true when DOMAIN's app keeps its preferences in a
-# container that this process may not read. macOS refuses to list the
-# container's Preferences folder ("Operation not permitted"): Mail's to a
-# process without Full Disk Access, and TextEdit's and Passwords' to one that
-# lacks permission to get the data of other apps as well. defaults then reads
-# the domain from ~/Library/Preferences, where the app does not look, or
-# finds none at all. On 2026-10-23 Gearbox, without Full Disk Access, read
-# Mail's key as nodomain while Terminal read it as set. A launchd job, with
-# neither permission, also read TextEdit's as nodomain, and Passwords' from
-# the copy outside the container, which a run would have written to. So a key
-# in such a domain is neither read nor written. A domain
-# with no container is only a stat; an app that macOS has not asked yet may be
-# asked once whether it may read other apps' data.
-domain_denied(){
-  local prefs="$HOME/Library/Containers/$1/Data/Library/Preferences" msg
-  [[ -d "$prefs" ]] || return 1
-  msg=$(LC_ALL=C ls "$prefs" 2>&1 >/dev/null) && return 1
-  [[ "$msg" == *"Operation not permitted"* ]]
-}
+# A key whose app keeps its preferences in a container that this process may
+# not read (mrk_container_denied, lib.sh) is neither read nor written. On
+# 2026-10-23 Gearbox, without Full Disk Access, read Mail's key as nodomain
+# while Terminal read it as set. A launchd job, with neither permission, also
+# read TextEdit's as nodomain, and Passwords' from the copy outside the
+# container, which a run would have written to.
 
 # ── --check ──────────────────────────────────────────────────────────────────
 # Reads each key, as write_default does, and writes nothing: no default, no
@@ -259,7 +246,7 @@ if $CHECK; then
     [[ "${DT_WHEN[i]}" == trackpad ]] && ! $WITH_TRACKPAD && continue
     domain=${DT_DOMAIN[i]} key=${DT_KEY[i]} state=absent current=""
     # No value: what defaults would read is not the one the app uses.
-    if domain_denied "$domain"; then
+    if mrk_container_denied "$domain"; then
       state=noaccess
     elif current=$(defaults read "$domain" "$key" 2>/dev/null); then
       current_type=$(defaults read-type "$domain" "$key" 2>/dev/null | awk '{print $NF}' || echo "string")
@@ -489,7 +476,7 @@ if $ONE_KEY; then
   # --skip and --unskip change only the list; --key and --revert change the
   # key, which a process that cannot read it cannot do right.
   for id in ${KEY[@]+"${KEY[@]}"} ${REVERT[@]+"${REVERT[@]}"}; do
-    if domain_denied "${id%%"$TAB"*}"; then
+    if mrk_container_denied "${id%%"$TAB"*}"; then
       err "macOS does not let this process read ${id%%"$TAB"*}, so it cannot change $(shown "$id")."
       info "Give Full Disk Access to the app that runs this (System Settings → Privacy & Security). Nothing was changed."
       exit 1
@@ -613,7 +600,7 @@ for i in "${!DT_DOMAIN[@]}"; do
   # Without access the key reads as absent, or from a file the app does not
   # read: write_default would record the wrong undo line, and the write would
   # fail or go to that file.
-  if domain_denied "${DT_DOMAIN[i]}"; then
+  if mrk_container_denied "${DT_DOMAIN[i]}"; then
     logskip "${DT_DOMAIN[i]} ${DT_KEY[i]}" "macOS does not let this process read its app's data"
     denied=$(( denied + 1 ))
     continue

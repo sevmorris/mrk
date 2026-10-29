@@ -303,6 +303,7 @@ func readBrewDrift(repoRoot string) brewDrift {
 // to mrk-prefs, one change a line, keys that change on their own left out.
 type prefsDrift struct {
 	changes []string // "app key" for a key of a plist, "file (added)" for a whole file
+	unread  []string // files the snapshot could not read, whose saved copy it keeps
 	err     error
 }
 
@@ -315,9 +316,12 @@ func readPrefsDrift(repoRoot string) prefsDrift {
 	for _, f := range rows {
 		file, key, change := f[0], f[1], f[2]
 		name := filepath.Base(file)
-		if key != "" {
+		switch {
+		case change == "unread":
+			d.unread = append(d.unread, oneLine(file))
+		case key != "":
 			d.changes = append(d.changes, oneLine(strings.TrimSuffix(name, ".plist")+" "+key))
-		} else {
+		default:
 			d.changes = append(d.changes, oneLine(name+" ("+change+")"))
 		}
 	}
@@ -787,8 +791,16 @@ func unrecordedPanel(repoRoot, home string, found drifts, repos repoReading) gro
 			sev, text = sevWarn, text+", last snapshot "+ago(age)
 		}
 		lines = append(lines, slFix(sev, text+": "+names(prefs.changes), fixSnapshot))
-	case repos.prefsUnpushed == 0:
+	case repos.prefsUnpushed == 0 && len(prefs.unread) == 0:
 		lines = append(lines, sl(sevOK, "App preferences: nothing new to snapshot"))
+	}
+	// A file snapshot-prefs could not read: an export that failed, or an app
+	// whose container macOS does not let this process read. Its changes are
+	// not known, so this is not "nothing new" (audit 22, Z-1). Another run
+	// does not help, so there is no fix: the permission is the app's to get.
+	if len(found.prefs.unread) > 0 {
+		lines = append(lines, sl(sevWarn, "App preferences not read, so their changes are not known: "+names(found.prefs.unread)+
+			" (an export failed, or macOS refused; make snapshot-prefs says which)"))
 	}
 	if n := repos.prefsUnpushed; n > 0 {
 		lines = append(lines, slFix(sevWarn,

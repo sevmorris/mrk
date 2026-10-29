@@ -230,6 +230,30 @@ func TestPrefsDriftReadsSnapshotPrefsCheck(t *testing.T) {
 	}
 }
 
+// A file snapshot-prefs could not read is not "nothing new": until 2026-10-28
+// --check showed no line for it, and the panel said all clear for an app it
+// had not seen (audit 22, Z-1).
+func TestPrefsDriftUnread(t *testing.T) {
+	repo := mrkRepo(t)
+	writeScript(t, filepath.Join(repo, "scripts", "snapshot-prefs"), "#!/bin/sh\n[ \"$*\" = --check ] || exit 9\n"+
+		"printf 'Keka.plist\\t\\tunread\\n'\n")
+	d := readPrefsDrift(repo)
+	if d.err != nil {
+		t.Fatal(d.err)
+	}
+	if len(d.changes) != 0 || strings.Join(d.unread, ",") != "Keka.plist" {
+		t.Fatalf("changes = %q, unread = %q", d.changes, d.unread)
+	}
+	g := checkUnrecorded(repo, t.TempDir(), drifts{prefs: d})
+	if _, ok := line(g, "App preferences: nothing new to snapshot"); ok {
+		t.Errorf("a file not read should not read as nothing new:\n%s", texts(g))
+	}
+	l, ok := line(g, "App preferences not read, so their changes are not known: Keka.plist")
+	if !ok || l.sev != sevWarn || l.fix != "" {
+		t.Errorf("a file not read should be a warning with no fix:\n%s", texts(g))
+	}
+}
+
 // Each change of a mode or a sort order made the menu bar icon warn, most of
 // the day. A change is information while the last snapshot is recent, and
 // warns once the snapshot is older than prefsStaleAge, or there is none. The

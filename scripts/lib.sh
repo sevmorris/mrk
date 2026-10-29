@@ -1190,6 +1190,24 @@ prefs_source() {
   fi
 }
 
+# mrk_container_denied DOMAIN — true when DOMAIN's app keeps its preferences in
+# a sandbox container that this process may not read. macOS refuses to list the
+# container's Preferences directory ("Operation not permitted"): Mail's to a
+# process without Full Disk Access, and other apps' containers to one that also
+# lacks permission to get the data of other apps. defaults then reads the
+# domain from ~/Library/Preferences, where the app does not look, or finds no
+# domain, so such a key reads as absent and such an app as having no
+# preferences. defaults.sh asks this before it reads a key, and snapshot-prefs
+# before it reads a bare domain (audit 22, Z-1). A domain with no container is
+# only a stat; an app that macOS has not asked yet may be asked once whether it
+# may read other apps' data. Bash 3.2.
+mrk_container_denied() {
+  local prefs="$HOME/Library/Containers/$1/Data/Library/Preferences" msg
+  [[ -d "$prefs" ]] || return 1
+  msg=$(LC_ALL=C ls "$prefs" 2>&1 >/dev/null) && return 1
+  [[ "$msg" == *"Operation not permitted"* ]]
+}
+
 # picard_settings INI — print Picard's settings from INI with its credentials
 # taken out, for snapshot-prefs to keep as history. The output is a record to
 # diff, not a file to restore: post-install never reads it.
