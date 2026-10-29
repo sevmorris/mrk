@@ -68,7 +68,7 @@ for arg in "$@"; do
   esac
 done
 
-# --check is for a program to read (the Settings app), on stdout, which holds
+# --check is for a program to read (mrk Settings), on stdout, which holds
 # nothing else: fd 3 is stdout, and everything else goes to stderr, as in
 # defaults.sh --check.
 if (( CHECK )); then

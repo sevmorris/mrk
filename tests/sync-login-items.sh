@@ -14,7 +14,7 @@
 # through the plain list here.
 #
 # --check, --add, --ignore and --remove are for a program with no terminal
-# (the Settings app). Each refusal must change nothing, and a decision must
+# (mrk Settings). Each refusal must change nothing, and a decision must
 # start no gum. --remove in particular must stop, as an interactive run does,
 # when System Events returns no login items.
 #
@@ -459,7 +459,7 @@ reset_copy
 
 # ── 11. The manual's sentence, when the list does not change ─────────────────
 #
-# A hand edit of the list, or one by the Settings app, leaves the sentence
+# A hand edit of the list, or one by mrk Settings, leaves the sentence
 # behind. A run that leaves the list as it is brings the sentence back in step.
 # The stale sentence here names an app the list does not, and lacks one it
 # does.

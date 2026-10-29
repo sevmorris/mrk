@@ -238,7 +238,7 @@ mrk_unlock_all() {
 # hold a # or end in a space. Returns 1 when FILE cannot be read.
 #
 # The lists are plain lines so that a program can edit them without a parser:
-# the Settings app, and sync-login-items. post-install runs this on a new
+# mrk Settings, and sync-login-items. post-install runs this on a new
 # Mac, so it is bash 3.2.
 mrk_config_entries() {
   [[ -r "$1" ]] || return 1

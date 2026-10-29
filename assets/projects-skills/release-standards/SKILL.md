@@ -113,8 +113,9 @@ before it reaches this skill.
   non-interactive zsh has `bare_glob_qual` on by default. An interactive shell
   here has it off, so the same line pasted into a terminal fails with
   "no matches found". That is the shell, not the script.
-- **The user's gitconfig sets `color.grep = always`**, so anything parsing git
-  output needs `--no-color`. `-c color.ui=false` does not override it. Note
+- **The user's gitconfig sets `color.ui = auto` alone**, so git writes no colour
+  into a pipe. Anything parsing git output still passes `--no-color`, because
+  another gitconfig can force colour. Note
   that `git status --no-color` is not valid — `--porcelain` is already
   uncolored.
 - **release.sh prunes release pages, never git tags.** A page is a convenience;

@@ -347,7 +347,10 @@ done <<< "$_casks_out"
 # scripts/sync-login-items refuses the identical shape for system login items
 # and cites this file as its model. It guards emptiness as well as failure;
 # this one only guarded failure.
-if { (( PRUNE )) || [[ "$DECIDE" == prune ]]; } \
+#
+# --check prunes nothing, so it takes precedence here too: until 2026-10-28
+# `sync --check -p` on an empty Homebrew exited 1 (audit 22, Z-12).
+if (( ! CHECK )) && { (( PRUNE )) || [[ "$DECIDE" == prune ]]; } \
    && (( ${#installed_formulae_all[@]} == 0 )) && (( ${#installed_casks[@]} == 0 )); then
   err "Homebrew reports nothing installed — refusing to prune."
   info "'Nothing is installed' and 'the read returned nothing' are"

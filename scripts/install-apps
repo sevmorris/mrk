@@ -38,8 +38,8 @@ Normally run as `make apps`, and as part of `make post-install`.'
 # the signature ties it to the one key that account's owner signs with.
 #
 # It stays here, in code, while the list of apps is data: the list says where
-# to look, and this says whom to trust. A program that edits the list (the
-# Settings app) must not be able to change the second.
+# to look, and this says whom to trust. A program that edits the list (mrk
+# Settings, in Dipstick) must not be able to change the second.
 GITHUB_APP_TEAM_ID="T9RLNAXPWU"
 
 # The apps this Mac runs that are published from its owner's own repos:

@@ -34,7 +34,7 @@ CHECK=0
 MANUAL=0   # --manual: only bring the manual's sentence in step (section 1c)
 
 # One decision made on the command line in place of gum and the y/N prompts,
-# for a program with no terminal to show them on (the Settings app). DECIDE is
+# for a program with no terminal to show them on (mrk Settings). DECIDE is
 # add, ignore or remove. Each decision fills the variables the selection would
 # have filled, and the same code as an interactive run then writes
 # config/login-items.txt, the manual and the ignore list, so the two cannot
@@ -207,7 +207,7 @@ done <<< "$tracked_raw"
 # tests/sync-login-items.sh fails when the two differ. A run that changes the
 # list rewrites the sentence in section 9. A run that leaves the list as it is
 # brings the sentence back in step (manual_in_step), so a hand edit of
-# config/login-items.txt, or one by the Settings app, has a command that
+# config/login-items.txt, or one by mrk Settings, has a command that
 # repairs the manual: --manual (section 1c), or any such run. Both go through
 # write_manual.
 

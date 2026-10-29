@@ -50,7 +50,7 @@ the check as well.
 A later version may add fields at the end of a line, and never removes or
 reorders one.
 
-One key at a time, for a program such as the Settings app. Each option takes
+One key at a time, for a program such as Dipstick. Each option takes
 the domain and the key of a line of config/defaults.tsv, and refuses any
 other key. Give each option as many times as you need. A run with these
 options changes only the keys that it names.
@@ -133,7 +133,7 @@ if (( ${#SKIP[@]} + ${#UNSKIP[@]} + ${#KEY[@]} + ${#REVERT[@]} > 0 )); then
   done
 fi
 
-# --check is for a program to read (the Settings app), on stdout, which holds
+# --check is for a program to read (mrk Settings), on stdout, which holds
 # nothing else: fd 3 is stdout, and everything else goes to stderr. Modelled on
 # sync --check and snapshot-prefs --check.
 if $CHECK; then
@@ -410,7 +410,7 @@ restart_ui(){
 }
 
 # ── One key at a time: --skip, --unskip, --key and --revert ──────────────────
-# For a program such as the Settings app, which turns one key off or on: off is
+# For a program such as mrk Settings, which turns one key off or on: off is
 # --skip and --revert, and on is --unskip and --key, in one run. Each key that
 # is named, and the skip list as it will be, is checked before anything
 # changes, as a run checks the table.

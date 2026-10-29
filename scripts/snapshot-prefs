@@ -87,7 +87,7 @@ for arg in "$@"; do
 done
 
 # --check is a dry run that shows the commit as lines for a program to read
-# (the Settings app), on stdout, which holds nothing else: fd 3 is stdout, and
+# (mrk Settings), on stdout, which holds nothing else: fd 3 is stdout, and
 # everything else, git's output included, goes to stderr. Modelled on sync
 # --check and sync-login-items --check.
 if (( CHECK )); then
