@@ -456,6 +456,8 @@ expect_refusal() {
 }
 
 # Malformed command lines: exit 2, before Homebrew is asked anything.
+expect_refusal 2 "an unknown option"                   'Unknown option'        --frob
+expect_refusal 2 "an unknown option with --check"      'Unknown option'        --check --frob
 expect_refusal 2 "--add with no name"                  'needs a package name'  --add
 expect_refusal 2 "two decisions in one run"            'one decision per run'  --add zq-dec-tool --ignore zq-later
 expect_refusal 2 "--details without --check"           'only with --check'     --details

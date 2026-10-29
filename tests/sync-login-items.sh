@@ -436,7 +436,7 @@ rm -rf "$R/.git"; reset_copy; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-i
 
 # ── 10. Bad command lines, and a bad list ────────────────────────────────────
 
-for args in "--add" "--add Zed --remove Foo" "--remove -n" "--manual --add Zed" "--frob"; do
+for args in "--add" "--add Zed --remove Foo" "--remove -n" "--manual --add Zed" "--frob" "--check --frob"; do
   # shellcheck disable=SC2086  # each case is several words
   slx "$W/drift" $args
   if [[ $RC == 2 ]] && unchanged; then

@@ -384,6 +384,13 @@ if [[ $RC == 2 && ! -e "$T/opt/calls" ]] && grep -q 'unknown argument: --bogus' 
 else
   fail "an unknown argument: exit $RC"
 fi
+# The same beside --check, which a program passes (audit 22, Z-13).
+ROOT=$R run optc --check --bogus
+if [[ $RC == 2 && ! -s "$T/optc/out" && ! -e "$T/optc/calls" ]] && grep -q 'unknown argument: --bogus' "$T/optc/err"; then
+  ok "--check with an unknown argument: exit 2, nothing on stdout, before anything is read"
+else
+  fail "--check with an unknown argument: exit $RC"
+fi
 # ── One key at a time: --key, --revert, --skip and --unskip ──────────────────
 # On a copy of the repository, because --skip and --unskip write its
 # config/defaults-skip.tsv. Dipstick's mrk Settings turns a key off with
