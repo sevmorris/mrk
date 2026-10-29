@@ -54,7 +54,7 @@ Usage: scripts/brew [options]
   --no-formulae         Skip Homebrew formulae installation (CLI tools)
   --only-formulae       Only install Homebrew formulae (CLI tools)
   --skip-brew-install   Skip Homebrew installation (assume it's already installed)
-  --dry-run             Preview changes without applying them
+  --dry-run, -n         Preview changes without applying them
   --debug               Enable bash tracing (set -x)
   --yes, -y             Skip confirmation prompts
 
