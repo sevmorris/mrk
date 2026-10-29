@@ -323,6 +323,23 @@ else
 fi
 reset_copy; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
 
+# A run that writes holds the list's lock, so two decisions at once cannot
+# lose one (audit 22, Z-7). --check only reads, and does not wait for it.
+LOCK="$R/config/.login-items.txt.lock"
+sleep 30 & holder=$!
+mkdir "$LOCK" && printf '%s\n' "$holder" > "$LOCK/pid"
+export MRK_LOCK_WAIT=1
+slx "$W/dash" --check; check_rc=$RC
+slx "$W/dash" --add='-Dash App'
+unset MRK_LOCK_WAIT
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null; rm -rf "$LOCK"
+if [[ $check_rc == 0 && $RC == 1 ]] && grep -q "Another mrk run (process $holder) is changing login-items.txt" "$W/err" && unchanged; then
+  pass "a decision waits for the list's lock, then exits 1 and writes nothing; --check does not wait"
+else
+  fail "the list's lock: --check exit $check_rc, --add exit $RC"; why
+fi
+reset_copy; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
+
 # ── 6. --add ─────────────────────────────────────────────────────────────────
 
 slx "$W/drift" --add "Zéphyr"

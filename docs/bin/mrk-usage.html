@@ -533,6 +533,20 @@
         </div>
       </div>
 
+      <div class="callout" id="locks">
+        <span class="callout-label">One Run at a Time</span>
+        <div class="callout-body">Dipstick, Barkeep and Terminal can each run a command that changes one of mrk's lists. Each such command reads its file, writes a temporary file beside it and renames that file over the original. So a run that can change a file holds a lock on it, from before it reads the file until it exits. A second run waits for the first.
+          <ul>
+            <li><a href="#mrk-defaults">mrk-defaults</a> holds the lock of <code>config/defaults-skip.tsv</code>, for the skip list, the keys and <code>~/.mrk/defaults-rollback.sh</code>.</li>
+            <li><a href="#sync">sync</a> and <a href="#check-picker-desc">check-picker-desc</a> <code>--fix</code> hold the lock of the Brewfile, for the Brewfile, <code>tools/picker/descriptions.tsv</code> and <code>~/.mrk/sync-ignore</code>.</li>
+            <li><a href="#sync-login-items">sync-login-items</a> holds the lock of <code>config/login-items.txt</code>, for the list, the sentence in <code>docs/manual.md</code> and <code>~/.mrk/login-items-ignore</code>.</li>
+            <li>The lock is a directory beside the file, such as <code>config/.defaults-skip.tsv.lock</code>, which holds the process id. A second run waits up to 30 seconds, or <code>MRK_LOCK_WAIT</code> seconds. Then it exits 1, names the process that holds the lock, and changes nothing.</li>
+            <li>A lock whose process is gone, after a crash, is taken over. <code>--check</code> and <code>--dry-run</code> only read, so they take no lock.</li>
+            <li>Barkeep writes the Brewfile itself for some edits, and Dipstick writes <code>config/dock.txt</code>. Neither takes the lock.</li>
+          </ul>
+        </div>
+      </div>
+
       <div class="callout callout-caution">
         <span class="callout-label">Scope — This Documents One Machine</span>
         <div class="callout-body">mrk is a personal system. It sets up my Mac, keeps it in that state, and moves it to the next machine. The tools below are general. Their data is not. The package list, the login items, the Dock, the preference domains and the private preferences repository are all personal choices. Read this manual for what each command does. Change those lists before you run any command on a different machine. Several commands delete files or change system settings.</div>
@@ -1753,6 +1767,8 @@ dock-setup --check</code></pre>
           <tr><td><code>check_macos</code></td><td>Exits when the operating system is not macOS.</td></tr>
           <tr><td><code>setup_logging</code></td><td>Creates <code>~/.mrk</code>. Rotates <code>~/.mrk/install.log</code> when the log is larger than 10&nbsp;MB.</td></tr>
           <tr><td><code>mrk_mktemp / mrk_mktemp_d</code></td><td>Creates a temporary file or directory. Uses an explicit template, because GNU mktemp rejects the BSD form <code>-t mrk</code>.</td></tr>
+          <tr><td><code>mrk_lock FILE</code></td><td>Takes the lock of FILE before a run reads FILE to change it: a directory <code>.NAME.lock</code> beside FILE, made by <code>mkdir</code>, which holds the process id. It waits up to <code>MRK_LOCK_WAIT</code> seconds (30) for another run, then names that process and returns 1. It takes over a lock whose process is gone. See <a href="#locks">One Run at a Time</a>. It runs under bash&nbsp;3.2.</td></tr>
+          <tr><td><code>mrk_unlock_all</code></td><td>Releases each lock that <code>mrk_lock</code> took in this process. Each caller runs it from its EXIT trap.</td></tr>
           <tr><td><code>mrk_config_entries FILE</code></td><td>Shows the entries of a list in <code>config/</code>, one on each line, in the order of the file. Every line is an entry, except a line that starts with <code>#</code> and an empty line. It trims nothing, and it has no inline comment, because an app name can contain <code>#</code>. Returns 1 when it cannot read the file. mrk-post-install, snapshot-prefs, install-apps, sync-login-items and dock-setup use it. It runs under bash&nbsp;3.2.</td></tr>
           <tr><td><code>mrk_tsv_escape TEXT</code></td><td>Shows TEXT as one field of a line of <code>config/defaults.tsv</code>: a backslash as <code>\\</code>, a tab as <code>\t</code> and a newline as <code>\n</code>. Every other character stays as it is. When TEXT holds no other control character, <code>mrk_tsv_fields</code> gives TEXT back. It refuses a field that holds one, such as a carriage return. It runs under bash&nbsp;3.2.</td></tr>
           <tr><td><code>mrk_check_line FIELD...</code></td><td>Shows one line of a <code>--check</code> option: each FIELD escaped by <code>mrk_tsv_escape</code>, a tab between two fields, and a newline at the end. The five <code>--check</code> options write each line with it, so <a href="#check-lines">one rule</a> reads them all. It runs under bash&nbsp;3.2.</td></tr>

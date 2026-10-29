@@ -190,8 +190,17 @@ cleanup() {
   [[ -n "$PICKER_TMP"      && -f "$PICKER_TMP"      ]] && rm -f "$PICKER_TMP"      || true
   [[ -n "$TEMP_META"       && -f "$TEMP_META"       ]] && rm -f "$TEMP_META"       || true
   [[ -n "$TEMP_DESCS"      && -f "$TEMP_DESCS"      ]] && rm -f "$TEMP_DESCS"      || true
+  mrk_unlock_all
 }
 trap cleanup EXIT INT TERM
+
+# A run that can write holds the Brewfile's lock (mrk_lock, lib.sh) from before
+# it reads the Brewfile, for the Brewfile, the description table and the
+# ignore file. check-picker-desc --fix takes the same lock. --check and -n
+# only read.
+if (( ! CHECK && ! DRY_RUN )); then
+  mrk_lock "$BREWFILE" || exit 1
+fi
 
 # Belt-and-braces for the replace: mktemp creates the file 0600, and any writer
 # path that produced nothing would otherwise truncate the Brewfile. Refuse to

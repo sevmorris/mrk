@@ -143,8 +143,17 @@ cleanup() {
   for _f in "$TEMP_ADD" "$TEMP_REMOVE" "$TMP_LIST" "$TMP_MD" "$TMP_OSA_ERR"; do
     [[ -n "$_f" && -f "$_f" ]] && rm -f "$_f" || true
   done
+  mrk_unlock_all
 }
 trap cleanup EXIT INT TERM
+
+# A run that can write holds the list's lock (mrk_lock, lib.sh) from before it
+# reads the list, for the list, the manual's sentence and the ignore file: two
+# decisions at once, or a decision during an interactive run, lost a change.
+# --check and -n only read.
+if (( ! CHECK && ! DRY_RUN )); then
+  mrk_lock "$LOGIN_ITEMS" || exit 1
+fi
 
 # ─── 1. Read tracked login items from config/login-items.txt ─────────────────
 

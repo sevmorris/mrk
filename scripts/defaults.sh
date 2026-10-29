@@ -168,6 +168,14 @@ done
 # Read whole and checked before anything is written, as the table is: a typo
 # in a line must not let a run write a key that the line was to skip.
 SKIP_FILE="$SCRIPT_DIR/../config/defaults-skip.tsv"
+# Every run that can change the skip list, a key or the undo file holds the
+# skip list's lock (mrk_lock, lib.sh) from before it reads the list, so a
+# switch in Dipstick waits for a make defaults in Terminal, and the other way
+# round. --check only reads.
+if ! $CHECK; then
+  mrk_lock "$SKIP_FILE" || exit 1
+  trap 'mrk_unlock_all' EXIT
+fi
 if ! defaults_skips "$SKIP_FILE"; then
   err "config/defaults-skip.tsv has a line mrk-defaults cannot use (see above). Nothing was changed."
   exit 1
@@ -490,7 +498,7 @@ if $ONE_KEY; then
     was_skipped=$SKIP_IDS
     # Beside the file, so that mv replaces it in one step
     new_list=$(mktemp "${SKIP_FILE%/*}/.defaults-skip.tsv.XXXXXX") || { err "Cannot write a file beside $SKIP_FILE. Nothing was changed."; exit 1; }
-    trap 'rm -f "$new_list"' EXIT
+    trap 'rm -f "$new_list"; mrk_unlock_all' EXIT
     skip_list_edit "$new_list"
     if ! defaults_skips "$new_list"; then
       err "config/defaults-skip.tsv would have a line mrk-defaults cannot use (see above). Nothing was changed."

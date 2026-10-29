@@ -234,9 +234,16 @@ compare
 if (( FIX && ${#missing[@]} + ${#orphan[@]} > 0 )); then
   PICKER_TMP=""
   ADDS=""
-  trap 'rm -f ${PICKER_TMP:+"$PICKER_TMP"} ${ADDS:+"$ADDS"}' EXIT
-  fix || exit 1
+  trap 'rm -f ${PICKER_TMP:+"$PICKER_TMP"} ${ADDS:+"$ADDS"}; mrk_unlock_all' EXIT
+  # The Brewfile's lock, which sync holds while it changes the Brewfile and this
+  # table (mrk_lock, lib.sh). Compared again under it, so that a sync that ran
+  # in the meantime counts.
+  mrk_lock "$BREWFILE" || exit 1
   compare
+  if (( ${#missing[@]} + ${#orphan[@]} > 0 )); then
+    fix || exit 1
+    compare
+  fi
 fi
 
 if (( ${#missing[@]} == 0 && ${#orphan[@]} == 0 )); then

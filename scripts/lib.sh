@@ -192,6 +192,45 @@ sudo_refresh() { sudo -n -v 2>/dev/null || true; }
 mrk_mktemp()   { mktemp    "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
 mrk_mktemp_d() { mktemp -d "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
 
+# mrk_lock FILE — take the lock of FILE, before a run reads FILE to change it:
+# a directory .NAME.lock beside FILE, made by mkdir, which is atomic, and
+# holding this process's id. Each writer reads its file, writes a temp file
+# and renames it over the original, so two writers at once lost one change:
+# two --skip runs kept one key of two, every time (audit 22, Z-7). A lock
+# whose process is gone, after a SIGKILL or a crash, is taken over. Waits up
+# to MRK_LOCK_WAIT seconds (30) for another run, then says which and returns
+# 1. Release with mrk_unlock_all, from the caller's EXIT trap. Bash 3.2.
+MRK_LOCKS=()
+mrk_lock() {
+  local dir="${1%/*}/.${1##*/}.lock" tries=0 pid
+  local limit=$(( ${MRK_LOCK_WAIT:-30} * 10 ))
+  until mkdir "$dir" 2>/dev/null; do
+    pid=$(cat "$dir/pid" 2>/dev/null) || pid=""
+    # An empty pid is a lock still being made, so it is waited for.
+    if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
+      rm -rf "$dir"
+      continue
+    fi
+    if (( tries >= limit )); then
+      err "Another mrk run (process ${pid:-unknown}) is changing ${1##*/}, so nothing was changed. If none is running, delete $dir."
+      return 1
+    fi
+    sleep 0.1
+    tries=$(( tries + 1 ))
+  done
+  printf '%s\n' "$$" > "$dir/pid"
+  MRK_LOCKS+=("$dir")
+}
+
+# mrk_unlock_all — release each lock that mrk_lock took in this process.
+mrk_unlock_all() {
+  local dir
+  for dir in ${MRK_LOCKS[@]+"${MRK_LOCKS[@]}"}; do
+    [[ "$(cat "$dir/pid" 2>/dev/null)" == "$$" ]] && rm -rf "$dir"
+  done
+  MRK_LOCKS=()
+}
+
 # mrk_config_entries FILE — print the entries of a list in config/, one a
 # line, in the file's order. Every line is an entry except a comment, a line
 # that starts with #, and an empty line. The entry is the line as it stands:
