@@ -495,7 +495,7 @@ The panes do not commit. Use `mrk-push` or `pushall` to commit their changes. Af
 
 Dipstick runs most commands in its console, a window of its own. These are the fixes of the menu bar, and `make snapshot-prefs`, `make defaults` and `make dock` from the panes, one at a time. The console is a terminal of Dipstick's own, so you see each prompt and type your answer there. Press ⌃C or ⌘. to stop the command. When the command stops, Dipstick checks the pane again and runs `mrk-status` again. Dipstick does not quit while a command runs in the console.
 
-The console cannot show a full-screen list to select from. So a fix for a Make target that `scripts/mrk-contract` lists under `terminal` runs in a terminal. These fixes are `make sync ARGS=--push` and `make brew`. The mrk-menu button also runs its command in a terminal.
+The console cannot show a full-screen list to select from. So a fix for a Make target that `scripts/mrk-contract` lists under `terminal` runs in a terminal. These fixes are `make sync ARGS=--push` and `make brew`. The mrk-menu button also runs its command in a terminal. When Barkeep 1.17.0 or later is in `/Applications` or `~/Applications`, the fix for a package the Brewfile does not have is a **Barkeep…** button: it opens the Untracked list of Barkeep, which adds, adopts or ignores each package with `sync`. Dipstick 0.7 does this.
 
 While mrk Settings or the console is open, Dipstick shows a Dock icon and a menu bar. When both close, only the menu bar icon stays.
 
