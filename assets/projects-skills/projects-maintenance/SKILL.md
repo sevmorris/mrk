@@ -37,7 +37,8 @@ Needs you and Kept has a `→` command that shows or settles it, and each cleanu
 In this order, because the top is what only the owner can settle:
 
 1. **Needs you.** No remote, a remote off GitHub, a clone on a branch other than its default,
-   uncommitted changes, unpushed commits, stashes, branches never pushed. Each is a decision, and
+   uncommitted changes, unpushed commits, stashes, branches never pushed that hold commits of
+   their own (one whose tip is already in the default branch is a cleanup). Each is a decision, and
    nothing here acts on it. Say what the obvious next step would be: for a repo with no remote,
    a private GitHub repo and a push, which only the owner can choose.
 2. **Cleanups available.** Counts per category and per repo, and how much disk the build cleanup

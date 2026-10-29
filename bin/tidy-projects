@@ -16,6 +16,7 @@
 #   branches   a local branch whose upstream is gone and whose tip is in the default branch, or is
 #              the head of a merged PR or an ancestor of it, so it holds nothing that is not merged
 #              already. Squash merges are not ancestors of main, so for those only the PR can tell.
+#              Also a branch never pushed whose tip is in the default branch, which holds nothing.
 #              On 2026-10-13 four of five claude/macos-15 branches sat behind their PR's head, the
 #              rest pushed from a worktree.
 #   deploys    Pages deployments beyond the newest 10 (prune-deployments, which keeps the live one)
@@ -69,7 +70,8 @@ Cleanups:
   refs       Prune the remote-tracking refs of branches gone from origin
   worktrees  Remove a clean worktree that no process uses, whose work is merged
   branches   Delete a branch gone from origin whose tip is in the default branch
-             or a merged pull request
+             or a merged pull request, and a branch never pushed whose tip is in
+             the default branch
   deploys    Prune a Pages site to its newest 10 deployments
   build      Trash gitignored build/ and .build/ folders; clear Xcode's DerivedData
 
@@ -197,7 +199,8 @@ survey_repo() { # dir name out-file
   fi
 
   # branches: merged ones (upstream gone, and the tip in the default branch or at or behind the
-  # head of a merged PR), and the rest kept with why
+  # head of a merged PR; or never pushed, and the tip in the default branch), and the rest kept
+  # with why
   declare -A safe=() safe_head=()   # branch -> why it is merged, and a commit that holds its tip
   local b tip track up
   # ':' separates the fields: no ref name can contain one, and unlike a tab it is not IFS
@@ -243,6 +246,13 @@ survey_repo() { # dir name out-file
       elif [[ $other == *OPEN* ]]; then emit kept "$name" "branch $b: PR #${other%% *} is still open" "gh pr view ${other%% *} --repo $slug"
       else emit kept "$name" "branch $b: gone from origin, and no pull request has it as its head" "git -C \"$d\" log --oneline $b --not origin/$def"; fi
     elif [[ -z $up ]] && ! git -C "$d" show-ref --verify --quiet "refs/remotes/origin/$b"; then
+      # A branch never pushed holds nothing of its own when its tip is already in the default
+      # branch: a session that made a worktree and committed nothing leaves one behind. On
+      # 2026-10-28 three such branches in Dipstick, each at a merge already in main, read as
+      # "this clone is its only copy".
+      if git -C "$d" merge-base --is-ancestor "$tip" "origin/$def" 2>/dev/null; then
+        safe[$b]="in $def, never pushed"; safe_head[$b]="origin/$def"; continue
+      fi
       emit owner "$name" "branch $b was never pushed: this clone is its only copy" "git -C \"$d\" log --oneline $b --not --remotes"
     fi
   done < <(git -C "$d" for-each-ref --format='%(refname:short):%(objectname):%(upstream:track):%(upstream:short)' refs/heads)
