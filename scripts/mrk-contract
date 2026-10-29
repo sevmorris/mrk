@@ -10,11 +10,18 @@
 # this once for each checkout, before it passes an option, so an exit 2 means
 # only that the command line is wrong (audit 22, O-2).
 #
+# It also names the Make targets that need a terminal: those whose scripts can
+# start gum, mrk-picker or mrk-menu, which draw a full screen. Dipstick's
+# console cannot draw one, so Dipstick runs these in Terminal. Until 2026-10-29
+# Dipstick kept the list itself, and a new target that started gum would have
+# run in its console (audit 22, opportunity 5).
+#
 # The document is written here by hand. tests/mrk-contract.sh holds it to each
 # script: every option to the script's parser and its --help, and every word to
-# its --help. The tests of the five --check scripts hold the lines that each
-# script writes to the fields and words here, with tests/lib/contract-lines.
-# Read-only: it prints and exits.
+# its --help. It holds the terminal targets to the Makefile, and to the scripts
+# that each target runs. The tests of the five --check scripts hold the lines
+# that each script writes to the fields and words here, with
+# tests/lib/contract-lines. Read-only: it prints and exits.
 
 set -euo pipefail
 
@@ -43,16 +50,17 @@ mrk-contract takes no options other than --help. It shows one JSON document
 on stdout, exits 0 and changes nothing. The document is for Dipstick and
 Barkeep. For each script that they run, it names the options that the script
 takes, the options of one decision, and the fields and words of its --check
-lines.
+lines. It also names the Make targets that need a terminal, because their
+scripts can start gum, mrk-picker or mrk-menu.
 
 A program runs mrk-contract once for each checkout, before it gives a script
 an option. When the script does not take the option, the program says so and
 does not run the script. When the script takes the option and exits 2, the
 command line is wrong, and stderr says why.
 
-"contract" is the version. A new script, option, field, word or key keeps the
-version. mrk raises it when it deletes an option, a field or a key, moves a
-field, or gives a word or a key a new meaning.
+"contract" is the version. A new script, option, field, word, target or key
+keeps the version. mrk raises it when it deletes an option, a field or a key,
+moves a field, or gives a word or a key a new meaning.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"
@@ -60,7 +68,7 @@ mrk_help_guard "$(usage)" "$@"
 cat <<'EOF'
 {
   "contract": 1,
-  "about": "What mrk's scripts take from a program, and what their --check lines hold. options: every option of the script. equals: the options that also take their value after an equals sign, as --add=NAME. decisions: the options of one decision, each with the values after it. check: the options that go with --check, and the fields of a line in their order. A field whose with is empty is on every line; one whose with names an option is on a line only with that option. A field with no words holds any text. A new script, option, field, word or key keeps the version. mrk raises it when it deletes an option, a field or a key, moves a field, or gives a word or a key a new meaning. BIN-1 (docs/bin/mrk-usage.html in sevmorris/mrk) says what each option, field and word means.",
+  "about": "What mrk's scripts take from a program, and what their --check lines hold. options: every option of the script. equals: the options that also take their value after an equals sign, as --add=NAME. decisions: the options of one decision, each with the values after it. check: the options that go with --check, and the fields of a line in their order. A field whose with is empty is on every line; one whose with names an option is on a line only with that option. A field with no words holds any text. terminal: the Make targets whose scripts can start gum, mrk-picker or mrk-menu, which draw a full screen. Run them in a terminal, not in a console that cannot draw one. A new script, option, field, word, target or key keeps the version. mrk raises it when it deletes an option, a field or a key, moves a field, or gives a word or a key a new meaning. BIN-1 (docs/bin/mrk-usage.html in sevmorris/mrk) says what each option, field and word means.",
   "scripts": {
     "scripts/defaults.sh": {
       "options": ["--with-trackpad", "--check", "--skip", "--unskip", "--key", "--revert", "--help", "-h"],
@@ -157,6 +165,7 @@ cat <<'EOF'
       "decisions": [],
       "check": null
     }
-  }
+  },
+  "terminal": ["all", "brew", "sync", "sync-login-items"]
 }
 EOF
