@@ -194,6 +194,7 @@ Two tools manage the Brewfile: `sync` on the command line, and Barkeep in a wind
 sync                  # Start the mrk-picker TUI, and select the packages
 sync -n               # Show the additions, but change nothing
 sync -c               # Commit the Brewfile and the description table after sync updates them
+sync --push           # Commit them, and push the commit
 sync -p               # Delete the entries for the packages you uninstalled
 ```
 
@@ -206,6 +207,8 @@ sync --add NAME                               # Add one cask, filed by the categ
 sync --ignore NAME                            # Add one name to ~/.mrk/sync-ignore
 sync --prune NAME                             # Delete the entry of one package that you uninstalled
 ```
+
+Each of these takes `-c` or `--push` too. With `--push`, the change goes to GitHub with no `mrk-push`. sync commits the Brewfile and the description table only, and no other file. It runs the secret scan first, and it pushes only when its commit is the one commit that GitHub does not have. Otherwise it keeps the commit, says why, and you push with `mrk-push`. Barkeep 1.16.0 adds `--push` to its adds and prunes, as below.
 
 A formula needs `--section`, because sync does not guess the section of a formula. [BIN-1 §2.8](https://sevmorris.github.io/mrk/bin/mrk-usage.html#sync) lists the options and what each one refuses.
 
@@ -241,7 +244,7 @@ If `brew list` fails, sync stops. An empty package list would make `-p` mark eve
 
 When `-p` deletes a Brewfile entry, sync also deletes the package's description from `tools/picker/descriptions.tsv`, so `check-picker-desc` still passes. A formula and a cask with the same name share one description, and sync keeps it while either one is still in the Brewfile. With `-c`, sync commits both files together.
 
-**Barkeep in mrk mode.** From Barkeep 1.15.0, Barkeep uses sync when the Brewfile it opens is in an mrk checkout. Its Untracked list is the output of `sync --check --details`, so it drops the names in `~/.mrk/sync-ignore`. Add to Brewfile and Adopt run `sync --add`, Ignore runs `sync --ignore`, and Remove on a package that is not installed runs `sync --prune`. So the entry, its section and its description are the ones that sync writes. After each other edit to the Brewfile, Barkeep runs `check-picker-desc --fix`. Barkeep does not commit. Commit `~/mrk` with `mrk-push` or `pushall`, which run the secret scan and the commit gates.
+**Barkeep in mrk mode.** From Barkeep 1.15.0, Barkeep uses sync when the Brewfile it opens is in an mrk checkout. Its Untracked list is the output of `sync --check --details`, so it drops the names in `~/.mrk/sync-ignore`. Add to Brewfile and Adopt run `sync --add`, Ignore runs `sync --ignore`, and Remove on a package that is not installed runs `sync --prune`. So the entry, its section and its description are the ones that sync writes. After each other edit to the Brewfile, Barkeep runs `check-picker-desc --fix`. From Barkeep 1.16.0, Barkeep adds `--push` to `sync --add` and `sync --prune` when its setting **Commit and push Brewfile changes** is on, which it is at first. So each add and each prune goes to GitHub as one commit, and you do not run `mrk-push` for it. Barkeep does not commit its other edits. Commit those with `mrk-push` or `pushall`, which run the secret scan and the commit gates.
 
 **Barkeep and hand edits.** Outside mrk mode, and in Barkeep 1.14.0 and earlier, Barkeep adds and deletes Brewfile lines — Add to Brewfile, Adopt, Remove from Brewfile, and from Barkeep 1.13.0 Uninstall and Remove from Brewfile — and writes no picker description, and neither does an edit by hand. `mrk-push` and `pushall` settle that before they commit: they run `check-picker-desc`, and when it fails they run `check-picker-desc --fix`, which writes Homebrew's description for each package that has none, in the words and places sync would use, and deletes each description no Brewfile entry uses. It never changes a description that is already there. This also catches a Barkeep edit you committed with a plain `git commit`. When Homebrew has no description for a package, the commit goes ahead with a warning that names it, and you write that one yourself. To do it before you push, run:
 
@@ -492,7 +495,7 @@ The panes do not commit. Use `mrk-push` or `pushall` to commit their changes. Af
 
 Dipstick runs most commands in its console, a window of its own. These are the fixes of the menu bar, and `make snapshot-prefs`, `make defaults` and `make dock` from the panes, one at a time. The console is a terminal of Dipstick's own, so you see each prompt and type your answer there. Press ⌃C or ⌘. to stop the command. When the command stops, Dipstick checks the pane again and runs `mrk-status` again. Dipstick does not quit while a command runs in the console.
 
-The console cannot show a full-screen list to select from. So a fix for a Make target that `scripts/mrk-contract` lists under `terminal` runs in a terminal. These fixes are `make sync ARGS=-c` and `make brew`. The mrk-menu button also runs its command in a terminal.
+The console cannot show a full-screen list to select from. So a fix for a Make target that `scripts/mrk-contract` lists under `terminal` runs in a terminal. These fixes are `make sync ARGS=--push` and `make brew`. The mrk-menu button also runs its command in a terminal.
 
 While mrk Settings or the console is open, Dipstick shows a Dock icon and a menu bar. When both close, only the menu bar icon stays.
 
@@ -573,10 +576,10 @@ Start KeyVault, and export the vault. KeyVault writes its own passphrase-encrypt
 **3. Sync the Brewfile**
 
 ```bash
-make sync ARGS=-c
+make sync ARGS=--push
 ```
 
-This command adds the packages that you installed since the last sync. It then commits the Brewfile.
+This command adds the packages that you installed since the last sync. It then commits the Brewfile and the description table, and pushes the commit. If sync keeps the commit, it says why: run `mrk-push`.
 
 **4. Snapshot app preferences**
 
@@ -936,7 +939,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
   - **Security Hardening** — Whether mrk applied the hardening.
   - **Displaced files** — Shown *only when backups exist*: how many, and the most recent. This is a report, not a health check, so with nothing to report it is left out. See [What the backups are](#what-the-backups-are).
 
-Each line carries its fix where it has one. Examples are `make sync ARGS=-c` for a package the Brewfile lacks, and `bin/pushall` for a project with commits not pushed.
+Each line carries its fix where it has one. Examples are `make sync ARGS=--push` for a package the Brewfile lacks, and `bin/pushall` for a project with commits not pushed.
 
 ---
 

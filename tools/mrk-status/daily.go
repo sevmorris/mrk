@@ -35,7 +35,7 @@ import (
 // path is relative to the checkout; TestEveryFixCommandResolves holds each one
 // to resolving there.
 const (
-	fixSyncAdd     = "make sync ARGS=-c"
+	fixSyncAdd     = "make sync ARGS=--push"
 	fixMrkPush     = "bin/mrk-push"
 	fixPushall     = "bin/pushall"
 	fixSnapshot    = "make snapshot-prefs"

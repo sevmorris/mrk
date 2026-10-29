@@ -904,7 +904,7 @@ func TestPlainPrintsEveryPanelAndFix(t *testing.T) {
 	var b bytes.Buffer
 	renderPlain(&b, groups)
 	out := b.String()
-	for _, want := range []string{"mrk-status  1 warning", "\n⚠ Unrecorded\n", "    ⚠ 1 package installed but not in the Brewfile: jq  → make sync ARGS=-c",
+	for _, want := range []string{"mrk-status  1 warning", "\n⚠ Unrecorded\n", "    ⚠ 1 package installed but not in the Brewfile: jq  → make sync ARGS=--push",
 		"    ✓ ~/mrk: committed and pushed", "\n✓ Time Machine Backups\n"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)

@@ -119,7 +119,7 @@ cat <<'EOF'
       }
     },
     "scripts/sync": {
-      "options": ["--dry-run", "-n", "--commit", "-c", "--prune", "-p", "--add", "--ignore", "--section", "--formula", "--cask", "--check", "--details", "--help", "-h"],
+      "options": ["--dry-run", "-n", "--commit", "-c", "--push", "--prune", "-p", "--add", "--ignore", "--section", "--formula", "--cask", "--check", "--details", "--help", "-h"],
       "equals": [],
       "decisions": [
         {"option": "--add", "values": ["NAME"]},

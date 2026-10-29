@@ -207,7 +207,7 @@ mrk-menu: ## Build the mrk-menu TUI launcher binary
 # value can hold a space. For such a value, run the script directly. (Audit 04
 # Makefile-L1 blamed Make for the split; it is the shell. Audit 19, W-29.)
 
-sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to commit, ARGS=-n for dry run)
+sync: ## Sync installed Homebrew packages into the Brewfile  (pass ARGS=-c to commit, ARGS=--push to commit and push, ARGS=-n for dry run)
 	@"$(SCRIPTS)/sync" $(ARGS)
 
 sync-login-items: ## Sync system login items into config/login-items.txt  (pass ARGS=-c to commit, ARGS=-n for dry run)

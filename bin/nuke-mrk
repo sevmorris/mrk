@@ -117,23 +117,16 @@ if [[ ! "$do_snapshot" =~ ^[Nn]$ ]]; then
   if [[ -f "$MRK_DIR/Makefile" ]]; then
     echo ""
     log "Running make sync..."
-    head_before=$(git -C "$MRK_DIR" rev-parse HEAD 2>/dev/null || true)
-    if make -C "$MRK_DIR" sync ARGS=-c; then
-      ok "Brewfile synced and committed"
-      # sync commits and does not push, and until 2026-09-11 that commit went
-      # to the Trash with the repository: the pre-nuke sync never reached the
-      # fresh clone it existed for. Push it — but only when it is the one
-      # commit waiting and touches only the Brewfile, so this never publishes
-      # other work of yours. Anything else is left to the check below.
-      if [[ -n "$head_before" && "$(git -C "$MRK_DIR" rev-parse HEAD)" != "$head_before" ]] &&
-         [[ "$(git -C "$MRK_DIR" rev-parse HEAD~1 2>/dev/null)" == "$(git -C "$MRK_DIR" rev-parse '@{u}' 2>/dev/null)" ]] &&
-         [[ "$(git -C "$MRK_DIR" diff --name-only HEAD~1 HEAD)" == "Brewfile" ]]; then
-        if git -C "$MRK_DIR" push --quiet; then
-          ok "Brewfile commit pushed"
-        else
-          warn "could not push the Brewfile commit — it is only in $MRK_DIR"
-        fi
-      fi
+    # Until 2026-09-11 the pre-nuke sync commit went to the Trash with the
+    # repository: sync -c commits and does not push, so it never reached the
+    # fresh clone it existed for. --push commits the Brewfile and the
+    # description table, and pushes that commit only when it is the one commit
+    # waiting, so this never publishes other work of yours; sync says when it
+    # keeps the commit, and the check below then names it. From 2026-09-11 to
+    # 2026-10-29 nuke-mrk pushed the commit itself, and only one of the
+    # Brewfile alone, so a sync that also wrote a description stayed here.
+    if make -C "$MRK_DIR" sync ARGS=--push; then
+      ok "Brewfile synced"
     else
       warn "make sync exited with errors"
     fi
