@@ -324,5 +324,8 @@ bad_list() {
 rm -f "$LIST";                                     bad_list "no config/dock.txt"
 grep '^#' "$W/dock.orig" > "$LIST";                bad_list "a config/dock.txt with no app"
 printf 'Applications/Safari.app\n' >> "$LIST";     bad_list "a line in config/dock.txt that is not a path"
+# CRLF line ends made every app a folder that did not exist, which a run
+# skipped, until 2026-10-28 (audit 22, Z-6).
+printf '/Applications/Safari.app\r\n' >> "$LIST";  bad_list "a line in config/dock.txt that ends in a carriage return"
 
 (( fails == 0 ))

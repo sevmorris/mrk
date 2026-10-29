@@ -13,6 +13,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -63,9 +64,10 @@ var descriptions, descriptionsErr = parseDescriptions(descriptionsTSV)
 
 // parseDescriptions reads the table: one `name<TAB>description` line for each
 // name, with blank lines and lines that start with # ignored. A line with no
-// tab, a second tab, an empty name or description, or a name given twice is an
-// error that names the line. The order is not checked here: the lookup does
-// not need it, and descriptions_test.go holds the file to it.
+// tab, a second tab, a control character, an empty name or description, or a
+// name given twice is an error that names the line. The order is not checked
+// here: the lookup does not need it, and descriptions_test.go holds the file
+// to it.
 func parseDescriptions(table string) (map[string]string, error) {
 	m := map[string]string{}
 	for i, line := range strings.Split(table, "\n") {
@@ -74,6 +76,10 @@ func parseDescriptions(table string) (map[string]string, error) {
 		}
 		name, desc, ok := strings.Cut(line, "\t")
 		switch {
+		case strings.ContainsFunc(line, func(r rune) bool { return r != '\t' && unicode.IsControl(r) }):
+			// A carriage return, from an editor that writes CRLF, as
+			// check-picker-desc refuses it (audit 22, Z-6).
+			return nil, fmt.Errorf("descriptions.tsv line %d: a control character, such as a carriage return", i+1)
 		case !ok:
 			return nil, fmt.Errorf("descriptions.tsv line %d: no tab between the name and the description", i+1)
 		case strings.Contains(desc, "\t"):

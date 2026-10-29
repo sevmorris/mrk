@@ -98,6 +98,15 @@ dock_entries=()
 dock_kinds=()
 dock_paths=()
 while IFS= read -r entry; do
+  # A carriage return, from an editor that writes CRLF, would make every app a
+  # folder that does not exist, which a run skips. Refused, with every control
+  # character but the tab, which a path can hold and --check escapes (audit
+  # 22, Z-6).
+  if [[ "${entry//$'\t'/}" == *[[:cntrl:]]* ]]; then
+    err "A control character, in config/dock.txt: $(printf '%q' "$entry") — the Dock is unchanged."
+    info "Each line is one path. An editor that writes CRLF line ends leaves a carriage return at the end of each line."
+    exit 1
+  fi
   # shellcheck disable=SC2088  # a literal ~/ in the file, expanded here
   case "$entry" in
     '~/'*) path="$HOME/${entry#\~/}" ;;

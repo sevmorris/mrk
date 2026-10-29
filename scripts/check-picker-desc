@@ -116,12 +116,18 @@ fi
 # package again in Homebrew's words: the description written by hand would go,
 # with nothing to say why. A name described twice is refused too. mrk-picker
 # refuses both when it starts, as the compiler refused them in the map literal
-# the table replaced.
+# the table replaced. A control character other than the tab is refused too:
+# an editor that writes CRLF leaves a carriage return at the end of each
+# description, which every reader kept, and which joins two lines for a
+# program that splits sync --check --details by Swift Character (audit 22,
+# Z-6).
 unreadable=()
 while IFS= read -r line; do
   unreadable+=("$line")
 done < <(LC_ALL=C awk -F'\t' '
   /^#/ || $0 == ""                { next }
+  { t = $0; gsub(/\t/, "", t) }
+  t ~ /[[:cntrl:]]/               { printf "line %d: it holds a control character, such as a carriage return\n", NR; next }
   NF != 2 || $1 == "" || $2 == "" { printf "line %d: %s\n", NR, $0; next }
   seen[$1]++                      { printf "line %d: %s is described twice\n", NR, $1 }' "$DESC_TABLE")
 if (( ${#unreadable[@]} > 0 )); then

@@ -284,7 +284,10 @@ mrk_tsv_fields() {
 }
 
 # mrk_tsv_escape TEXT — show TEXT as one field of such a line: a backslash as
-# \\, a tab as \t and a newline as \n, so mrk_tsv_fields gives TEXT back.
+# \\, a tab as \t and a newline as \n, and every other character as it is. So
+# mrk_tsv_fields gives TEXT back when TEXT holds no other control character,
+# and refuses it when it does: a carriage return, say, which a --check line
+# can carry from a value on this Mac (audit 22, Z-6).
 mrk_tsv_escape() {
   local s=${1//\\/\\\\}
   s=${s//$'\t'/\\t}
@@ -1450,9 +1453,13 @@ picker_remove_descriptions() {
     !/^#/ && NF > 1 && ($1 in drop) { next }
     { print }' "$table" > "$PICKER_TMP"
 
+  # Lines as awk counts them, not newlines as wc -l does: a last line with no
+  # newline is a line, and awk's print gives it one. Until 2026-10-28 the
+  # count came out one short for such a table, and every delete was refused
+  # (audit 22, Z-9).
   local want got
-  want=$(( $(wc -l < "$table") - $# ))
-  got=$(wc -l < "$PICKER_TMP")
+  want=$(( $(awk 'END { print NR }' "$table") - $# ))
+  got=$(awk 'END { print NR }' "$PICKER_TMP")
   if (( got != want )); then
     err "Expected $want lines in tools/picker/descriptions.tsv after removing $#, got $got — left it unchanged."
     rm -f "$PICKER_TMP"; PICKER_TMP=""
