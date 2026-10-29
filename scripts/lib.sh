@@ -250,6 +250,47 @@ mrk_config_entries() {
   done < "$1"
 }
 
+# mrk_ignore_entries FILE all|ends — print the names of an ignore list in
+# ~/.mrk, one a line, in the file's order. A # starts a comment, on a line of
+# its own or after a name, and an empty line is no name. TRIM says what else
+# goes: all deletes every space, for sync-ignore, whose names are Homebrew
+# tokens; ends trims the start and the end only, for login-items-ignore, whose
+# app names can hold a space, as "Chrono Plus" does. A last line with no
+# newline is a name too. Returns 1 when FILE cannot be read, and 2 for another
+# TRIM. sync and sync-login-items each read their list with it, so the two
+# lists differ only in TRIM.
+mrk_ignore_entries() {
+  [[ -r "$1" ]] || return 1
+  case "$2" in all|ends) ;; *) return 2 ;; esac
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%#*}"
+    if [[ "$2" == all ]]; then
+      line="${line//[[:space:]]/}"
+    else
+      line="${line#"${line%%[![:space:]]*}"}"
+      line="${line%"${line##*[![:space:]]}"}"
+    fi
+    [[ -n "$line" ]] || continue
+    printf '%s\n' "$line"
+  done < "$1"
+}
+
+# mrk_ignore_append FILE NAME HEADER — add NAME at the end of an ignore list.
+# When FILE is absent, make it first, with HEADER, a block of comment lines.
+# Every line already there stays as it is, in its order. When the last line
+# has no newline, add one first, so that NAME does not join that line.
+mrk_ignore_append() {
+  if [[ ! -f "$1" ]]; then
+    mkdir -p "${1%/*}"
+    printf '%s\n' "$3" > "$1"
+  fi
+  if [[ -s "$1" && -n "$(tail -c 1 "$1")" ]]; then
+    printf '\n' >> "$1"
+  fi
+  printf '%s\n' "$2" >> "$1"
+}
+
 # app_prefs_why LINE — say why LINE, an entry of config/app-prefs.tsv, is not
 # one app, and return 1. Say nothing and return 0 when it is: four fields
 # separated by tabs, none empty, which are a defaults domain, the name of a

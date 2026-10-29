@@ -228,14 +228,17 @@ replace_brewfile() {
 # sync appends a package to it when you choose to ignore one, and creates the
 # file if it is absent (_append_sync_ignore, below). You can also write it by
 # hand, to keep a package installed but never have sync suggest it.
+#
+# mrk_ignore_entries in lib.sh reads it, as it reads login-items-ignore for
+# sync-login-items. A name is a Homebrew token, so every space goes.
 
 _SYNC_IGNORE=()
 if [[ -f "${STATE_DIR}/sync-ignore" ]]; then
+  _ignored=$(mrk_ignore_entries "${STATE_DIR}/sync-ignore" all) \
+    || { err "Cannot read ~/.mrk/sync-ignore"; exit 1; }
   while IFS= read -r _line; do
-    _line="${_line%%#*}"            # strip inline comments
-    _line="${_line//[[:space:]]/}"  # strip whitespace
     [[ -n "$_line" ]] && _SYNC_IGNORE+=("$_line")
-  done < "${STATE_DIR}/sync-ignore"
+  done <<< "$_ignored"
   if (( ${#_SYNC_IGNORE[@]} > 0 )); then
     log "Loaded ${#_SYNC_IGNORE[@]} ignore rule(s) from ~/.mrk/sync-ignore"
   fi
@@ -251,31 +254,17 @@ _sync_ignored() {
 }
 
 # Append one package name to the ignore file, and create the file if it is
-# absent. Append-only: existing lines are never rewritten or reordered.
-# Mirrors _append_login_item_ignore in scripts/sync-login-items.
-_append_sync_ignore() {
-  local _pkg="$1"
-  local _f="${STATE_DIR}/sync-ignore"
-
-  if [[ ! -f "$_f" ]]; then
-    mkdir -p "$STATE_DIR"
-    cat > "$_f" <<'IGNOREHEADER'
-# mrk sync ignore list
+# absent, with this header. mrk_ignore_append keeps every line already there,
+# as _append_login_item_ignore in scripts/sync-login-items does.
+_SYNC_IGNORE_HEADER='# mrk sync ignore list
 #
 # One formula name or cask name per line, with no brew or cask prefix.
 # A # character starts a comment.
 #
-# sync drops these names, so it never offers them as new packages.
-IGNOREHEADER
-  fi
-
-  # A file whose last line has no newline would otherwise absorb the append.
-  if [[ -s "$_f" && -n "$(tail -c 1 "$_f")" ]]; then
-    printf '\n' >> "$_f"
-  fi
-
-  printf '%s\n' "$_pkg" >> "$_f"
-  _SYNC_IGNORE+=("$_pkg")   # keep the in-memory list authoritative
+# sync drops these names, so it never offers them as new packages.'
+_append_sync_ignore() {
+  mrk_ignore_append "${STATE_DIR}/sync-ignore" "$1" "$_SYNC_IGNORE_HEADER"
+  _SYNC_IGNORE+=("$1")   # keep the in-memory list authoritative
 }
 
 # ─── 1. Parse Brewfile entries ───────────────────────────────────────────────
