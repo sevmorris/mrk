@@ -23,6 +23,11 @@
 # 5. the options it lists are the options of the script's --help, and its
 #    equals options are the ones the help gives as --OPTION=VALUE
 # 6. each word that a field can hold is in the script's --help
+# 7. its terminal targets are the targets of the Makefile whose scripts can
+#    start gum, mrk-picker or mrk-menu: no more and no fewer. The check reads
+#    each target's recipe and prerequisites, and each script that a recipe or
+#    a script runs or sources, in scripts/ and bin/. Dipstick sends these
+#    targets to Terminal, so a target left out hangs in its console.
 #
 # The tests of the five --check scripts hold the lines that each one writes to
 # the fields and words here, with tests/lib/contract-lines.
@@ -95,11 +100,14 @@ def strings(what, value):
         problems.append(f"{what}: a word twice")
     return value
 
-if keys("the document", doc, ["contract", "about", "scripts"]):
+if keys("the document", doc, ["contract", "about", "scripts", "terminal"]):
     # Raise this with the version, and with what Dipstick and Barkeep read:
     # a change that an older program would misread (scripts/mrk-contract).
     if doc["contract"] != 1 or isinstance(doc["contract"], bool):
         problems.append(f"contract is {doc['contract']!r}, not 1")
+    terminal = strings("terminal", doc["terminal"])
+    if terminal != sorted(terminal):
+        problems.append(f"terminal is not in order: {terminal}")
     for path, s in doc["scripts"].items():
         if not os.access(os.path.join(root, path), os.X_OK) or os.path.dirname(path) != "scripts":
             problems.append(f"{path}: not an executable in scripts/")
@@ -146,7 +154,7 @@ print("\n".join(problems))
 sys.exit(1 if problems else 0)
 PY
 then
-  pass "the shape: version 1, every key and type; each script in scripts/ with a --check mode is in it, and no other is missing"
+  pass "the shape: version 1, every key and type, terminal in order; each script in scripts/ with a --check mode is in it, and no other is missing"
 else
   fail "the shape:"; sed 's/^/      /' "$W/shape" >&2
 fi
@@ -266,6 +274,151 @@ if (( n_words >= 20 )) && [[ -z "$unnamed" ]]; then
   pass "each of the $n_words words a field can hold is in its script's --help"
 else
   fail "words that a script's --help does not name ($n_words words):${unnamed:- none}"
+fi
+
+# ── 7. The terminal targets ──────────────────────────────────────────────────
+
+# A target needs a terminal when its recipe, a prerequisite, a target its
+# recipe makes, or a script any of them runs or sources can start one of the
+# three programs. The scripts are read as text, without comments and here-doc
+# bodies, where help texts name gum. A script starts a program by
+# `gum choose` and the other gum commands that read the keyboard, by a path to
+# bin/mrk-picker or bin/mrk-menu, or by the bare name where a command starts.
+# The bare name in a case label or after `command -v` is not a run.
+if python3 - "$W/contract.json" "$REPO_ROOT" > "$W/terminal" 2>&1 <<'PY'
+import json, os, re, sys
+
+doc = json.load(open(sys.argv[1]))
+root = sys.argv[2]
+PROGRAMS = ("mrk-picker", "mrk-menu")
+GUM = re.compile(r"\bgum\s+(choose|confirm|file|filter|input|pager|table|write)\b")
+BARE = re.compile(r"(?:^|[;&|({@]|\$\(|\b(?:then|do|else|exec)\s)\s*(" + "|".join(PROGRAMS) + r")(?![\w)|-])", re.M)
+# $SCRIPT_DIR/x, "$REPO_ROOT/scripts/x", $(SCRIPTS)/x, $(BIN_DIR)/x
+REF = re.compile(r"\$[{(]?(SCRIPT_DIR|REPO_ROOT|SCRIPTS|BIN_DIR)[})]?((?:/[A-Za-z0-9_.-]+)+)")
+
+def code(text):
+    """The lines that run: no comment line, and no here-doc body."""
+    out, end = [], None
+    for line in text.split("\n"):
+        if end is not None:
+            end = None if line.strip() == end else end
+            continue
+        if re.match(r"^\s*#", line):
+            continue
+        heredoc = re.search(r"(?<!<)<<(?!<)-?\s*(['\"]?)([A-Za-z_]+)\1", line)
+        if heredoc:
+            end = heredoc.group(2)
+        out.append(line)
+    return "\n".join(out)
+
+def paths(text, here):
+    for var, path in REF.findall(text):
+        base = {"SCRIPT_DIR": here, "REPO_ROOT": "", "SCRIPTS": "scripts", "BIN_DIR": "bin"}[var]
+        yield os.path.normpath(os.path.join(base, path.lstrip("/")))
+
+def starts(text):
+    """What in TEXT starts a full-screen program, or None."""
+    if m := GUM.search(text):
+        return m.group(0)
+    if m := BARE.search(text):
+        return "runs " + m.group(1)
+    return None
+
+found = {}
+def script(path, seen=()):
+    """Why the script at PATH, in the checkout, can start one, or None."""
+    if path in found:
+        return found[path]
+    if path.split("/")[0] not in ("scripts", "bin") or path in seen:
+        return None
+    if os.path.dirname(path) == "bin" and os.path.basename(path) in PROGRAMS:
+        return f"runs {path}"
+    full = os.path.join(root, path)
+    if not os.path.isfile(full):
+        return None
+    raw = open(full, "rb").read()
+    if b"\0" in raw:   # a Go binary that make builds into bin/
+        return None
+    text = code(raw.decode("utf-8", "replace"))
+    hit = starts(text)
+    why = hit and f"{path}: {hit}"
+    for p in [] if why else paths(text, os.path.dirname(path)):
+        sub = script(p, seen + (path,))
+        if sub:
+            why = f"{path} → {sub}"
+            break
+    found[path] = why
+    return why
+
+# The Makefile: each rule's prerequisites and recipe, and each variable and
+# define, which a recipe can expand.
+rules, macros = {}, {}
+lines, i, rule = open(os.path.join(root, "Makefile")).read().split("\n"), 0, None
+while i < len(lines):
+    line = lines[i]
+    if m := re.match(r"^define\s+(\S+)", line):
+        start = i + 1
+        while not lines[i].startswith("endef"):
+            i += 1
+        macros[m.group(1)], rule = "\n".join(lines[start:i]), None
+    elif line.startswith("\t") and rule:
+        rules[rule]["recipe"] += line + "\n"
+    elif m := re.match(r"^([A-Za-z0-9_-]+(?:[ \t]+[A-Za-z0-9_-]+)*)[ \t]*:(?!=)(.*)$", line):
+        names = m.group(1).split()
+        for name in names:
+            rules[name] = {"prereqs": m.group(2).split("##")[0].split(), "recipe": ""}
+        rule = names[0] if len(names) == 1 else None
+    elif m := re.match(r"^([A-Za-z0-9_-]+)[ \t]*:?=(.*)$", line):
+        macros[m.group(1)], rule = m.group(2), None
+    elif line.strip():
+        rule = None
+    i += 1
+
+def expand(text):
+    """TEXT, with the body of each variable and define it names after it."""
+    todo, seen = [text], set()
+    while todo:
+        for name in re.findall(r"\$\((?:call\s+)?([A-Za-z0-9_-]+)", todo.pop()):
+            if name in macros and name not in seen:
+                seen.add(name)
+                todo.append(macros[name])
+                text += "\n" + macros[name]
+    return text
+
+def target(name, seen=()):
+    """Why `make NAME` can start one, or None."""
+    if name in seen or name not in rules:
+        return None
+    recipe = code(expand(rules[name]["recipe"]))
+    if why := starts(recipe):
+        return why
+    for p in paths(recipe, ""):
+        if why := script(p):
+            return why
+    made = [w for m in re.finditer(r"\$\(MAKE\)([^;&|\n\\]*)", recipe) for w in m.group(1).split()]
+    for sub in rules[name]["prereqs"] + [w for w in made if w in rules]:
+        if why := target(sub, seen + (name,)):
+            return f"make {sub}: {why}"
+    return None
+
+derived = {name: why for name in sorted(rules) if (why := target(name))}
+listed = doc["terminal"]
+lacks = [f"{t} ({derived[t]})" for t in derived if t not in listed]
+extra = [t for t in listed if t not in derived]
+if lacks:
+    print("terminal lacks: " + "; ".join(lacks))
+if extra:
+    print("terminal has, and no script of theirs starts gum, mrk-picker or mrk-menu: " + " ".join(extra))
+# A Makefile this check misreads would hold nothing to the list.
+if len(rules) < 20 or "sync" not in rules:
+    print(f"the Makefile read as {len(rules)} targets: {' '.join(sorted(rules))}")
+print(", ".join(listed))
+sys.exit(1 if lacks or extra or len(rules) < 20 or "sync" not in rules else 0)
+PY
+then
+  pass "the terminal targets are the targets whose scripts can start gum, mrk-picker or mrk-menu: $(tail -1 "$W/terminal")"
+else
+  fail "the terminal targets:"; sed 's/^/      /' "$W/terminal" >&2
 fi
 
 if (( fails )); then
