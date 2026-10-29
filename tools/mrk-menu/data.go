@@ -31,7 +31,7 @@ var categories = []category{
 	{
 		name: "Daily",
 		items: []item{
-			{"sync -c", "add new Homebrew packages to the Brewfile, and commit", cmdBin, "sync", []string{"-c"}, false},
+			{"sync --push", "add new Homebrew packages to the Brewfile, commit and push", cmdBin, "sync", []string{"--push"}, false},
 			{"sync-login-items -c", "track new login items in config/login-items.txt, and commit", cmdBin, "sync-login-items", []string{"-c"}, false},
 			{"mrk-push", "commit and push ~/mrk (asks for the message)", cmdBin, "mrk-push", nil, false},
 		},
@@ -80,6 +80,8 @@ var categories = []category{
 			{"pushall --dry-run", "scan and report; commit and push nothing", cmdBin, "pushall", []string{"--dry-run"}, false},
 			{"clean-ds", "remove .DS_Store files from local volumes", cmdBin, "clean-ds", nil, false},
 			{"clean-ds --dry-run", "list .DS_Store files, delete nothing", cmdBin, "clean-ds", []string{"--dry-run"}, false},
+			{"tidy-projects", "survey the clones in ~/Projects and ~/mrk, change nothing", cmdBin, "tidy-projects", nil, false},
+			{"tidy-projects --apply ff,refs,worktrees,branches", "fast-forward, prune refs, drop finished worktrees and merged branches", cmdBin, "tidy-projects", []string{"--apply", "ff,refs,worktrees,branches"}, false},
 			{"prune-deployments --dry-run", "list old Pages deployments, delete nothing", cmdBin, "prune-deployments", []string{"--dry-run"}, false},
 			{"prune-deployments", "delete old Pages deployments, keep the live one", cmdBin, "prune-deployments", nil, false},
 		},

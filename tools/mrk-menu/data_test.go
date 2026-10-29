@@ -160,7 +160,7 @@ func TestDailyComesFirstAndSetupLast(t *testing.T) {
 	for _, it := range categories[0].items {
 		daily = append(daily, it.commandLine())
 	}
-	if got, want := strings.Join(daily, ", "), "sync -c, sync-login-items -c, mrk-push"; got != want {
+	if got, want := strings.Join(daily, ", "), "sync --push, sync-login-items -c, mrk-push"; got != want {
 		t.Errorf("Daily runs %q, want %q", got, want)
 	}
 	n := len(names)
