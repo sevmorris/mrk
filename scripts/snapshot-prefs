@@ -42,12 +42,16 @@ Options:
                   tab-separated: the file, the key, and added, deleted or
                   changed. The key is empty for a change to a whole file: a
                   file the commit adds or deletes, or one that is not a plist.
-                  A field escapes a tab, a newline and a backslash as \t, \n
-                  and \\. A later version may add fields at the end of a line,
-                  and never removes or reorders one. Nothing else on stdout,
+                  A file that the run could not read is unread, with the key
+                  empty: an export that failed, or an app whose container
+                  macOS does not let this process read. The run keeps its
+                  saved copy. A field escapes a tab, a newline and a
+                  backslash as \t, \n and \\. A later version may add fields
+                  at the end of a line, and words to the third field, and
+                  never removes or reorders a field. Nothing else on stdout,
                   and nothing changed: it exports as --dry-run does, and its
-                  progress goes to stderr. Exits 0 when it could tell, 1 when
-                  it refused, 2 for a bad option.
+                  progress goes to stderr. Exits 0 when it could tell, unread
+                  lines included, 1 when it refused, 2 for a bad option.
   -h, --help      Show this help
 
 snapshot-prefs exports the preferences of the apps that config/app-prefs.tsv
@@ -83,7 +87,7 @@ for arg in "$@"; do
 done
 
 # --check is a dry run that shows the commit as lines for a program to read
-# (the Settings app), on stdout, which holds nothing else: fd 3 is stdout, and
+# (mrk Settings), on stdout, which holds nothing else: fd 3 is stdout, and
 # everything else, git's output included, goes to stderr. Modelled on sync
 # --check and sync-login-items --check.
 if (( CHECK )); then
@@ -132,16 +136,36 @@ if (( _ap_bad )); then
   exit 1
 fi
 
-# Apps whose export failed or timed out — reported at exit, never fatal.
+# Apps whose export failed or timed out, and apps whose container macOS does
+# not let this process read — reported at exit, never fatal. SNAPSHOT_UNREAD
+# holds the path in mrk-prefs of each, which --check shows as unread: until
+# 2026-10-28 --check exited 0 with no line for them, so a program read "nothing
+# new" for an app it had not seen (audit 22, Z-1).
 SNAPSHOT_SKIPPED=()
+SNAPSHOT_DENIED=()
+SNAPSHOT_UNREAD=()
 DRY_SCRATCH=""
 on_exit(){
   if (( ${#SNAPSHOT_SKIPPED[@]} > 0 )); then
     warn "Skipped ${#SNAPSHOT_SKIPPED[@]} app(s) — export failed or timed out: ${SNAPSHOT_SKIPPED[*]}"
   fi
+  if (( ${#SNAPSHOT_DENIED[@]} > 0 )); then
+    warn "Skipped ${#SNAPSHOT_DENIED[@]} app(s) — macOS does not let this process read their preferences: ${SNAPSHOT_DENIED[*]}"
+    info "Give the app that runs this permission to get the data of other apps (System Settings → Privacy & Security), and run it again."
+  fi
   if [[ -n "$DRY_SCRATCH" ]]; then rm -rf "$DRY_SCRATCH"; fi
 }
 trap on_exit EXIT
+
+# check_unread — what --check shows for each file this run could not read: its
+# path in mrk-prefs, an empty key, and unread. Once each, in byte order.
+check_unread() {
+  local path
+  (( ${#SNAPSHOT_UNREAD[@]} > 0 )) || return 0
+  while IFS= read -r path; do
+    mrk_check_line "$path" "" unread
+  done < <(printf '%s\n' "${SNAPSHOT_UNREAD[@]}" | LC_ALL=C sort -u)
+}
 
 # Run `defaults ARGS...` with a timeout so a hung or sandboxed domain can't
 # stall the whole run. Prefers timeout/gtimeout (coreutils); else background-kill.
@@ -258,6 +282,15 @@ snapshot_plist(){
     return 0
   fi
   src=$(prefs_source "$bundle_id")
+  # A bare domain is read from the app's container. When macOS does not let
+  # this process read the container, defaults finds no domain, and the read
+  # below would take the app for one with no preferences yet.
+  if [[ "$src" == "$bundle_id" ]] && mrk_container_denied "$bundle_id"; then
+    warn "macOS does not let this process read $name's preferences — skipped, and the saved copy kept"
+    SNAPSHOT_DENIED+=("$name")
+    SNAPSHOT_UNREAD+=("$filename")
+    return 0
+  fi
   # An installed app that has never been set up has no domain, and `defaults
   # export` does not fail on one: it writes an empty dict, which would replace
   # the copy saved from the last machine and be pushed. BetterSnapTool comes
@@ -271,12 +304,14 @@ snapshot_plist(){
   if ! defaults_timeout export "$src" "$LOCAL_PREFS_DIR/$filename"; then
     warn "failed to export $name — skipped"
     SNAPSHOT_SKIPPED+=("$name")
+    SNAPSHOT_UNREAD+=("$filename")
     return 0
   fi
   # Convert to xml1 so the secret scan reads text, not binary plist data.
   if ! plutil -convert xml1 "$LOCAL_PREFS_DIR/$filename" 2>/dev/null; then
     warn "failed to convert $name export to xml1 — skipped"
     SNAPSHOT_SKIPPED+=("$name")
+    SNAPSHOT_UNREAD+=("$filename")
     return 0
   fi
   if ! scan_for_secrets "$LOCAL_PREFS_DIR/$filename"; then
@@ -353,6 +388,7 @@ snapshot_own_apps(){
   if ! list=$(defaults_timeout domains); then
     warn "could not list the defaults domains — my own apps skipped"
     SNAPSHOT_SKIPPED+=("my own apps")
+    SNAPSHOT_UNREAD+=("sevmorris-apps")
     return 0
   fi
   while IFS= read -r domain; do
@@ -361,15 +397,23 @@ snapshot_own_apps(){
       [[ "$domain" == "$x" ]] && continue 2
     done
     src=$(prefs_source "$domain")
+    if [[ "$src" == "$domain" ]] && mrk_container_denied "$domain"; then
+      warn "macOS does not let this process read $domain's preferences — skipped, and the saved copy kept"
+      SNAPSHOT_DENIED+=("$domain")
+      SNAPSHOT_UNREAD+=("sevmorris-apps/$domain.plist")
+      continue
+    fi
     defaults_timeout read "$src" >/dev/null 2>&1 || continue
     if ! defaults_timeout export "$src" "$dest/$domain.plist"; then
       warn "failed to export $domain — skipped"
       SNAPSHOT_SKIPPED+=("$domain")
+      SNAPSHOT_UNREAD+=("sevmorris-apps/$domain.plist")
       continue
     fi
     if ! plutil -convert xml1 "$dest/$domain.plist" 2>/dev/null; then
       warn "failed to convert $domain export to xml1 — skipped"
       SNAPSHOT_SKIPPED+=("$domain")
+      SNAPSHOT_UNREAD+=("sevmorris-apps/$domain.plist")
       rm -f "$dest/$domain.plist"
       continue
     fi
@@ -529,6 +573,7 @@ snapshot_picard(){
     rm -f "$tmp"
     warn "failed to read MusicBrainz Picard settings — skipped"
     SNAPSHOT_SKIPPED+=("MusicBrainz Picard settings")
+    SNAPSHOT_UNREAD+=("config/picard/settings.ini")
     return 0
   fi
   mv "$tmp" "$dest_dir/settings.ini"
@@ -675,6 +720,18 @@ if (( ${#add_specs[@]} == 0 )); then
   log "No preference files to stage."
   exit 0
 fi
+
+# An app that could not be read keeps its saved copy, as the warning says: a
+# failed export can leave half a file, and a failed conversion deletes it. A
+# file that has no saved copy is deleted, so the commit does not add it.
+for path in ${SNAPSHOT_UNREAD[@]+"${SNAPSHOT_UNREAD[@]}"}; do
+  [[ -d "$path" ]] && continue
+  if git ls-files --error-unmatch -- "$path" >/dev/null 2>&1; then
+    git checkout -q HEAD -- "$path"
+  else
+    rm -f "$path"
+  fi
+done
 
 git add -A -- "${add_specs[@]}"
 
@@ -891,6 +948,9 @@ if git diff --cached --quiet; then
   # is the usual run: a plist that changed only in PREFS_NOISE keys is left out
   # above, where before it made a commit whose push carried the earlier one
   # (audit 20, X-1).
+  if (( CHECK )); then
+    check_unread >&3
+  fi
   unpushed=$(unpushed_count "$REAL_PREFS_DIR")
   if (( unpushed == 0 )); then
     log "No changes to push."
@@ -945,6 +1005,7 @@ check_report() {
 staged_count=$(git diff --cached --name-only | wc -l | tr -d ' ')
 if (( CHECK )); then
   check_report >&3
+  check_unread >&3
 elif (( DRY_RUN )); then
   log "Would commit $staged_count file(s):"
   report_staged

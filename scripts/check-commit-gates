@@ -472,6 +472,23 @@ else
   fail "did not commit a deletion-only change (rc=$rc)"
 fi
 
+# A new file in config/ is committed, as one in docs/ is, and a writer's
+# leftover temp file beside a list is not: .gitignore keeps it out of the
+# directories mrk-push stages. Until 2026-10-28 config/ was not one of them,
+# and nothing ignored such a leftover (audit 22, Z-8).
+d="$(syn new-config)"
+cp "$REPO_ROOT/.gitignore" "$d/" && git -C "$d" add .gitignore && git -C "$d" commit -qm ignore && git -C "$d" push -q 2>/dev/null
+mkdir -p "$d/config"
+printf 'new\n' > "$d/config/new.txt"
+printf 'half\n' > "$d/config/.defaults-skip.tsv.Ab12Cd"
+rc="$(mrk_push "$d" . "$T/mp-config.log" "a new list")"
+pushed_files="$(git -C "$d.git" show --format= --name-only main)"
+if [[ "$rc" == 0 && "$pushed_files" == "config/new.txt" ]]; then
+  pass "commits a new file in config/, and leaves a writer's temp file out"
+else
+  fail "a new file in config/ (rc=$rc), pushed: $(tr '\n' ' ' <<<"$pushed_files")"
+fi
+
 d="$(syn merge-conflict)"
 git -C "$d" checkout -q -b side
 printf 'side\n' > "$d/docs/page.md"; git -C "$d" commit -qam side

@@ -59,11 +59,27 @@ printf '%s\n' "\$*" >> "$W/calls"
 case "\$1" in
   domains) cat "$W/domain-list" ;;
   read)    [ -f "$D/\$2.plist" ] ;;
-  export)  [ -f "$D/\$2.plist" ] && cp "$D/\$2.plist" "\$3" ;;
+  export)  [ -f "$W/fail-export" ] && [ "\$2" = "\$(cat "$W/fail-export")" ] && exit 1
+           [ -f "$D/\$2.plist" ] && cp "$D/\$2.plist" "\$3" ;;
   *)       exit 1 ;;
 esac
 EOF
 chmod +x "$S/defaults"
+# ls refuses the Preferences directory of each container that \$W/deny names,
+# as macOS refuses another app's container to a process without permission to
+# get the data of other apps, and lists anything else.
+cat > "$S/ls" <<EOF
+#!/bin/sh
+for a in "\$@"; do
+  for d in \$(cat "$W/deny" 2>/dev/null); do
+    if [ "\$a" = "$H/Library/Containers/\$d/Data/Library/Preferences" ]; then
+      echo "ls: \$a: Operation not permitted" >&2; exit 1
+    fi
+  done
+done
+exec /bin/ls "\$@"
+EOF
+chmod +x "$S/ls"
 # macOS has plutil; elsewhere the fixtures are xml1 already.
 if ! command -v plutil >/dev/null 2>&1; then
   printf '#!/bin/sh\nexit 0\n' > "$S/plutil"; chmod +x "$S/plutil"
@@ -530,6 +546,51 @@ refused "a file listed two times in the table" "lists the file One.plist two tim
   $'com.example.Two\tOne.plist\t/Applications/Two.app\tTwo'
 refused "a file path out of ~/.mrk/preferences" "not the name of a plist" $'com.example.Two\t../Two.plist\t/Applications/Two.app\tTwo'
 refused "no table" "Cannot read"
+
+# ── 15b. An app that cannot be read: unread, and its saved copy kept ─────────
+
+# Until 2026-10-28 --check exited 0 with no line for an app whose export failed,
+# or whose container macOS refused, and the second said "no preferences here
+# yet". So mrk-status and Dipstick read "nothing new" (audit 22, Z-1).
+fixtures light b 20 0
+snap
+n_pushed=$(pushed)
+before=$(fingerprint)
+printf '%s\n' io.github.sevmorris.Alpha > "$W/fail-export"
+fixtures dark c 20 0
+check
+if (( RC == 0 )) && [[ "$(cat "$W/check")" == "$(lines "$P_B"$'\t'mode$'\t'changed "$P_A"$'\t'$'\t'unread)" ]] \
+   && [[ "$(pushed)" == "$n_pushed" && "$(fingerprint)" == "$before" ]] \
+   && grep -q 'failed to export io.github.sevmorris.Alpha' "$W/check.err"; then
+  pass "--check with an export that fails: that file unread, after the changes it could read; exit 0; nothing written"
+else
+  fail "--check with an export that fails: rc $RC"; show_check
+fi
+snap
+if (( RC == 0 )) && [[ "$(last_files)" == "$P_B" && "$(pushed_value io.github.sevmorris.Alpha.plist theme)" == light ]] \
+   && clean; then
+  pass "a run with an export that fails commits the rest, and keeps the saved copy of that one"
+else
+  fail "a run with an export that fails: rc $RC, last commit: $(last_files | tr '\n' ' '), Alpha's theme $(pushed_value io.github.sevmorris.Alpha.plist theme)"; show
+fi
+rm -f "$W/fail-export"
+
+mkdir -p "$H/Library/Containers/io.github.sevmorris.Beta/Data/Library/Preferences"
+printf '%s\n' io.github.sevmorris.Beta > "$W/deny"
+before=$(fingerprint)
+fixtures light b 20 0
+check
+# Beta's mode differs from the saved copy, and Alpha is as saved.
+if (( RC == 0 )) && [[ "$(cat "$W/check")" == "$(lines "$P_B"$'\t'$'\t'unread)" ]] \
+   && [[ "$(fingerprint)" == "$before" ]] \
+   && grep -q "macOS does not let this process read io.github.sevmorris.Beta's preferences" "$W/check.err" \
+   && grep -q 'permission to get the data of other apps' "$W/check.err"; then
+  pass "--check with a container macOS refuses: that file unread, and stderr says why; exit 0; nothing written"
+else
+  fail "--check with a container macOS refuses: rc $RC"; show_check
+fi
+rm -f "$W/deny"
+rm -rf "$H/Library/Containers"
 
 # ── 16. defaults was only ever asked to read, and never about KeyVault ───────
 

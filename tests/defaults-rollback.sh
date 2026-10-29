@@ -181,7 +181,7 @@ run() {
   local name=$1; shift
   mkdir -p "$T/$name/home" "$T/$name/store"
   env -i HOME="$T/$name/home" PATH="$DS:/usr/bin:/bin:/usr/sbin:/sbin" TMPDIR="$T/tmp" \
-    STORE="$T/$name/store" CALLS="$T/$name/calls" FAIL_DOMAIN="${FAIL_DOMAIN:-}" DENY="${DENY:-}" \
+    STORE="$T/$name/store" CALLS="$T/$name/calls" FAIL_DOMAIN="${FAIL_DOMAIN:-}" DENY="${DENY:-}" MRK_LOCK_WAIT="${MRK_LOCK_WAIT:-}" \
     "$BASH" "${ROOT:-$REPO_ROOT}/scripts/defaults.sh" "$@" </dev/null > "$T/$name/out" 2> "$T/$name/err"
   RC=$?
 }
@@ -384,6 +384,13 @@ if [[ $RC == 2 && ! -e "$T/opt/calls" ]] && grep -q 'unknown argument: --bogus' 
 else
   fail "an unknown argument: exit $RC"
 fi
+# The same beside --check, which a program passes (audit 22, Z-13).
+ROOT=$R run optc --check --bogus
+if [[ $RC == 2 && ! -s "$T/optc/out" && ! -e "$T/optc/calls" ]] && grep -q 'unknown argument: --bogus' "$T/optc/err"; then
+  ok "--check with an unknown argument: exit 2, nothing on stdout, before anything is read"
+else
+  fail "--check with an unknown argument: exit $RC"
+fi
 # ── One key at a time: --key, --revert, --skip and --unskip ──────────────────
 # On a copy of the repository, because --skip and --unskip write its
 # config/defaults-skip.tsv. Dipstick's mrk Settings turns a key off with
@@ -506,6 +513,49 @@ else
   fail "a skip list with a comment: exit $RC"; tail -4 "$SK" >&2
 fi
 cp "$T/skip.orig" "$SK"
+
+# Two runs at once, each for its own key, as two switches flipped together.
+# Until 2026-10-28 one key of the two was lost every time: each run read the
+# list, wrote its own and renamed it over the other's (audit 22, Z-7). The
+# skip list's lock makes the second wait for the first.
+LOCK="$K/config/.defaults-skip.tsv.lock"
+lost=0
+for i in 1 2 3 4 5; do
+  cp "$T/skip.orig" "$SK"
+  ROOT=$K run race1 --skip com.apple.dock tilesize &
+  ROOT=$K run race2 --skip NSGlobalDomain AppleShowAllExtensions &
+  wait
+  { grep -qx $'com.apple.dock\ttilesize' "$SK" && grep -qx $'NSGlobalDomain\tAppleShowAllExtensions' "$SK"; } || lost=$((lost + 1))
+done
+if (( lost == 0 )) && [[ ! -e "$LOCK" ]] && no_stray; then
+  ok "two --skip runs at once keep both keys, five times of five, and leave no lock"
+else
+  fail "two --skip runs at once lost a key $lost times of five"; ls -a "$K/config" >&2
+fi
+cp "$T/skip.orig" "$SK"
+
+# A lock whose process is gone, after a SIGKILL or a crash, is taken over. A
+# lock that a live run holds is waited for, MRK_LOCK_WAIT seconds, and then
+# the run says which process holds it and changes nothing.
+sh -c 'exit 0' & dead=$!; wait "$dead"
+mkdir "$LOCK" && printf '%s\n' "$dead" > "$LOCK/pid"
+ROOT=$K run lock --skip com.apple.dock tilesize
+if [[ $RC == 0 && ! -e "$LOCK" ]] && grep -qx $'com.apple.dock\ttilesize' "$SK"; then
+  ok "a lock left by a process that is gone is taken over"
+else
+  fail "a stale lock: exit $RC"; tail -2 "$T/lock/err" >&2
+fi
+cp "$T/skip.orig" "$SK"
+sleep 30 & holder=$!
+mkdir "$LOCK" && printf '%s\n' "$holder" > "$LOCK/pid"
+MRK_LOCK_WAIT=1 ROOT=$K run lock --skip com.apple.dock tilesize
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+if [[ $RC == 1 ]] && cmp -s "$SK" "$T/skip.orig" && grep -q "Another mrk run (process $holder) is changing defaults-skip.tsv" "$T/lock/err"; then
+  ok "a lock a live run holds: waited for, then exit 1, the holder named, and nothing changed"
+else
+  fail "a held lock: exit $RC"; tail -2 "$T/lock/err" >&2
+fi
+rm -rf "$LOCK"
 
 # A bad skip list stops a run, --check and every option before any change.
 for line in $'com.example.gone\tGoneKey' 'com.apple.dock tilesize' $'com.apple.dock\ttilesize\t36'; do

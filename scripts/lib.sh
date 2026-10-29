@@ -192,6 +192,45 @@ sudo_refresh() { sudo -n -v 2>/dev/null || true; }
 mrk_mktemp()   { mktemp    "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
 mrk_mktemp_d() { mktemp -d "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
 
+# mrk_lock FILE — take the lock of FILE, before a run reads FILE to change it:
+# a directory .NAME.lock beside FILE, made by mkdir, which is atomic, and
+# holding this process's id. Each writer reads its file, writes a temp file
+# and renames it over the original, so two writers at once lost one change:
+# two --skip runs kept one key of two, every time (audit 22, Z-7). A lock
+# whose process is gone, after a SIGKILL or a crash, is taken over. Waits up
+# to MRK_LOCK_WAIT seconds (30) for another run, then says which and returns
+# 1. Release with mrk_unlock_all, from the caller's EXIT trap. Bash 3.2.
+MRK_LOCKS=()
+mrk_lock() {
+  local dir="${1%/*}/.${1##*/}.lock" tries=0 pid
+  local limit=$(( ${MRK_LOCK_WAIT:-30} * 10 ))
+  until mkdir "$dir" 2>/dev/null; do
+    pid=$(cat "$dir/pid" 2>/dev/null) || pid=""
+    # An empty pid is a lock still being made, so it is waited for.
+    if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
+      rm -rf "$dir"
+      continue
+    fi
+    if (( tries >= limit )); then
+      err "Another mrk run (process ${pid:-unknown}) is changing ${1##*/}, so nothing was changed. If none is running, delete $dir."
+      return 1
+    fi
+    sleep 0.1
+    tries=$(( tries + 1 ))
+  done
+  printf '%s\n' "$$" > "$dir/pid"
+  MRK_LOCKS+=("$dir")
+}
+
+# mrk_unlock_all — release each lock that mrk_lock took in this process.
+mrk_unlock_all() {
+  local dir
+  for dir in ${MRK_LOCKS[@]+"${MRK_LOCKS[@]}"}; do
+    [[ "$(cat "$dir/pid" 2>/dev/null)" == "$$" ]] && rm -rf "$dir"
+  done
+  MRK_LOCKS=()
+}
+
 # mrk_config_entries FILE — print the entries of a list in config/, one a
 # line, in the file's order. Every line is an entry except a comment, a line
 # that starts with #, and an empty line. The entry is the line as it stands:
@@ -199,7 +238,7 @@ mrk_mktemp_d() { mktemp -d "${TMPDIR:-/tmp}/mrk.XXXXXX"; }
 # hold a # or end in a space. Returns 1 when FILE cannot be read.
 #
 # The lists are plain lines so that a program can edit them without a parser:
-# the Settings app, and sync-login-items. post-install runs this on a new
+# mrk Settings, and sync-login-items. post-install runs this on a new
 # Mac, so it is bash 3.2.
 mrk_config_entries() {
   [[ -r "$1" ]] || return 1
@@ -284,7 +323,10 @@ mrk_tsv_fields() {
 }
 
 # mrk_tsv_escape TEXT — show TEXT as one field of such a line: a backslash as
-# \\, a tab as \t and a newline as \n, so mrk_tsv_fields gives TEXT back.
+# \\, a tab as \t and a newline as \n, and every other character as it is. So
+# mrk_tsv_fields gives TEXT back when TEXT holds no other control character,
+# and refuses it when it does: a carriage return, say, which a --check line
+# can carry from a value on this Mac (audit 22, Z-6).
 mrk_tsv_escape() {
   local s=${1//\\/\\\\}
   s=${s//$'\t'/\\t}
@@ -296,7 +338,8 @@ mrk_tsv_escape() {
 # end. The five --check modes print every line with this, so a program reads
 # them all by one rule, and loses nothing: split at each tab, then undo the
 # escapes in each field. A later version may add a field at the end of a
-# line. It never removes a field or changes their order.
+# line, and a word to a field with a fixed set of words, such as a state. It
+# never removes a field, changes their order, or changes what a word means.
 #
 # No $( ), so no subshell for each field: defaults.sh prints a line for each
 # of its keys. Bash 3.2, as mrk_config_entries is.
@@ -1190,6 +1233,24 @@ prefs_source() {
   fi
 }
 
+# mrk_container_denied DOMAIN — true when DOMAIN's app keeps its preferences in
+# a sandbox container that this process may not read. macOS refuses to list the
+# container's Preferences directory ("Operation not permitted"): Mail's to a
+# process without Full Disk Access, and other apps' containers to one that also
+# lacks permission to get the data of other apps. defaults then reads the
+# domain from ~/Library/Preferences, where the app does not look, or finds no
+# domain, so such a key reads as absent and such an app as having no
+# preferences. defaults.sh asks this before it reads a key, and snapshot-prefs
+# before it reads a bare domain (audit 22, Z-1). A domain with no container is
+# only a stat; an app that macOS has not asked yet may be asked once whether it
+# may read other apps' data. Bash 3.2.
+mrk_container_denied() {
+  local prefs="$HOME/Library/Containers/$1/Data/Library/Preferences" msg
+  [[ -d "$prefs" ]] || return 1
+  msg=$(LC_ALL=C ls "$prefs" 2>&1 >/dev/null) && return 1
+  [[ "$msg" == *"Operation not permitted"* ]]
+}
+
 # picard_settings INI — print Picard's settings from INI with its credentials
 # taken out, for snapshot-prefs to keep as history. The output is a record to
 # diff, not a file to restore: post-install never reads it.
@@ -1432,9 +1493,13 @@ picker_remove_descriptions() {
     !/^#/ && NF > 1 && ($1 in drop) { next }
     { print }' "$table" > "$PICKER_TMP"
 
+  # Lines as awk counts them, not newlines as wc -l does: a last line with no
+  # newline is a line, and awk's print gives it one. Until 2026-10-28 the
+  # count came out one short for such a table, and every delete was refused
+  # (audit 22, Z-9).
   local want got
-  want=$(( $(wc -l < "$table") - $# ))
-  got=$(wc -l < "$PICKER_TMP")
+  want=$(( $(awk 'END { print NR }' "$table") - $# ))
+  got=$(awk 'END { print NR }' "$PICKER_TMP")
   if (( got != want )); then
     err "Expected $want lines in tools/picker/descriptions.tsv after removing $#, got $got — left it unchanged."
     rm -f "$PICKER_TMP"; PICKER_TMP=""

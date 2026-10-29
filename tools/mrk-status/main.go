@@ -235,8 +235,13 @@ func checkDefaults(d defaultsDrift) group {
 		unread = append(unread, sl(sevInfo, plural(len(d.noAccess), "key cannot be read", "keys cannot be read")+
 			" without Full Disk Access for the app that runs this: "+names(d.noAccess)))
 	}
-	if len(d.unset) == 0 {
+	// Lines this binary passed over are keys not in the count at all.
+	unread = append(unread, unknownLines("defaults.sh", d.unknown)...)
+	if len(d.unset) == 0 && d.unknown == 0 {
 		return group{name, sevOK, append([]statusLine{sl(sevOK, head)}, unread...), ""}
+	}
+	if len(d.unset) == 0 {
+		return group{name, sevWarn, append([]statusLine{sl(sevWarn, head)}, unread...), fixBuildTools}
 	}
 	// make trackpad writes every key make defaults does, and the trackpad keys.
 	fix := "make defaults"
@@ -399,11 +404,20 @@ func checkPATH(home, binDir string) group {
 		[]statusLine{sl(sevWarn, binDir+" is NOT on PATH")}, "make doctor ARGS=--fix"}
 }
 
+// checkHomebrew finds brew as readBrewDrift does (brewBin), on PATH or where
+// Homebrew installs it. Until 2026-10-28 it looked on PATH alone, so with
+// Homebrew off PATH this panel said "Not installed" while the Brewfile line
+// below it said every package was installed (audit 22, Z-10).
 func checkHomebrew() group {
-	out, err := exec.Command("brew", "--version").Output()
-	if err != nil {
+	brew := brewBin()
+	if brew == "" {
 		return group{"Homebrew", sevErr,
 			[]statusLine{sl(sevErr, "Not installed — see https://brew.sh")}, ""}
+	}
+	out, err := exec.Command(brew, "--version").Output()
+	if err != nil {
+		return group{"Homebrew", sevErr,
+			[]statusLine{sl(sevErr, brew+" --version failed: "+err.Error())}, ""}
 	}
 	ver := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0]
 	return group{"Homebrew", sevOK,

@@ -65,6 +65,67 @@ func TestBrewDriftReadsSyncCheck(t *testing.T) {
 	if got := strings.Join(d.prunes, ","); got != "wget" {
 		t.Errorf("prunes = %q, want wget", got)
 	}
+	if d.unknown != 1 {
+		t.Errorf("unknown = %d, want 1: the noise line", d.unknown)
+	}
+}
+
+// A check that prints lines, none of which this binary can read, is an error,
+// as BIN-1's "The --check Lines" asks of a reader. Until 2026-10-28 it read as
+// all clear (audit 22, Z-2).
+func TestCheckWithNoReadableLineIsAnError(t *testing.T) {
+	withStubBrew(t, "#!/bin/sh\nexit 0\n")
+	repo := repoWithSync(t, "#!/bin/sh\nprintf 'graft\\tformula\\tjq\\nshort line\\n'\n")
+	d := readBrewDrift(repo)
+	if d.err == nil || !strings.Contains(d.err.Error(), "sync --check printed 2 lines that this mrk-status cannot read: run make build-tools") {
+		t.Fatalf("err = %v", d.err)
+	}
+	un := checkUnrecorded(repo, t.TempDir(), drifts{brew: d})
+	if _, ok := line(un, "The Brewfile matches what Homebrew has installed"); ok {
+		t.Errorf("a check with no readable line should not read as all clear:\n%s", texts(un))
+	}
+}
+
+// A line with a word this binary does not know is passed over and counted,
+// and the panel says so, with make build-tools: the binary is older than the
+// script that wrote the line.
+func TestCheckWithAnUnknownWordSaysSo(t *testing.T) {
+	withStubBrew(t, "#!/bin/sh\nexit 0\n")
+	repo := repoWithSync(t, "#!/bin/sh\nprintf 'add\\tformula\\tjq\\ngraft\\tformula\\twget\\n'\n")
+	d := readBrewDrift(repo)
+	if d.err != nil || d.unknown != 1 || strings.Join(d.adds, ",") != "jq" {
+		t.Fatalf("err = %v, unknown = %d, adds = %q", d.err, d.unknown, d.adds)
+	}
+	un := checkUnrecorded(repo, t.TempDir(), drifts{brew: d})
+	l, ok := line(un, "sync --check: 1 line that this mrk-status cannot read")
+	if !ok || l.sev != sevWarn || l.fix != fixBuildTools {
+		t.Errorf("the line passed over should be a warning with %q:\n%s", fixBuildTools, texts(un))
+	}
+	if g := checkDefaults(defaultsDrift{set: 3, unknown: 1}); g.sev != sevWarn || g.fix != fixBuildTools ||
+		!strings.Contains(texts(g), "defaults.sh --check: 1 line that this mrk-status cannot read") {
+		t.Errorf("a defaults line passed over should warn, with %q:\n%s", fixBuildTools, texts(g))
+	}
+}
+
+// checkHomebrew finds brew where readBrewDrift does, off PATH too. Until
+// 2026-10-28 it said "Not installed" there, above a Brewfile line that said
+// every package was installed (audit 22, Z-10).
+func TestHomebrewOffPATH(t *testing.T) {
+	stub := filepath.Join(t.TempDir(), "brew")
+	if err := os.WriteFile(stub, []byte("#!/bin/sh\necho 'Homebrew 9.9.9'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", t.TempDir())
+	old := brewPaths
+	brewPaths = []string{stub}
+	t.Cleanup(func() { brewPaths = old })
+	if g := checkHomebrew(); g.sev != sevOK || !strings.Contains(texts(g), "Homebrew 9.9.9") {
+		t.Errorf("brew off PATH, at a fixed path, should be found:\n%s", texts(g))
+	}
+	brewPaths = []string{filepath.Join(t.TempDir(), "no-brew")}
+	if g := checkHomebrew(); g.sev != sevErr || !strings.Contains(texts(g), "Not installed") {
+		t.Errorf("no brew anywhere should be an error:\n%s", texts(g))
+	}
 }
 
 func TestBrewDriftFailureIsAFailureNotMissingPackages(t *testing.T) {

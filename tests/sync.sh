@@ -456,6 +456,8 @@ expect_refusal() {
 }
 
 # Malformed command lines: exit 2, before Homebrew is asked anything.
+expect_refusal 2 "an unknown option"                   'Unknown option'        --frob
+expect_refusal 2 "an unknown option with --check"      'Unknown option'        --check --frob
 expect_refusal 2 "--add with no name"                  'needs a package name'  --add
 expect_refusal 2 "two decisions in one run"            'one decision per run'  --add zq-dec-tool --ignore zq-later
 expect_refusal 2 "--details without --check"           'only with --check'     --details
@@ -625,6 +627,13 @@ mv "$FIX/casks.ok" "$FIX/casks"
 mv "$FIX/formulae" "$FIX/formulae.ok"; mv "$FIX/casks" "$FIX/casks.ok"
 : > "$FIX/formulae"; : > "$FIX/casks"
 expect_refusal 1 "--prune when Homebrew reports nothing installed" 'refusing to prune' --prune "$STALE_F"
+# --check takes precedence over -p there too, and shows every entry as prune.
+check_sync -p; rc=$?
+if (( rc == 0 )) && grep -q $'^prune\tformula\t' "$W/check.out" && ! grep -q 'refusing to prune' "$W/check.err"; then
+  pass "--check -p with nothing installed: exit 0, the lines shown, nothing refused"
+else
+  fail "sync --check -p with nothing installed: rc $rc"; sed 's/^/      /' "$W/check.err" >&2
+fi
 mv "$FIX/formulae.ok" "$FIX/formulae"; mv "$FIX/casks.ok" "$FIX/casks"
 if awk -F'\t' '!/^#/ { print $1 }' "$TABLE" | LC_ALL=C sort -c 2>/dev/null && out="$(descriptions_in_sync)"; then
   pass "after the prunes the table is in order and in step with the Brewfile"

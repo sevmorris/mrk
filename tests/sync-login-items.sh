@@ -14,7 +14,7 @@
 # through the plain list here.
 #
 # --check, --add, --ignore and --remove are for a program with no terminal
-# (the Settings app). Each refusal must change nothing, and a decision must
+# (mrk Settings). Each refusal must change nothing, and a decision must
 # start no gum. --remove in particular must stop, as an interactive run does,
 # when System Events returns no login items.
 #
@@ -308,6 +308,38 @@ fi
 reset_copy
 cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
 
+# A name that starts with a dash: `--add NAME` takes it for an option, and
+# `--add=NAME` takes it as a name. Until 2026-10-28 no decision could take
+# one, and the exit 2 read to Dipstick as an older mrk (audit 22, Z-3).
+{ cat "$BASE"; printf '%s\t%s\n' '-Dash App' '/Applications/-Dash App.app'; } > "$W/dash"
+slx "$W/dash" --add '-Dash App'
+dash_rc=$RC
+reset_copy; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
+slx "$W/dash" --add='-Dash App'
+if [[ $dash_rc == 2 && $RC == 0 ]] && mrk_config_entries "$R/$LIST" | grep -qxF '/Applications/-Dash App.app'; then
+  pass "--add=NAME takes a name that starts with a dash, which --add NAME refuses with exit 2"
+else
+  fail "a name that starts with a dash: --add NAME exit $dash_rc, --add=NAME exit $RC"; why
+fi
+reset_copy; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
+
+# A run that writes holds the list's lock, so two decisions at once cannot
+# lose one (audit 22, Z-7). --check only reads, and does not wait for it.
+LOCK="$R/config/.login-items.txt.lock"
+sleep 30 & holder=$!
+mkdir "$LOCK" && printf '%s\n' "$holder" > "$LOCK/pid"
+export MRK_LOCK_WAIT=1
+slx "$W/dash" --check; check_rc=$RC
+slx "$W/dash" --add='-Dash App'
+unset MRK_LOCK_WAIT
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null; rm -rf "$LOCK"
+if [[ $check_rc == 0 && $RC == 1 ]] && grep -q "Another mrk run (process $holder) is changing login-items.txt" "$W/err" && unchanged; then
+  pass "a decision waits for the list's lock, then exits 1 and writes nothing; --check does not wait"
+else
+  fail "the list's lock: --check exit $check_rc, --add exit $RC"; why
+fi
+reset_copy; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
+
 # ── 6. --add ─────────────────────────────────────────────────────────────────
 
 slx "$W/drift" --add "Zéphyr"
@@ -404,7 +436,7 @@ rm -rf "$R/.git"; reset_copy; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-i
 
 # ── 10. Bad command lines, and a bad list ────────────────────────────────────
 
-for args in "--add" "--add Zed --remove Foo" "--remove -n" "--manual --add Zed" "--frob"; do
+for args in "--add" "--add Zed --remove Foo" "--remove -n" "--manual --add Zed" "--frob" "--check --frob"; do
   # shellcheck disable=SC2086  # each case is several words
   slx "$W/drift" $args
   if [[ $RC == 2 ]] && unchanged; then
@@ -427,7 +459,7 @@ reset_copy
 
 # ── 11. The manual's sentence, when the list does not change ─────────────────
 #
-# A hand edit of the list, or one by the Settings app, leaves the sentence
+# A hand edit of the list, or one by mrk Settings, leaves the sentence
 # behind. A run that leaves the list as it is brings the sentence back in step.
 # The stale sentence here names an app the list does not, and lacks one it
 # does.

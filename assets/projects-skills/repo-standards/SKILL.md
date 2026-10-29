@@ -164,8 +164,9 @@ from reopening it.
   rather than the code's: re-run it before debugging.
 - **In zsh, `path` is `$PATH`.** A loop that assigns `path=…` empties the
   command search path for the rest of the line. Name it anything else.
-- **The user's gitconfig sets `color.grep = always`**, so anything parsing git
-  output needs `--no-color` (or `--porcelain`).
+- **The user's gitconfig sets `color.ui = auto` alone**, so git writes no colour
+  into a pipe. Anything parsing git output still passes `--no-color` (or
+  `--porcelain`), because another gitconfig can force colour.
 
 ## 6. A new repository
 

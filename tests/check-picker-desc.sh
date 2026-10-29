@@ -314,6 +314,25 @@ if (( rc == 1 )) && grep -qF "$first is described twice" "$W/twice.log"; then
 else
   fail "the check on a name described twice exited $rc:"; sed 's/^/      /' "$W/twice.log" >&2
 fi
+# A carriage return, from an editor that writes CRLF line ends: every reader
+# kept it in the description until 2026-10-28 (audit 22, Z-6).
+awk -v n="$first" '!/^#/ && index($0, n "\t") == 1 { $0 = $0 "\r" } { print }' "$W/table.keep" > "$(T "$R")"
+rc=0; "$R/scripts/check-picker-desc" >"$W/cr.log" 2>&1 || rc=$?
+if (( rc == 1 )) && grep -q 'it holds a control character, such as a carriage return' "$W/cr.log"; then
+  pass "a table line that ends in a carriage return is named, and the check exits 1"
+else
+  fail "the check on a carriage return exited $rc:"; sed 's/^/      /' "$W/cr.log" >&2
+fi
+# A table whose last line has no newline: --fix still deletes an orphan.
+# Until 2026-10-28 its count of the lines came out one short, so it refused
+# every delete, and sync --prune left the description behind (audit 22, Z-9).
+{ cat "$W/table.keep"; printf 'zz-orphan\tnothing uses this'; } > "$(T "$R")"
+rc=0; "$R/scripts/check-picker-desc" --fix >"$W/nonl.log" 2>&1 || rc=$?
+if (( rc == 0 )) && [[ -z "$(desc_of zz-orphan "$R")" ]] && cmp -s "$(T "$R")" "$W/table.keep"; then
+  pass "--fix deletes an orphan on the last line of a table with no final newline"
+else
+  fail "--fix on a table with no final newline exited $rc:"; sed 's/^/      /' "$W/nonl.log" >&2
+fi
 cp "$W/table.keep" "$(T "$R")"
 
 rc=0; "$R/scripts/check-picker-desc" --fxi >/dev/null 2>&1 || rc=$?

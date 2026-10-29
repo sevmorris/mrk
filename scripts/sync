@@ -98,7 +98,8 @@ Usage: scripts/sync [options]
                   mrk-status reads it. Takes precedence over the other options.
                   A field escapes a tab, a newline and a backslash as \t, \n
                   and \\. A later version may add fields at the end of a line,
-                  and never removes or reorders one.
+                  and words to the first two fields, and never removes or
+                  reorders a field.
   --details       With --check: three more fields on each line, for a program
                   that shows the drift. For an add: the section sync files a
                   cask under (empty for a formula), why, and the description
@@ -190,8 +191,17 @@ cleanup() {
   [[ -n "$PICKER_TMP"      && -f "$PICKER_TMP"      ]] && rm -f "$PICKER_TMP"      || true
   [[ -n "$TEMP_META"       && -f "$TEMP_META"       ]] && rm -f "$TEMP_META"       || true
   [[ -n "$TEMP_DESCS"      && -f "$TEMP_DESCS"      ]] && rm -f "$TEMP_DESCS"      || true
+  mrk_unlock_all
 }
 trap cleanup EXIT INT TERM
+
+# A run that can write holds the Brewfile's lock (mrk_lock, lib.sh) from before
+# it reads the Brewfile, for the Brewfile, the description table and the
+# ignore file. check-picker-desc --fix takes the same lock. --check and -n
+# only read.
+if (( ! CHECK && ! DRY_RUN )); then
+  mrk_lock "$BREWFILE" || exit 1
+fi
 
 # Belt-and-braces for the replace: mktemp creates the file 0600, and any writer
 # path that produced nothing would otherwise truncate the Brewfile. Refuse to
@@ -338,7 +348,10 @@ done <<< "$_casks_out"
 # scripts/sync-login-items refuses the identical shape for system login items
 # and cites this file as its model. It guards emptiness as well as failure;
 # this one only guarded failure.
-if { (( PRUNE )) || [[ "$DECIDE" == prune ]]; } \
+#
+# --check prunes nothing, so it takes precedence here too: until 2026-10-28
+# `sync --check -p` on an empty Homebrew exited 1 (audit 22, Z-12).
+if (( ! CHECK )) && { (( PRUNE )) || [[ "$DECIDE" == prune ]]; } \
    && (( ${#installed_formulae_all[@]} == 0 )) && (( ${#installed_casks[@]} == 0 )); then
   err "Homebrew reports nothing installed — refusing to prune."
   info "'Nothing is installed' and 'the read returned nothing' are"

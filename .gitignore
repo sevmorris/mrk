@@ -45,6 +45,14 @@ dotfiles/.claude/
 # one survives only a SIGKILL or a crash — at which point it should not be
 # sitting in git status forever.
 .Brewfile.*
+# The same for the other files that a writer renames over in place: the lists
+# in config/ (defaults.sh, sync-login-items, Dipstick's dock.txt), the manual's
+# login-items sentence, and the picker's description table. mrk-push stages
+# whole directories, so without these a crash's leftover would be committed
+# (audit 22, Z-8).
+config/.*
+docs/.manual.md.*
+tools/picker/.descriptions.tsv.*
 
 # Built binaries (platform-specific, built via `make picker` / `make mrk-status` / `make mrk-menu`)
 bin/mrk-picker

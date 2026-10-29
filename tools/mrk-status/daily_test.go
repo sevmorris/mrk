@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 // The daily panels read real git repositories, lib.sh's own functions, a stub
@@ -140,7 +141,7 @@ func TestUnrecordedMrkCheckout(t *testing.T) {
 	if l, ok := line(g, "1 uncommitted change"); !ok || l.sev != sevWarn || l.fix != fixMrkPush {
 		t.Errorf("a tracked change should warn with %q:\n%s", fixMrkPush, texts(g))
 	}
-	if l, ok := line(g, "1 untracked file, which mrk-push never commits"); !ok || l.sev != sevInfo {
+	if l, ok := line(g, "1 untracked file, which mrk-push commits only in the paths it stages: see mrk-push --help"); !ok || l.sev != sevInfo {
 		t.Errorf("an untracked file should be named, as information:\n%s", texts(g))
 	}
 
@@ -227,6 +228,30 @@ func TestPrefsDriftReadsSnapshotPrefsCheck(t *testing.T) {
 
 	if l, ok := line(checkUnrecorded(repo, t.TempDir(), drifts{}), "App preferences: nothing new to snapshot"); !ok || l.sev != sevOK {
 		t.Errorf("no change should read as nothing new")
+	}
+}
+
+// A file snapshot-prefs could not read is not "nothing new": until 2026-10-28
+// --check showed no line for it, and the panel said all clear for an app it
+// had not seen (audit 22, Z-1).
+func TestPrefsDriftUnread(t *testing.T) {
+	repo := mrkRepo(t)
+	writeScript(t, filepath.Join(repo, "scripts", "snapshot-prefs"), "#!/bin/sh\n[ \"$*\" = --check ] || exit 9\n"+
+		"printf 'Keka.plist\\t\\tunread\\n'\n")
+	d := readPrefsDrift(repo)
+	if d.err != nil {
+		t.Fatal(d.err)
+	}
+	if len(d.changes) != 0 || strings.Join(d.unread, ",") != "Keka.plist" {
+		t.Fatalf("changes = %q, unread = %q", d.changes, d.unread)
+	}
+	g := checkUnrecorded(repo, t.TempDir(), drifts{prefs: d})
+	if _, ok := line(g, "App preferences: nothing new to snapshot"); ok {
+		t.Errorf("a file not read should not read as nothing new:\n%s", texts(g))
+	}
+	l, ok := line(g, "App preferences not read, so their changes are not known: Keka.plist")
+	if !ok || l.sev != sevWarn || l.fix != "" {
+		t.Errorf("a file not read should be a warning with no fix:\n%s", texts(g))
 	}
 }
 
@@ -457,6 +482,81 @@ func TestLoginDriftFailureIsAWarning(t *testing.T) {
 	}
 	if _, ok := line(g, "tracks every login item"); ok {
 		t.Errorf("a check that could not run must not read as every login item tracked:\n%s", texts(g))
+	}
+}
+
+// roundTripFields are fields of each awkward kind a --check line can carry: the
+// three escapes, a carriage return, an empty field, a field that is only a
+// backslash, text that looks like an escape, invalid UTF-8, and a combining
+// mark after an escape, which a reader that walks Swift Characters loses.
+var roundTripFields = []string{
+	"plain", "a\tb", "a\nb", `a\b`, "a\rb", "", "café ✓ 日本", `\`, `\t`, `\\`, `a\`,
+	"\r", "x\r", "\xff\xfe\\", "x\t́", "x\\́", "é", "&", `\&`, "tab\t\\n",
+}
+
+// Every --check line is mrk_check_line's, and every reader undoes its escapes.
+// Each field above goes through lib.sh's encoder and back through checkLines'
+// split and unescapeField, under the bash on PATH and under macOS's bash 3.2,
+// and must come back as it went, all on one line. Until 2026-10-28 no test ran
+// the encoder and a decoder together (audit 22, Z-13).
+func TestCheckLineRoundTrip(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := `source "$1/scripts/lib.sh" || exit 1; shift; mrk_check_line "$@"`
+	for _, sh := range []string{"bash", "/bin/bash"} {
+		out, err := exec.Command(sh, append([]string{"-c", script, "bash", root}, roundTripFields...)...).Output()
+		if err != nil {
+			t.Fatalf("%s: %v", sh, err)
+		}
+		line, ok := strings.CutSuffix(string(out), "\n")
+		if !ok || strings.Contains(line, "\n") {
+			t.Fatalf("%s: mrk_check_line did not write one line: %q", sh, out)
+		}
+		f := strings.Split(line, "\t")
+		if len(f) != len(roundTripFields) {
+			t.Fatalf("%s: %d fields, want %d: %q", sh, len(f), len(roundTripFields), line)
+		}
+		for i, want := range roundTripFields {
+			if got := unescapeField(f[i]); got != want {
+				t.Errorf("%s: field %q came back as %q (written %q)", sh, want, got, f[i])
+			}
+		}
+	}
+}
+
+// mrk_tsv_fields, the reader of config/defaults-skip.tsv, gives back what
+// mrk_tsv_escape wrote when the text holds no control character but the tab
+// and the newline, and refuses a carriage return, as lib.sh and BIN-1 say.
+func TestTSVFieldsRoundTrip(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := `source "$1/scripts/lib.sh" || exit 1; shift
+line=$(mrk_check_line "$@")
+mrk_tsv_fields "$line" || { printf 'refused: %s' "$TSV_WHY"; exit 0; }
+printf '%s\0' "${TSV_FIELDS[@]}"`
+	var fields []string
+	for _, f := range roundTripFields {
+		if !strings.Contains(f, "\r") && utf8.ValidString(f) {
+			fields = append(fields, f)
+		}
+	}
+	for _, sh := range []string{"bash", "/bin/bash"} {
+		out, err := exec.Command(sh, append([]string{"-c", script, "bash", root}, fields...)...).Output()
+		if err != nil {
+			t.Fatalf("%s: %v", sh, err)
+		}
+		got := strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00")
+		if strings.Join(got, "\x00") != strings.Join(fields, "\x00") {
+			t.Errorf("%s: mrk_tsv_fields gave %q, want %q", sh, got, fields)
+		}
+		out, err = exec.Command(sh, "-c", script, "bash", root, "a\rb").Output()
+		if err != nil || !strings.HasPrefix(string(out), "refused: ") {
+			t.Errorf("%s: a carriage return should be refused, got %q (%v)", sh, out, err)
+		}
 	}
 }
 

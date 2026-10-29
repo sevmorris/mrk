@@ -103,6 +103,49 @@ func TestJSONShape(t *testing.T) {
 	}
 }
 
+// publishedSchemas holds the keys of each schema that a program reads. A key
+// may be added with no new schema, but none of these may be renamed or deleted
+// while jsonSchema is the schema that lists it: raise jsonSchema, and add the
+// next schema's keys here. Never edit a published list. TestJSONShape pins
+// the exact keys, which a change edits with the code; this list is what a
+// reader was promised (audit 22, Z-13).
+var publishedSchemas = map[int]struct{ top, panel, line []string }{
+	1: {
+		top:   []string{"panels", "schema", "severity", "summary"},
+		panel: []string{"fix", "lines", "name", "severity"},
+		line:  []string{"fix", "severity", "text"},
+	},
+}
+
+func TestJSONKeepsItsPublishedSchema(t *testing.T) {
+	want, ok := publishedSchemas[jsonSchema]
+	if !ok {
+		t.Fatalf("schema %d has no list of keys in publishedSchemas: add it with the change that raised jsonSchema", jsonSchema)
+	}
+	var b bytes.Buffer
+	if err := renderJSON(&b, []group{{"P", sevWarn, []statusLine{slFix(sevWarn, "t", fixPull)}, fixPull}}); err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	decodeOne(t, b.Bytes(), &doc)
+	if doc["schema"] != float64(jsonSchema) {
+		t.Fatalf("schema = %v, want %d", doc["schema"], jsonSchema)
+	}
+	panel := doc["panels"].([]any)[0].(map[string]any)
+	line := panel["lines"].([]any)[0].(map[string]any)
+	for _, c := range []struct {
+		what string
+		m    map[string]any
+		keys []string
+	}{{"the document", doc, want.top}, {"a panel", panel, want.panel}, {"a line", line, want.line}} {
+		for _, k := range c.keys {
+			if _, ok := c.m[k]; !ok {
+				t.Errorf("%s has no %q, which schema %d promises: raise jsonSchema to rename or delete a key", c.what, k, jsonSchema)
+			}
+		}
+	}
+}
+
 func TestJSONWithNoPanels(t *testing.T) {
 	var b bytes.Buffer
 	if err := renderJSON(&b, nil); err != nil {

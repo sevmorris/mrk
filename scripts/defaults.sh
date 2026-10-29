@@ -47,10 +47,10 @@ Disk Access, and TextEdit's and Passwords', without permission to get the
 data of other apps as well. Its value cannot be known, the fourth field is
 empty, and a run passes it over. --with-trackpad adds the trackpad keys to
 the check as well.
-A later version may add fields at the end of a line, and never removes or
-reorders one.
+A later version may add fields at the end of a line, and words to the
+state, and never removes or reorders a field.
 
-One key at a time, for a program such as the Settings app. Each option takes
+One key at a time, for a program such as Dipstick. Each option takes
 the domain and the key of a line of config/defaults.tsv, and refuses any
 other key. Give each option as many times as you need. A run with these
 options changes only the keys that it names.
@@ -133,7 +133,7 @@ if (( ${#SKIP[@]} + ${#UNSKIP[@]} + ${#KEY[@]} + ${#REVERT[@]} > 0 )); then
   done
 fi
 
-# --check is for a program to read (the Settings app), on stdout, which holds
+# --check is for a program to read (mrk Settings), on stdout, which holds
 # nothing else: fd 3 is stdout, and everything else goes to stderr. Modelled on
 # sync --check and snapshot-prefs --check.
 if $CHECK; then
@@ -168,6 +168,14 @@ done
 # Read whole and checked before anything is written, as the table is: a typo
 # in a line must not let a run write a key that the line was to skip.
 SKIP_FILE="$SCRIPT_DIR/../config/defaults-skip.tsv"
+# Every run that can change the skip list, a key or the undo file holds the
+# skip list's lock (mrk_lock, lib.sh) from before it reads the list, so a
+# switch in Dipstick waits for a make defaults in Terminal, and the other way
+# round. --check only reads.
+if ! $CHECK; then
+  mrk_lock "$SKIP_FILE" || exit 1
+  trap 'mrk_unlock_all' EXIT
+fi
 if ! defaults_skips "$SKIP_FILE"; then
   err "config/defaults-skip.tsv has a line mrk-defaults cannot use (see above). Nothing was changed."
   exit 1
@@ -230,25 +238,12 @@ domain_exists(){
   defaults read "$1" >/dev/null 2>&1
 }
 
-# domain_denied DOMAIN — true when DOMAIN's app keeps its preferences in a
-# container that this process may not read. macOS refuses to list the
-# container's Preferences folder ("Operation not permitted"): Mail's to a
-# process without Full Disk Access, and TextEdit's and Passwords' to one that
-# lacks permission to get the data of other apps as well. defaults then reads
-# the domain from ~/Library/Preferences, where the app does not look, or
-# finds none at all. On 2026-10-23 Gearbox, without Full Disk Access, read
-# Mail's key as nodomain while Terminal read it as set. A launchd job, with
-# neither permission, also read TextEdit's as nodomain, and Passwords' from
-# the copy outside the container, which a run would have written to. So a key
-# in such a domain is neither read nor written. A domain
-# with no container is only a stat; an app that macOS has not asked yet may be
-# asked once whether it may read other apps' data.
-domain_denied(){
-  local prefs="$HOME/Library/Containers/$1/Data/Library/Preferences" msg
-  [[ -d "$prefs" ]] || return 1
-  msg=$(LC_ALL=C ls "$prefs" 2>&1 >/dev/null) && return 1
-  [[ "$msg" == *"Operation not permitted"* ]]
-}
+# A key whose app keeps its preferences in a container that this process may
+# not read (mrk_container_denied, lib.sh) is neither read nor written. On
+# 2026-10-23 Gearbox, without Full Disk Access, read Mail's key as nodomain
+# while Terminal read it as set. A launchd job, with neither permission, also
+# read TextEdit's as nodomain, and Passwords' from the copy outside the
+# container, which a run would have written to.
 
 # ── --check ──────────────────────────────────────────────────────────────────
 # Reads each key, as write_default does, and writes nothing: no default, no
@@ -259,7 +254,7 @@ if $CHECK; then
     [[ "${DT_WHEN[i]}" == trackpad ]] && ! $WITH_TRACKPAD && continue
     domain=${DT_DOMAIN[i]} key=${DT_KEY[i]} state=absent current=""
     # No value: what defaults would read is not the one the app uses.
-    if domain_denied "$domain"; then
+    if mrk_container_denied "$domain"; then
       state=noaccess
     elif current=$(defaults read "$domain" "$key" 2>/dev/null); then
       current_type=$(defaults read-type "$domain" "$key" 2>/dev/null | awk '{print $NF}' || echo "string")
@@ -415,7 +410,7 @@ restart_ui(){
 }
 
 # ── One key at a time: --skip, --unskip, --key and --revert ──────────────────
-# For a program such as the Settings app, which turns one key off or on: off is
+# For a program such as mrk Settings, which turns one key off or on: off is
 # --skip and --revert, and on is --unskip and --key, in one run. Each key that
 # is named, and the skip list as it will be, is checked before anything
 # changes, as a run checks the table.
@@ -489,7 +484,7 @@ if $ONE_KEY; then
   # --skip and --unskip change only the list; --key and --revert change the
   # key, which a process that cannot read it cannot do right.
   for id in ${KEY[@]+"${KEY[@]}"} ${REVERT[@]+"${REVERT[@]}"}; do
-    if domain_denied "${id%%"$TAB"*}"; then
+    if mrk_container_denied "${id%%"$TAB"*}"; then
       err "macOS does not let this process read ${id%%"$TAB"*}, so it cannot change $(shown "$id")."
       info "Give Full Disk Access to the app that runs this (System Settings → Privacy & Security). Nothing was changed."
       exit 1
@@ -502,8 +497,8 @@ if $ONE_KEY; then
   if (( ${#SKIP[@]} + ${#UNSKIP[@]} > 0 )); then
     was_skipped=$SKIP_IDS
     # Beside the file, so that mv replaces it in one step
-    new_list=$(mktemp "$SKIP_FILE.XXXXXX") || { err "Cannot write a file beside $SKIP_FILE. Nothing was changed."; exit 1; }
-    trap 'rm -f "$new_list"' EXIT
+    new_list=$(mktemp "${SKIP_FILE%/*}/.defaults-skip.tsv.XXXXXX") || { err "Cannot write a file beside $SKIP_FILE. Nothing was changed."; exit 1; }
+    trap 'rm -f "$new_list"; mrk_unlock_all' EXIT
     skip_list_edit "$new_list"
     if ! defaults_skips "$new_list"; then
       err "config/defaults-skip.tsv would have a line mrk-defaults cannot use (see above). Nothing was changed."
@@ -613,7 +608,7 @@ for i in "${!DT_DOMAIN[@]}"; do
   # Without access the key reads as absent, or from a file the app does not
   # read: write_default would record the wrong undo line, and the write would
   # fail or go to that file.
-  if domain_denied "${DT_DOMAIN[i]}"; then
+  if mrk_container_denied "${DT_DOMAIN[i]}"; then
     logskip "${DT_DOMAIN[i]} ${DT_KEY[i]}" "macOS does not let this process read its app's data"
     denied=$(( denied + 1 ))
     continue

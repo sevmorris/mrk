@@ -85,6 +85,7 @@ func TestParseDescriptionsRefuses(t *testing.T) {
 		{"\tDistributed version control\n", "an empty name"},
 		{"git\t\n", "an empty description"},
 		{"git\tone\nzsh\tshell\ngit\ttwo\n", "described twice"},
+		{"git\tDistributed version control\r\n", "a carriage return"},
 	} {
 		if _, err := parseDescriptions(c.table); err == nil {
 			t.Errorf("%s: %q parsed without an error", c.why, c.table)

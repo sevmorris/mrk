@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -173,6 +174,7 @@ func bashLib(repoRoot, script string, args ...string) (string, error) {
 // sync -p would remove, by sync's own rules, sync-ignore included.
 type brewDrift struct {
 	adds, prunes []string // "name", casks as "name (cask)"
+	unknown      int      // lines passed over: a word this binary does not know
 	noBrew       bool
 	err          error
 }
@@ -195,34 +197,60 @@ func brewBin() string {
 }
 
 // checkLines runs scripts/<script> in one of its --check modes and returns its
-// lines of at least n fields, each field with its escapes undone. Each --check
-// mode prints those lines alone on stdout, and its progress on stderr, by one
-// rule, lib.sh's mrk_check_line: fields split at each tab, \\, \t and \n
-// escaped in each. A later version may add fields at the end of a line, and
-// new words in a field that has a set of them, so a reader takes the fields it
-// knows and passes over a word it does not. When the script fails, the error
-// is the reason it gave: the last line lib.sh's err marked ✗, else its last
-// line.
-func checkLines(repoRoot, script string, n int, args ...string) ([][]string, error) {
+// lines of at least n fields whose words known accepts, each field with its
+// escapes undone. Each --check mode prints those lines alone on stdout, and
+// its progress on stderr, by one rule, lib.sh's mrk_check_line: fields split
+// at each tab, \\, \t and \n escaped in each. A later version may add fields
+// at the end of a line, and new words in a field that has a set of them, so a
+// reader takes the fields it knows and passes over a word it does not.
+// unknown counts the lines passed over, short ones included. When stdout has
+// lines and none can be read, that is an error, as BIN-1's "The --check
+// Lines" asks of a reader: until 2026-10-28 such a check read as all clear
+// (audit 22, Z-2). When the script fails, the error is the reason it gave: the
+// last line lib.sh's err marked ✗, else its last line.
+func checkLines(repoRoot, script string, n int, known func(f []string) bool, args ...string) (rows [][]string, unknown int, err error) {
+	command := strings.Join(append([]string{script}, args...), " ")
 	cmd := exec.Command(filepath.Join(repoRoot, "scripts", script), args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("%s failed: %s", strings.Join(append([]string{script}, args...), " "), failReason(stderr.String(), err))
+		return nil, 0, fmt.Errorf("%s failed: %s", command, failReason(stderr.String(), err))
 	}
-	var rows [][]string
 	for _, line := range strings.Split(string(out), "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
 		f := strings.Split(line, "\t")
 		if len(f) < n {
+			unknown++
 			continue
 		}
 		for i := range f {
 			f[i] = unescapeField(f[i])
 		}
+		if !known(f) {
+			unknown++
+			continue
+		}
 		rows = append(rows, f)
 	}
-	return rows, nil
+	if len(rows) == 0 && unknown > 0 {
+		return nil, unknown, fmt.Errorf("%s printed %s that this mrk-status cannot read: run make build-tools",
+			command, plural(unknown, "line", "lines"))
+	}
+	return rows, unknown, nil
+}
+
+// unknownLines is the warning for the lines of a --check that a reader passed
+// over: a word it does not know, or too few fields, so this binary is older
+// than the script that wrote them. Nothing when there are none.
+func unknownLines(script string, unknown int) []statusLine {
+	if unknown == 0 {
+		return nil
+	}
+	return []statusLine{slFix(sevWarn, fmt.Sprintf("%s --check: %s that this mrk-status cannot read",
+		script, plural(unknown, "line", "lines")), fixBuildTools)}
 }
 
 // unescapeField undoes mrk_tsv_escape: \\ is a backslash, \t a tab and \n a
@@ -277,11 +305,13 @@ func readBrewDrift(repoRoot string) brewDrift {
 	if brewBin() == "" {
 		return brewDrift{noBrew: true}
 	}
-	rows, err := checkLines(repoRoot, "sync", 3, "--check")
+	rows, unknown, err := checkLines(repoRoot, "sync", 3, func(f []string) bool {
+		return slices.Contains([]string{"add", "prune"}, f[0]) && slices.Contains([]string{"formula", "cask"}, f[1])
+	}, "--check")
 	if err != nil {
 		return brewDrift{err: err}
 	}
-	var d brewDrift
+	d := brewDrift{unknown: unknown}
 	for _, f := range rows {
 		name := f[2]
 		if f[1] == "cask" {
@@ -303,21 +333,28 @@ func readBrewDrift(repoRoot string) brewDrift {
 // to mrk-prefs, one change a line, keys that change on their own left out.
 type prefsDrift struct {
 	changes []string // "app key" for a key of a plist, "file (added)" for a whole file
+	unread  []string // files the snapshot could not read, whose saved copy it keeps
+	unknown int      // lines passed over: a word this binary does not know
 	err     error
 }
 
 func readPrefsDrift(repoRoot string) prefsDrift {
-	rows, err := checkLines(repoRoot, "snapshot-prefs", 3, "--check")
+	rows, unknown, err := checkLines(repoRoot, "snapshot-prefs", 3, func(f []string) bool {
+		return slices.Contains([]string{"added", "deleted", "changed", "unread"}, f[2])
+	}, "--check")
 	if err != nil {
 		return prefsDrift{err: err}
 	}
-	var d prefsDrift
+	d := prefsDrift{unknown: unknown}
 	for _, f := range rows {
 		file, key, change := f[0], f[1], f[2]
 		name := filepath.Base(file)
-		if key != "" {
+		switch {
+		case change == "unread":
+			d.unread = append(d.unread, oneLine(file))
+		case key != "":
 			d.changes = append(d.changes, oneLine(strings.TrimSuffix(name, ".plist")+" "+key))
-		} else {
+		default:
 			d.changes = append(d.changes, oneLine(name+" ("+change+")"))
 		}
 	}
@@ -332,6 +369,7 @@ type loginDrift struct {
 	adds    []string // login items here that the file does not track
 	stale   []string // tracked, and not a login item here
 	ignored []string // tracked, and named in ~/.mrk/login-items-ignore
+	unknown int      // lines passed over: a word this binary does not know
 	skipped bool     // not asked: there is no terminal
 	err     error
 }
@@ -356,11 +394,13 @@ func readLoginDrift(repoRoot string) loginDrift {
 	if !askSystemEvents() {
 		return loginDrift{skipped: true}
 	}
-	rows, err := checkLines(repoRoot, "sync-login-items", 4, "--check")
+	rows, unknown, err := checkLines(repoRoot, "sync-login-items", 4, func(f []string) bool {
+		return slices.Contains([]string{"add\tnew", "remove\tstale", "remove\tignored"}, f[0]+"\t"+f[3])
+	}, "--check")
 	if err != nil {
 		return loginDrift{err: err}
 	}
-	var d loginDrift
+	d := loginDrift{unknown: unknown}
 	for _, f := range rows {
 		name := oneLine(f[1])
 		switch f[0] + "\t" + f[3] {
@@ -387,6 +427,7 @@ type defaultsDrift struct {
 	waiting    []string // nodomain: a run does not write them until their app has preferences
 	skipped    []string // config/defaults-skip.tsv lists them: a run does not write them
 	noAccess   []string // in a container this process may not read: their value is not known
+	unknown    int      // lines passed over: a word this binary does not know
 	err        error
 }
 
@@ -399,6 +440,7 @@ for i in "${!DT_DOMAIN[@]}"; do
 done
 exit 0`, repoRoot)
 	if err != nil {
+		//lint:ignore ST1005 the error is a panel line as it stands, and a line starts with a capital
 		return nil, fmt.Errorf("Cannot read config/defaults.tsv: %w", err)
 	}
 	var keys []string
@@ -456,16 +498,20 @@ func readDefaultsDrift(repoRoot, stateDir string) defaultsDrift {
 	}
 	var d defaultsDrift
 	if d.trackpad, err = trackpadApplied(rollback, trackpad); err != nil {
+		//lint:ignore ST1005 the error is a panel line as it stands, and a line starts with a capital
 		return defaultsDrift{err: fmt.Errorf("Cannot read the rollback script: %w", err)}
 	}
 	args := []string{"--check"}
 	if d.trackpad {
 		args = append(args, "--with-trackpad")
 	}
-	rows, err := checkLines(repoRoot, "defaults.sh", 5, args...)
+	rows, unknown, err := checkLines(repoRoot, "defaults.sh", 5, func(f []string) bool {
+		return slices.Contains([]string{"set", "nodomain", "skipped", "noaccess", "absent", "differs"}, f[4])
+	}, args...)
 	if err != nil {
 		return defaultsDrift{err: err}
 	}
+	d.unknown = unknown
 	for _, f := range rows {
 		key := oneLine(f[0] + " " + f[1])
 		switch f[4] {
@@ -672,7 +718,8 @@ func unrecordedPanel(repoRoot, home string, found drifts, repos repoReading) gro
 				sl(sevWarn, plural(len(drift.prunes), "package in the Brewfile is not installed", "packages in the Brewfile are not installed")+": "+names(drift.prunes)),
 				sl(sevInfo, "  removed on purpose: make sync ARGS=-p · not installed yet: make brew"))
 		}
-		if len(drift.adds) == 0 && len(drift.prunes) == 0 {
+		lines = append(lines, unknownLines("sync", drift.unknown)...)
+		if len(drift.adds) == 0 && len(drift.prunes) == 0 && drift.unknown == 0 {
 			lines = append(lines, sl(sevOK, "The Brewfile matches what Homebrew has installed"))
 		}
 	}
@@ -701,7 +748,7 @@ func unrecordedPanel(repoRoot, home string, found drifts, repos repoReading) gro
 			lines = append(lines, sl(sevOK, mrk+": committed and pushed"))
 		}
 		if s.untracked > 0 {
-			lines = append(lines, sl(sevInfo, "  "+plural(s.untracked, "untracked file", "untracked files")+", which mrk-push never commits"))
+			lines = append(lines, sl(sevInfo, "  "+plural(s.untracked, "untracked file", "untracked files")+", which mrk-push commits only in the paths it stages: see mrk-push --help"))
 		}
 	}
 
@@ -787,8 +834,17 @@ func unrecordedPanel(repoRoot, home string, found drifts, repos repoReading) gro
 			sev, text = sevWarn, text+", last snapshot "+ago(age)
 		}
 		lines = append(lines, slFix(sev, text+": "+names(prefs.changes), fixSnapshot))
-	case repos.prefsUnpushed == 0:
+	case repos.prefsUnpushed == 0 && len(prefs.unread) == 0 && prefs.unknown == 0:
 		lines = append(lines, sl(sevOK, "App preferences: nothing new to snapshot"))
+	}
+	lines = append(lines, unknownLines("snapshot-prefs", found.prefs.unknown)...)
+	// A file snapshot-prefs could not read: an export that failed, or an app
+	// whose container macOS does not let this process read. Its changes are
+	// not known, so this is not "nothing new" (audit 22, Z-1). Another run
+	// does not help, so there is no fix: the permission is the app's to get.
+	if len(found.prefs.unread) > 0 {
+		lines = append(lines, sl(sevWarn, "App preferences not read, so their changes are not known: "+names(found.prefs.unread)+
+			" (an export failed, or macOS refused; make snapshot-prefs says which)"))
 	}
 	if n := repos.prefsUnpushed; n > 0 {
 		lines = append(lines, slFix(sevWarn,
@@ -829,6 +885,7 @@ func loginItemLines(d loginDrift) []statusLine {
 			sl(sevWarn, plural(len(d.stale), "tracked login item is not a login item here", "tracked login items are not login items here")+": "+names(d.stale)),
 			sl(sevInfo, "  removed on purpose: "+fixLoginItems+" · not added yet: make post-install"))
 	}
+	lines = append(lines, unknownLines("sync-login-items", d.unknown)...)
 	if len(lines) == 0 {
 		lines = append(lines, sl(sevOK, "config/login-items.txt tracks every login item"))
 	}

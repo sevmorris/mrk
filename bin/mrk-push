@@ -58,7 +58,9 @@ Options:
                   doubles as an audit of what is about to leave the machine.
   -h, --help      Show this help
 
-Only tracked changes are staged; untracked files are never committed. The
+Tracked changes are staged, and the new files in Brewfile, Makefile,
+README.md and the directories config, dotfiles, scripts, bin, tools, docs
+and assets. Any other untracked file is never committed. The
 commit is gated behind the mrk secret scan, and old Pages deployments are
 pruned afterwards, always protecting the one currently serving the site.
 
@@ -151,8 +153,12 @@ else
 fi
 
 push_log "Staging changes..."
-# Tracked updates + known repo paths only — never `git add -A`
-PATHS=(Brewfile Makefile README.md dotfiles scripts bin tools docs assets)
+# Tracked updates + known repo paths only — never `git add -A`. config/ came in
+# with the lists of 2026-10-19 and was left out here until 2026-10-28, so a new
+# file there was never committed (audit 22, Z-8). A file that a writer leaves
+# half-made beside its target (.Brewfile.*, config/.*, the picker table's) is
+# kept out by .gitignore, which `git add` honours.
+PATHS=(Brewfile Makefile README.md config dotfiles scripts bin tools docs assets)
 
 # Two separate questions. staged_files answers "what does the secret scan
 # read": the absolute path of every file whose content the commit carries.
