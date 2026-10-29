@@ -1,0 +1,78 @@
+{
+  "about": "The line contract of mrk's five --check modes, as data. For each case: the fields, and the line that mrk_check_line in scripts/lib.sh writes for them, without its newline. A reader that undoes the escapes gets the fields back from the line. It splits an output into lines only at a newline, and each line into fields only at a tab. sevmorris/mrk keeps this file at tests/fixtures/check-lines.json and writes its lines with MRK_UPDATE_FIXTURES=1 go test in tools/mrk-status. Dipstick and Barkeep keep a copy, byte for byte, which mrk's tests compare. Do not edit a line by hand.",
+  "cases": [
+    {
+      "why": "Each of the three escapes: a tab, a newline and a backslash.",
+      "fields": [
+        "a\tb",
+        "a\nb",
+        "a\\b"
+      ],
+      "line": "a\\tb\ta\\nb\ta\\\\b"
+    },
+    {
+      "why": "Empty fields: one between two fields, and one at the end.",
+      "fields": [
+        "a",
+        "",
+        "b",
+        ""
+      ],
+      "line": "a\t\tb\t"
+    },
+    {
+      "why": "A field that is only a backslash, and a field that ends in one.",
+      "fields": [
+        "\\",
+        "a\\"
+      ],
+      "line": "\\\\\ta\\\\"
+    },
+    {
+      "why": "Text that looks like an escape: a backslash before t, before n and before a backslash.",
+      "fields": [
+        "\\t",
+        "\\n",
+        "\\\\",
+        "tab\t\\n"
+      ],
+      "line": "\\\\t\t\\\\n\t\\\\\\\\\ttab\\t\\\\n"
+    },
+    {
+      "why": "A carriage return, which mrk_check_line does not escape: alone, inside a field, and at the end of the last field. A reader that splits the output into lines by Swift Character joins this line to the next.",
+      "fields": [
+        "\r",
+        "a\rb",
+        "x\r"
+      ],
+      "line": "\r\ta\rb\tx\r"
+    },
+    {
+      "why": "A combining mark after an escaped tab, backslash and newline. A reader that walks Swift Characters joins the mark to the escape, and then cannot read the line.",
+      "fields": [
+        "x\t́",
+        "x\\́",
+        "x\ń"
+      ],
+      "line": "x\\t́\tx\\\\́\tx\\ń"
+    },
+    {
+      "why": "Text outside ASCII, with an accent composed and decomposed.",
+      "fields": [
+        "café ✓ 日本",
+        "é"
+      ],
+      "line": "café ✓ 日本\té"
+    },
+    {
+      "why": "Characters that a shell or HTML gives a meaning to.",
+      "fields": [
+        "&",
+        "\\&",
+        "$HOME",
+        "'\"`*?"
+      ],
+      "line": "&\t\\\\&\t$HOME\t'\"`*?"
+    }
+  ]
+}
