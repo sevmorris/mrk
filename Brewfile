@@ -127,7 +127,6 @@ cask "aldente", greedy: true
 cask "android-platform-tools", greedy: true
 cask "appcleaner", greedy: true
 cask "balenaetcher", greedy: true
-cask "cryptomator", greedy: true
 cask "disk-drill", greedy: true
 cask "etrecheckpro", greedy: true
 cask "keka", greedy: true
@@ -135,7 +134,6 @@ cask "keyboardcleantool", greedy: true
 cask "nordpass", greedy: true
 cask "nordvpn", greedy: true
 cask "omnidisksweeper", greedy: true
-cask "onyx", greedy: true
 cask "openmtp", greedy: true
 cask "raspberry-pi-imager", greedy: true
 cask "stats", greedy: true
@@ -145,7 +143,6 @@ cask "timemachineeditor", greedy: true
 
 ## Casks - Video
 cask "4k-video-downloader+", greedy: true
-cask "arctic", greedy: true
 cask "handbrake-app", greedy: true
 cask "losslesscut", greedy: true
 cask "mdrp", greedy: true
