@@ -260,6 +260,8 @@ else
   diff <(printf '%s\n' "$want") "$W/stdout" | sed 's/^/      /' >&2
   sed 's/^/      /' "$W/stderr" "$W/calls" >&2
 fi
+# Kept for the contract check below, with the lines of a Dock that cannot be read.
+cp "$W/stdout" "$W/contract.lines"
 
 # on_tty OUT CMD... — CMD with stdout in OUT and stderr on a terminal from
 # script(1), as a run from Terminal has it, so lib.sh turns its colours on.
@@ -304,6 +306,7 @@ else
   fail "--check with dockutil --list failing (exit $RC)"
   diff <(want_lines unknown) "$W/stdout" | sed 's/^/      /' >&2; sed 's/^/      /' "$W/stderr" >&2
 fi
+cat "$W/stdout" >> "$W/contract.lines"
 mv "$W/dock-list.saved" "$W/dock-list"
 mv "$S/dockutil" "$W/dockutil.saved"
 run_check --check
@@ -314,6 +317,14 @@ else
   diff <(want_lines unknown) "$W/stdout" | sed 's/^/      /' >&2; sed 's/^/      /' "$W/stderr" >&2
 fi
 mv "$W/dockutil.saved" "$S/dockutil"
+
+# Every line has the fields and the words that scripts/mrk-contract names for
+# dock-setup, no more: a word added here and not there fails (audit 22, O-2).
+if "$REPO_ROOT/tests/lib/contract-lines" scripts/dock-setup < "$W/contract.lines"; then
+  pass "--check: each line has the fields and words that mrk-contract names, unknown included"
+else
+  fail "--check: lines that mrk-contract does not describe (above)"
+fi
 cp -p "$W/dock.orig" "$LIST"
 printf 'Applications/Safari.app\n' >> "$LIST"
 run_check --check

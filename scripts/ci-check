@@ -28,7 +28,7 @@ check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
 check-picker-desc, check-defaults-desc, topgrade-npm, picard-settings, snapshot-prefs, plist-import-order, setup-safety, undo-files,
-dock-setup, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, update-full, maintain, tidy-projects, prune-deployments, install-apps, make-pull, gitconfig, dead-functions and docs-drift tests in tests/, shellcheck over every tracked bash script,
+dock-setup, mrk-contract, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, update-full, maintain, tidy-projects, prune-deployments, install-apps, make-pull, gitconfig, dead-functions and docs-drift tests in tests/, shellcheck over every tracked bash script,
 and gofmt, `go vet` and `go test` for each
 directory under tools/. It stops at the first gate that fails, so a red gate early on means
 the later ones did not run.
@@ -213,6 +213,13 @@ log "undo files"
 # not the Dock in use, and make dock would have replaced it. Audit 15, T-14.
 log "dock setup"
 "$REPO_ROOT/tests/dock-setup.sh"
+
+# scripts/mrk-contract, which Dipstick and Barkeep read before they give a
+# script an option: each option it lists is one the script's parser and help
+# take, and each word is in the help. The five tests above hold each --check
+# line to its fields and words. Audit 22, O-2.
+log "mrk-contract"
+"$REPO_ROOT/tests/mrk-contract.sh"
 
 # clear-app-caches under a scratch HOME: every HTTP, code and Slack cache it
 # names cleared, the browsers' GPU caches and profile data left. Until

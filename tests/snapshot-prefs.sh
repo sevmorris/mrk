@@ -152,10 +152,12 @@ snap() {
   RC=$?
 }
 # check [ARGS] — snapshot-prefs --check. stdout in $W/check, stderr in
-# $W/check.err, exit status in RC.
+# $W/check.err, exit status in RC. Each run's lines are added to
+# $W/contract.lines, which the end of this test holds to scripts/mrk-contract.
 check() {
   "${ENV[@]}" "$REPO_ROOT/scripts/snapshot-prefs" --check "$@" > "$W/check" 2> "$W/check.err"
   RC=$?
+  cat "$W/check" >> "$W/contract.lines"
 }
 show_check() { sed 's/^/    stdout: /' "$W/check"; sed 's/^/    stderr: /' "$W/check.err"; }
 # lines LINE... — the lines given, as --check would show them
@@ -628,6 +630,15 @@ elif [[ "$kv_added" != "a KeyVault copy, as the group export saved one" ]]; then
   fail "a KeyVault plist was added by: $(tr '\n' ';' <<<"$kv_added")"
 else
   pass "KeyVault's domain was never read or exported, and only the test ever committed a copy"
+fi
+
+# Every line that a --check above wrote has the fields and the words that
+# scripts/mrk-contract names for snapshot-prefs, no more: a word added here and
+# not there fails (audit 22, O-2).
+if "$REPO_ROOT/tests/lib/contract-lines" scripts/snapshot-prefs < "$W/contract.lines"; then
+  pass "--check: each line of every run has the fields and words that mrk-contract names, unread included"
+else
+  fail "--check: lines that mrk-contract does not describe (above)"
 fi
 
 if (( fails )); then

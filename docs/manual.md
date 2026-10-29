@@ -486,6 +486,8 @@ Each fix is a button. Most buttons show their command, and run it in `~/mrk`, as
 - **Login Items** compares `config/login-items.txt` with the login items of this Mac. Its buttons run `sync-login-items --add`, `--ignore` and `--remove`.
 - **Dock** changes `config/dock.txt`, the list that `make dock` uses. `dock-setup --check` checks each item.
 
+Dipstick and Barkeep read `scripts/mrk-contract` before they give an mrk script an option. It lists, as JSON, the options that each script of the checkout takes, and the words of its `--check` lines. When a script does not take an option, the app runs nothing and says that this mrk is older than the app. Then run `make pull`. When a script takes the option and refuses the command line, the app shows the reason that the script gives.
+
 The panes do not commit. Use `mrk-push` or `pushall` to commit their changes. After a change, Dipstick runs `mrk-status` again, and the Unrecorded panel shows the fix.
 
 Dipstick runs most commands in its console, a window of its own. These are the fixes of the menu bar, and `make snapshot-prefs`, `make defaults` and `make dock` from the panes, one at a time. The console is a terminal of Dipstick's own, so you see each prompt and type your answer there. Press ⌃C or ⌘. to stop the command. When the command stops, Dipstick checks the pane again and runs `mrk-status` again. Dipstick does not quit while a command runs in the console.

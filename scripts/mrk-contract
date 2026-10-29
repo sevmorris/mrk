@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# mrk-contract — say, as JSON, what mrk's scripts take from a program and what
+# their --check lines hold.
+#
+# Dipstick and Barkeep run mrk's scripts and read their --check lines. Until
+# 2026-10-29 the only way for them to learn that a checkout lacked an option
+# was to pass it and read the exit status, and exit 2 means two things: an
+# option the script does not know, and a value it refuses. Dipstick read every
+# exit 2 as "this mrk is older than Dipstick" (audit 22, Z-3). An app now runs
+# this once for each checkout, before it passes an option, so an exit 2 means
+# only that the command line is wrong (audit 22, O-2).
+#
+# The document is written here by hand. tests/mrk-contract.sh holds it to each
+# script: every option to the script's parser and its --help, and every word to
+# its --help. The tests of the five --check scripts hold the lines that each
+# script writes to the fields and words here, with tests/lib/contract-lines.
+# Read-only: it prints and exits.
+
+set -euo pipefail
+
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+usage() {
+  cat <<'EOF'
+mrk-contract — show what mrk's scripts take from a program, as JSON
+
+Usage:
+  mrk-contract
+
+Options:
+  -h, --help      Show this help
+
+mrk-contract takes no options other than --help. It shows one JSON document
+on stdout, exits 0 and changes nothing. The document is for Dipstick and
+Barkeep. For each script that they run, it names the options that the script
+takes, the options of one decision, and the fields and words of its --check
+lines.
+
+A program runs mrk-contract once for each checkout, before it gives a script
+an option. When the script does not take the option, the program says so and
+does not run the script. When the script takes the option and exits 2, the
+command line is wrong, and stderr says why.
+
+"contract" is the version. A new script, option, field, word or key keeps the
+version. mrk raises it when it deletes an option, a field or a key, moves a
+field, or gives a word or a key a new meaning.
+EOF
+}
+mrk_help_guard "$(usage)" "$@"
+
+cat <<'EOF'
+{
+  "contract": 1,
+  "about": "What mrk's scripts take from a program, and what their --check lines hold. options: every option of the script. equals: the options that also take their value after an equals sign, as --add=NAME. decisions: the options of one decision, each with the values after it. check: the options that go with --check, and the fields of a line in their order. A field whose with is empty is on every line; one whose with names an option is on a line only with that option. A field with no words holds any text. A new script, option, field, word or key keeps the version. mrk raises it when it deletes an option, a field or a key, moves a field, or gives a word or a key a new meaning. BIN-1 (docs/bin/mrk-usage.html in sevmorris/mrk) says what each option, field and word means.",
+  "scripts": {
+    "scripts/defaults.sh": {
+      "options": ["--with-trackpad", "--check", "--skip", "--unskip", "--key", "--revert", "--help", "-h"],
+      "equals": [],
+      "decisions": [
+        {"option": "--skip", "values": ["DOMAIN", "KEY"]},
+        {"option": "--unskip", "values": ["DOMAIN", "KEY"]},
+        {"option": "--key", "values": ["DOMAIN", "KEY"]},
+        {"option": "--revert", "values": ["DOMAIN", "KEY"]}
+      ],
+      "check": {
+        "options": ["--check", "--with-trackpad"],
+        "fields": [
+          {"field": "domain", "with": "", "words": []},
+          {"field": "key", "with": "", "words": []},
+          {"field": "value", "with": "", "words": []},
+          {"field": "current", "with": "", "words": []},
+          {"field": "state", "with": "", "words": ["set", "differs", "absent", "nodomain", "skipped", "noaccess"]}
+        ]
+      }
+    },
+    "scripts/dock-setup": {
+      "options": ["--dry-run", "-n", "--check", "--help", "-h"],
+      "equals": [],
+      "decisions": [],
+      "check": {
+        "options": ["--check"],
+        "fields": [
+          {"field": "kind", "with": "", "words": ["app", "folder", "unlisted"]},
+          {"field": "line", "with": "", "words": []},
+          {"field": "path", "with": "", "words": []},
+          {"field": "state", "with": "", "words": ["present", "missing"]},
+          {"field": "dock", "with": "", "words": ["docked", "undocked", "unknown"]}
+        ]
+      }
+    },
+    "scripts/snapshot-prefs": {
+      "options": ["--dry-run", "-n", "--check", "--help", "-h"],
+      "equals": [],
+      "decisions": [],
+      "check": {
+        "options": ["--check"],
+        "fields": [
+          {"field": "file", "with": "", "words": []},
+          {"field": "key", "with": "", "words": []},
+          {"field": "change", "with": "", "words": ["added", "deleted", "changed", "unread"]}
+        ]
+      }
+    },
+    "scripts/sync": {
+      "options": ["--dry-run", "-n", "--commit", "-c", "--prune", "-p", "--add", "--ignore", "--section", "--formula", "--cask", "--check", "--details", "--help", "-h"],
+      "equals": [],
+      "decisions": [
+        {"option": "--add", "values": ["NAME"]},
+        {"option": "--section", "values": ["NAME"]},
+        {"option": "--ignore", "values": ["NAME"]},
+        {"option": "--prune", "values": ["NAME"]},
+        {"option": "--formula", "values": []},
+        {"option": "--cask", "values": []}
+      ],
+      "check": {
+        "options": ["--check", "--details"],
+        "fields": [
+          {"field": "action", "with": "", "words": ["add", "prune"]},
+          {"field": "kind", "with": "", "words": ["formula", "cask"]},
+          {"field": "name", "with": "", "words": []},
+          {"field": "section", "with": "--details", "words": []},
+          {"field": "reason", "with": "--details", "words": []},
+          {"field": "description", "with": "--details", "words": []}
+        ]
+      }
+    },
+    "scripts/sync-login-items": {
+      "options": ["--dry-run", "-n", "--commit", "-c", "--check", "--add", "--ignore", "--remove", "--help", "-h"],
+      "equals": ["--add", "--ignore", "--remove"],
+      "decisions": [
+        {"option": "--add", "values": ["NAME"]},
+        {"option": "--ignore", "values": ["NAME"]},
+        {"option": "--remove", "values": ["NAME"]}
+      ],
+      "check": {
+        "options": ["--check"],
+        "fields": [
+          {"field": "action", "with": "", "words": ["add", "remove"]},
+          {"field": "name", "with": "", "words": []},
+          {"field": "path", "with": "", "words": []},
+          {"field": "reason", "with": "", "words": ["new", "stale", "ignored"]}
+        ]
+      }
+    },
+    "scripts/check-picker-desc": {
+      "options": ["--fix", "--help", "-h"],
+      "equals": [],
+      "decisions": [],
+      "check": null
+    }
+  }
+}
+EOF

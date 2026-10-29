@@ -184,6 +184,9 @@ run() {
     STORE="$T/$name/store" CALLS="$T/$name/calls" FAIL_DOMAIN="${FAIL_DOMAIN:-}" DENY="${DENY:-}" MRK_LOCK_WAIT="${MRK_LOCK_WAIT:-}" \
     "$BASH" "${ROOT:-$REPO_ROOT}/scripts/defaults.sh" "$@" </dev/null > "$T/$name/out" 2> "$T/$name/err"
   RC=$?
+  # The lines of each --check, which the end of this test holds to
+  # scripts/mrk-contract.
+  if [[ " $* " == *" --check "* ]]; then cat "$T/$name/out" >> "$T/contract.lines"; fi
 }
 writes() { { grep '^write' "$T/$1/calls" 2>/dev/null || true; } | cut -f2-; }
 calls() { wc -l < "$T/$1/calls" 2>/dev/null | tr -d ' '; }
@@ -677,4 +680,13 @@ else
 fi
 cp "$T/skip.orig" "$SK"
 unset DENY
+
+# Every line that a --check above wrote has the fields and the words that
+# scripts/mrk-contract names for defaults.sh, no more: a word added here and not
+# there fails (audit 22, O-2).
+if "$REPO_ROOT/tests/lib/contract-lines" scripts/defaults.sh < "$T/contract.lines"; then
+  ok "--check: each line of every run has the fields and words that mrk-contract names, the six states included"
+else
+  fail "--check: lines that mrk-contract does not describe (above)"
+fi
 (( fails == 0 ))
