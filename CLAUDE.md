@@ -37,14 +37,17 @@ Check sevmac in the same session as any of these:
 
 ## In-repo documentation: manual.md
 
-`docs/manual.md` is this repository's own manual, and it is load-bearing in three ways
+`docs/manual.md` is this repository's own manual, and it is load-bearing in two ways
 that make it easy to mistake for a stray duplicate and delete:
 
 - It is the README's first link.
 - `docs/index.html` — the Pages site at [sevmorris.github.io/mrk](https://sevmorris.github.io/mrk/)
   — is a redirect to it.
-- **`scripts/sync-login-items` writes to it**, and exits 1 if it cannot find the sentence it
-  templates. Deleting the file breaks a daily-driver command.
+
+No script writes to it. It links to `config/login-items.txt` and does not copy the list:
+until 2026-10-29 `sync-login-items` rewrote a sentence naming the tracked apps, and
+`--manual` repaired it (audit 22, D-3). Keep it that way — a list copied into the manual
+is a list that goes stale.
 
 It covers the same ground as SMAC-1 — overview, the three phases, the migration checklist,
 the new-machine walkthrough, troubleshooting — so a change that needs SMAC-1 almost always
