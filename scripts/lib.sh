@@ -338,7 +338,8 @@ mrk_tsv_escape() {
 # end. The five --check modes print every line with this, so a program reads
 # them all by one rule, and loses nothing: split at each tab, then undo the
 # escapes in each field. A later version may add a field at the end of a
-# line. It never removes a field or changes their order.
+# line, and a word to a field with a fixed set of words, such as a state. It
+# never removes a field, changes their order, or changes what a word means.
 #
 # No $( ), so no subshell for each field: defaults.sh prints a line for each
 # of its keys. Bash 3.2, as mrk_config_entries is.

@@ -47,8 +47,8 @@ Disk Access, and TextEdit's and Passwords', without permission to get the
 data of other apps as well. Its value cannot be known, the fourth field is
 empty, and a run passes it over. --with-trackpad adds the trackpad keys to
 the check as well.
-A later version may add fields at the end of a line, and never removes or
-reorders one.
+A later version may add fields at the end of a line, and words to the
+state, and never removes or reorders a field.
 
 One key at a time, for a program such as Dipstick. Each option takes
 the domain and the key of a line of config/defaults.tsv, and refuses any

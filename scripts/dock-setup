@@ -52,7 +52,8 @@ removes.
 
 A tab, a newline and a backslash in a field are escaped as
 config/defaults.tsv escapes them (\t, \n, \\). A later version may add
-fields at the end of a line, and never removes or reorders one. It exits 0
+fields at the end of a line, and words to a field with a fixed set, such as
+the state, and never removes or reorders a field. It exits 0
 when it can read the list, 1 when it refuses the list, and 2 for a bad option.
 EOF
 }
