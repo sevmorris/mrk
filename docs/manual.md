@@ -138,8 +138,7 @@ It can run in the same shell as Phase 2, whether that is `make all`'s or one ope
 - **Config directory restore:** Restores the Calibre configuration into `~/Library/Preferences/calibre/`. Phase 3 skips this step when `gui.json` exists.
 - **Claude Code guidance for `~/Projects`:** Links `assets/CLAUDE.md` to `~/Projects/CLAUDE.md` and `assets/projects-skills/` to `~/Projects/.claude/skills`. Neither lives inside a repository on its own, so both are tracked here and linked into place like a dotfile. A file already there and not a symlink is moved aside with a `.bak` suffix rather than overwritten.
 - **Claude Code, every session — the skills:** Links each skill in `assets/projects-skills/` into `~/.claude/skills`, for example `~/.claude/skills/release-standards`. Claude Code reads `~/.claude/skills` in every session. It does not read `.claude/skills` in a parent folder, so the `~/Projects` link alone does not load the skills in a session that starts in a repository. Phase 3 removes a link in `~/.claude/skills` that points to a skill that is no longer in `assets/projects-skills/`. It also adds the SessionStart hook of the dependency-updates skill to `~/.claude/settings.json`. At the start of a session the hook reports any vendored binary (yt-dlp, FFmpeg, LAME) that is behind upstream and any open Dependabot alert, from a cache it refreshes in the background every 12 hours. The hook is added once; nothing else in `settings.json` is touched, and a file that is not valid JSON is reported as a failed step rather than rewritten.
-- **Login items:** post-install adds these apps to the login items: AlDente, BetterSnapTool, Chrono Plus, Dipstick, Dropbox, Raycast, Thaw
-- **The list of login items:** `config/login-items.txt` holds the path of each app, one on each line. Phase 3 adds the login item of an app only when the app is installed. `sync-login-items` keeps the file and the list above in step with System Settings.
+- **Login items:** Phase 3 adds a login item for each app in [`config/login-items.txt`](../config/login-items.txt) that is installed. The file holds the path of each app, one on each line. `sync-login-items` keeps the file in step with System Settings.
 - **Apps that must not start at login:** Phase 3 deletes the login items of Google Drive and NordVPN. `MRK_NOT_AT_LOGIN` in `scripts/lib.sh` names them. Each of these apps adds itself to the login items. NordVPN's installer starts the app in Phase 2, and the app adds itself. Google Drive adds itself each time it starts while its `AutoStartOnLogin` setting is on, which is its default. When Google Drive is installed, Phase 3 turns that setting off.
 
 > **Note:** Phase 3 continues when a step fails. It counts the failed steps and reports the total at the end.
@@ -376,7 +375,6 @@ mrk-defaults --unskip DOMAIN KEY --key DOMAIN KEY      # Turn it on again
 sync-login-items          # Select the items to add or delete
 sync-login-items -n       # Show the changes, but write nothing
 sync-login-items -c       # Commit the changes after the update
-sync-login-items --manual # Change only the sentence in the manual
 ```
 
 **How sync-login-items works**
@@ -387,7 +385,7 @@ sync-login-items --manual # Change only the sentence in the manual
 4. sync-login-items shows the differences in both directions.
 5. sync-login-items starts a `gum` selector, so you can choose the items.
 6. sync-login-items offers to add the new items you declined to `~/.mrk/login-items-ignore`.
-7. sync-login-items updates `config/login-items.txt` and `docs/manual.md`.
+7. sync-login-items updates `config/login-items.txt`.
 
 > **Caution:** If System Events returns no login items, or if the AppleScript fails, sync-login-items stops and shows an error. It does not continue, because an empty list looks the same as a complete list of deletions, and sync-login-items would then offer to delete every tracked item. Give Automation access in System Settings → Privacy & Security → Automation, and then run the command again.
 
@@ -409,13 +407,9 @@ sync-login-items only adds to the file. It keeps your comments, your blank lines
 
 > **Note:** sync-login-items drops the ignored names from the new items only. A name in the ignore list does not delete an item that `config/login-items.txt` already tracks. If an app is both tracked and in the ignore list, `post-install` still adds the app at install time. sync-login-items shows these apps under "Ignored, but still tracked", and it offers to delete them from `config/login-items.txt`.
 
-**The list file (`config/login-items.txt`)** holds the full path of each tracked app, one on each line. The path ends in `.app`. A line that starts with `#` is a comment. The paths are in byte order, so sync-login-items adds a new path before the first path that sorts after it. If you edit the file yourself, run `sync-login-items --manual`. `make check` fails until the file and the sentence in "Phase 3" agree.
+**The list file (`config/login-items.txt`)** holds the full path of each tracked app, one on each line. The path ends in `.app`. A line that starts with `#` is a comment. The paths are in byte order, so sync-login-items adds a new path before the first path that sorts after it. You can edit the file yourself. `make check` fails when a line is not the path of an app, when the paths are not in byte order, or when the file lists an app two times.
 
-**The sentence in "Phase 3"** names each app in `config/login-items.txt`. On each run, sync-login-items compares the sentence with the file. If they do not agree, sync-login-items changes the sentence. This also applies to a run that does not change the file, for example after you edit the file yourself. With `-n`, sync-login-items shows the change and writes nothing. With `-c`, a run that changes only the sentence commits `docs/manual.md` alone.
-
-`sync-login-items --manual` changes only the sentence. It does not read the login items, so it shows no picker and no prompt. `-n` and `-c` work with it in the same way.
-
-**A program can make the same decisions.** `sync-login-items --check` shows what a run would offer, one line for each item, with no prompt. It writes nothing. `--add`, `--ignore` and `--remove` each make one decision for one item, with no prompt. Each decision refuses an item that `--check` does not show. `--manual` needs no decision, so a program that changes `config/login-items.txt` can use it. [BIN-1](bin/mrk-usage.html#sync-login-items) gives the details.
+**A program can make the same decisions.** `sync-login-items --check` shows what a run would offer, one line for each item, with no prompt. It writes nothing. `--add`, `--ignore` and `--remove` each make one decision for one item, with no prompt. Each decision refuses an item that `--check` does not show. [BIN-1](bin/mrk-usage.html#sync-login-items) gives the details.
 
 ## How to check the day's work and the installation
 

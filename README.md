@@ -65,7 +65,7 @@ Run `make all` to execute all three phases at once. On a fresh machine, run them
 | Target | Description |
 |--------|-------------|
 | `make sync` | Snapshot installed Homebrew packages into the Brewfile. Add names to `~/.mrk/sync-ignore` (one per line) to permanently skip them. |
-| `make sync-login-items` | Sync system login items into `config/login-items.txt` and docs |
+| `make sync-login-items` | Sync system login items into `config/login-items.txt` |
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
 | `make update` | Update via topgrade (or brew) |
@@ -99,7 +99,7 @@ data in them is not.
 |---|---|---|
 | Preferences repo | `PREFS_REPO` in `scripts/snapshot-prefs` | Points at `sevmorris/mrk-prefs`, which is private. Nothing else works until you repoint it. |
 | Packages | `Brewfile` | My formulae and casks, with `##` section headers the sync tooling relies on. |
-| Login items | `config/login-items.txt` | The apps that open at login, one path a line. The [manual](docs/manual.md#phase-3--post-install-make-post-install) lists them, and `make sync-login-items` keeps that list and the file in step with System Settings. |
+| Login items | `config/login-items.txt` | The apps that open at login, one path a line. `make sync-login-items` keeps the file in step with System Settings. |
 | Snapshotted apps | `config/app-prefs.tsv` | The apps whose preferences `snapshot-prefs` saves and Phase 3 restores, one app a line: domain, plist, app path and name. The Application Support trees I care about are in `scripts/snapshot-prefs`. |
 | Dock | `config/dock.txt` | The Dock, left to right, one path a line. `make dock` wipes the Dock before it rebuilds it. |
 | macOS defaults | `config/defaults.tsv` | 133 keys, each one a preference of mine, with tabs between the fields. A key that two domains share, as the trackpad keys do, has a line for each domain. `make defaults` writes them, except those that `config/defaults-skip.tsv` lists, and `scripts/defaults.sh --check` compares them with the Mac. Documented in the [defaults reference](https://sevmorris.github.io/mrk/defaults/). |

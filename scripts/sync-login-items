@@ -31,13 +31,12 @@ check_macos
 DRY_RUN=0
 COMMIT=0
 CHECK=0
-MANUAL=0   # --manual: only bring the manual's sentence in step (section 1c)
 
 # One decision made on the command line in place of gum and the y/N prompts,
 # for a program with no terminal to show them on (mrk Settings). DECIDE is
 # add, ignore or remove. Each decision fills the variables the selection would
 # have filled, and the same code as an interactive run then writes
-# config/login-items.txt, the manual and the ignore list, so the two cannot
+# config/login-items.txt and the ignore list, so the two cannot
 # write or refuse an item differently. Modelled on sync's --add, --ignore and
 # --prune.
 DECIDE=""
@@ -56,7 +55,6 @@ while (("$#")); do
     --dry-run|-n) DRY_RUN=1 ;;
     --commit|-c)  COMMIT=1 ;;
     --check)      CHECK=1 ;;
-    --manual)     MANUAL=1 ;;
     --add|--ignore|--remove)
       # A name that starts with a dash is taken for the next option, so that
       # `--add -n` says what is missing. Such a name takes the form below.
@@ -86,18 +84,8 @@ Usage: scripts/sync-login-items [options]
                   backslash as \t, \n and \\. A later version may add fields
                   at the end of a line, and words to the action and the
                   reason, and never removes or reorders a field.
-  --manual        Only make the login-items sentence in docs/manual.md list
-                  the apps in config/login-items.txt, for a program that
-                  changed the file. Reads no login items: no System Events,
-                  no gum, no prompt. With -n it shows the change; with -c it
-                  commits docs/manual.md alone. Exits 0 when the sentence
-                  lists the apps, 1 when the file has a bad line or the
-                  manual has no such sentence, 2 for a bad option.
 
-A run that leaves config/login-items.txt as it is still makes the login-items
-sentence in docs/manual.md list the tracked apps, so a hand edit of the file
-leaves no stale sentence. -n and -c apply to it too. --check and a refused
-decision write nothing.
+--check and a refused decision write nothing.
 
 One decision, made without gum or a prompt (for a program, such as
 Dipstick). Each takes one item that --check lists, and refuses any other.
@@ -127,21 +115,18 @@ if [[ -n "$DECIDE" ]]; then
   # of the list or of the ignore file.
   [[ -n "${DECIDE_NAME//[[:space:]]/}" && "$DECIDE_NAME" != *[[:cntrl:]]* ]] \
     || usage_error "Not a login-item name: '$DECIDE_NAME'."
-  (( ! MANUAL )) || usage_error "--manual makes no decision. Give it alone, or with -n and -c."
 fi
 
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 readonly LOGIN_ITEMS="$REPO_ROOT/config/login-items.txt"
-readonly MANUAL_MD="$REPO_ROOT/docs/manual.md"
 
 # Temp files
 TEMP_ADD=""
 TEMP_REMOVE=""
 TMP_LIST=""
-TMP_MD=""
 TMP_OSA_ERR=""
 cleanup() {
-  for _f in "$TEMP_ADD" "$TEMP_REMOVE" "$TMP_LIST" "$TMP_MD" "$TMP_OSA_ERR"; do
+  for _f in "$TEMP_ADD" "$TEMP_REMOVE" "$TMP_LIST" "$TMP_OSA_ERR"; do
     [[ -n "$_f" && -f "$_f" ]] && rm -f "$_f" || true
   done
   mrk_unlock_all
@@ -149,7 +134,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # A run that can write holds the list's lock (mrk_lock, lib.sh) from before it
-# reads the list, for the list, the manual's sentence and the ignore file: two
+# reads the list, for the list and the ignore file: two
 # decisions at once, or a decision during an interactive run, lost a change.
 # --check and -n only read.
 if (( ! CHECK && ! DRY_RUN )); then
@@ -201,104 +186,6 @@ fi
 while IFS=$'\t' read -r app_name app_path; do
   [[ -n "$app_name" ]] && tracked_items["$app_name"]="$app_path"
 done <<< "$tracked_raw"
-
-# ─── 1b. The manual's sentence ───────────────────────────────────────────────
-#
-# Phase 3 in docs/manual.md names the tracked apps in one sentence, and
-# tests/sync-login-items.sh fails when the two differ. A run that changes the
-# list rewrites the sentence in section 9. A run that leaves the list as it is
-# brings the sentence back in step (manual_in_step), so a hand edit of
-# config/login-items.txt, or one by mrk Settings, has a command that
-# repairs the manual: --manual (section 1c), or any such run. Both go through
-# write_manual.
-
-# manual_items NAME... — the names sorted and joined with ", ", as the sentence
-# lists them. `IFS=', '` would join on the first IFS character only, which
-# produced an unreadable "A,B,C" run-on in the manual.
-manual_items() {
-  local sorted=() out=""
-  if (( $# > 0 )); then
-    mapfile -t sorted < <(printf '%s\n' "$@" | sort)
-    out=$(printf '%s, ' "${sorted[@]}")
-  fi
-  printf '%s' "${out%, }"
-}
-
-# write_manual ITEMS — docs/manual.md with its sentence listing ITEMS, written
-# to $TMP_MD. Sets MANUAL_STALE to 1 when that changes the sentence, else 0,
-# and MANUAL_WAS to what the sentence lists now. Stops the run when the manual
-# has no such sentence.
-write_manual() {
-  local out
-  # Beside the manual, so that mv replaces it in one step whatever the volume
-  [[ -n "$TMP_MD" ]] || TMP_MD=$(mktemp "${MANUAL_MD%/*}/.manual.md.XXXXXX")
-  out=$(python3 - "$MANUAL_MD" "$1" "$TMP_MD" <<'PYEOF'
-import sys, re
-path, items, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
-with open(path) as f:
-    content = f.read()
-# Must stay in step with the sentence in docs/manual.md. The prefix is the
-# anchor and the list runs to the end of the line. If the manual is reworded,
-# change it here too — the n_subs check below turns any drift into a hard error.
-pattern = r'(- \*\*Login items:\*\* post-install adds these apps to the login items: )([^\n]*)'
-new_content, n_subs = re.subn(pattern, lambda m: m.group(1) + items, content)
-if n_subs == 0:
-    print('Warning: could not locate login-items line in manual.md.', file=sys.stderr)
-    sys.exit(1)
-with open(out_path, 'w') as f:
-    f.write(new_content)
-was = re.search(pattern, content).group(2)
-print(('1' if new_content != content else '0') + '\t' + was, end='')
-PYEOF
-) || exit 1
-  MANUAL_STALE=${out%%$'\t'*}
-  MANUAL_WAS=${out#*$'\t'}
-}
-
-# manual_in_step — at an exit that leaves config/login-items.txt as it is, make
-# the sentence list the tracked apps, and say so. Silent when it already does.
-# With -n it says what it would change; with -c it commits docs/manual.md
-# alone, and nothing else that is staged.
-manual_in_step() {
-  local items msg="login-items: list the tracked apps in the manual"
-  items=$(manual_items "${!tracked_items[@]}")
-  write_manual "$items"
-  (( MANUAL_STALE )) || return 0
-
-  if (( DRY_RUN )); then
-    dry "docs/manual.md lists these login items: $MANUAL_WAS"
-    dry "Would change it to list the tracked apps: $items"
-    return 0
-  fi
-  # mktemp creates 0600, so restore the expected mode before the swap.
-  chmod 644 "$TMP_MD"
-  mv "$TMP_MD" "$MANUAL_MD"
-  log "Updated docs/manual.md to list the tracked apps: $items"
-
-  (( COMMIT )) || return 0
-  cd "$REPO_ROOT"
-  if git diff --quiet HEAD -- "$MANUAL_MD" 2>/dev/null; then
-    log "No changes to commit."
-    return 0
-  fi
-  git commit -m "$msg" -- "$MANUAL_MD"
-  log "Committed: $msg"
-}
-
-# ─── 1c. --manual ────────────────────────────────────────────────────────────
-#
-# The sentence depends on config/login-items.txt alone, so --manual stops here,
-# before the ignore list and System Events. A program that has just changed
-# the file repairs the manual with it, with no decision to make: a plain run
-# starts gum or a y/N prompt whenever System Events has an item to offer, and
-# a decision repairs the sentence only as a side effect. --check still takes
-# precedence, as it does over every other option.
-
-if (( MANUAL && ! CHECK )); then
-  manual_in_step
-  (( MANUAL_STALE )) || log "docs/manual.md already lists the tracked apps."
-  exit 0
-fi
 
 # ─── Load persistent ignore list ─────────────────────────────────────────────
 #
@@ -573,7 +460,6 @@ if [[ -n "$DECIDE" ]]; then
       # that follows would not offer it either way.
       if [[ "$DECIDE" == ignore ]] && _login_item_ignored "$n"; then
         log "$n is already in ~/.mrk/login-items-ignore"
-        manual_in_step
         exit 0
       fi
       if ! _listed "$n" ${new_items_arr[@]+"${new_items_arr[@]}"}; then
@@ -597,7 +483,6 @@ if [[ -n "$DECIDE" ]]; then
           _append_login_item_ignore "$n"
           log "Added $n to ~/.mrk/login-items-ignore"
         fi
-        manual_in_step
         exit 0
       fi
       add_items["$n"]=1
@@ -623,7 +508,6 @@ if [[ -z "$DECIDE" ]]; then
   if (( ${#new_items_arr[@]} == 0 && ${#stale_items_arr[@]} == 0 \
         && ${#conflict_items_arr[@]} == 0 )); then
     log "Login items are up to date."
-    manual_in_step
     exit 0
   fi
 
@@ -723,7 +607,7 @@ fi
 # The candidates the user did not select come back every run. Offer to write
 # them to the ignore file, so the file populates itself instead of needing a
 # hand edit. This stage touches ONLY the ignore file: it never adds, deletes
-# or retracks anything in config/login-items.txt or docs/manual.md.
+# or retracks anything in config/login-items.txt.
 #
 # It must run before the "nothing selected" exit below, because declining
 # every candidate is exactly the case this is for. A decision skips it, as
@@ -777,7 +661,6 @@ n_remove=${#remove_items[@]}
 
 if (( n_add == 0 && n_remove == 0 )); then
   log "No changes selected."
-  manual_in_step
   exit 0
 fi
 
@@ -873,44 +756,19 @@ total = sum(1 for l in out if is_entry(l))
 print(f'Updated config/login-items.txt: {len(adds)} added, {len(removes)} removed, {total} total.')
 PYEOF
 
-# ─── 8. Build final items list for docs ──────────────────────────────────────
-
-declare -A final_items=()
-for name in "${!tracked_items[@]}"; do
-  [[ -z "${remove_items[$name]+x}" ]] && final_items["$name"]=1 || true
-done
-for name in "${!add_items[@]}"; do
-  final_items["$name"]=1
-done
-
-items_list=$(manual_items "${!final_items[@]}")
-
-# ─── 9. Update docs ──────────────────────────────────────────────────────────
-
-write_manual "$items_list"
-
-# Both outputs succeeded — atomically replace the real files.
-# mktemp creates 0600, so restore the expected modes before the swap.
+# mktemp creates 0600, so restore the expected mode before the swap.
 chmod 644 "$TMP_LIST"
-chmod 644 "$TMP_MD"
 mv "$TMP_LIST" "$LOGIN_ITEMS"
-mv "$TMP_MD" "$MANUAL_MD"
-
-log "config/login-items.txt and docs updated."
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# ─── 10. Optional commit ─────────────────────────────────────────────────────
+# ─── 8. Optional commit ──────────────────────────────────────────────────────
 
 if (( COMMIT )); then
   cd "$REPO_ROOT"
 
-  changed_files=()
-  git diff --quiet "$LOGIN_ITEMS" 2>/dev/null || changed_files+=("config/login-items.txt")
-  git diff --quiet "$MANUAL_MD"   2>/dev/null || changed_files+=("docs/manual.md")
-
-  if (( ${#changed_files[@]} == 0 )); then
+  if git diff --quiet "$LOGIN_ITEMS" 2>/dev/null; then
     log "No changes to commit."
   else
     added_names=()
@@ -929,7 +787,7 @@ if (( COMMIT )); then
     fi
 
     commit_msg="login-items: $(IFS='; '; echo "${commit_parts[*]}")"
-    git add "${changed_files[@]}"
+    git add "$LOGIN_ITEMS"
     git commit -m "$commit_msg"
     log "Committed: $commit_msg"
   fi

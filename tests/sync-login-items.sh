@@ -4,8 +4,7 @@
 # command line take exactly what --check lists.
 #
 # The tracked login items are config/login-items.txt, one path a line, which
-# sync-login-items edits line by line, and it rewrites a sentence in
-# docs/manual.md through embedded Python. On 2026-09-18, when the list was
+# sync-login-items edits line by line. On 2026-09-18, when the list was
 # add_login_item lines in post-install, a first write was already right, but
 # reading it back was not: an app named with $ or a backtick came back with its
 # escaping backslash, one with a double quote was not recognised at all, and an
@@ -19,12 +18,10 @@
 # when System Events returns no login items.
 #
 # The committed list is checked too: every line an app path, in byte order,
-# and the manual's sentence naming exactly those apps, so an edit that skips
-# sync-login-items cannot leave the manual behind. A run of sync-login-items
-# that leaves the list as it is repairs that sentence, and section 11 checks
-# it does, with -n and --check writing nothing and -c committing the manual
-# alone. Section 12 checks --manual, which repairs only the sentence, with no
-# gum and no System Events, while the system has items to offer.
+# each app once. The manual links to the list and does not copy it, so no run
+# writes docs/manual.md: every check below that a file is unchanged includes
+# the manual (section 11). Until 2026-10-29 the manual named the apps in a
+# sentence that each run rewrote, and --manual repaired it (audit 22, D-3).
 #
 # Everything runs against a copy of the repository, under a throwaway HOME.
 # osascript is a stub that prints the login items from a fixture, and gum is a
@@ -63,15 +60,6 @@ if (( ${#entries[@]} >= 3 )) && [[ -z "$bad" ]] \
   pass "$LIST: ${#entries[@]} app paths, in byte order, each app once"
 else
   fail "$LIST: a line is not an app path, or the paths are out of byte order, or an app is listed twice:$bad"
-fi
-
-want_sentence=$(printf '%s\n' "${entries[@]}" | sed -E 's#.*/##; s#\.app$##' | sort | paste -sd, - | sed 's/,/, /g')
-got_sentence=$(sed -n 's/^- \*\*Login items:\*\* post-install adds these apps to the login items: //p' "$REPO_ROOT/docs/manual.md")
-if [[ -n "$got_sentence" && "$got_sentence" == "$want_sentence" ]]; then
-  pass "the manual's login-items sentence names exactly the apps $LIST lists"
-else
-  fail "the manual's login-items sentence differs from $LIST. Run sync-login-items, which repairs it, or make the sentence in docs/manual.md read:"
-  info "- **Login items:** post-install adds these apps to the login items: $want_sentence"
 fi
 
 # ── The copy ─────────────────────────────────────────────────────────────────
@@ -178,10 +166,10 @@ else
   fail "the header comment changed"
 fi
 
-if grep -qF "Tick\`Tock" "$R/docs/manual.md" && grep -qF 'Say "Hi"' "$R/docs/manual.md"; then
-  pass "the manual's login-items sentence names them as written"
+if cmp -s "$R/docs/manual.md" "$W/manual.orig"; then
+  pass "the manual is not written"
 else
-  fail "the manual's login-items sentence: $(grep -F 'Login items:**' "$R/docs/manual.md")"
+  fail "adding the awkward names wrote docs/manual.md"
 fi
 
 # ── 2. Nothing changed on the system, so nothing may change ──────────────────
@@ -264,6 +252,7 @@ else
   fail "--check (exit $RC, gum started $GUMS times):"
   diff <(printf '%s\n' "$want") "$W/out" | sed 's/^/      /' >&2; why
 fi
+
 if grep -q 'Not offering Startup: its login item is not an app' "$W/err"; then
   pass "--check: a login item that is not an app is not offered, and says why on stderr"
 else
@@ -345,8 +334,8 @@ reset_copy; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
 slx "$W/drift" --add "Zéphyr"
 want_list=$(printf '%s\n' "${entries[@]}" "/Applications/Zéphyr.app" | LC_ALL=C sort)
 if [[ $RC == 0 && $GUMS == 0 ]] && [[ "$(mrk_config_entries "$R/$LIST")" == "$want_list" ]] \
-   && grep -q 'login items: .*Zéphyr' "$R/docs/manual.md"; then
-  pass "--add NAME, with no terminal: the path goes into the list in byte order, and the name into the manual; gum not started"
+   && cmp -s "$R/docs/manual.md" "$W/manual.orig"; then
+  pass "--add NAME, with no terminal: the path goes into the list in byte order, and nothing else is written; gum not started"
 else
   fail "--add NAME (exit $RC, gum started $GUMS times)"; why
 fi
@@ -404,8 +393,8 @@ for who in "$STALE" "$CONFLICT"; do
   gone=$(grep -n "/$who\.app$" "$R/$LIST")
   if [[ $RC == 0 && $GUMS == 0 && -z "$gone" ]] \
      && [[ "$(grep -vc '^#' "$R/$LIST")" == $(( ${#entries[@]} - 1 )) ]] \
-     && ! grep -q "login items: .*$who" "$R/docs/manual.md"; then
-    pass "--remove $([[ $who == "$STALE" ]] && echo 'a stale app' || echo 'an ignored app'): its line and its name in the manual deleted"
+     && cmp -s "$R/docs/manual.md" "$W/manual.orig"; then
+    pass "--remove $([[ $who == "$STALE" ]] && echo 'a stale app' || echo 'an ignored app'): its line deleted, and nothing else written"
   else
     fail "--remove $who (exit $RC)"; why
   fi
@@ -426,9 +415,9 @@ HOME="$W/home" git -C "$R" add -A
 HOME="$W/home" git -C "$R" commit -qm base
 slx "$W/drift" --remove "$STALE" -c
 if [[ $RC == 0 && "$(git -C "$R" log -1 --format=%s)" == "login-items: remove $STALE" ]] \
-   && [[ "$(git -C "$R" show --name-only --format= HEAD | sort | tr '\n' ' ')" == "$LIST docs/manual.md " ]] \
+   && [[ "$(git -C "$R" show --name-only --format= HEAD)" == "$LIST" ]] \
    && [[ -z "$(git -C "$R" status --porcelain)" ]]; then
-  pass "--remove NAME -c: one commit, of the list and the manual"
+  pass "--remove NAME -c: one commit, of the list alone"
 else
   fail "--remove NAME -c (exit $RC): $(git -C "$R" log -1 --format=%s) / $(git -C "$R" show --name-only --format= HEAD | tr '\n' ' ')"; why
 fi
@@ -436,7 +425,7 @@ rm -rf "$R/.git"; reset_copy; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-i
 
 # ── 10. Bad command lines, and a bad list ────────────────────────────────────
 
-for args in "--add" "--add Zed --remove Foo" "--remove -n" "--manual --add Zed" "--frob" "--check --frob"; do
+for args in "--add" "--add Zed --remove Foo" "--remove -n" "--manual" "--frob" "--check --frob"; do
   # shellcheck disable=SC2086  # each case is several words
   slx "$W/drift" $args
   if [[ $RC == 2 ]] && unchanged; then
@@ -457,189 +446,27 @@ else
 fi
 reset_copy
 
-# ── 11. The manual's sentence, when the list does not change ─────────────────
+# ── 11. The manual is not read ───────────────────────────────────────────────
 #
-# A hand edit of the list, or one by mrk Settings, leaves the sentence
-# behind. A run that leaves the list as it is brings the sentence back in step.
-# The stale sentence here names an app the list does not, and lacks one it
-# does.
-
-# set_sentence FILE LIST — FILE, with the manual's login-items sentence listing LIST
-set_sentence() {
-  python3 - "$1" "$2" <<'PYEOF'
-import sys, re
-path, items = sys.argv[1:3]
-with open(path) as f:
-    content = f.read()
-sys.stdout.write(re.sub(r'(- \*\*Login items:\*\* post-install adds these apps to the login items: )[^\n]*',
-                        lambda m: m.group(1) + items, content))
-PYEOF
-}
-set_sentence "$W/manual.orig" "$want_sentence" > "$W/manual.good"
-set_sentence "$W/manual.orig" "Gone App, ${want_sentence#*, }" > "$W/manual.stale"
-stale_manual() { cp -p "$W/manual.stale" "$R/docs/manual.md"; }
-
-stale_manual
-slx "$BASE"
-if [[ $RC == 0 && $GUMS == 0 ]] && grep -q 'Login items are up to date' "$W/err" \
-   && grep -q 'Updated docs/manual.md' "$W/err" \
-   && cmp -s "$R/docs/manual.md" "$W/manual.good" && cmp -s "$R/$LIST" "$W/list.orig"; then
-  pass "a stale sentence, with the login items up to date: the sentence repaired, and the list unchanged"
-else
-  fail "a stale sentence, with the login items up to date (exit $RC)"; why
-fi
-slx "$BASE"
-if [[ $RC == 0 ]] && ! grep -q 'docs/manual.md' "$W/err" && cmp -s "$R/docs/manual.md" "$W/manual.good"; then
-  pass "and the next run says nothing about the manual"
-else
-  fail "the run after the repair (exit $RC)"; why
-fi
-
-stale_manual
-slx "$BASE" -n
-if [[ $RC == 0 ]] && grep -q 'lists these login items: Gone App' "$W/err" \
-   && grep -q 'Would change it to list the tracked apps' "$W/err" \
-   && cmp -s "$R/docs/manual.md" "$W/manual.stale" && cmp -s "$R/$LIST" "$W/list.orig"; then
-  pass "-n with a stale sentence: says what it would change, and writes nothing"
-else
-  fail "-n with a stale sentence (exit $RC)"; why
-fi
-
-slx "$BASE" --check
-if [[ $RC == 0 && ! -s "$W/out" ]] && cmp -s "$R/docs/manual.md" "$W/manual.stale"; then
-  pass "--check with a stale sentence: no line, and writes nothing"
-else
-  fail "--check with a stale sentence (exit $RC): $(cat "$W/out")"; why
-fi
-
-mkdir -p "$W/home/.mrk"; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
-slx "$W/drift" --add Nobody
-if [[ $RC == 1 ]] && cmp -s "$R/docs/manual.md" "$W/manual.stale"; then
-  pass "a refused decision with a stale sentence: writes nothing"
-else
-  fail "a refused decision with a stale sentence (exit $RC)"; why
-fi
-slx "$W/drift" --ignore "Zéphyr"
-if [[ $RC == 0 ]] && cmp -s "$R/docs/manual.md" "$W/manual.good" && cmp -s "$R/$LIST" "$W/list.orig"; then
-  pass "--ignore NAME with a stale sentence: the sentence repaired too"
-else
-  fail "--ignore NAME with a stale sentence (exit $RC)"; why
-fi
-cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
-
-# -c commits the manual alone: a file staged before the run stays staged.
-stale_manual
-HOME="$W/home" git -C "$R" init -q
-HOME="$W/home" git -C "$R" add -A
-HOME="$W/home" git -C "$R" commit -qm base
-echo staged > "$R/staged.txt"
-HOME="$W/home" git -C "$R" add staged.txt
-slx "$BASE" -c
-if [[ $RC == 0 && "$(git -C "$R" log -1 --format=%s)" == "login-items: list the tracked apps in the manual" ]] \
-   && [[ "$(git -C "$R" rev-list --count HEAD)" == 2 ]] \
-   && [[ "$(git -C "$R" show --name-only --format= HEAD)" == "docs/manual.md" ]] \
-   && [[ "$(git -C "$R" status --porcelain)" == "A  staged.txt" ]] \
-   && cmp -s "$R/docs/manual.md" "$W/manual.good"; then
-  pass "-c with a stale sentence: one commit, of the manual alone"
-else
-  fail "-c with a stale sentence (exit $RC): $(git -C "$R" log -1 --format=%s) / $(git -C "$R" show --name-only --format= HEAD | tr '\n' ' ') / $(git -C "$R" status --porcelain | tr '\n' ' ')"; why
-fi
-rm -rf "$R/.git" "$R/staged.txt"; reset_copy
+# A manual with no login-items sentence, or no manual at all, changes nothing:
+# each run, -c included, reads and writes the list and the ignore file only.
 
 grep -v '^- \*\*Login items:\*\*' "$W/manual.orig" > "$R/docs/manual.md"
+cp -p "$R/docs/manual.md" "$W/manual.none"
 slx "$BASE"
-if [[ $RC == 1 ]] && grep -q 'could not locate login-items line' "$W/err" && cmp -s "$R/$LIST" "$W/list.orig"; then
-  pass "a manual with no login-items sentence: exit 1, and the list unchanged"
+if [[ $RC == 0 ]] && grep -q 'Login items are up to date' "$W/err" \
+   && cmp -s "$R/docs/manual.md" "$W/manual.none" && cmp -s "$R/$LIST" "$W/list.orig"; then
+  pass "a manual with no login-items sentence: exit 0, and nothing written"
 else
   fail "a manual with no login-items sentence (exit $RC)"; why
 fi
-reset_copy
-
-# ── 12. --manual ─────────────────────────────────────────────────────────────
-#
-# A program that has just changed the list repairs the sentence with --manual.
-# The drift fixture has a new, a stale and an ignored item to offer, so a plain
-# run would start gum here. --manual must not, and must ask System Events
-# nothing: with System Events failing it repairs the sentence all the same.
-
+rm -f "$R/docs/manual.md"
 mkdir -p "$W/home/.mrk"; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
-stale_manual
-slx "$W/drift" --manual
-if [[ $RC == 0 && $GUMS == 0 && ! -s "$W/out" ]] && grep -q 'Updated docs/manual.md' "$W/err" \
-   && cmp -s "$R/docs/manual.md" "$W/manual.good" && cmp -s "$R/$LIST" "$W/list.orig" \
-   && cmp -s "$W/home/.mrk/login-items-ignore" "$W/ignore.orig"; then
-  pass "--manual with a stale sentence and items to offer: the sentence repaired, gum not started, nothing else written"
+slx "$W/drift" --add "Zéphyr"
+if [[ $RC == 0 && ! -e "$R/docs/manual.md" ]] && mrk_config_entries "$R/$LIST" | grep -qxF '/Applications/Zéphyr.app'; then
+  pass "no manual at all: --add NAME still writes the list, and creates no manual"
 else
-  fail "--manual with a stale sentence and items to offer (exit $RC, gum started $GUMS times)"; why
-fi
-slx "$W/drift" --manual
-if [[ $RC == 0 ]] && grep -q 'already lists the tracked apps' "$W/err" \
-   && cmp -s "$R/docs/manual.md" "$W/manual.good"; then
-  pass "--manual again: says the manual already lists them"
-else
-  fail "--manual again (exit $RC)"; why
-fi
-
-stale_manual
-slx FAIL --manual
-if [[ $RC == 0 ]] && cmp -s "$R/docs/manual.md" "$W/manual.good"; then
-  pass "--manual with System Events failing: the sentence repaired, so it asks System Events nothing"
-else
-  fail "--manual with System Events failing (exit $RC)"; why
-fi
-
-stale_manual
-slx "$W/drift" --manual -n
-if [[ $RC == 0 && $GUMS == 0 ]] && grep -q 'Would change it to list the tracked apps' "$W/err" \
-   && cmp -s "$R/docs/manual.md" "$W/manual.stale" && cmp -s "$R/$LIST" "$W/list.orig"; then
-  pass "--manual -n: says what it would change, and writes nothing"
-else
-  fail "--manual -n (exit $RC)"; why
-fi
-
-slx "$W/drift" --check --manual
-if [[ $RC == 0 && "$(cat "$W/out")" == "$want" ]] && cmp -s "$R/docs/manual.md" "$W/manual.stale"; then
-  pass "--check --manual: --check takes precedence, and writes nothing"
-else
-  fail "--check --manual (exit $RC)"; why
-fi
-
-stale_manual
-HOME="$W/home" git -C "$R" init -q
-HOME="$W/home" git -C "$R" add -A
-HOME="$W/home" git -C "$R" commit -qm base
-echo staged > "$R/staged.txt"
-HOME="$W/home" git -C "$R" add staged.txt
-slx "$W/drift" --manual -c
-if [[ $RC == 0 && $GUMS == 0 && "$(git -C "$R" log -1 --format=%s)" == "login-items: list the tracked apps in the manual" ]] \
-   && [[ "$(git -C "$R" rev-list --count HEAD)" == 2 ]] \
-   && [[ "$(git -C "$R" show --name-only --format= HEAD)" == "docs/manual.md" ]] \
-   && [[ "$(git -C "$R" status --porcelain)" == "A  staged.txt" ]] \
-   && cmp -s "$R/docs/manual.md" "$W/manual.good"; then
-  pass "--manual -c: one commit, of the manual alone"
-else
-  fail "--manual -c (exit $RC): $(git -C "$R" log -1 --format=%s) / $(git -C "$R" show --name-only --format= HEAD | tr '\n' ' ') / $(git -C "$R" status --porcelain | tr '\n' ' ')"; why
-fi
-rm -rf "$R/.git" "$R/staged.txt"; reset_copy
-
-printf 'Applications/NoSlash.app\n' >> "$R/$LIST"
-cp -p "$R/$LIST" "$W/list.bad"
-stale_manual
-slx "$W/drift" --manual
-if [[ $RC == 1 ]] && grep -qF 'Not an app path: Applications/NoSlash.app' "$W/err" \
-   && cmp -s "$R/$LIST" "$W/list.bad" && cmp -s "$R/docs/manual.md" "$W/manual.stale"; then
-  pass "--manual with a bad line in the list: exit 1, and nothing written"
-else
-  fail "--manual with a bad line in the list (exit $RC)"; why
-fi
-reset_copy
-
-grep -v '^- \*\*Login items:\*\*' "$W/manual.orig" > "$R/docs/manual.md"
-slx "$W/drift" --manual
-if [[ $RC == 1 ]] && grep -q 'could not locate login-items line' "$W/err"; then
-  pass "--manual with no login-items sentence in the manual: exit 1"
-else
-  fail "--manual with no login-items sentence (exit $RC)"; why
+  fail "--add NAME with no manual (exit $RC)"; why
 fi
 reset_copy
 
