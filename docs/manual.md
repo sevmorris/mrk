@@ -430,7 +430,7 @@ Dipstick shows the same panels in the menu bar. See [Companion apps](#companion-
 
 ## mrk-menu
 
-**`mrk-menu`** starts any mrk task. It groups the commands into categories: Daily, Brewfile, Login items, Preferences, Diagnostics, Maintenance, Setup, Migration, and Nuclear options. Daily comes first, with the three commands that record a change: `sync -c`, `sync-login-items -c` and `mrk-push`. Setup and Migration, which a Mac runs once, come last. It runs each command in the same terminal.
+**`mrk-menu`** starts any mrk task. It groups the commands into categories: Daily, Brewfile, Login items, Preferences, Diagnostics, Maintenance, Setup, Migration, and Nuclear options. Daily comes first, with the three commands that record a change: `sync --push`, `sync-login-items -c` and `mrk-push`. Maintenance has `tidy-projects`, for its report, and `tidy-projects --apply ff,refs,worktrees,branches`. Setup and Migration, which a Mac runs once, come last. It runs each command in the same terminal.
 
 ```bash
 mrk-menu
