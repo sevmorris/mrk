@@ -356,6 +356,29 @@ else
   fail "sync --check: rc $rc, stdout:"; sed 's/^/      /' "$W/check.out" >&2
   git -C "$R" diff --stat | sed 's/^/      /' >&2
 fi
+
+# on_tty OUT CMD... — CMD with stdout in OUT and stderr on a terminal from
+# script(1), as a run from Terminal has it, so lib.sh turns its colours on.
+# OUT.tty exists afterwards when stderr was a terminal. Until 2026-10-29 every
+# --check here ran with stderr in a file (audit 22, Z-13).
+on_tty() {
+  local out=$1; shift
+  rm -f "$out" "$out.tty"
+  # shellcheck disable=SC2016  # expanded by the inner bash
+  script -q /dev/null bash -c '[[ -t 2 ]] && : > "$1.tty"; exec > "$1"; shift; exec "$@"' _ "$out" "$@" </dev/null > "$out.term" 2>&1
+}
+# same_on_tty OUT WANT — OUT is WANT, stderr was a terminal, and OUT holds no
+# escape character
+same_on_tty() {
+  [[ -e "$1.tty" ]] && [[ "$(cat "$1")" == "$2" ]] && ! LC_ALL=C grep -q $'\033' "$1"
+}
+(cd "$W/home" && on_tty "$W/check.tty" env HOME="$W/home" PATH="$W/stubs:$PATH" MRK_BREW="$W/stubs/brew" FIX="$FIX" \
+  bash "$R/scripts/sync" --check)
+if same_on_tty "$W/check.tty" "$want" && LC_ALL=C grep -q $'\033\\[' "$W/check.tty.term"; then
+  pass "sync --check with stderr on a terminal: the same drift, the colours on stderr alone"
+else
+  fail "sync --check with stderr on a terminal:"; sed 's/^/      /' "$W/check.tty" >&2
+fi
 check_sync -c -p; rc=$?
 if (( rc == 0 )) && [[ "$(cat "$W/check.out")" == "$want" ]] && git -C "$R" diff --quiet; then
   pass "--check takes precedence: with -c and -p it still writes and commits nothing"

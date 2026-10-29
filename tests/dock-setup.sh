@@ -260,6 +260,28 @@ else
   diff <(printf '%s\n' "$want") "$W/stdout" | sed 's/^/      /' >&2
   sed 's/^/      /' "$W/stderr" "$W/calls" >&2
 fi
+
+# on_tty OUT CMD... — CMD with stdout in OUT and stderr on a terminal from
+# script(1), as a run from Terminal has it, so lib.sh turns its colours on.
+# OUT.tty exists afterwards when stderr was a terminal. Until 2026-10-29 every
+# --check here ran with stderr in a file (audit 22, Z-13).
+on_tty() {
+  local out=$1; shift
+  rm -f "$out" "$out.tty"
+  # shellcheck disable=SC2016  # expanded by the inner bash
+  script -q /dev/null bash -c '[[ -t 2 ]] && : > "$1.tty"; exec > "$1"; shift; exec "$@"' _ "$out" "$@" </dev/null > "$out.term" 2>&1
+}
+# same_on_tty OUT WANT — OUT is WANT, stderr was a terminal, and OUT holds no
+# escape character
+same_on_tty() {
+  [[ -e "$1.tty" ]] && [[ "$(cat "$1")" == "$2" ]] && ! LC_ALL=C grep -q $'\033' "$1"
+}
+on_tty "$W/stdout.tty" env -i "${ENV[@]}" "$S/bash" "$R/scripts/dock-setup" --check
+if same_on_tty "$W/stdout.tty" "$want"; then
+  pass "--check with stderr on a terminal: the same lines, and no colour on stdout"
+else
+  fail "--check with stderr on a terminal"; diff <(printf '%s\n' "$want") "$W/stdout.tty" | sed 's/^/      /' >&2
+fi
 if [[ "$(grep -F "$safari" "$W/stdout")" == "app$TAB$safari$TAB$safari${TAB}present${TAB}docked" ]] \
    && grep -qxF "unlisted$TAB$TAB$signal${TAB}present${TAB}docked" "$W/stdout"; then
   pass "--check: Safari in the Dock by its cryptex path is docked, and Signal, not in the list, is unlisted"

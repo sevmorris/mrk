@@ -276,6 +276,30 @@ else
   fail "--check after a run: exit $RC; calls: $check_calls"
   grep -v $'\tset$' "$T/full/out" | head -3 >&2; head -3 "$T/full/err" >&2
 fi
+
+# on_tty OUT CMD... — CMD with stdout in OUT and stderr on a terminal from
+# script(1), as a run from Terminal has it, so lib.sh turns its colours on.
+# OUT.tty exists afterwards when stderr was a terminal. Until 2026-10-29 every
+# --check here ran with stderr in a file (audit 22, Z-13).
+on_tty() {
+  local out=$1; shift
+  rm -f "$out" "$out.tty"
+  # shellcheck disable=SC2016  # expanded by the inner bash
+  script -q /dev/null bash -c '[[ -t 2 ]] && : > "$1.tty"; exec > "$1"; shift; exec "$@"' _ "$out" "$@" </dev/null > "$out.term" 2>&1
+}
+# same_on_tty OUT WANT — OUT is WANT, stderr was a terminal, and OUT holds no
+# escape character
+same_on_tty() {
+  [[ -e "$1.tty" ]] && [[ "$(cat "$1")" == "$2" ]] && ! LC_ALL=C grep -q $'\033' "$1"
+}
+cp "$T/full/out" "$T/full/out.file"
+on_tty "$T/full/out.tty" env -i HOME="$T/full/home" PATH="$DS:/usr/bin:/bin:/usr/sbin:/sbin" TMPDIR="$T/tmp" \
+  STORE="$T/full/store" CALLS="$T/full/calls" "$BASH" "$REPO_ROOT/scripts/defaults.sh" --check --with-trackpad
+if same_on_tty "$T/full/out.tty" "$(cat "$T/full/out.file")" && [[ "$(undo full)" == "$undo_full" ]]; then
+  ok "--check with stderr on a terminal: the same rows, no colour on stdout, and the undo file as it was"
+else
+  fail "--check with stderr on a terminal"; diff "$T/full/out.file" "$T/full/out.tty" | head -5 >&2
+fi
 run full --check
 if [[ $RC == 0 && "$(wc -l < "$T/full/out" | tr -d ' ')" == "$(expected 'always|existing' x | wc -l | tr -d ' ')" ]] \
    && grep -q $'^com.apple.screencapture\tlocation\t'"$T/full/home/Desktop"$'\t'"$T/full/home/Desktop"$'\tset$' "$T/full/out" \
