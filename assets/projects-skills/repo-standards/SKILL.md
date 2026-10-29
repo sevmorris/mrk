@@ -58,6 +58,7 @@ protect there: a repo with no Pages site cannot need `.nojekyll`.
 | `tests-in-ci` | Tests that exist and never run, so they rot. `release.sh` running them counts. | repos with tests | port WaxOnWaxOff's `build-and-test` job |
 | `ci-matrix` | CI passing on images users have left, never compiling what ships, or never running a slice that ships. On 2026-10-04 four repos tested on macos-15 alone, none built with Xcode 27 (which every release uses), two universal apps had never run their Intel slice, and two jobs sat on macos-14, which GitHub fails in brownouts through October 2026 and retires on 2026-11-02. | repos whose CI runs Xcode or Swift tests | a leg per gap the note names: WaxOnWaxOff's `ci.yml` for the matrix, DoublEnder's for the Intel leg |
 | `ci-current` | CI breaking when GitHub removes an action's runtime. The Node 20 warning was in every mrk run. | repos with workflows | bump each `uses:` to its current major, after reading its release notes |
+| `ci-cancel` | A stale run going to the end. A push to a pull request starts a run, and the one for the commit before it ran on to its finish: on 2026-10-29 mrk#142 had two 11-minute runs at once, the first for a commit no one would read, and no workflow on the account cancelled one. | each workflow that runs on `pull_request` | mrk's `ci.yml` `concurrency:` block: the group is the workflow and the pull request's number, or the run id for any other event, with `cancel-in-progress: true`, so a push to `main` is never cancelled and never waits |
 
 ## 3. Applying fixes
 
