@@ -611,6 +611,16 @@ if ! grep -q 'zq-both' "$W/decide.out"; then
 else
   fail "--check still lists zq-both after --ignore"
 fi
+# A name on a last line with no newline, with spaces and a comment around it,
+# is a rule too: sync and sync-login-items read the list with one helper,
+# mrk_ignore_entries. sync dropped such a line, and offered the name again.
+printf '# test\n  zq-both  # by hand' > "$IGN"
+decide --check
+if (( rc == 0 )) && ! grep -q 'zq-both' "$W/decide.out"; then
+  pass "a name on a last line with no newline is ignored, its spaces and comment dropped"
+else
+  fail "--check lists zq-both, the last line of the ignore file: rc $rc"; sed 's/^/      /' "$W/decide.out" >&2
+fi
 rm -f "$IGN"
 decide --ignore zq-later
 if (( rc == 0 )) && [[ "$(grep -v '^#' "$IGN")" == zq-later ]] && grep -q '^# mrk sync ignore list' "$IGN"; then

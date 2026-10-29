@@ -199,21 +199,19 @@ done <<< "$tracked_raw"
 # The file is created when the user accepts the offer to ignore a declined
 # item (section 5b), or by --ignore NAME, and can also be written by hand.
 #
-# This mirrors ~/.mrk/sync-ignore ("Load persistent ignore list" in
-# scripts/sync) in format, load and match, with one deliberate difference: sync
-# strips *all* whitespace from a rule, which is right for Brewfile tokens but
-# would turn "Chrono Plus" into "ChronoPlus" and never match. Login-item names
-# are app names and contain interior spaces, so only leading and trailing
-# whitespace is stripped here.
+# mrk_ignore_entries in lib.sh reads it, as it reads ~/.mrk/sync-ignore for
+# sync, with one difference: sync deletes every space in a rule, which is right
+# for a Homebrew token but would turn "Chrono Plus" into "ChronoPlus" and never
+# match. A login-item name is an app name and can hold a space, so only the
+# spaces at the start and the end go here.
 
 _LOGIN_ITEM_IGNORE=()
 if [[ -f "${STATE_DIR}/login-items-ignore" ]]; then
-  while IFS= read -r _line || [[ -n "$_line" ]]; do
-    _line="${_line%%#*}"                           # strip inline comments
-    _line="${_line#"${_line%%[![:space:]]*}"}"     # strip leading whitespace
-    _line="${_line%"${_line##*[![:space:]]}"}"     # strip trailing whitespace
+  _ignored=$(mrk_ignore_entries "${STATE_DIR}/login-items-ignore" ends) \
+    || { err "Cannot read ~/.mrk/login-items-ignore"; exit 1; }
+  while IFS= read -r _line; do
     [[ -n "$_line" ]] && _LOGIN_ITEM_IGNORE+=("$_line")
-  done < "${STATE_DIR}/login-items-ignore"
+  done <<< "$_ignored"
   if (( ${#_LOGIN_ITEM_IGNORE[@]} > 0 )); then
     log "Loaded ${#_LOGIN_ITEM_IGNORE[@]} ignore rule(s) from ~/.mrk/login-items-ignore"
   fi
@@ -228,34 +226,19 @@ _login_item_ignored() {
   return 1
 }
 
-# Append one name to the ignore file, and create the file if it is absent.
-# Append-only: existing lines are never rewritten or reordered. The name goes
-# in verbatim, interior spaces intact, because the loader trims only the ends.
-_append_login_item_ignore() {
-  local _name="$1"
-  local _f="${STATE_DIR}/login-items-ignore"
-
-  if [[ ! -f "$_f" ]]; then
-    mkdir -p "$STATE_DIR"
-    cat > "$_f" <<'IGNOREHEADER'
-# mrk login-items ignore list
+# Append one name to the ignore file, and create the file if it is absent,
+# with this header. mrk_ignore_append keeps every line already there. The name
+# goes in as it is, with its spaces, because the loader trims only the ends.
+_LOGIN_ITEM_IGNORE_HEADER='# mrk login-items ignore list
 #
 # One login-item name per line: the app name, without the .app suffix.
 # A # character starts a comment. Leading and trailing spaces are trimmed,
 # so a name with interior spaces (for example: Chrono Plus) works as written.
 #
-# sync-login-items drops these names, so it never offers them as new items.
-IGNOREHEADER
-  fi
-
-  # A file whose last line has no newline would otherwise absorb the append.
-  # The loader tolerates a missing final newline, so this state is reachable.
-  if [[ -s "$_f" && -n "$(tail -c 1 "$_f")" ]]; then
-    printf '\n' >> "$_f"
-  fi
-
-  printf '%s\n' "$_name" >> "$_f"
-  _LOGIN_ITEM_IGNORE+=("$_name")   # keep the in-memory list authoritative
+# sync-login-items drops these names, so it never offers them as new items.'
+_append_login_item_ignore() {
+  mrk_ignore_append "${STATE_DIR}/login-items-ignore" "$1" "$_LOGIN_ITEM_IGNORE_HEADER"
+  _LOGIN_ITEM_IGNORE+=("$1")   # keep the in-memory list authoritative
 }
 
 # ─── 2. Get system login items (name -> path) ────────────────────────────────
