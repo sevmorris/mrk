@@ -5,7 +5,7 @@
 #
 # A throwaway HOME holds four clones: Alpha, with every branch and worktree case (a branch at
 # its merged PR's head, one behind it, one with commits the PR did not merge, one in main with no
-# PR, a closed PR, no PR, a never-pushed branch; a merged worktree, a dirty one, one a process sits in, one whose
+# PR, a closed PR, no PR, a never-pushed branch, one never pushed that holds nothing of its own; a merged worktree, a dirty one, one a process sits in, one whose
 # folder is gone; a stash, a build/ folder, a Pages site with 12 deployments, and main one
 # commit behind); Beta, with no remote and a build/ folder git tracks; Gamma, whose remote is
 # off GitHub with a token in its URL; Delta, on a work branch with an uncommitted change.
@@ -98,6 +98,9 @@ echo later >> "$T/other/behind.txt"; q -C "$T/other" commit -am later; q -C "$T/
 q --git-dir="$T/remotes/Alpha.git" update-ref refs/pull/15/head "$(git -C "$T/other" rev-parse HEAD)"
 pr behind 15 MERGED "$(git -C "$T/other" rev-parse HEAD)"; gone behind
 q -C "$A" switch -c localonly main; echo l > "$A/l.txt"; q -C "$A" add -A; q -C "$A" commit -m local; q -C "$A" switch main
+# emptywt: never pushed, at a commit in main, as a session that made a worktree and committed
+# nothing leaves its branch. Until 2026-10-28 it read as "this clone is its only copy".
+q -C "$A" branch emptywt main
 mkdir -p "$A/.claude/worktrees"
 q -C "$A" worktree add --detach "$A/.claude/worktrees/wt-merged" merged-ok
 q -C "$A" worktree add "$A/.claude/worktrees/wt-dirty" merged2; echo scratch > "$A/.claude/worktrees/wt-dirty/untracked.txt"
@@ -138,6 +141,7 @@ check "kept: closed PR"                                         'has "branch clo
 check "kept: no PR"                                             'has "branch nopr: gone from origin, and no pull request has it as its head"'
 check "kept: merged2 pinned by its dirty worktree"              'has "branch merged2: merged in PR #14, but checked out in a worktree that stays"'
 check "owner: localonly never pushed"                           'has "branch localonly was never pushed"'
+check "branches: emptywt offered (never pushed, its tip in main)" 'has "    Alpha: emptywt (in main, never pushed)" && ! has "branch emptywt was never pushed"'
 check "worktrees: wt-merged offered (in merged PR #11)"         'has "wt-merged (clean, and its work is in merged PR #11)"'
 check "worktrees: wt-missing offered as a stale entry"          'has "wt-missing (its folder is gone; a stale entry)"'
 check "kept: wt-dirty has untracked files"                      'has "worktree .claude/worktrees/wt-dirty: has uncommitted or untracked files"'
@@ -159,7 +163,7 @@ check "hint: Alpha's stash list"                                 'has "→ git -
 check "hint: Beta, a private repo to back it up"                 'has "→ gh repo create --private --source \"$T/Projects/Beta\" --push"'
 check "hint: merged-extra's commits, to look at"                 'has "→ git -C \"$A\" log --oneline merged-extra --not origin/main"'
 check "hint: the closed PR"                                      'has "→ gh pr view 13 --repo testowner/Alpha"'
-check "heading: three merged branches, and what undo means"      'has "  branches  3 local branches whose work is merged  (their work is merged)"'
+check "heading: four merged branches, and what undo means"       'has "  branches  4 local branches whose work is merged  (their work is merged)"'
 check "heading: deploys cannot be undone"                        'has "(cannot be undone)"'
 check "what to run: every cleanup, and all but deploys"          'has "Every cleanup above:" && has "tidy-projects --apply ff,refs,worktrees,branches,deploys,build" && has "tidy-projects --apply ff,refs,worktrees,branches,build"'
 check "survey changed nothing (Alpha main still behind)"        '[[ $(git -C "$A" rev-list --count HEAD..origin/main) == 1 ]]'
@@ -171,7 +175,7 @@ bash "$S" --apply all > "$T/s2" 2>&1
 grep -q "^== Done" "$T/s2" || { err "--apply all stopped short; its output:"; sed 's/^/    /' "$T/s2" >&2; }
 check "Alpha fast-forwarded"                          '[[ $(git -C "$A" rev-list --count HEAD..origin/main) == 0 ]]'
 check "stale refs pruned"                             '! git -C "$A" show-ref --verify --quiet refs/remotes/origin/merged-ok'
-check "merged-ok, behind and inmain deleted"          '( for b in merged-ok behind inmain; do ! git -C "$A" show-ref --verify --quiet refs/heads/$b || exit 1; done )'
+check "merged-ok, behind, inmain and emptywt deleted" '( for b in merged-ok behind inmain emptywt; do ! git -C "$A" show-ref --verify --quiet refs/heads/$b || exit 1; done )'
 check "merged-extra, closed, nopr, merged2, localonly kept" '( for b in merged-extra closed nopr merged2 localonly; do git -C "$A" show-ref --verify --quiet refs/heads/$b || exit 1; done )'
 check "wt-merged removed"                             '[[ ! -d "$A/.claude/worktrees/wt-merged" ]]'
 check "wt-missing entry pruned"                       '! git -C "$A" worktree list | grep -q wt-missing'
