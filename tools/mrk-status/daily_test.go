@@ -140,7 +140,7 @@ func TestUnrecordedMrkCheckout(t *testing.T) {
 	if l, ok := line(g, "1 uncommitted change"); !ok || l.sev != sevWarn || l.fix != fixMrkPush {
 		t.Errorf("a tracked change should warn with %q:\n%s", fixMrkPush, texts(g))
 	}
-	if l, ok := line(g, "1 untracked file, which mrk-push never commits"); !ok || l.sev != sevInfo {
+	if l, ok := line(g, "1 untracked file, which mrk-push commits only in the paths it stages: see mrk-push --help"); !ok || l.sev != sevInfo {
 		t.Errorf("an untracked file should be named, as information:\n%s", texts(g))
 	}
 

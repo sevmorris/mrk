@@ -58,10 +58,17 @@ while (("$#")); do
     --check)      CHECK=1 ;;
     --manual)     MANUAL=1 ;;
     --add|--ignore|--remove)
-      # An app name does not start with a dash, so the next option is never
-      # taken for one.
+      # A name that starts with a dash is taken for the next option, so that
+      # `--add -n` says what is missing. Such a name takes the form below.
       (( $# > 1 )) && [[ "$2" != -* ]] || usage_error "$1 needs a login-item name."
       decide "${1#--}" "$2"; shift
+      ;;
+    --add=*|--ignore=*|--remove=*)
+      # Any name, one that starts with a dash included: System Events can
+      # list one, and until 2026-10-28 no decision could take it (audit 22,
+      # Z-3).
+      _opt=${1%%=*}
+      decide "${_opt#--}" "${1#*=}"
       ;;
     -h|--help)
       cat <<'USAGE'
@@ -91,8 +98,8 @@ sentence in docs/manual.md list the tracked apps, so a hand edit of the file
 leaves no stale sentence. -n and -c apply to it too. --check and a refused
 decision write nothing.
 
-One decision, made without gum or a prompt (for a program, such as the
-Settings app). Each takes one item that --check lists, and refuses any other.
+One decision, made without gum or a prompt (for a program, such as
+Dipstick). Each takes one item that --check lists, and refuses any other.
 With -n it shows what it would do; with -c it commits what it changed.
   --add NAME      Track NAME, a login item on this Mac: add its path to
                   config/login-items.txt.
@@ -101,8 +108,11 @@ With -n it shows what it would do; with -c it commits what it changed.
   --remove NAME   Stop tracking NAME: delete its line from
                   config/login-items.txt. NAME must not be a login item on
                   this Mac, or must be in the ignore list.
+  --add=NAME, --ignore=NAME, --remove=NAME
+                  The same, for any NAME, one that starts with a dash too.
 Exits 0 when done, 1 when sync-login-items refuses or System Events fails,
-2 for a bad option.
+2 for a bad command line: an unknown option, a decision with no name or
+two decisions, or a name that is blank or holds a control character.
 USAGE
       exit 0
       ;;
@@ -210,7 +220,8 @@ manual_items() {
 # has no such sentence.
 write_manual() {
   local out
-  [[ -n "$TMP_MD" ]] || TMP_MD=$(mrk_mktemp)
+  # Beside the manual, so that mv replaces it in one step whatever the volume
+  [[ -n "$TMP_MD" ]] || TMP_MD=$(mktemp "${MANUAL_MD%/*}/.manual.md.XXXXXX")
   out=$(python3 - "$MANUAL_MD" "$1" "$TMP_MD" <<'PYEOF'
 import sys, re
 path, items, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -798,7 +809,7 @@ fi
 
 TEMP_ADD=$(mrk_mktemp)
 TEMP_REMOVE=$(mrk_mktemp)
-TMP_LIST=$(mrk_mktemp)
+TMP_LIST=$(mktemp "${LOGIN_ITEMS%/*}/.login-items.txt.XXXXXX")
 
 for name in "${!add_items[@]}"; do
   printf '%s\n' "${system_items[$name]}" >> "$TEMP_ADD"

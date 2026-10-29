@@ -308,6 +308,21 @@ fi
 reset_copy
 cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
 
+# A name that starts with a dash: `--add NAME` takes it for an option, and
+# `--add=NAME` takes it as a name. Until 2026-10-28 no decision could take
+# one, and the exit 2 read to Dipstick as an older mrk (audit 22, Z-3).
+{ cat "$BASE"; printf '%s\t%s\n' '-Dash App' '/Applications/-Dash App.app'; } > "$W/dash"
+slx "$W/dash" --add '-Dash App'
+dash_rc=$RC
+reset_copy; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
+slx "$W/dash" --add='-Dash App'
+if [[ $dash_rc == 2 && $RC == 0 ]] && mrk_config_entries "$R/$LIST" | grep -qxF '/Applications/-Dash App.app'; then
+  pass "--add=NAME takes a name that starts with a dash, which --add NAME refuses with exit 2"
+else
+  fail "a name that starts with a dash: --add NAME exit $dash_rc, --add=NAME exit $RC"; why
+fi
+reset_copy; cp -p "$W/ignore.orig" "$W/home/.mrk/login-items-ignore"
+
 # ── 6. --add ─────────────────────────────────────────────────────────────────
 
 slx "$W/drift" --add "Zéphyr"

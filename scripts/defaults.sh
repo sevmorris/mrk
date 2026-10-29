@@ -489,7 +489,7 @@ if $ONE_KEY; then
   if (( ${#SKIP[@]} + ${#UNSKIP[@]} > 0 )); then
     was_skipped=$SKIP_IDS
     # Beside the file, so that mv replaces it in one step
-    new_list=$(mktemp "$SKIP_FILE.XXXXXX") || { err "Cannot write a file beside $SKIP_FILE. Nothing was changed."; exit 1; }
+    new_list=$(mktemp "${SKIP_FILE%/*}/.defaults-skip.tsv.XXXXXX") || { err "Cannot write a file beside $SKIP_FILE. Nothing was changed."; exit 1; }
     trap 'rm -f "$new_list"' EXIT
     skip_list_edit "$new_list"
     if ! defaults_skips "$new_list"; then

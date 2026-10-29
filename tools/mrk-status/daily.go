@@ -748,7 +748,7 @@ func unrecordedPanel(repoRoot, home string, found drifts, repos repoReading) gro
 			lines = append(lines, sl(sevOK, mrk+": committed and pushed"))
 		}
 		if s.untracked > 0 {
-			lines = append(lines, sl(sevInfo, "  "+plural(s.untracked, "untracked file", "untracked files")+", which mrk-push never commits"))
+			lines = append(lines, sl(sevInfo, "  "+plural(s.untracked, "untracked file", "untracked files")+", which mrk-push commits only in the paths it stages: see mrk-push --help"))
 		}
 	}
 
