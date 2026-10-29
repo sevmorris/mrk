@@ -5,7 +5,8 @@
 # everything around it, for every repository on the account: branch rules,
 # deleting a branch when its pull request merges, secret push protection,
 # vulnerability alerts, Pages, licence, README, tests in CI, the runners CI
-# tests on, current CI actions, and no committed executables. It reads the
+# tests on, current CI actions, CI runs that a new push cancels, and no
+# committed executables. It reads the
 # published state from GitHub, so a repository with no clone here is still
 # audited. It changes nothing.
 #
@@ -139,7 +140,7 @@ exempt() { # repo standard -> prints the reason if exempt
 # Each prints: yes | -- | n/a, then a tab and a note. -- always carries the note
 # that says what to do.
 
-STANDARDS=(branch-rules auto-delete push-protect vuln-alerts no-binaries nojekyll pages-https homepage deploys licence readme tests-in-ci ci-matrix ci-current)
+STANDARDS=(branch-rules auto-delete push-protect vuln-alerts no-binaries nojekyll pages-https homepage deploys licence readme tests-in-ci ci-matrix ci-current ci-cancel)
 
 audit_repo() { # name visibility default_branch -> one TSV line per standard
   local r="$1" vis="$2" def="$3" j tree
@@ -225,12 +226,24 @@ audit_repo() { # name visibility default_branch -> one TSV line per standard
 
   # tests-in-ci and ci-current, from the workflows as pushed
   local wf; wf=$(sed -nE '/^\.github\/workflows\/[^/]+\.ya?ml$/p' <<<"$tree")
-  local wftext=""
+  local wftext="" one pr_runs=0 nocancel=""
   if [[ -n $wf ]]; then
     while IFS= read -r f; do
-      wftext+=$(gh api "repos/$OWNER/$r/contents/$f?ref=$def" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null)$'\n'
+      one=$(gh api "repos/$OWNER/$r/contents/$f?ref=$def" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null)
+      wftext+=$one$'\n'
+      # ci-cancel, file by file: one that runs on pull requests must cancel
+      # the run that a new push makes stale.
+      one=$(sed -E 's/(^|[[:space:]])#.*$//' <<<"$one")
+      if $GREP -qE '(^|[[:space:],[])pull_request(_target)?([[:space:]:,]|\]|$)' <<<"$one"; then
+        pr_runs=1
+        $GREP -qE '^[[:space:]]*cancel-in-progress:[[:space:]]*[^[:space:]f]' <<<"$one" || nocancel+="${f##*/} "
+      fi
     done <<<"$wf"
   fi
+  if [[ -z $wf ]]; then out ci-cancel n/a "no workflows"
+  elif (( ! pr_runs )); then out ci-cancel n/a "no workflow runs on pull requests"
+  elif [[ -z $nocancel ]]; then out ci-cancel yes
+  else out ci-cancel -- "${nocancel% }: a new push leaves the old run going (mrk's ci.yml has the concurrency block)"; fi
   # A command split with trailing backslashes is one command: `xcodebuild \`
   # on one line and `test` four lines down is how both app workflows run it.
   local runs_tests='xcodebuild[^#]*[[:space:]]test([[:space:]]|$)|swift test|go test|npm (run )?test|npx vitest|vitest run|pytest|ci-check|make check'

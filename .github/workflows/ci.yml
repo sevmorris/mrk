@@ -5,6 +5,14 @@ on:
     branches: [main, master]
   pull_request:
 
+# A new push to a pull request cancels the run for the commit before it, which
+# nobody would read. Every other run has a group of its own, by run_id, so each
+# push to main is tested to the end and none waits for another. repo-standards
+# holds every workflow to this (ci-cancel).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   test:
     # The macOS this Mac runs, on Apple silicon. macos-latest was that on
@@ -12,6 +20,9 @@ jobs:
     # macos-updates keeps this Mac on 26 until its owner upgrades by hand. Bump
     # this in the same change as that upgrade.
     runs-on: macos-26
+    # ci-check runs its gates one for each CPU, and takes about 4 minutes on the
+    # 3-CPU runner. A hung gate fails here, not after GitHub's 6 hours.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 

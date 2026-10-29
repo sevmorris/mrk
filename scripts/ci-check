@@ -30,17 +30,103 @@ restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
 check-picker-desc, check-defaults-desc, topgrade-npm, picard-settings, snapshot-prefs, plist-import-order, setup-safety, undo-files,
 dock-setup, mrk-contract, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, update-full, maintain, tidy-projects, prune-deployments, install-apps, make-pull, gitconfig, dead-functions and docs-drift tests in tests/, shellcheck over every tracked bash script,
 and gofmt, `go vet` and `go test` for each
-directory under tools/. It stops at the first gate that fails, so a red gate early on means
-the later ones did not run.
+directory under tools/.
+
+The secret scan and gofmt run first. Then the other gates run at the same
+time, one for each CPU, or MRK_CHECK_JOBS at a time (MRK_CHECK_JOBS=1 runs one
+at a time). ci-check shows the output of each gate when that gate is done, in
+the order above. A gate that fails does not stop the others: ci-check runs
+them all, names each one that failed, and exits 1.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"
 
-log "check-picker-desc"
-"$SCRIPT_DIR/check-picker-desc"
+# The gates that failed, by name. A failure stops nothing: every gate runs, and
+# ci-check exits 1 at the end. Until 2026-10-29 it stopped at the first, so a
+# red gate early on hid every later one, which is how a broken gate kept the
+# picker tests from running for four days in September.
+FAILED=()
 
-log "check-defaults-desc"
-"$SCRIPT_DIR/check-defaults-desc"
+# Each gate runs its own command, with a throwaway HOME where it needs one, and
+# none writes to the checkout. So they run at the same time: one after another
+# they took about 11 minutes on the 3-CPU CI runner.
+GATE_NAMES=()
+GATE_CMDS=()
+
+# gate NAME COMMAND [ARG...] — add a gate for run_gates to run.
+gate() {
+  local name=$1 q
+  shift
+  printf -v q '%q ' "$@"
+  GATE_NAMES+=("$name")
+  GATE_CMDS+=("$q")
+}
+
+# run_gate I DIR — run gate I, its output to DIR/I.out and its status to DIR/I.rc.
+# set +e, so the subshell lives to record the status, and the rc file appears
+# whole. bash starts a command run with & with SIGINT and SIGQUIT ignored, and
+# the gate's own commands would inherit that: tests/install-apps.sh interrupts
+# a copy with SIGINT, and failed. `trap -` puts them back in bash 4 and later.
+run_gate() {
+  local i=$1 dir=$2
+  ( trap - INT QUIT
+    set +e
+    eval "${GATE_CMDS[i]}" < /dev/null > "$dir/$i.out" 2>&1
+    echo $? > "$dir/$i.tmp"
+    mv "$dir/$i.tmp" "$dir/$i.rc" )
+}
+
+# run_gates — run every gate, MRK_CHECK_JOBS at a time (by default one for each
+# CPU). Each gate's output goes to a file, with stdin from /dev/null, and is
+# shown when the gate is done, in the order the gates were added, so the log
+# reads as it did when they ran one after another. A gate that exits non-zero
+# goes on FAILED. One at a time, each gate runs in the foreground, as it must
+# under bash 3.2, which cannot put SIGINT back.
+run_gates() {
+  local jobs n=${#GATE_NAMES[@]} started=0 shown=0 running i rc dir
+  jobs=${MRK_CHECK_JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)}
+  if ! [[ $jobs =~ ^[1-9][0-9]*$ ]]; then
+    err "MRK_CHECK_JOBS must be a whole number above 0, not '$jobs'"
+    exit 2
+  fi
+  (( BASH_VERSINFO[0] >= 4 )) || jobs=1
+  dir=$(mrk_mktemp_d) || exit 1
+  # shellcheck disable=SC2064  # the directory now, not when the trap runs
+  trap "rm -rf '$dir'" EXIT
+  info "$n gates, $jobs at a time"
+  while (( shown < n )); do
+    running=0
+    for (( i = shown; i < started; i++ )); do
+      [[ -f "$dir/$i.rc" ]] || running=$((running + 1))
+    done
+    while (( started < n && running < jobs )); do
+      if (( jobs == 1 )); then
+        run_gate "$started" "$dir"
+      else
+        run_gate "$started" "$dir" &
+      fi
+      started=$((started + 1))
+      running=$((running + 1))
+    done
+    if [[ -f "$dir/$shown.rc" ]]; then
+      log "${GATE_NAMES[shown]}"
+      cat "$dir/$shown.out" >&2
+      rc=$(< "$dir/$shown.rc")
+      if [[ $rc != 0 ]]; then
+        err "${GATE_NAMES[shown]}: exit $rc"
+        FAILED+=("${GATE_NAMES[shown]}")
+      fi
+      shown=$((shown + 1))
+    else
+      sleep 0.2
+    fi
+  done
+  wait
+}
+
+gate "check-picker-desc" "$SCRIPT_DIR/check-picker-desc"
+
+gate "check-defaults-desc" "$SCRIPT_DIR/check-defaults-desc"
 
 # Scan every TRACKED file, not just the staged ones.
 #
@@ -71,115 +157,100 @@ if ! scan_for_secrets "${scan_files[@]}"; then
   # number scanned, wearing the word "flagged".
   err "secret scan found possible secrets in the tracked files — see the lines above"
   err "If this is a false positive, reword the line: a permanent hit trains you to ignore the gate."
-  exit 1
+  FAILED+=("secret scan")
+else
+  ok "secret scan clean (${#scan_files[@]} tracked files)"
 fi
-ok "secret scan clean (${#scan_files[@]} tracked files)"
 
 # The scan above covers what is already committed; this covers what the
 # commit paths let through — pushall, mrk-push, and the helpers snapshot-prefs
 # shares with them — by planting secrets and conflicts in throwaway repos.
-log "check-commit-gates"
-"$SCRIPT_DIR/check-commit-gates"
+gate "check-commit-gates" "$SCRIPT_DIR/check-commit-gates"
 
 # cleanempties (ce) in dotfiles/.aliases moves folders to the Trash, and until
 # 2026-09-11 it broke git repositories and could loop forever. The test lives in
 # tests/ rather than scripts/, which setup links into ~/bin, and runs under an
 # interactive zsh because that is the only shell .aliases loads in.
-log "cleanempties"
-zsh -f -i "$REPO_ROOT/tests/cleanempties.zsh"
+gate "cleanempties" zsh -f -i "$REPO_ROOT/tests/cleanempties.zsh"
 
 # The undo script make defaults writes, round-tripped on a plist in a temporary
 # directory: until 2026-09-11 it restored 7 of 23 kinds of value wrongly. Then
 # defaults.sh whole against a stub defaults: config/defaults.tsv written in
 # order, --check, and a bad line refused before any write.
-log "defaults rollback"
-"$REPO_ROOT/tests/defaults-rollback.sh"
+gate "defaults rollback" "$REPO_ROOT/tests/defaults-rollback.sh"
 
 # harden, run against a sandbox with every system path redirected: until
 # 2026-09-11 its password-on-wake step changed nothing macOS reads, and its undo
 # left three settings changed.
-log "hardening rollback"
-"$REPO_ROOT/tests/hardening-rollback.sh"
+gate "hardening rollback" "$REPO_ROOT/tests/hardening-rollback.sh"
 
 # macos-updates, against a stubbed softwareupdate, and a guard that nothing
 # else calls softwareupdate with --all: until 2026-09-16 `make updates` and
 # update-full ran `softwareupdate -ia`, which on macOS 26.7 started
 # downloading macOS 27.
-log "macOS updates"
-"$REPO_ROOT/tests/macos-updates.sh"
+gate "macOS updates" "$REPO_ROOT/tests/macos-updates.sh"
 
 # restore-keys, against throwaway HOMEs and a real gpg: until 2026-09-17 gpg ran
 # while ~/.gnupg was moved aside, made a new one holding `use-keyboxd`, and the
 # restored pubring.kbx went unread. On the 2026-09-15 migration that left
 # Homebrew's gpg and GPG Suite's reading two different keyrings.
-log "restore-keys"
-"$REPO_ROOT/tests/restore-keys.sh"
+gate "restore-keys" "$REPO_ROOT/tests/restore-keys.sh"
 
 # mrk-install --all, against a stubbed make: until 2026-09-18 it ran the three
 # phases itself and skipped what make all does around them. It now runs make all.
-log "install --all"
-"$REPO_ROOT/tests/install-all.sh"
+gate "install --all" "$REPO_ROOT/tests/install-all.sh"
 
 # setup and brew as a new Mac runs them: under /bin/bash, with no Homebrew and
 # curl, brew and gum stubbed. Until 2026-09-27 both demanded Homebrew's bash
 # and exited 1 without it, so neither could run on the Mac it was for — and
 # brew is the phase that installs Homebrew. Also build-tools with Homebrew off
 # PATH, as make all runs it after Phase 2: until 2026-09-27 "Go is not installed".
-log "new Mac (bash 3.2, no Homebrew)"
-"$REPO_ROOT/tests/new-mac.sh"
+gate "new Mac (bash 3.2, no Homebrew)" "$REPO_ROOT/tests/new-mac.sh"
 
 # git_clone_pinned, against repositories built on the spot: until 2026-09-18 nvm
 # arrived by piping its install script into bash and the zsh plugins by tag
 # alone. Also guards that no script pipes a download into a shell.
-log "pinned downloads"
-"$REPO_ROOT/tests/pinned-downloads.sh"
+gate "pinned downloads" "$REPO_ROOT/tests/pinned-downloads.sh"
 
 # sync-login-items, on a copy of the repository with osascript and gum stubbed:
 # until 2026-09-18 it wrote an app named with $, a backtick, a backslash or a
 # quote correctly and then could not read it back, so it re-added it every run.
-log "sync-login-items"
-"$REPO_ROOT/tests/sync-login-items.sh"
+gate "sync-login-items" "$REPO_ROOT/tests/sync-login-items.sh"
 
 # sync, on a copy of the repository with brew, mrk-picker and gum stubbed and
 # fake apps under a throwaway HOME: until 2026-09-27 it put every cask in one
 # section and wrote no picker description, so each add turned check-picker-desc
 # red until the package was described by hand.
-log "sync"
-"$REPO_ROOT/tests/sync.sh"
+gate "sync" "$REPO_ROOT/tests/sync.sh"
 
 # check-picker-desc --fix, and mrk-push and pushall running it, on copies of the
 # repository edited as Barkeep edits the Brewfile: until 2026-09-27 a package
 # added in Barkeep got no description, and turned check-picker-desc red.
-log "check-picker-desc --fix"
-"$REPO_ROOT/tests/check-picker-desc.sh"
+gate "check-picker-desc --fix" "$REPO_ROOT/tests/check-picker-desc.sh"
 
 # check-defaults-desc on copies of the two files it holds together: a key with
 # no description, a description with no key, and each line it refuses. The
 # descriptions were a JavaScript object until 2026-10-21, found by a regular
 # expression; other programs read them now, so their shape is checked whole.
-log "check-defaults-desc"
-"$REPO_ROOT/tests/check-defaults-desc.sh"
+gate "check-defaults-desc" "$REPO_ROOT/tests/check-defaults-desc.sh"
 
 # topgrade's npm steps, with a stub nvm in a throwaway HOME: until 2026-09-23
 # they sourced nvm from Homebrew's prefix, where mrk never installs it, and
 # found npm only when the shell that started topgrade had loaded nvm already.
-log "topgrade npm steps"
-"$REPO_ROOT/tests/topgrade-npm.sh"
+gate "topgrade npm steps" "$REPO_ROOT/tests/topgrade-npm.sh"
 
 # picard_settings, on an INI holding fake credentials: from 2026-09-24
 # snapshot-prefs keeps Picard's settings, which share a file with its OAuth
 # tokens. The secret scan cannot stand behind the filter — none of its patterns
 # names fanart.tv's client_key — so this test does.
-log "Picard settings"
-"$REPO_ROOT/tests/picard-settings.sh"
+gate "Picard settings" "$REPO_ROOT/tests/picard-settings.sh"
 
 # snapshot-prefs under a throwaway HOME, with defaults stubbed and a scratch
 # mrk-prefs: a plist that changed only in keys that change on their own is left
 # out, a commit holding nothing else is not made, and --dry-run writes nothing.
 # Until 2026-09-30 every such difference made a commit. Also --check, which
 # shows the commit as lines, and config/app-prefs.tsv, which it reads.
-log "snapshot-prefs"
-"$REPO_ROOT/tests/snapshot-prefs.sh"
+gate "snapshot-prefs" "$REPO_ROOT/tests/snapshot-prefs.sh"
 
 # post-install whole, on a copy of the repository with defaults stubbed to keep
 # every domain in a scratch directory: until 2026-09-27 its app-defaults scripts
@@ -188,15 +259,13 @@ log "snapshot-prefs"
 # after Phase 2 in make all, where until 2026-09-27 it skipped topgrade, pyenv
 # and pinentry-mac as not installed. Audit 19, W-31. And snapshot-prefs after
 # it: the two must save and restore the same apps, under the same files.
-log "plist import order"
-"$REPO_ROOT/tests/plist-import-order.sh"
+gate "plist import order" "$REPO_ROOT/tests/plist-import-order.sh"
 
 # setup and post-install on a copy of the repository under a throwaway HOME:
 # until 2026-09-27 they linked ~ into whichever checkout ran them, linked any
 # directory in dotfiles/ (and moved ~/.claude aside for it), and a dry run
 # opened installers, ran sudo and chsh. Audit 19, W-4, W-5, W-7, W-11.
-log "setup safety"
-"$REPO_ROOT/tests/setup-safety.sh"
+gate "setup safety" "$REPO_ROOT/tests/setup-safety.sh"
 
 # uninstall, nuke-mrk, trim-services and setup's login message, with their undo
 # scripts run through stubs: until 2026-09-27 the services undo was never
@@ -204,116 +273,99 @@ log "setup safety"
 # app's preferences unasked, trim-services could empty its undo file, and a
 # second setup run made the login-message undo restore mrk's own message.
 # Audit 19, W-3, W-8, W-9, W-13.
-log "undo files"
-"$REPO_ROOT/tests/undo-files.sh"
+gate "undo files" "$REPO_ROOT/tests/undo-files.sh"
 
 # make dock, with dockutil stubbed: every app in config/dock.txt added in
 # order, the folder only when it exists, a missing app skipped, and a list it
 # cannot use refused before the Dock is touched. Until 2026-09-28 the list was
 # not the Dock in use, and make dock would have replaced it. Audit 15, T-14.
-log "dock setup"
-"$REPO_ROOT/tests/dock-setup.sh"
+gate "dock setup" "$REPO_ROOT/tests/dock-setup.sh"
 
 # scripts/mrk-contract, which Dipstick and Barkeep read before they give a
 # script an option: each option it lists is one the script's parser and help
 # take, and each word is in the help. The five tests above hold each --check
 # line to its fields and words. Audit 22, O-2.
-log "mrk-contract"
-"$REPO_ROOT/tests/mrk-contract.sh"
+gate "mrk-contract" "$REPO_ROOT/tests/mrk-contract.sh"
 
 # clear-app-caches under a scratch HOME: every HTTP, code and Slack cache it
 # names cleared, the browsers' GPU caches and profile data left. Until
 # 2026-09-28 it cleared Helium's GPU caches daily and at login, which only made
 # Helium recompile them. Audit 18.
-log "clear app caches"
-"$REPO_ROOT/tests/clear-app-caches.sh"
+gate "clear app caches" "$REPO_ROOT/tests/clear-app-caches.sh"
 
 # .zshrc's nvm block in a bare zsh, with a stub nvm: loaded with --no-use and
 # the default alias's newest Node put on PATH directly, nvm use only as the
 # fallback. Until 2026-09-28 every shell paid about 220 ms for nvm use. Audit 18.
-log "zshrc nvm"
-"$REPO_ROOT/tests/zshrc-nvm.sh"
+gate "zshrc nvm" "$REPO_ROOT/tests/zshrc-nvm.sh"
 
 # check-updates in a pseudo-terminal, against a scratch origin, under a
 # throwaway HOME with fetch and make stubbed: compared at every shell start,
 # fetched at most once a day, asked once for each remote head, and never on a
 # branch other than the default. Until 2026-09-30 it ran at most once a week.
-log "check updates"
-"$REPO_ROOT/tests/check-updates.sh"
+gate "check updates" "$REPO_ROOT/tests/check-updates.sh"
 
 # defaults-watch against a stub defaults whose second snapshot differs from its
 # first: each kind of change named, with what config/defaults.tsv does about it, and
 # nothing written. New on 2026-09-30: until then a System Settings change was
 # the one change nothing recorded.
-log "defaults watch"
-"$REPO_ROOT/tests/defaults-watch.sh"
+gate "defaults watch" "$REPO_ROOT/tests/defaults-watch.sh"
 
 # ~/Makefile against a stub ~/mrk: every target of ~/mrk's Makefile forwarded
 # from the home, with its ARGS. Until 2026-09-30 only eleven were, and
 # `make update` from ~ found no rule.
-log "home Makefile"
-"$REPO_ROOT/tests/home-makefile.sh"
+gate "home Makefile" "$REPO_ROOT/tests/home-makefile.sh"
 
 # make update against a stub topgrade: its last word says which steps failed and
 # that the rest ran, or that the run stopped before its summary. Until
 # 2026-09-30 a run with one failed cask ended on "make: *** [update] Error 1".
-log "update verdict"
-"$REPO_ROOT/tests/update-verdict.sh"
+gate "update verdict" "$REPO_ROOT/tests/update-verdict.sh"
 
 # update-full with every command it reaches stubbed: its eight steps in order,
 # step 1 pulling with PULL_BUILD=0 and step 4 through run_topgrade. Until
 # 2026-10-01 no test ran it, and a copy that ran plain topgrade again passed
 # every gate here. Audit 20, X-11.
-log "update-full"
-"$REPO_ROOT/tests/update-full.sh"
+gate "update-full" "$REPO_ROOT/tests/update-full.sh"
 
 # maintain --dry-run: its build check names each Go tool as up to date, older
 # than its source or not installed, by tool_freshness in lib.sh, and a dry run
 # calls neither gh, git nor make. Audit 20, X-11.
-log "maintain"
-"$REPO_ROOT/tests/maintain.sh"
+gate "maintain" "$REPO_ROOT/tests/maintain.sh"
 
 # tidy-projects against throwaway clones of every case, with gh and the tools it calls stubbed:
 # only a branch in main or at or behind a merged PR's head, a clean merged worktree nothing runs in, and
 # gitignored build output may go, and --apply removes exactly those.
-log "tidy-projects"
-"$REPO_ROOT/tests/tidy-projects.sh"
+gate "tidy-projects" "$REPO_ROOT/tests/tidy-projects.sh"
 
 # prune-deployments with gh stubbed: outside a git repository it works on every
 # Pages site the account owns that is not archived, protects each live
 # deployment and goes on past a site it cannot fetch; inside one, or with
 # --repo, on that repository alone. New on 2026-10-16: until then it refused to
 # run outside a repository.
-log "prune-deployments"
-"$REPO_ROOT/tests/prune-deployments.sh"
+gate "prune-deployments" "$REPO_ROOT/tests/prune-deployments.sh"
 
 # install-apps with curl, gh and hdiutil stubbed: a private repo gh cannot
 # reach yet is a skip, not a failure; a 403 or no network still fails. Until
 # 2026-09-28 the 404 failed, and on a new Mac that stopped make all before
 # build-tools. Audit 11, R-2.
-log "install apps"
-"$REPO_ROOT/tests/install-apps.sh"
+gate "install apps" "$REPO_ROOT/tests/install-apps.sh"
 
 # make pull against a scratch origin, under a throwaway HOME with go stubbed:
 # each pulled change to tools/, scripts/, bin/ or dotfiles/ rebuilt or relinked,
 # and a docs-only pull left alone. Until 2026-09-30 make pull only fast-forwarded,
 # and new tools, scripts and dotfiles waited for a make target run by hand.
-log "make pull"
-"$REPO_ROOT/tests/make-pull.sh"
+gate "make pull" "$REPO_ROOT/tests/make-pull.sh"
 
 # dotfiles/.gitconfig as the global config of a throwaway HOME: local-branches
 # names exactly the branches with no upstream, with colour on or off, and git
 # writes no escape codes into a pipe. Until 2026-10-04 color.ui was always, and
 # local-branches listed branches that had an upstream. Audit 21, Y-1.
-log "gitconfig"
-"$REPO_ROOT/tests/gitconfig.sh"
+gate "gitconfig" "$REPO_ROOT/tests/gitconfig.sh"
 
 # Every function a tracked bash script defines is named again in that file, or,
 # for lib.sh and common.sh, in another tracked file. shellcheck's SC2329 is
 # blind in most of the repository, and on 2026-10-04 doctor and post-install
 # each held a function nothing called. Audit 21, Y-8.
-log "dead functions"
-"$REPO_ROOT/tests/dead-functions.sh"
+gate "dead functions" "$REPO_ROOT/tests/dead-functions.sh"
 
 # The hand-written lists of commands, targets and tests, against the repository:
 # until 2026-09-28 the manual listed three ~/Makefile targets that did not
@@ -321,11 +373,9 @@ log "dead functions"
 # said 39 entries where it had 41. Audit 19, W-26, W-27, W-28. Since
 # 2026-09-28 it also holds README's and the manual's defaults key count to
 # check-defaults-desc's (audit 15, T-3).
-log "docs drift"
-"$REPO_ROOT/tests/docs-drift.sh"
+gate "docs drift" "$REPO_ROOT/tests/docs-drift.sh"
 
 if command -v shellcheck >/dev/null 2>&1; then
-  log "shellcheck"
   # Every tracked file whose first line names bash, wherever it lives. Until
   # 2026-09-28 this listed directories, and the six app-defaults scripts in
   # assets/ that post-install runs were never checked (audit 19, W-30).
@@ -339,7 +389,7 @@ if command -v shellcheck >/dev/null 2>&1; then
         done
   )
   if ((${#scripts[@]} > 0)); then
-    shellcheck -x "${scripts[@]}"
+    gate "shellcheck" shellcheck -x "${scripts[@]}"
   fi
 else
   warn "shellcheck not installed — skipping (brew install shellcheck)"
@@ -354,33 +404,41 @@ fi
 if ! command -v go >/dev/null 2>&1; then
   err "go is not installed — cannot run the tool tests"
   info "  install it with: brew install go   (it is in the Brewfile, so 'make brew' covers it)"
-  exit 1
+  FAILED+=("go")
+else
+  # Every module under tools/, from its go.mod, so a new one is tested without
+  # an edit here; make tidy reads the same list (audit 19, W-25).
+  #
+  # gofmt and go vet first. Until 2026-10-22 neither ran here: the audits ran
+  # them by hand, with staticcheck, and the 2026-10-22 sweep found that the
+  # staticcheck in ~/go/bin could no longer read Go 1.27's packages. Both ship
+  # with go, so they cannot go stale apart from it. gofmt -l exits 0 whether or
+  # not it names a file, so the names are the test. gofmt takes well under a
+  # second, so it runs here; go vet and go test are a gate for each module.
+  for gomod in "$REPO_ROOT"/tools/*/go.mod; do
+    dir=$(basename "$(dirname "$gomod")")
+    log "gofmt: tools/$dir"
+    unformatted=$(cd "$REPO_ROOT/tools/$dir" && gofmt -l .)
+    if [[ -n "$unformatted" ]]; then
+      err "gofmt would change these files in tools/$dir:"
+      printf '    %s\n' "$unformatted" >&2
+      info "  run: gofmt -w tools/$dir"
+      FAILED+=("gofmt: tools/$dir")
+    fi
+    # -count=1: no cached result. mrk-status's tests run scripts/lib.sh and
+    # read scripts/sync, which Go does not count as the test's inputs, and on
+    # 2026-09-30 a cached pass hid a deliberate break in lib.sh's tool_freshness.
+    # shellcheck disable=SC2016  # the inner bash expands $1
+    gate "go vet, go test: tools/$dir" "$BASH" -c 'cd "$1" && go vet ./... && go test -count=1 ./...' \
+      go-gate "$REPO_ROOT/tools/$dir"
+  done
 fi
 
-# Every module under tools/, from its go.mod, so a new one is tested without an
-# edit here; make tidy reads the same list (audit 19, W-25).
-#
-# gofmt and go vet first. Until 2026-10-22 neither ran here: the audits ran
-# them by hand, with staticcheck, and the 2026-10-22 sweep found that the
-# staticcheck in ~/go/bin could no longer read Go 1.27's packages. Both ship
-# with go, so they cannot go stale apart from it. gofmt -l exits 0 whether or
-# not it names a file, so the names are the test.
-for gomod in "$REPO_ROOT"/tools/*/go.mod; do
-  dir=$(basename "$(dirname "$gomod")")
-  log "gofmt, go vet: tools/$dir"
-  unformatted=$(cd "$REPO_ROOT/tools/$dir" && gofmt -l .)
-  if [[ -n "$unformatted" ]]; then
-    err "gofmt would change these files in tools/$dir:"
-    printf '    %s\n' "$unformatted" >&2
-    info "  run: gofmt -w tools/$dir"
-    exit 1
-  fi
-  (cd "$REPO_ROOT/tools/$dir" && go vet ./...)
-  log "go test: tools/$dir"
-  # -count=1: no cached result. mrk-status's tests run scripts/lib.sh and
-  # read scripts/sync, which Go does not count as the test's inputs, and on
-  # 2026-09-30 a cached pass hid a deliberate break in lib.sh's tool_freshness.
-  (cd "$REPO_ROOT/tools/$dir" && go test -count=1 ./...)
-done
+run_gates
 
+if (( ${#FAILED[@]} )); then
+  err "${#FAILED[@]} check(s) failed:"
+  printf '      %s\n' "${FAILED[@]}" >&2
+  exit 1
+fi
 ok "All checks passed"
