@@ -956,11 +956,15 @@ func checkUpkeep(repoRoot, home, binDir string) group {
 	}
 
 	// Homebrew. HOMEBREW_NO_AUTO_UPDATE: outdated reads what the last update
-	// fetched, and must not start one.
+	// fetched, and must not start one. --greedy: make update upgrades a cask
+	// that updates itself (greedy_cask in assets/topgrade.toml, and greedy:
+	// true on every cask in the Brewfile), and outdated without it leaves such
+	// a cask out. Most casks here are one: on 2026-11-04 it was 42 of 59, and
+	// this line said up to date with Brave and Zoom a version behind.
 	if brew := brewBin(); brew == "" {
 		lines = append(lines, sl(sevInfo, "Homebrew is not installed"))
 	} else {
-		cmd := exec.Command(brew, "outdated", "--quiet")
+		cmd := exec.Command(brew, "outdated", "--quiet", "--greedy")
 		cmd.Env = append(os.Environ(), "HOMEBREW_NO_AUTO_UPDATE=1")
 		if out, err := cmd.Output(); err != nil {
 			lines = append(lines, sl(sevWarn, fmt.Sprintf("brew outdated failed: %v", err)))
