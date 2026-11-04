@@ -594,17 +594,32 @@ func lineIndex(g group, substr string) int {
 // The stub's outdated refuses to run without --greedy, as without
 // HOMEBREW_NO_AUTO_UPDATE: without it, brew leaves out every cask that
 // updates itself, which make update upgrades all the same.
-func upkeepFixtures(t *testing.T, outdated string) {
+//
+// The stub is bin/brew in a directory laid out as Homebrew's repository, which
+// it returns, so a test can give it a .git/FETCH_HEAD. It has none to begin
+// with, so the Homebrew lines name no fetch.
+func upkeepFixtures(t *testing.T, outdated string) (homebrew string) {
 	t.Helper()
-	withStubBrew(t, "#!/bin/sh\n[ \"$1\" = outdated ] || exit 9\n"+
-		"[ \"$HOMEBREW_NO_AUTO_UPDATE\" = 1 ] || { echo 'would auto-update' >&2; exit 3; }\n"+
-		"case \" $* \" in *' --greedy '*) ;; *) echo 'would leave out auto-updating casks' >&2; exit 4 ;; esac\n"+
-		"printf '"+outdated+"'\n")
+	homebrew = t.TempDir()
+	bin := filepath.Join(homebrew, "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stub := "#!/bin/sh\n[ \"$1\" = outdated ] || exit 9\n" +
+		"[ \"$HOMEBREW_NO_AUTO_UPDATE\" = 1 ] || { echo 'would auto-update' >&2; exit 3; }\n" +
+		"case \" $* \" in *' --greedy '*) ;; *) echo 'would leave out auto-updating casks' >&2; exit 4 ;; esac\n" +
+		"printf '" + outdated + "'\n"
+	if err := os.WriteFile(filepath.Join(bin, "brew"), []byte(stub), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	noOtherBrew(t)
 	dir := t.TempDir()
 	oldV, oldS := sysVersionPlist, suPlist
 	sysVersionPlist, suPlist = filepath.Join(dir, "SystemVersion.plist"), filepath.Join(dir, "su.plist")
 	t.Cleanup(func() { sysVersionPlist, suPlist = oldV, oldS })
 	write(t, sysVersionPlist, plistXML(`<dict><key>ProductVersion</key><string>26.0.1</string></dict>`))
+	return homebrew
 }
 
 func plistXML(body string) string {
@@ -712,8 +727,72 @@ func TestUpkeepHomebrewOutdated(t *testing.T) {
 		t.Errorf("outdated packages should warn with %q, sorted — and the stub refuses to run without HOMEBREW_NO_AUTO_UPDATE or --greedy:\n%s", fixUpdate, texts(g))
 	}
 	upkeepFixtures(t, "")
-	if l, ok := line(checkUpkeep(repo, t.TempDir(), t.TempDir()), "Homebrew packages up to date"); !ok || l.sev != sevOK {
+	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
+	if l, ok := line(g, "Homebrew packages up to date"); !ok || l.sev != sevOK {
 		t.Errorf("nothing outdated should be OK")
+	}
+	if strings.Contains(texts(g), "fetched") || strings.Contains(texts(g), "last checked") {
+		t.Errorf("with no FETCH_HEAD the Homebrew lines should name no fetch:\n%s", texts(g))
+	}
+}
+
+// The Homebrew lines say when brew update last checked, from FETCH_HEAD in
+// Homebrew's repository, and a check two days old warns on a line of its own.
+func TestUpkeepHomebrewFetched(t *testing.T) {
+	fixed := time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)
+	oldNow := now
+	now = func() time.Time { return fixed }
+	t.Cleanup(func() { now = oldNow })
+	repo := mrkRepo(t)
+	fetched := func(homebrew string, age time.Duration) {
+		t.Helper()
+		p := filepath.Join(homebrew, ".git", "FETCH_HEAD")
+		write(t, p, "")
+		if err := os.Chtimes(p, fixed.Add(-age), fixed.Add(-age)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	const stale = "Homebrew last checked for new versions"
+
+	fetched(upkeepFixtures(t, ""), 3*time.Hour)
+	g := checkUpkeep(repo, t.TempDir(), t.TempDir())
+	if l, ok := line(g, "Homebrew packages up to date, fetched 3 hours ago"); !ok || l.sev != sevOK {
+		t.Errorf("a fresh check should show its age on the OK line:\n%s", texts(g))
+	}
+	if _, ok := line(g, stale); ok {
+		t.Errorf("a check 3 hours old should not warn:\n%s", texts(g))
+	}
+
+	fetched(upkeepFixtures(t, `zoom\n`), 47*time.Hour)
+	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
+	if l, ok := line(g, "1 Homebrew package outdated, fetched 47 hours ago: zoom"); !ok || l.fix != fixUpdate {
+		t.Errorf("the age should come before the names:\n%s", texts(g))
+	}
+	if _, ok := line(g, stale); ok {
+		t.Errorf("a check 47 hours old should not warn:\n%s", texts(g))
+	}
+
+	fetched(upkeepFixtures(t, ""), 48*time.Hour)
+	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
+	if l, ok := line(g, stale+" 2 days ago: the list above can miss an update"); !ok || l.sev != sevWarn || l.fix != fixUpdate {
+		t.Errorf("a check 2 days old should warn with %q:\n%s", fixUpdate, texts(g))
+	}
+
+	// /usr/local/bin/brew is a link into /usr/local/Homebrew: the repository
+	// is the link's target's, not the link's.
+	homebrew := upkeepFixtures(t, "")
+	fetched(homebrew, time.Hour)
+	links := filepath.Join(t.TempDir(), "bin")
+	if err := os.MkdirAll(links, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(homebrew, "bin", "brew"), filepath.Join(links, "brew")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", links+string(os.PathListSeparator)+os.Getenv("PATH"))
+	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
+	if _, ok := line(g, "Homebrew packages up to date, fetched 1 hour ago"); !ok {
+		t.Errorf("a brew linked into the repository should find its FETCH_HEAD:\n%s", texts(g))
 	}
 }
 

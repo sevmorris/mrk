@@ -1041,6 +1041,7 @@ install_launch_agent(){
 
 install_launch_agent "com.user.clear_app_caches.plist" || failed=$(( failed + 1 ))
 install_launch_agent "com.user.clear_derived_data.plist" || failed=$(( failed + 1 ))
+install_launch_agent "com.user.brew_update.plist" || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Summary                                                                     #
