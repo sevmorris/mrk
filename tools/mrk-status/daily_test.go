@@ -591,10 +591,14 @@ func lineIndex(g group, substr string) int {
 // ── Upkeep ──────────────────────────────────────────────────────────────────
 
 // upkeepFixtures points the macOS update check at fixtures, and stubs brew.
+// The stub's outdated refuses to run without --greedy, as without
+// HOMEBREW_NO_AUTO_UPDATE: without it, brew leaves out every cask that
+// updates itself, which make update upgrades all the same.
 func upkeepFixtures(t *testing.T, outdated string) {
 	t.Helper()
 	withStubBrew(t, "#!/bin/sh\n[ \"$1\" = outdated ] || exit 9\n"+
 		"[ \"$HOMEBREW_NO_AUTO_UPDATE\" = 1 ] || { echo 'would auto-update' >&2; exit 3; }\n"+
+		"case \" $* \" in *' --greedy '*) ;; *) echo 'would leave out auto-updating casks' >&2; exit 4 ;; esac\n"+
 		"printf '"+outdated+"'\n")
 	dir := t.TempDir()
 	oldV, oldS := sysVersionPlist, suPlist
@@ -700,11 +704,12 @@ func TestUpkeepToolFreshness(t *testing.T) {
 }
 
 func TestUpkeepHomebrewOutdated(t *testing.T) {
-	upkeepFixtures(t, `wget\njq\n`)
+	// zoom is a cask that updates itself: brew outdated lists it only with --greedy.
+	upkeepFixtures(t, `wget\nzoom\njq\n`)
 	repo := mrkRepo(t)
 	g := checkUpkeep(repo, t.TempDir(), t.TempDir())
-	if l, ok := line(g, "2 Homebrew packages outdated: jq, wget"); !ok || l.fix != fixUpdate {
-		t.Errorf("outdated packages should warn with %q, sorted — and the stub refuses to run without HOMEBREW_NO_AUTO_UPDATE:\n%s", fixUpdate, texts(g))
+	if l, ok := line(g, "3 Homebrew packages outdated: jq, wget, zoom"); !ok || l.fix != fixUpdate {
+		t.Errorf("outdated packages should warn with %q, sorted — and the stub refuses to run without HOMEBREW_NO_AUTO_UPDATE or --greedy:\n%s", fixUpdate, texts(g))
 	}
 	upkeepFixtures(t, "")
 	if l, ok := line(checkUpkeep(repo, t.TempDir(), t.TempDir()), "Homebrew packages up to date"); !ok || l.sev != sevOK {
