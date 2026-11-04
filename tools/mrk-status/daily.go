@@ -196,6 +196,29 @@ func brewBin() string {
 	return ""
 }
 
+// brewStaleAfter is how old Homebrew's last check for new versions can be
+// before Upkeep warns. The com.user.brew_update agent checks every morning and
+// at login, so a check two days old means the agent did not run.
+const brewStaleAfter = 48 * time.Hour
+
+// brewFetched is when brew update last checked for new versions: the
+// modification time of FETCH_HEAD in Homebrew's repository. brew update
+// touches it on every check, also when nothing is new (Library/Homebrew/cmd/
+// update.sh), and brew's own auto-update reads it the same way. The repository
+// holds bin/brew: /opt/homebrew/bin/brew is in it, and /usr/local/bin/brew is
+// a link into /usr/local/Homebrew. ok is false when there is no FETCH_HEAD.
+func brewFetched(brew string) (at time.Time, ok bool) {
+	real, err := filepath.EvalSymlinks(brew)
+	if err != nil {
+		return time.Time{}, false
+	}
+	fi, err := os.Stat(filepath.Join(filepath.Dir(filepath.Dir(real)), ".git", "FETCH_HEAD"))
+	if err != nil {
+		return time.Time{}, false
+	}
+	return fi.ModTime(), true
+}
+
 // checkLines runs scripts/<script> in one of its --check modes and returns its
 // lines of at least n fields whose words known accepts, each field with its
 // escapes undone. Each --check mode prints those lines alone on stdout, and
@@ -961,18 +984,30 @@ func checkUpkeep(repoRoot, home, binDir string) group {
 	// true on every cask in the Brewfile), and outdated without it leaves such
 	// a cask out. Most casks here are one: on 2026-11-04 it was 42 of 59, and
 	// this line said up to date with Brave and Zoom a version behind.
+	// The line says how old that data is, as the ~/mrk line does for its
+	// fetch, and a check older than brewStaleAfter warns on a line of its own.
 	if brew := brewBin(); brew == "" {
 		lines = append(lines, sl(sevInfo, "Homebrew is not installed"))
 	} else {
+		fetched := ""
+		var age time.Duration
+		at, known := brewFetched(brew)
+		if known {
+			age = now().Sub(at)
+			fetched = ", fetched " + ago(age)
+		}
 		cmd := exec.Command(brew, "outdated", "--quiet", "--greedy")
 		cmd.Env = append(os.Environ(), "HOMEBREW_NO_AUTO_UPDATE=1")
 		if out, err := cmd.Output(); err != nil {
 			lines = append(lines, sl(sevWarn, fmt.Sprintf("brew outdated failed: %v", err)))
 		} else if pkgs := strings.Fields(string(out)); len(pkgs) > 0 {
 			sort.Strings(pkgs)
-			lines = append(lines, slFix(sevWarn, plural(len(pkgs), "Homebrew package outdated", "Homebrew packages outdated")+": "+names(pkgs), fixUpdate))
+			lines = append(lines, slFix(sevWarn, plural(len(pkgs), "Homebrew package outdated", "Homebrew packages outdated")+fetched+": "+names(pkgs), fixUpdate))
 		} else {
-			lines = append(lines, sl(sevOK, "Homebrew packages up to date"))
+			lines = append(lines, sl(sevOK, "Homebrew packages up to date"+fetched))
+		}
+		if known && age >= brewStaleAfter {
+			lines = append(lines, slFix(sevWarn, "Homebrew last checked for new versions "+ago(age)+": the list above can miss an update", fixUpdate))
 		}
 	}
 
