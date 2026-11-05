@@ -69,9 +69,10 @@ Usage:
 
 nuke-mrk takes no options other than --help. It moves ~/mrk and ~/.mrk to the
 Trash, removes the ~/bin, dotfile and ~/Projects/CLAUDE.md symlinks that point
-into them, the two Claude Code skill links and the session hook post-install
-added, and unloads and deletes the mrk LaunchAgents. It offers to run the
-defaults, hardening and services rollback scripts first, and asks separately
+into them, the Claude Code skill links (~/Projects/.claude/skills, and one in
+~/.claude/skills for each skill) and the session hook post-install added, and
+unloads and deletes the mrk LaunchAgents. It offers to run the defaults,
+hardening and services rollback scripts first, and asks separately
 before the defaults one deletes the whole preferences of the apps post-install
 imported. Declined, the scripts are kept in ~/.mrk. It does NOT uninstall Homebrew
 packages or undo the macOS defaults on its own, and it asks for confirmation

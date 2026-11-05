@@ -139,7 +139,7 @@ neither verb now.
 |---|---|---|
 | `docs/bin/mrk-usage.html` | Full STE on all prose. HTML structure and callout classes kept. | Done — commit `89fd1af`; ignore-list and self-populate prose added in the `login-items-ignore` work; the text added from 2026-09-28 to 2026-10-01 brought back to the rules on 2026-10-01 |
 | `docs/manual.md` | Full STE. Procedures strict; descriptions STE-descriptive. | Done — commit `292485f`; ignore-list and self-populate prose added in the `login-items-ignore` work; the text added from 2026-09-28 to 2026-10-01 brought back to the rules on 2026-10-01 |
-| `scripts/sync-login-items` | The doc-emitting template only. | Done — commit `292485f` |
+| `scripts/sync-login-items` | The doc-emitting template only. | Done — commit `292485f`. The template is retired: since 2026-10-29 the script writes no part of the manual (audit 22, D-3) |
 | `docs/defaults/descriptions.tsv` (was `docs/defaults/script.js`) | Data reconcile + full STE on all 77 entries. | Done — reconcile `7f3d8de`; the 59 legacy entries split across five batches. The entries moved, word for word, from a JavaScript object in `script.js` to `descriptions.tsv` on 2026-10-21 |
 | `docs/defaults/sections.tsv` (was `docs/defaults/script.js`) | Full STE on all 22 section descriptions. | Done — written new on 2026-10-22, when the section text left `script.js`. The old text was not moved: two of its entries described sections that were gone, eight sections had none, and the rest mixed trivia, some of it wrong, with what the keys do |
 | `README.md`, `docs/index.html` | Optional, low priority. | Not started |
@@ -158,10 +158,13 @@ troubleshooting cells became numbered steps.
 
 ### `scripts/sync-login-items` — generator
 
-This script templates one line of `docs/manual.md`. Its `re.subn` pattern anchored on
+This script templated one line of `docs/manual.md`. Its `re.subn` pattern anchored on
 the old wording, so an STE rewrite of that sentence alone would have made the next run
 fail its drift guard and exit 1. The sentence, the template and the regex were changed
 together, and the round trip was verified by driving the real script through a pty.
+
+Audit 22, D-3 retired the template on 2026-10-29. The script writes no part of the manual
+now, and the manual links to `config/login-items.txt`.
 
 ### `docs/defaults/descriptions.tsv` — reconcile and prose split both done
 

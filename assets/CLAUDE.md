@@ -80,7 +80,7 @@ npm ci && npx vitest run
 
 ### Swift apps
 - SwiftUI + AVFoundation for the audio apps; KeyVault uses the Security framework (Keychain).
-- Deployment targets: 15.0 for every app, including the DoublEnder Cloud overlay, PasswordGen and Dipstick (`.macOS("15.0")`; `.v15` would need swift-tools-version 6.0 and Swift 6 mode). That is the oldest macOS GitHub's runners test once `macos-14` retires on 2026-11-02; until 2026-10 the floor was 14.0, and 13.0 for DoublEnder and PasswordGen.
+- Deployment targets: 15.0 for every app, including the DoublEnder Cloud overlay, PasswordGen and Dipstick (`.macOS("15.0")`; `.v15` would need swift-tools-version 6.0 and Swift 6 mode). That is the oldest macOS GitHub's runners test since `macos-14` retired on 2026-11-02; until 2026-10 the floor was 14.0, and 13.0 for DoublEnder and PasswordGen.
 - MVVM with `@Observable` / `@MainActor`, actor-based services.
 - WaxOnWaxOff, ClipHack and FilmStrip build with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so a value type or pure helper reached from an actor, a function value or a default-argument closure needs `nonisolated` — Swift 6.4 (Xcode 27) warns on each one, and it is an error in Swift 6 mode.
 - `PBXFileSystemSynchronizedRootGroup` in WaxOnWaxOff, ClipHack, FilmStrip, KeyVault and Magic Backup Machine — new files in a synced folder are picked up with no project edit. Barkeep and DoublEnder do **not** use it, so adding or removing a file there means editing `project.pbxproj` (or `project.yml`, for DoublEnder).
@@ -91,7 +91,7 @@ npm ci && npx vitest run
 
 ### Toolchain
 - **An Xcode newer than macOS is a trap.** Xcode 27 ships only the macOS 27 SDK; on macOS 26 anything built against it can weak-link functions the running OS lacks. pyenv's Python did (`pipe2`, `dup3`) and segfaulted on every subprocess call, which is what broke dmgbuild — and ensurepip — on the 2026-09-15 migration. mrk's post-install now builds it with `CC=/usr/bin/clang SDKROOT=<CLT MacOSX26.sdk>`. Anything else compiled from source here deserves the same suspicion.
-- **CI tests what ships, on the macOS users have.** Every Xcode or Swift CI job runs on `macos-15` and `macos-26` with Xcode 26.3, plus GitHub's `xcode-27` runner: macOS 27 with Xcode 27.0, the toolchain releases are built with, in public preview. DoublEnder and Barkeep ship universal, so they add `macos-26-intel`, the only place their x86_64 slice ever runs. GitHub retires `macos-14` on 2026-11-02, so `macos-15` is the oldest macOS anything tests. `repo-standards`' `ci-matrix` check holds every repo to this, and names the runner images in one place to update each autumn.
+- **CI tests what ships, on the macOS users have.** Every Xcode or Swift CI job runs on `macos-15` and `macos-26` with Xcode 26.3, plus GitHub's `xcode-27` runner: macOS 27 with Xcode 27.0, the toolchain releases are built with, in public preview. DoublEnder and Barkeep ship universal, so they add `macos-26-intel`, the only place their x86_64 slice ever runs. GitHub retired `macos-14` on 2026-11-02, so `macos-15` is the oldest macOS anything tests. `repo-standards`' `ci-matrix` check holds every repo to this, and names the runner images in one place to update each autumn.
 - Pass `-destination 'generic/platform=macOS'` to Release builds. Without it xcodebuild warns and builds only the first matching destination's arch; with it, `ARCHS` decides (arm64 for the FFmpeg apps, universal for DoublEnder).
 
 ### Shell scripts
