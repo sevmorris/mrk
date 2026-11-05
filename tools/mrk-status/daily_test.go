@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -593,7 +595,9 @@ func lineIndex(g group, substr string) int {
 // upkeepFixtures points the macOS update check at fixtures, and stubs brew.
 // The stub's outdated refuses to run without --greedy, as without
 // HOMEBREW_NO_AUTO_UPDATE: without it, brew leaves out every cask that
-// updates itself, which make update upgrades all the same.
+// updates itself, which make update upgrades all the same. It prints
+// outdated.json, which lists the formulae that outdated names, separated by
+// \n, and no cask; brewCask adds one. The stub's info prints info.json.
 //
 // The stub is bin/brew in a directory laid out as Homebrew's repository, which
 // it returns, so a test can give it a .git/FETCH_HEAD. It has none to begin
@@ -605,13 +609,27 @@ func upkeepFixtures(t *testing.T, outdated string) (homebrew string) {
 	if err := os.MkdirAll(bin, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	stub := "#!/bin/sh\n[ \"$1\" = outdated ] || exit 9\n" +
+	stub := "#!/bin/sh\n" +
 		"[ \"$HOMEBREW_NO_AUTO_UPDATE\" = 1 ] || { echo 'would auto-update' >&2; exit 3; }\n" +
-		"case \" $* \" in *' --greedy '*) ;; *) echo 'would leave out auto-updating casks' >&2; exit 4 ;; esac\n" +
-		"printf '" + outdated + "'\n"
+		"case \"$1\" in\n" +
+		"outdated)\n" +
+		"  case \" $* \" in *' --greedy '*) ;; *) echo 'would leave out auto-updating casks' >&2; exit 4 ;; esac\n" +
+		"  case \" $* \" in *' --json=v2 '*) ;; *) echo 'would print names, not JSON' >&2; exit 5 ;; esac\n" +
+		"  cat '" + filepath.Join(homebrew, "outdated.json") + "' ;;\n" +
+		"info) cat '" + filepath.Join(homebrew, "info.json") + "' ;;\n" +
+		"*) exit 9 ;;\n" +
+		"esac\n"
 	if err := os.WriteFile(filepath.Join(bin, "brew"), []byte(stub), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	doc := brewOutdatedDoc{Formulae: []map[string]string{}, Casks: []map[string]string{}}
+	for _, name := range strings.Split(outdated, `\n`) {
+		if name != "" {
+			doc.Formulae = append(doc.Formulae, map[string]string{"name": name})
+		}
+	}
+	writeJSON(t, filepath.Join(homebrew, "outdated.json"), doc)
+	writeJSON(t, filepath.Join(homebrew, "info.json"), brewInfoDoc{Casks: []brewInfoCask{}})
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	noOtherBrew(t)
 	dir := t.TempDir()
@@ -620,6 +638,70 @@ func upkeepFixtures(t *testing.T, outdated string) (homebrew string) {
 	t.Cleanup(func() { sysVersionPlist, suPlist = oldV, oldS })
 	write(t, sysVersionPlist, plistXML(`<dict><key>ProductVersion</key><string>26.0.1</string></dict>`))
 	return homebrew
+}
+
+// The documents the stub brew prints, in the shape of brew's --json=v2.
+type brewOutdatedDoc struct {
+	Formulae []map[string]string `json:"formulae"`
+	Casks    []map[string]string `json:"casks"`
+}
+type brewInfoDoc struct {
+	Casks []brewInfoCask `json:"casks"`
+}
+type brewInfoCask struct {
+	Token     string           `json:"token"`
+	Artifacts []map[string]any `json:"artifacts"`
+}
+
+func writeJSON(t *testing.T, path string, v any) {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, path, string(b))
+}
+
+func readJSON(t *testing.T, path string, v any) {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(b, v); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// brewCask makes the stub brew list a cask as outdated, with latest as its
+// newest version. Each of apps is the version of one app the cask installs,
+// in an Info.plist under homebrew/Applications, at the target that the stub's
+// info gives; "" is an app with no Info.plist there. With no apps the cask
+// installs a pkg, as zoom does.
+func brewCask(t *testing.T, homebrew, token, latest string, apps ...string) {
+	t.Helper()
+	var out brewOutdatedDoc
+	readJSON(t, filepath.Join(homebrew, "outdated.json"), &out)
+	out.Casks = append(out.Casks, map[string]string{"name": token, "current_version": latest})
+	writeJSON(t, filepath.Join(homebrew, "outdated.json"), out)
+
+	cask := brewInfoCask{Token: token, Artifacts: []map[string]any{{"uninstall": []any{map[string]any{"quit": "com.example." + token}}}}}
+	if len(apps) == 0 {
+		cask.Artifacts = append(cask.Artifacts, map[string]any{"pkg": []string{token + ".pkg"}})
+	}
+	for i, version := range apps {
+		app := fmt.Sprintf("%s %d.app", token, i)
+		target := filepath.Join(homebrew, "Applications", app)
+		cask.Artifacts = append(cask.Artifacts, map[string]any{"app": []string{app}, "target": target})
+		if version != "" {
+			write(t, filepath.Join(target, "Contents", "Info.plist"), plistXML(
+				`<dict><key>CFBundleShortVersionString</key><string>`+version+`</string></dict>`))
+		}
+	}
+	var info brewInfoDoc
+	readJSON(t, filepath.Join(homebrew, "info.json"), &info)
+	info.Casks = append(info.Casks, cask)
+	writeJSON(t, filepath.Join(homebrew, "info.json"), info)
 }
 
 func plistXML(body string) string {
@@ -720,11 +802,16 @@ func TestUpkeepToolFreshness(t *testing.T) {
 
 func TestUpkeepHomebrewOutdated(t *testing.T) {
 	// zoom is a cask that updates itself: brew outdated lists it only with --greedy.
-	upkeepFixtures(t, `wget\nzoom\njq\n`)
+	brewCask(t, upkeepFixtures(t, `wget\njq\n`), "zoom", "7.2.5.90525")
 	repo := mrkRepo(t)
 	g := checkUpkeep(repo, t.TempDir(), t.TempDir())
 	if l, ok := line(g, "3 Homebrew packages outdated: jq, wget, zoom"); !ok || l.fix != fixUpdate {
-		t.Errorf("outdated packages should warn with %q, sorted — and the stub refuses to run without HOMEBREW_NO_AUTO_UPDATE or --greedy:\n%s", fixUpdate, texts(g))
+		t.Errorf("outdated packages should warn with %q, formulae and casks sorted together — and the stub refuses to run without HOMEBREW_NO_AUTO_UPDATE, --greedy or --json=v2:\n%s", fixUpdate, texts(g))
+	}
+	write(t, filepath.Join(upkeepFixtures(t, ""), "outdated.json"), "Error: not JSON")
+	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
+	if l, ok := line(g, "brew outdated: cannot read its JSON"); !ok || l.sev != sevWarn {
+		t.Errorf("output that is not JSON should warn, not read as up to date:\n%s", texts(g))
 	}
 	upkeepFixtures(t, "")
 	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
@@ -733,6 +820,52 @@ func TestUpkeepHomebrewOutdated(t *testing.T) {
 	}
 	if strings.Contains(texts(g), "fetched") || strings.Contains(texts(g), "last checked") {
 		t.Errorf("with no FETCH_HEAD the Homebrew lines should name no fetch:\n%s", texts(g))
+	}
+}
+
+// A cask whose apps on disk all have its latest version updated itself, and
+// only Homebrew's record is behind: it is not counted, and a detail line under
+// the Homebrew line names it. Anything that leaves the app's version unknown or
+// different keeps the cask counted.
+func TestUpkeepHomebrewSelfUpdated(t *testing.T) {
+	repo := mrkRepo(t)
+	homebrew := upkeepFixtures(t, `jq\n`)
+	brewCask(t, homebrew, "claude", "4.16336.0,61c5bb50", "4.16336.0") // updated itself
+	brewCask(t, homebrew, "brave-browser", "1.98.63.0", "156.1.98.62") // its own version scheme
+	brewCask(t, homebrew, "firefox", "159.0.1", "159.0")               // behind
+	brewCask(t, homebrew, "zoom", "7.2.5.90525")                       // a pkg, with no app to read
+	brewCask(t, homebrew, "suite", "2.0", "2.0", "1.9")                // one app of two behind
+	brewCask(t, homebrew, "ghost", "3.0", "")                          // no Info.plist at the target
+	g := checkUpkeep(repo, t.TempDir(), t.TempDir())
+	head := lineIndex(g, "6 Homebrew packages outdated: brave-browser, firefox, ghost, jq, suite and 1 more")
+	if head < 0 || g.lines[head].sev != sevWarn {
+		t.Fatalf("every cask but claude should be counted:\n%s", texts(g))
+	}
+	const one = "  not counted, as the app updated itself, and make update reinstalls it: claude"
+	if head+1 >= len(g.lines) || g.lines[head+1].text != one || g.lines[head+1].sev != sevInfo {
+		t.Errorf("the detail line should come right under the Homebrew line, as info:\n%s", texts(g))
+	}
+
+	homebrew = upkeepFixtures(t, "")
+	brewCask(t, homebrew, "raycast", "2.11.1.0", "2.11.1.0")
+	brewCask(t, homebrew, "claude", "4.16336.0,61c5bb50", "4.16336.0")
+	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
+	head = lineIndex(g, "Homebrew packages up to date")
+	if head < 0 || g.lines[head].sev != sevOK {
+		t.Fatalf("with every listed app current, Homebrew should be up to date:\n%s", texts(g))
+	}
+	const two = "  not counted, as the apps updated themselves, and make update reinstalls them: claude, raycast"
+	if head+1 >= len(g.lines) || g.lines[head+1].text != two {
+		t.Errorf("the detail line should name both, sorted:\n%s", texts(g))
+	}
+
+	// When brew info fails, nothing shows an app to be current.
+	homebrew = upkeepFixtures(t, "")
+	brewCask(t, homebrew, "claude", "4.16336.0,61c5bb50", "4.16336.0")
+	write(t, filepath.Join(homebrew, "info.json"), "Error: not JSON")
+	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
+	if _, ok := line(g, "1 Homebrew package outdated: claude"); !ok || strings.Contains(texts(g), "not counted") {
+		t.Errorf("without brew info the cask should stay counted:\n%s", texts(g))
 	}
 }
 
