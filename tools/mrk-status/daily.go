@@ -19,6 +19,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -217,6 +218,111 @@ func brewFetched(brew string) (at time.Time, ok bool) {
 		return time.Time{}, false
 	}
 	return fi.ModTime(), true
+}
+
+// brewJSON runs brew with args and returns its stdout. HOMEBREW_NO_AUTO_UPDATE:
+// it reads what the last update fetched, and must not start one.
+func brewJSON(brew string, args ...string) ([]byte, error) {
+	cmd := exec.Command(brew, args...)
+	cmd.Env = append(os.Environ(), "HOMEBREW_NO_AUTO_UPDATE=1")
+	return cmd.Output()
+}
+
+// brewOutdated is `brew outdated --greedy`: the formulae and casks that have a
+// newer version, sorted. It returns apart the casks whose apps on disk already
+// have that version (selfUpdated). An app that updates itself does not tell
+// Homebrew, so Homebrew's record keeps the version it installed, and --greedy
+// lists the cask until make update installs the same version again. On
+// 2026-11-04 Claude, Raycast and Antigravity were at their latest versions and
+// listed. Its error is the line to show.
+func brewOutdated(brew string) (outdated, selfUpdated []string, err error) {
+	out, err := brewJSON(brew, "outdated", "--greedy", "--json=v2")
+	if err != nil {
+		return nil, nil, fmt.Errorf("brew outdated failed: %v", err)
+	}
+	var doc struct {
+		Formulae []struct {
+			Name string `json:"name"`
+		} `json:"formulae"`
+		Casks []struct {
+			Name           string `json:"name"`
+			CurrentVersion string `json:"current_version"`
+		} `json:"casks"`
+	}
+	if err := json.Unmarshal(out, &doc); err != nil {
+		return nil, nil, fmt.Errorf("brew outdated: cannot read its JSON: %v", err)
+	}
+	for _, f := range doc.Formulae {
+		outdated = append(outdated, f.Name)
+	}
+	var casks []string
+	for _, c := range doc.Casks {
+		casks = append(casks, c.Name)
+	}
+	onDisk := appVersions(brew, casks)
+	for _, c := range doc.Casks {
+		// A cask's version can carry a build after a comma, as
+		// "4.16336.0,61c5bb50…"; the app's own version is the part before it.
+		latest, _, _ := strings.Cut(c.CurrentVersion, ",")
+		vs, read := onDisk[c.Name]
+		if read && latest != "" && !slices.ContainsFunc(vs, func(v string) bool { return v != latest }) {
+			selfUpdated = append(selfUpdated, c.Name)
+		} else {
+			outdated = append(outdated, c.Name)
+		}
+	}
+	sort.Strings(outdated)
+	sort.Strings(selfUpdated)
+	return outdated, selfUpdated, nil
+}
+
+// appVersions reads, for each cask, the version of each app it installs:
+// CFBundleShortVersionString in the app's own Info.plist, at the target that
+// brew info gives for the app. A cask is left out when it installs no app, as
+// a pkg or a binary does, or when one of its apps cannot be read, and so is
+// every cask when brew info fails: then nothing shows the app to be newer than
+// Homebrew's record, and the cask stays counted.
+func appVersions(brew string, casks []string) map[string][]string {
+	if len(casks) == 0 {
+		return nil
+	}
+	out, err := brewJSON(brew, append([]string{"info", "--json=v2", "--cask"}, casks...)...)
+	if err != nil {
+		return nil
+	}
+	var doc struct {
+		Casks []struct {
+			Token     string                       `json:"token"`
+			Artifacts []map[string]json.RawMessage `json:"artifacts"`
+		} `json:"casks"`
+	}
+	if json.Unmarshal(out, &doc) != nil {
+		return nil
+	}
+	versions := map[string][]string{}
+next:
+	for _, c := range doc.Casks {
+		var vs []string
+		for _, a := range c.Artifacts {
+			if _, ok := a["app"]; !ok {
+				continue
+			}
+			var target string
+			if json.Unmarshal(a["target"], &target) != nil || target == "" {
+				continue next
+			}
+			p, err := readPlist(filepath.Join(target, "Contents", "Info.plist"))
+			v := pString(pDict(p)["CFBundleShortVersionString"])
+			if err != nil || v == "" {
+				continue next
+			}
+			vs = append(vs, v)
+		}
+		if len(vs) > 0 {
+			versions[c.Token] = vs
+		}
+	}
+	return versions
 }
 
 // checkLines runs scripts/<script> in one of its --check modes and returns its
@@ -986,6 +1092,8 @@ func checkUpkeep(repoRoot, home, binDir string) group {
 	// this line said up to date with Brave and Zoom a version behind.
 	// The line says how old that data is, as the ~/mrk line does for its
 	// fetch, and a check older than brewStaleAfter warns on a line of its own.
+	// A cask whose app already has the latest version is not counted, and a
+	// detail line names it (brewOutdated).
 	if brew := brewBin(); brew == "" {
 		lines = append(lines, sl(sevInfo, "Homebrew is not installed"))
 	} else {
@@ -996,15 +1104,20 @@ func checkUpkeep(repoRoot, home, binDir string) group {
 			age = now().Sub(at)
 			fetched = ", fetched " + ago(age)
 		}
-		cmd := exec.Command(brew, "outdated", "--quiet", "--greedy")
-		cmd.Env = append(os.Environ(), "HOMEBREW_NO_AUTO_UPDATE=1")
-		if out, err := cmd.Output(); err != nil {
-			lines = append(lines, sl(sevWarn, fmt.Sprintf("brew outdated failed: %v", err)))
-		} else if pkgs := strings.Fields(string(out)); len(pkgs) > 0 {
-			sort.Strings(pkgs)
+		pkgs, selfUpdated, err := brewOutdated(brew)
+		switch {
+		case err != nil:
+			lines = append(lines, sl(sevWarn, err.Error()))
+		case len(pkgs) > 0:
 			lines = append(lines, slFix(sevWarn, plural(len(pkgs), "Homebrew package outdated", "Homebrew packages outdated")+fetched+": "+names(pkgs), fixUpdate))
-		} else {
+		default:
 			lines = append(lines, sl(sevOK, "Homebrew packages up to date"+fetched))
+		}
+		switch n := len(selfUpdated); {
+		case n == 1:
+			lines = append(lines, sl(sevInfo, "  not counted, as the app updated itself, and make update reinstalls it: "+names(selfUpdated)))
+		case n > 1:
+			lines = append(lines, sl(sevInfo, "  not counted, as the apps updated themselves, and make update reinstalls them: "+names(selfUpdated)))
 		}
 		if known && age >= brewStaleAfter {
 			lines = append(lines, slFix(sevWarn, "Homebrew last checked for new versions "+ago(age)+": the list above can miss an update", fixUpdate))
