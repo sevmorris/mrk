@@ -46,11 +46,15 @@ const (
 	fixBuildTools  = "make build-tools"
 	fixBrewInstall = "make brew"
 	fixLoginItems  = "make sync-login-items ARGS=-c"
-	fixTidy        = "bin/tidy-projects --apply ff,refs,worktrees,branches"
+	// The Homebrew packages of one kind, with brew alone (run_update).
+	fixUpdateFormulae = "make update ARGS=--formulae"
+	fixUpdateCasks    = "make update ARGS=--casks"
+	fixTidy           = "bin/tidy-projects --apply ff,refs,worktrees,branches"
 )
 
 var dailyFixes = []string{fixSyncAdd, fixMrkPush, fixPushall, fixSnapshot, fixPull,
-	fixUpdate, fixUpdates, fixBuildTools, fixBrewInstall, fixLoginItems, fixTidy}
+	fixUpdate, fixUpdates, fixBuildTools, fixBrewInstall, fixLoginItems,
+	fixUpdateFormulae, fixUpdateCasks, fixTidy}
 
 // Paths the checks read, variables so the tests can point them at fixtures.
 var (
@@ -229,17 +233,18 @@ func brewJSON(brew string, args ...string) ([]byte, error) {
 	return cmd.Output()
 }
 
-// brewOutdated is `brew outdated --greedy`: the formulae and casks that have a
-// newer version, sorted. It returns apart the casks whose apps on disk already
-// have that version (selfUpdated). An app that updates itself does not tell
-// Homebrew, so Homebrew's record keeps the version it installed, and --greedy
-// lists the cask until make update installs the same version again. On
-// 2026-11-04 Claude, Raycast and Antigravity were at their latest versions and
-// listed. Its error is the line to show.
-func brewOutdated(brew string) (outdated, selfUpdated []string, err error) {
+// brewOutdated is `brew outdated --greedy`: the formulae and the casks that
+// have a newer version, each sorted, apart because each kind has its own fix.
+// It returns apart too the casks whose apps on disk already have that version
+// (selfUpdated). An app that updates itself does not tell Homebrew, so
+// Homebrew's record keeps the version it installed, and --greedy lists the
+// cask until make update installs the same version again. On 2026-11-04
+// Claude, Raycast and Antigravity were at their latest versions and listed.
+// Its error is the line to show.
+func brewOutdated(brew string) (formulae, casks, selfUpdated []string, err error) {
 	out, err := brewJSON(brew, "outdated", "--greedy", "--json=v2")
 	if err != nil {
-		return nil, nil, fmt.Errorf("brew outdated failed: %v", err)
+		return nil, nil, nil, fmt.Errorf("brew outdated failed: %v", err)
 	}
 	var doc struct {
 		Formulae []struct {
@@ -251,16 +256,16 @@ func brewOutdated(brew string) (outdated, selfUpdated []string, err error) {
 		} `json:"casks"`
 	}
 	if err := json.Unmarshal(out, &doc); err != nil {
-		return nil, nil, fmt.Errorf("brew outdated: cannot read its JSON: %v", err)
+		return nil, nil, nil, fmt.Errorf("brew outdated: cannot read its JSON: %v", err)
 	}
 	for _, f := range doc.Formulae {
-		outdated = append(outdated, f.Name)
+		formulae = append(formulae, f.Name)
 	}
-	var casks []string
+	var listed []string
 	for _, c := range doc.Casks {
-		casks = append(casks, c.Name)
+		listed = append(listed, c.Name)
 	}
-	onDisk := appVersions(brew, casks)
+	onDisk := appVersions(brew, listed)
 	for _, c := range doc.Casks {
 		// A cask's version can carry a build after a comma, as
 		// "4.16336.0,61c5bb50…"; the app's own version is the part before it.
@@ -269,12 +274,13 @@ func brewOutdated(brew string) (outdated, selfUpdated []string, err error) {
 		if read && latest != "" && !slices.ContainsFunc(vs, func(v string) bool { return v != latest }) {
 			selfUpdated = append(selfUpdated, c.Name)
 		} else {
-			outdated = append(outdated, c.Name)
+			casks = append(casks, c.Name)
 		}
 	}
-	sort.Strings(outdated)
+	sort.Strings(formulae)
+	sort.Strings(casks)
 	sort.Strings(selfUpdated)
-	return outdated, selfUpdated, nil
+	return formulae, casks, selfUpdated, nil
 }
 
 // appVersions reads, for each cask, the version of each app it installs:
@@ -1097,10 +1103,17 @@ func checkUpkeep(repoRoot, home, binDir string) group {
 	// true on every cask in the Brewfile), and outdated without it leaves such
 	// a cask out. Most casks here are one: on 2026-11-04 it was 42 of 59, and
 	// this line said up to date with Brave and Zoom a version behind.
-	// The line says how old that data is, as the ~/mrk line does for its
+	// The first line says how old that data is, as the ~/mrk line does for its
 	// fetch, and a check older than brewStaleAfter warns on a line of its own.
 	// A cask whose app already has the latest version is not counted, and a
 	// detail line names it (brewOutdated).
+	//
+	// Once anything is outdated, the formulae and the casks each have a line
+	// and a fix of their own. A cask upgrade replaces an app in /Applications,
+	// which may be open, and a formula upgrade replaces nothing that is, so
+	// the formulae can be upgraded at any time and the casks when it suits.
+	// Until 2026-11-05 one line listed both, with make update, which upgrades
+	// everything topgrade does.
 	if brew := brewBin(); brew == "" {
 		lines = append(lines, sl(sevInfo, "Homebrew is not installed"))
 	} else {
@@ -1111,15 +1124,25 @@ func checkUpkeep(repoRoot, home, binDir string) group {
 			age = now().Sub(at)
 			fetched = ", fetched " + ago(age)
 		}
-		pkgs, selfUpdated, err := brewOutdated(brew)
+		formulae, casks, selfUpdated, err := brewOutdated(brew)
 		switch {
 		case err != nil:
 			lines = append(lines, sl(sevWarn, err.Error()))
-		case len(pkgs) > 0:
-			lines = append(lines, slFix(sevWarn, plural(len(pkgs), "Homebrew package outdated", "Homebrew packages outdated")+fetched+": "+names(pkgs), fixUpdate))
-		default:
+		case len(formulae) == 0 && len(casks) == 0:
 			lines = append(lines, sl(sevOK, "Homebrew packages up to date"+fetched))
+		default:
+			if len(formulae) > 0 {
+				lines = append(lines, slFix(sevWarn, plural(len(formulae), "Homebrew formula outdated", "Homebrew formulae outdated")+fetched+": "+names(formulae), fixUpdateFormulae))
+			} else {
+				lines = append(lines, sl(sevOK, "Homebrew formulae up to date"+fetched))
+			}
+			if len(casks) > 0 {
+				lines = append(lines, slFix(sevWarn, plural(len(casks), "Homebrew cask outdated", "Homebrew casks outdated")+": "+names(casks), fixUpdateCasks))
+			} else {
+				lines = append(lines, sl(sevOK, "Homebrew casks up to date"))
+			}
 		}
+		// Under the casks line, or under the line that says all are up to date.
 		switch n := len(selfUpdated); {
 		case n == 1:
 			lines = append(lines, sl(sevInfo, "  not counted, as the app updated itself, and make update reinstalls it: "+names(selfUpdated)))

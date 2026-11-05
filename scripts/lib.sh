@@ -1201,6 +1201,49 @@ kill -s $sig \$\$" "$sig"
   return "$rc"
 }
 
+# run_update [--formulae | --casks] — make update. With no argument it upgrades
+# everything: run_topgrade, or brew update and brew upgrade where topgrade is
+# not installed. --formulae runs brew update and upgrades the formulae alone.
+# --casks upgrades the casks alone, with --greedy for the casks that update
+# themselves, and then deletes the login items MRK_NOT_AT_LOGIN names, as
+# run_topgrade does, because a cask upgrade puts NordVPN back. These are the
+# commands of topgrade's brew_formula and brew_cask steps. Neither option runs
+# topgrade, which asks for sudo first and runs its post_commands with any
+# --only. Returns brew's status, or 2 for any other argument, on a ✗ line.
+#
+# mrk-status gives each its own line in Upkeep, so the formulae can be
+# upgraded while the apps that a cask upgrade replaces are open. Until
+# 2026-11-05 make update took no ARGS, and one line and one fix covered both.
+run_update() {
+  local rc=0
+  if (( $# == 0 )); then
+    if command -v topgrade >/dev/null 2>&1; then
+      run_topgrade "$@" || rc=$?
+    else
+      { brew update && brew upgrade; } || rc=$?
+    fi
+    return "$rc"
+  fi
+  if (( $# > 1 )); then
+    err "make update takes one ARGS, --formulae or --casks, or none: $*"
+    return 2
+  fi
+  case "$1" in
+    --formulae)
+      { brew update && brew upgrade --formula; } || rc=$?
+      ;;
+    --casks)
+      brew upgrade --cask --greedy || rc=$?
+      remove_unwanted_login_items || true
+      ;;
+    *)
+      err "unknown argument: $1. make update takes ARGS=--formulae or ARGS=--casks, or none."
+      return 2
+      ;;
+  esac
+  return "$rc"
+}
+
 # tool_freshness REPO BINDIR — for each Go tool mrk builds, print its name and
 # its state, tab-separated: "ok"; "stale", when a source under tools/<dir> or
 # tools/theme — go.mod and go.sum included, since a dependency bump changes the

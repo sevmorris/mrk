@@ -19,8 +19,9 @@
 # The update shell function is run in a zsh that reads no startup file.
 # Then one clean-up command of assets/topgrade.toml, pip cache purge, runs
 # against a stub pip3: an empty cache must be said to be normal, and nothing
-# else must. The last cases hold run_topgrade to deleting, after topgrade, the
-# login items that MRK_NOT_AT_LOGIN names, through a stub osascript.
+# else must. The next cases hold run_topgrade to deleting, after topgrade, the
+# login items that MRK_NOT_AT_LOGIN names, through a stub osascript. The last
+# hold ARGS=--formulae and ARGS=--casks to brew alone, against a stub brew.
 # ci-check runs it.
 
 set -uo pipefail
@@ -479,6 +480,81 @@ for flag in -n --dry-run; do
   fi
   rm -f "$W/osa-calls"
 done
+
+# ── 11. One kind of Homebrew package ─────────────────────────────────────────
+
+# ARGS=--formulae and ARGS=--casks run brew alone, never topgrade: mrk-status
+# offers each beside its own Upkeep line. A stub brew records each call, one a
+# line, and exits BREW_RC, or BREW_UPDATE_RC for brew update. The stub topgrade
+# is still first on PATH, and its transcript must not show. --casks deletes
+# NordVPN's login item afterwards, as run_topgrade does, even when a cask
+# failed. Any other ARGS is refused with exit 2, and brew is never called.
+mkdir -p "$W/kinds"
+cat > "$W/kinds/brew" <<EOF
+#!/bin/sh
+echo "\$*" >> "$W/kind-calls"
+[ "\$1" = update ] && exit "\${BREW_UPDATE_RC:-0}"
+exit "\${BREW_RC:-0}"
+EOF
+chmod +x "$W/kinds/brew"
+KIND_ENV=(env -i HOME="$W/home" PATH="$W/kinds:$S:/usr/bin:/bin:/usr/sbin:/sbin" TMPDIR="$TMP" TERM=dumb
+  TRANSCRIPT="$T/all-ok" RC=0)
+# kind ARGS [VAR=VALUE...] — make update ARGS=ARGS. Output in $W/out.
+kind() {
+  local args=$1; shift
+  rm -f "$W/kind-calls" "$W/osa-calls"
+  "${KIND_ENV[@]}" "$@" make --no-print-directory -C "$REPO_ROOT" update ARGS="$args" < /dev/null > "$W/out" 2>&1
+  RC_SEEN=$?
+}
+kind_calls() { [[ -f "$W/kind-calls" ]] && paste -sd ';' "$W/kind-calls"; }
+
+kind --formulae
+if (( RC_SEEN == 0 )) && [[ "$(kind_calls)" == "update;upgrade --formula" ]] && [[ "$(osa_calls)" == 0 ]] \
+   && ! has "Summary"; then
+  pass "ARGS=--formulae: brew update, then brew upgrade --formula, and no topgrade"
+else
+  fail "ARGS=--formulae: exit $RC_SEEN, brew calls: $(kind_calls), $(osa_calls) osascript call(s)"; show
+fi
+
+kind --formulae BREW_UPDATE_RC=1
+if (( RC_SEEN != 0 )) && [[ "$(kind_calls)" == "update" ]] && has "[update] Error 1"; then
+  pass "ARGS=--formulae: no upgrade when brew update fails, and its status"
+else
+  fail "ARGS=--formulae with brew update failing: exit $RC_SEEN, brew calls: $(kind_calls)"; show
+fi
+
+printf 'NordVPN\n' > "$W/osa-out"
+kind --casks
+if (( RC_SEEN == 0 )) && [[ "$(kind_calls)" == "upgrade --cask --greedy" ]] && [[ "$(osa_calls)" == 1 ]] \
+   && has "Removed NordVPN from the login items" && ! has "Summary"; then
+  pass "ARGS=--casks: brew upgrade --cask --greedy, then NordVPN's login item deleted"
+else
+  fail "ARGS=--casks: exit $RC_SEEN, brew calls: $(kind_calls), $(osa_calls) osascript call(s)"; show
+fi
+
+kind --casks BREW_RC=1
+if (( RC_SEEN != 0 )) && [[ "$(osa_calls)" == 1 ]] && has "Removed NordVPN from the login items" \
+   && has "[update] Error 1"; then
+  pass "ARGS=--casks: the login items deleted when a cask fails too, and brew's status kept"
+else
+  fail "ARGS=--casks with a cask failing: exit $RC_SEEN, $(osa_calls) osascript call(s)"; show
+fi
+rm -f "$W/osa-out"
+
+kind --nope
+if (( RC_SEEN != 0 )) && has "unknown argument: --nope" && has "[update] Error 2" && [[ -z "$(kind_calls)" ]]; then
+  pass "ARGS=--nope: refused with exit 2, and brew not called"
+else
+  fail "ARGS=--nope: exit $RC_SEEN, brew calls: $(kind_calls)"; show
+fi
+
+kind "--formulae --casks"
+if (( RC_SEEN != 0 )) && has "make update takes one ARGS" && has "[update] Error 2" && [[ -z "$(kind_calls)" ]]; then
+  pass "ARGS=\"--formulae --casks\": refused with exit 2, and brew not called"
+else
+  fail "ARGS=\"--formulae --casks\": exit $RC_SEEN, brew calls: $(kind_calls)"; show
+fi
+rm -f "$W/osa-calls"
 
 if (( fails )); then
   err "$fails update verdict check(s) failed"
