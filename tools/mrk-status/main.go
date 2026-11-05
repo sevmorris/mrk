@@ -847,7 +847,10 @@ Panels, daily work first:
                         committed or pushed, repositories the manifest does
                         not record, app preferences not snapshotted
   Upkeep                ~/mrk behind origin, Go tools older than their source,
-                        outdated Homebrew packages, macOS updates
+                        outdated Homebrew packages, macOS updates, and the
+                        clutter in ~/Projects and ~/mrk that tidy-projects
+                        can delete with no work lost (surveyed at most every
+                        two hours)
   Time Machine Backups  A destination, and the age of the last backup
   Installation          Dotfiles, ~/bin links, shell, PATH, Homebrew, the
                         Brewfile, the macOS defaults set, hardening

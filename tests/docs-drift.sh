@@ -39,7 +39,7 @@
 #    parses its arguments, its usage text, and its BIN-1 entry. All three are
 #    read from the source, and nothing runs. -h and --help are left out:
 #    BIN-1 says once, for every command, that each answers both. Audit 22, O-4.
-# 10. BIN-1's entries of the five --check modes give the number of fields that
+# 10. BIN-1's entries of the --check modes give the number of fields that
 #    each line has, and name each fixed word, such as a state, that the script
 #    can write. Both are read from the script's calls of mrk_check_line, and
 #    from the words it gives the variables that it passes. The check-lines
