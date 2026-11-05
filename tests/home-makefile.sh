@@ -87,7 +87,8 @@ fi
 if grep -rq '^Makefile ' "$W/log"; then fail "make tried to rebuild ~/Makefile through ~/mrk"; fi
 
 # The real ~/mrk Makefile, under make -n: the recipe it would run, run by none.
-if (cd "$W/home" && make -n --no-print-directory -f "$REPO_ROOT/dotfiles/Makefile" MRK="$REPO_ROOT" update) 2>&1 | grep -q 'topgrade'; then
+# Until 2026-11-05 the recipe named topgrade itself; it now calls run_update.
+if (cd "$W/home" && make -n --no-print-directory -f "$REPO_ROOT/dotfiles/Makefile" MRK="$REPO_ROOT" update) 2>&1 | grep -q 'run_update'; then
   pass "make -n update against the real ~/mrk: its recipe, printed and not run"
 else
   fail "make -n update against the real ~/mrk did not reach its recipe"

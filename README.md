@@ -68,7 +68,7 @@ Run `make all` to execute all three phases at once. On a fresh machine, run them
 | `make sync-login-items` | Sync system login items into `config/login-items.txt` |
 | `make snapshot-prefs` | Export app preferences and push to mrk-prefs |
 | `make pull-prefs` | Clone or pull app preferences from mrk-prefs |
-| `make update` | Update via topgrade (or brew) |
+| `make update` | Update via topgrade (or brew); `ARGS=--formulae` or `ARGS=--casks` for one kind of Homebrew package |
 | `make updates` | Install the macOS updates for the installed version — never a major upgrade (`ARGS=-n` to preview) |
 
 **Diagnostics & tools**

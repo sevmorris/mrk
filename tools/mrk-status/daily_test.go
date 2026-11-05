@@ -800,14 +800,43 @@ func TestUpkeepToolFreshness(t *testing.T) {
 	}
 }
 
+// The formulae and the casks each have a line and a fix of their own, the
+// formulae first, so that they can be upgraded without the casks, which
+// replace apps that may be open. With one kind outdated, the other's line says
+// it is up to date.
 func TestUpkeepHomebrewOutdated(t *testing.T) {
 	// zoom is a cask that updates itself: brew outdated lists it only with --greedy.
-	brewCask(t, upkeepFixtures(t, `wget\njq\n`), "zoom", "7.2.5.90525")
+	homebrew := upkeepFixtures(t, `wget\njq\n`)
+	brewCask(t, homebrew, "zoom", "7.2.5.90525")
+	brewCask(t, homebrew, "brave-browser", "1.98.63.0")
 	repo := mrkRepo(t)
 	g := checkUpkeep(repo, t.TempDir(), t.TempDir())
-	if l, ok := line(g, "3 Homebrew packages outdated: jq, wget, zoom"); !ok || l.fix != fixUpdate {
-		t.Errorf("outdated packages should warn with %q, formulae and casks sorted together — and the stub refuses to run without HOMEBREW_NO_AUTO_UPDATE, --greedy or --json=v2:\n%s", fixUpdate, texts(g))
+	f := lineIndex(g, "2 Homebrew formulae outdated: jq, wget")
+	c := lineIndex(g, "2 Homebrew casks outdated: brave-browser, zoom")
+	if f < 0 || c != f+1 || g.lines[f].fix != fixUpdateFormulae || g.lines[c].fix != fixUpdateCasks ||
+		g.lines[f].sev != sevWarn || g.lines[c].sev != sevWarn {
+		t.Errorf("formulae then casks should each warn, with %q and %q — and the stub refuses to run without HOMEBREW_NO_AUTO_UPDATE, --greedy or --json=v2:\n%s", fixUpdateFormulae, fixUpdateCasks, texts(g))
 	}
+	if strings.Contains(texts(g), "Homebrew package") {
+		t.Errorf("no line should count the two kinds together:\n%s", texts(g))
+	}
+
+	upkeepFixtures(t, `wget\n`)
+	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
+	f = lineIndex(g, "1 Homebrew formula outdated: wget")
+	if f < 0 || g.lines[f].fix != fixUpdateFormulae || f+1 >= len(g.lines) ||
+		g.lines[f+1].text != "Homebrew casks up to date" || g.lines[f+1].sev != sevOK {
+		t.Errorf("with formulae alone outdated, the next line should say the casks are up to date:\n%s", texts(g))
+	}
+
+	brewCask(t, upkeepFixtures(t, ""), "zoom", "7.2.5.90525")
+	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
+	c = lineIndex(g, "1 Homebrew cask outdated: zoom")
+	if c < 1 || g.lines[c].fix != fixUpdateCasks ||
+		g.lines[c-1].text != "Homebrew formulae up to date" || g.lines[c-1].sev != sevOK {
+		t.Errorf("with casks alone outdated, the line before should say the formulae are up to date:\n%s", texts(g))
+	}
+
 	write(t, filepath.Join(upkeepFixtures(t, ""), "outdated.json"), "Error: not JSON")
 	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
 	if l, ok := line(g, "brew outdated: cannot read its JSON"); !ok || l.sev != sevWarn {
@@ -825,8 +854,9 @@ func TestUpkeepHomebrewOutdated(t *testing.T) {
 
 // A cask whose apps on disk all have its latest version updated itself, and
 // only Homebrew's record is behind: it is not counted, and a detail line under
-// the Homebrew line names it. Anything that leaves the app's version unknown or
-// different keeps the cask counted.
+// the casks line names it, or under the line that says all are up to date.
+// Anything that leaves the app's version unknown or different keeps the cask
+// counted.
 func TestUpkeepHomebrewSelfUpdated(t *testing.T) {
 	repo := mrkRepo(t)
 	homebrew := upkeepFixtures(t, `jq\n`)
@@ -837,13 +867,24 @@ func TestUpkeepHomebrewSelfUpdated(t *testing.T) {
 	brewCask(t, homebrew, "suite", "2.0", "2.0", "1.9")                // one app of two behind
 	brewCask(t, homebrew, "ghost", "3.0", "")                          // no Info.plist at the target
 	g := checkUpkeep(repo, t.TempDir(), t.TempDir())
-	head := lineIndex(g, "6 Homebrew packages outdated: brave-browser, firefox, ghost, jq, suite and 1 more")
+	head := lineIndex(g, "5 Homebrew casks outdated: brave-browser, firefox, ghost, suite, zoom")
 	if head < 0 || g.lines[head].sev != sevWarn {
 		t.Fatalf("every cask but claude should be counted:\n%s", texts(g))
 	}
 	const one = "  not counted, as the app updated itself, and make update reinstalls it: claude"
 	if head+1 >= len(g.lines) || g.lines[head+1].text != one || g.lines[head+1].sev != sevInfo {
-		t.Errorf("the detail line should come right under the Homebrew line, as info:\n%s", texts(g))
+		t.Errorf("the detail line should come right under the casks line, as info:\n%s", texts(g))
+	}
+
+	// With formulae alone outdated, the detail goes under the casks line that
+	// says they are up to date, not under the formulae line.
+	homebrew = upkeepFixtures(t, `jq\n`)
+	brewCask(t, homebrew, "claude", "4.16336.0,61c5bb50", "4.16336.0")
+	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
+	head = lineIndex(g, "Homebrew casks up to date")
+	if head < 1 || !strings.HasPrefix(g.lines[head-1].text, "1 Homebrew formula outdated") ||
+		head+1 >= len(g.lines) || g.lines[head+1].text != one {
+		t.Errorf("the detail line should come under the casks line:\n%s", texts(g))
 	}
 
 	homebrew = upkeepFixtures(t, "")
@@ -864,7 +905,7 @@ func TestUpkeepHomebrewSelfUpdated(t *testing.T) {
 	brewCask(t, homebrew, "claude", "4.16336.0,61c5bb50", "4.16336.0")
 	write(t, filepath.Join(homebrew, "info.json"), "Error: not JSON")
 	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
-	if _, ok := line(g, "1 Homebrew package outdated: claude"); !ok || strings.Contains(texts(g), "not counted") {
+	if _, ok := line(g, "1 Homebrew cask outdated: claude"); !ok || strings.Contains(texts(g), "not counted") {
 		t.Errorf("without brew info the cask should stay counted:\n%s", texts(g))
 	}
 }
@@ -896,13 +937,33 @@ func TestUpkeepHomebrewFetched(t *testing.T) {
 		t.Errorf("a check 3 hours old should not warn:\n%s", texts(g))
 	}
 
-	fetched(upkeepFixtures(t, `zoom\n`), 47*time.Hour)
+	homebrew := upkeepFixtures(t, `wget\n`)
+	brewCask(t, homebrew, "zoom", "7.2.5.90525")
+	fetched(homebrew, 47*time.Hour)
 	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
-	if l, ok := line(g, "1 Homebrew package outdated, fetched 47 hours ago: zoom"); !ok || l.fix != fixUpdate {
+	if l, ok := line(g, "1 Homebrew formula outdated, fetched 47 hours ago: wget"); !ok || l.fix != fixUpdateFormulae {
 		t.Errorf("the age should come before the names:\n%s", texts(g))
+	}
+	if l, ok := line(g, "1 Homebrew cask outdated: zoom"); !ok || l.fix != fixUpdateCasks {
+		t.Errorf("the age should be on the first Homebrew line alone:\n%s", texts(g))
 	}
 	if _, ok := line(g, stale); ok {
 		t.Errorf("a check 47 hours old should not warn:\n%s", texts(g))
+	}
+
+	fetched(upkeepFixtures(t, `wget\n`), 47*time.Hour)
+	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
+	if _, ok := line(g, "1 Homebrew formula outdated, fetched 47 hours ago: wget"); !ok ||
+		strings.Count(texts(g), "fetched") != 1 {
+		t.Errorf("with formulae alone outdated, the age should be on the formulae line alone:\n%s", texts(g))
+	}
+
+	homebrew = upkeepFixtures(t, "")
+	brewCask(t, homebrew, "zoom", "7.2.5.90525")
+	fetched(homebrew, 47*time.Hour)
+	g = checkUpkeep(repo, t.TempDir(), t.TempDir())
+	if _, ok := line(g, "Homebrew formulae up to date, fetched 47 hours ago"); !ok || strings.Count(texts(g), "fetched") != 1 {
+		t.Errorf("with casks alone outdated, the age should be on the formulae line, which comes first:\n%s", texts(g))
 	}
 
 	fetched(upkeepFixtures(t, ""), 48*time.Hour)
@@ -913,7 +974,7 @@ func TestUpkeepHomebrewFetched(t *testing.T) {
 
 	// /usr/local/bin/brew is a link into /usr/local/Homebrew: the repository
 	// is the link's target's, not the link's.
-	homebrew := upkeepFixtures(t, "")
+	homebrew = upkeepFixtures(t, "")
 	fetched(homebrew, time.Hour)
 	links := filepath.Join(t.TempDir(), "bin")
 	if err := os.MkdirAll(links, 0o755); err != nil {
