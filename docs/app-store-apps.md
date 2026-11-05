@@ -12,6 +12,7 @@ Each name links to its App Store page.
 | [Amphetamine](https://apps.apple.com/app/id937984704) | |
 | [BetterSnapTool](https://apps.apple.com/app/id417375580) | `post-install` restores its preferences and registers its login item — run `make post-install` again after installing it |
 | [Chrono Plus - Time Tracker](https://apps.apple.com/app/id946047238) | `post-install` registers its login item — same re-run applies |
+| [Encrypto](https://apps.apple.com/app/id935235287) | |
 | [Final Cut Pro](https://apps.apple.com/app/id424389933) | Large download |
 | [Hush \| AI for Spoken Audio](https://apps.apple.com/app/id1664181766) | |
 | [Keynote](https://apps.apple.com/app/id361285480) | Installed as `Keynote Creator Studio.app` |
@@ -20,7 +21,6 @@ Each name links to its App Store page.
 | [Pages](https://apps.apple.com/app/id361309726) | Installed as `Pages Creator Studio.app` |
 | [Parcel Classic](https://apps.apple.com/app/id639968404) | |
 | [Pixelmator Pro](https://apps.apple.com/app/id1289583905) | |
-| [Pure Paste](https://apps.apple.com/app/id1611378436) | |
 | [Xcode](https://apps.apple.com/app/id497799835) | Large download; needed to build the app repositories in `~/Projects` |
 
 ## Why they are not in the Brewfile
@@ -52,8 +52,12 @@ when it runs, so on a new machine install these first, then run `make post-insta
 Until 2026-09-28 it also listed Blackmagic Disk Speed Test, Code of War Mobile Shooter,
 Compressor, DM1 - The Drum Machine, Encrypto, Mactracker and Speedtest by Ookla. None of them
 was installed after the 2026-09-15 migration, so they were taken off the list (audit 15, T-15).
-They are still in the App Store's Purchased list if you want one back.
+They are still in the App Store's Purchased list if you want one back. Encrypto came back on
+2026-10-01, and went on the list again on 2026-11-05 (audit 23, AA-18).
 
 GarageBand and iMovie were removed from this Mac on 2026-10-01, and taken off the list the
 same day. GarageBand's sounds were left in `/Library/Application Support/GarageBand` and
 `/Library/Audio/Apple Loops`: Logic Pro reads the loops and the instrument library.
+
+Pure Paste was not on this Mac on 2026-11-05, and was taken off the list that day (audit 23,
+AA-18).

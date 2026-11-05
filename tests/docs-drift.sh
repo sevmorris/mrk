@@ -44,6 +44,10 @@
 #    can write. Both are read from the script's calls of mrk_check_line, and
 #    from the words it gives the variables that it passes. The check-lines
 #    callout lists the scripts that make such calls. Audit 22, O-4.
+# 11. BIN-1's Quick Reference, Table 3.2-1, has a row for every command on the
+#    PATH, the names of check 4. Its subtitle says "all commands", and on
+#    2026-11-05 it lacked 18 of them, pushall and update-full among them
+#    (audit 23, AA-14).
 #
 # Read-only, apart from that dry run, which a scratch HOME keeps to itself.
 # ci-check runs it.
@@ -139,6 +143,24 @@ if (( n_names >= 30 )) && [[ -z "$undocumented" ]]; then
 else
   fail "commands on the PATH ($n_names) with no BIN-1 entry:${undocumented:- none}"
   (( n_names >= 30 )) || sed 's/^/      /' "$W/out" | tail -5 >&2
+fi
+
+# ── 11. The Quick Reference has a row for each of them ──────────────────────
+
+# The first word of the code span that opens each row: "mrk-push" in
+# <code>mrk-push "msg"</code>. A row that starts "make" names a target, not a command.
+quick=$(awk 'index($0, "Table 3.2-1") { p = 1 } p && /<\/table>/ { exit } p' "$BIN1" \
+  | sed -nE 's#.*<tr><td><code>([a-z][a-z0-9-]*).*#\1#p' | grep -vx make | sort -u)
+unlisted=""
+while IFS= read -r n; do
+  [[ -n "$n" ]] || continue
+  # mrk-status and status are two names for one binary, as in check 4.
+  grep -qxF "$n" <<<"$quick" || grep -qxF "${n#mrk-}" <<<"$quick" || unlisted="$unlisted $n"
+done < <(sort -u <<<"$names")
+if (( n_names >= 30 )) && [[ -n "$quick" && -z "$unlisted" ]]; then
+  pass "BIN-1's Quick Reference has a row for each of the $n_names commands on the PATH"
+else
+  fail "BIN-1's Quick Reference has no row for:${unlisted:- none} (read $(grep -c . <<<"$quick") rows)"
 fi
 
 # ── 5. The shared libraries' tables ──────────────────────────────────────────

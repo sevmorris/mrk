@@ -32,8 +32,9 @@ Options:
   -h, --help      Show this help
 
 mrk-uninstall takes no options other than --help. It unlinks every ~/bin
-symlink pointing into this repository, then offers to run the undo scripts in
-~/.mrk: the macOS defaults, the security hardening and the background
+symlink pointing into this repository, and unloads and deletes the three
+LaunchAgents that post-install installed. Then it offers to run the undo
+scripts in ~/.mrk: the macOS defaults, the security hardening and the background
 services. The defaults undo also deletes the whole preferences of each app
 whose settings post-install imported; that part is offered on its own, with
 the apps named. It removes no user data, no dotfiles and not the repository

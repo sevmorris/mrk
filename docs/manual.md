@@ -25,7 +25,7 @@ Keep both repositories current. You can then restore the full setup on a new mac
 
 > **How to adapt mrk for your own use:** This project fits one specific setup — mine. Nothing below is a recommendation for your machine. If you fork it, change each of these. The first one blocks everything else.
 >
-> 1. Set `PREFS_REPO` in `scripts/snapshot-prefs` to your own private preferences repository. It points at `sevmorris/mrk-prefs`, which you cannot read.
+> 1. Set `PREFS_REPO` in `scripts/lib.sh` to your own private preferences repository. It points at `sevmorris/mrk-prefs`, which you cannot read. `snapshot-prefs` pushes to this repository, and `pull-prefs` clones it in Phase 3.
 > 2. Replace the dotfiles in `dotfiles/` with your own.
 > 3. Edit the `Brewfile`. Keep the `##` section headers, because the sync tools read them.
 > 4. Edit `config/login-items.txt`. It lists the apps that open at login, one path on each line. Also edit `MRK_NOT_AT_LOGIN` in `scripts/lib.sh`. It names the two apps that mrk deletes from the login items.
@@ -127,6 +127,7 @@ It can run in the same shell as Phase 2, whether that is `make all`'s or one ope
 - **Links into `~` come only from `~/mrk`,** or from the checkout `MRK_ROOT` names, as in Phase 1. That covers the topgrade link and the three Claude Code links below. From any other checkout, Phase 3 skips the four with a warning, and runs the rest.
 - **Browsers:** Applies the Safari defaults and the Helium defaults. The Safari defaults need Full Disk Access for your terminal, because Safari keeps its preferences in its sandbox container. Without it, Phase 3 skips them with one log line and still reports success. It installs no browser extensions; step 10 of "How to prepare for a new machine" says what carries them. It no longer installs Chrome and Brave managed policies: those were JSON files in `policies/managed/`, which is the Linux policy mechanism, and Chrome on macOS never read them.
 - **App defaults:** Writes the settings for Audio Hijack, Fission, AlDente, and the Rogue Amoeba update options. They are written after the plist imports, so they land on top of your restored preferences. The Rogue Amoeba update options go only to the Rogue Amoeba apps that are installed.
+- **The mrk remote:** When GitHub accepts your SSH key, Phase 3 changes the `origin` remote of `~/mrk` from HTTPS to SSH. A remote that uses SSH stays as it is.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
 - **Plist imports:** Imports the preference plists of the apps that `config/app-prefs.tsv` lists, which are the apps in the table below. `snapshot-prefs` reads the same file. Phase 3 skips an app that already has preferences — in `~/Library/Preferences`, or in its sandbox container for a sandboxed app such as Keka — so it never overwrites a live configuration. It also skips an app that is not installed yet. The imports run before any step that writes app defaults, the browser defaults included, because one key is enough to make an app look configured. Until 2026-09-27 they ran after, and the keys the Rogue Amoeba, Helium and Audio Hijack scripts wrote made six apps look configured: Loopback, SoundSource, Audio Hijack, Farrago, Piezo and Helium were never imported on the 2026-09-15 migration.
 - **My own applications:** Imports every `io.github.sevmorris.*` plist that `snapshot-prefs` captured. This one does not check that the application is installed: several are tools with no bundle in `/Applications`, and on a new machine the preferences usually arrive before the application does, so an early import means the app finds its settings on first launch.
@@ -140,6 +141,10 @@ It can run in the same shell as Phase 2, whether that is `make all`'s or one ope
 - **Claude Code, every session — the skills:** Links each skill in `assets/projects-skills/` into `~/.claude/skills`, for example `~/.claude/skills/release-standards`. Claude Code reads `~/.claude/skills` in every session. It does not read `.claude/skills` in a parent folder, so the `~/Projects` link alone does not load the skills in a session that starts in a repository. Phase 3 removes a link in `~/.claude/skills` that points to a skill that is no longer in `assets/projects-skills/`. It also adds the SessionStart hook of the dependency-updates skill to `~/.claude/settings.json`. At the start of a session the hook reports any vendored binary (yt-dlp, FFmpeg, LAME) that is behind upstream and any open Dependabot alert, from a cache it refreshes in the background every 12 hours. The hook is added once; nothing else in `settings.json` is touched, and a file that is not valid JSON is reported as a failed step rather than rewritten.
 - **Login items:** Phase 3 adds a login item for each app in [`config/login-items.txt`](../config/login-items.txt) that is installed. The file holds the path of each app, one on each line. `sync-login-items` keeps the file in step with System Settings.
 - **Apps that must not start at login:** Phase 3 deletes the login items of Google Drive and NordVPN. `MRK_NOT_AT_LOGIN` in `scripts/lib.sh` names them. Each of these apps adds itself to the login items. NordVPN's installer starts the app in Phase 2, and the app adds itself. Google Drive adds itself each time it starts while its `AutoStartOnLogin` setting is on, which is its default. When Google Drive is installed, Phase 3 turns that setting off.
+- **LaunchAgents:** Copies three LaunchAgents from `assets/launchagents/` to `~/Library/LaunchAgents/`, and loads them. Phase 3 skips an agent whose file did not change. `make uninstall` and `nuke-mrk` unload the three agents and delete them.
+  - `com.user.clear_app_caches` runs `clear-app-caches` each day at 03:00, and when it loads.
+  - `com.user.clear_derived_data` runs `clear-derived-data` each Sunday at 03:00.
+  - `com.user.brew_update` runs `brew update` each day at 06:00, and when it loads. `make status` reads the result in its Upkeep panel.
 
 > **Note:** Phase 3 continues when a step fails. It counts the failed steps and reports the total at the end.
 
@@ -515,11 +520,11 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 | `clear-derived-data` | Clears the Xcode DerivedData directory |
 | `mrk-push` | Commits and pushes `~/mrk`, then deletes the old GitHub Pages deployments. Scans every file the commit carries for secrets first, from whichever directory you run it in. Refuses to run while a merge or rebase in `~/mrk` is unfinished. When `check-picker-desc` fails, runs it with `--fix` first, so a package added in Barkeep goes in with its description |
 | `prune-deployments` | Deletes the old GitHub Pages deployments and keeps the ten newest. It finds the repository from the origin remote, or use `--repo OWNER/NAME`. Outside a git repository, such as in `~`, it works on every Pages site you own. It always protects the deployment that serves the site, so a failed deploy cannot cause it to delete the live one. Use `--dry-run` first |
-| `pushall` | Commits and pushes each repository in `~/Projects`, and then syncs `~/mrk`. Scans the staged files for secrets before each commit. It stages only the tracked files. It leaves a repository alone, and reports it as failed, while a merge, rebase or cherry-pick in it is unfinished. When `check-picker-desc` fails in mrk, runs it with `--fix` before it commits mrk. Use `pushall --dry-run` to run the scan and change nothing |
+| `pushall` | Commits and pushes each repository in `~/Projects`, and then commits and pushes `~/mrk`. Scans the staged files for secrets before each commit. It stages only the tracked files. It leaves a repository alone, and reports it as failed, while a merge, rebase or cherry-pick in it is unfinished. When `check-picker-desc` fails in mrk, runs it with `--fix` before it commits mrk. Use `pushall --dry-run` to run the scan and change nothing |
 | `tidy-projects` | Finds the clutter in the git repositories under `~/Projects` and in `~/mrk`: merged branches, finished worktrees, stale remote-tracking refs, GitHub Pages deployments and build output. With `--apply` it deletes only the items that it can prove are safe. The `projects-maintenance` Claude Code skill runs it |
 | `update-full` | Full update pass. It pulls mrk, and relinks any scripts and dotfiles the pull changed. It quits the applications, and installs the macOS updates for the installed version and the package updates. It deletes the login items of Google Drive and NordVPN, which a cask upgrade can add again. It builds the Go tools again, runs `clean-ds` and `brew doctor`, and then offers a reboot. It never installs a major macOS upgrade. It stops with an error when there is no terminal, unless you give `--yes`. The `update --full` command is the same command |
 | `clean-ds` | Removes the `.DS_Store` files from the local disk. It does not examine `~/Library`, `~/Desktop`, the network volumes, or the external volumes. Use `clean-ds --dry-run` to see the files first |
-| `nuke-mrk` | Moves `~/mrk` and `~/.mrk` to the Trash, deletes the `~/bin` symlinks, the dotfile symlinks, the `~/Projects/CLAUDE.md` link, the Claude Code skill links and the SessionStart hook post-install added to `~/.claude/settings.json`, and offers the rollbacks. It does NOT change Homebrew. `mrk-menu` lists it under Nuclear options |
+| `nuke-mrk` | Moves `~/mrk` and `~/.mrk` to the Trash, deletes the `~/bin` symlinks, the dotfile symlinks, the `~/Projects/CLAUDE.md` link, the Claude Code skill links and the SessionStart hook post-install added to `~/.claude/settings.json`. It unloads the three LaunchAgents and deletes them, and offers the rollbacks. It does NOT change Homebrew. `mrk-menu` lists it under Nuclear options |
 
 > **Caution:** `update-full` quits every running application and can restart the Mac. It does not install a major macOS upgrade, such as macOS 26 to macOS 27 — its macOS step is `macos-updates`, the same command as `make updates`, which names each major upgrade and leaves it alone. Until 2026-09-16 that step ran `softwareupdate -ia`, which installs every update Apple lists, and on macOS 26.7 it started a download of macOS 27. Install a major upgrade from System Settings › General › Software Update, when you choose to. To stop `softwareupdate` does not stop a download it started; cancel it in the same place.
 
@@ -666,7 +671,7 @@ git clone git@github.com:sevmorris/mrk.git ~/mrk
 git clone https://github.com/sevmorris/mrk.git ~/mrk
 ```
 
-Then create your SSH key and add it to GitHub. Phase 3 needs the key to pull mrk-prefs.
+Then create your SSH key and add it to GitHub. Phase 3 needs the key to pull mrk-prefs. When GitHub accepts the key, Phase 3 changes the remote of `~/mrk` to SSH.
 
 ## Step 2 — Phase 1: the shell and the dotfiles
 
@@ -702,7 +707,7 @@ make brew
 
 This step installs Homebrew and every formula and cask in the Brewfile. It is the slowest step, and its duration depends on the number of packages.
 
-It does not install App Store apps. mrk tracked them as Brewfile `mas` entries until 2026-09-11, and nothing could install one: `mas install` needs root, `brew bundle` never runs as root, and `mas list` — which `brew bundle` reads to see what is already installed — gets its answers from Spotlight, whose indexing is off on this Mac. [docs/app-store-apps.md](app-store-apps.md) lists the apps instead. Install them from App Store.app before Step 5.
+It does not install App Store apps. mrk tracked them as Brewfile `mas` entries until 2026-09-11, and nothing could install one: `mas install` needs root, and `brew bundle` never runs as root. [docs/app-store-apps.md](app-store-apps.md) lists the apps instead. Install them from App Store.app before Step 5.
 
 `post-install` restores the preferences and login item of an app only if the app is installed, and BetterSnapTool and Chrono Plus are App Store apps. If you install them later, run `make post-install` again.
 
@@ -821,7 +826,7 @@ make apps       # installs it, now that gh can reach it
 
 | Command | Description |
 |---|---|
-| `make sync` | Sync the installed packages into the Brewfile (`-c` commit · `-n` dry run · `-p` prune) |
+| `make sync` | Sync the installed packages into the Brewfile (`-c` commit · `--push` commit and push · `-n` dry run · `-p` prune) |
 
 **Preferences**
 
@@ -893,6 +898,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | `make defaults` | Apply the macOS defaults only |
 | `make trackpad` | Apply the macOS defaults and the trackpad settings |
 | `make harden` | Apply the optional macOS security settings |
+| `make trim-services` | Turn off the background services that this Mac does not need. `ARGS=-n` shows the services, and changes nothing. `~/.mrk/services-rollback.sh` turns them on again |
 | `make dock` | Replace the Dock contents with the items in `config/dock.txt`. `ARGS=-n` shows the Dock it would make, and changes nothing |
 
 **Maintenance**
@@ -900,10 +906,10 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 | Command | Description |
 |---|---|
 | `make sync` | Sync the installed packages into the Brewfile |
-| `make sync-login-items` | Sync the system login items into `config/login-items.txt` and the manual |
+| `make sync-login-items` | Sync the system login items into `config/login-items.txt` |
 | `make update` | Upgrade every package, with topgrade or with brew upgrade. topgrade runs every step even when one fails. After topgrade, it deletes the login items of Google Drive and NordVPN, which a cask upgrade can add again. The run ends by saying which failed and that the others ran |
 | `make updates` | Install the macOS updates for the installed version, with `macos-updates`. It never installs a major upgrade: it names each one and leaves it alone. `ARGS=-n` lists the updates and installs nothing |
-| `make uninstall` | Delete the symlinks, and offer the rollbacks |
+| `make uninstall` | Delete the `~/bin` symlinks, unload the three LaunchAgents and delete them, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |
 | `make pull` | Fast-forward the mrk repository to origin, then rebuild and relink what the pulled commits changed. That is the Go tools when `tools/` changed, the `~/bin` links when `scripts/` or `bin/` did, and the dotfile links when `dotfiles/` did. A pull that changed none of these does nothing more. `PULL_BUILD=0` skips the rebuild. The check-updates prompt at shell start and `update-full` both pull this way |
 | `make check` | Run every gate in `scripts/ci-check`: the picker and defaults descriptions, a secret scan over every tracked file, the commit gates, each test in `tests/`, shellcheck over every tracked bash script, and gofmt, go vet and go test. BIN-1 §2.21 names each test and what it guards |
@@ -951,6 +957,8 @@ mrk writes its state to `~/.mrk/`. gitignore excludes this directory.
 |---|---|
 | `~/.mrk/preferences/` | The clone of `sevmorris/mrk-prefs`. Holds the app plists, the Application Support files and the config directories |
 | `~/.mrk/backups/` | The timestamped backups of the dotfiles that setup replaced |
+| `~/.mrk/install.log` | The log of the three phases. When the log is larger than 10 MB, the next run moves it aside and starts a new log |
+| `~/.mrk/plist-backups/` | Copies of the preference domains that post-install and `dock-setup` change, saved before the change. `~/.mrk/defaults-rollback.sh` imports them again |
 | `~/Projects/CLAUDE.md` | Symlink to `assets/CLAUDE.md`. Guidance Claude Code reads for the whole `~/Projects` tree; linked by `make post-install` |
 | `~/.claude/skills/<skill>` | One symlink for each skill in `assets/projects-skills/`, for example `release-standards`. These links load the skills in every session, also in a session that starts in a repository under `~/Projects`. After you add a skill, run `make post-install` again. post-install also adds the SessionStart hook of dependency-updates to `~/.claude/settings.json`. Its cache and acknowledgements live in `~/Library/Caches/dependency-updates`, which nothing needs to carry to a new Mac |
 | `~/Projects/.claude/skills` | Symlink to `assets/projects-skills/`. Claude Code loads the skills from it only in a session that starts in `~/Projects`. The script paths in the skills and in `~/Projects/CLAUDE.md` go through it. Linked by `make post-install`. The whole directory is linked, so a skill added there needs no change to post-install |
@@ -1011,13 +1019,13 @@ grep -vE '^defaults delete [^ ]+ >/dev/null 2>&1 \|\| true$' ~/.mrk/defaults-rol
 | Problem | Solution |
 |---|---|
 | `make setup` fails at the Xcode Command Line Tools | 1. Run `xcode-select --install`. 2. Wait for the installation dialog to close. 3. Run `make setup` again |
-| A dotfile conflict gives a "file exists" warning | 1. Find the backup in `~/.mrk/backups/`. 2. Correct the conflict by hand. 3. Run the command again |
+| Setup shows "Created N backup(s)" | A file was in the place of a dotfile link. Setup moved the file into the backup directory, and linked the dotfile. 1. Open the file in `~/.mrk/backups/`. 2. Copy the settings that you need into the dotfile in `~/mrk/dotfiles/`. See [What the backups are](#what-the-backups-are) |
 | post-install skips the plist imports | GitHub does not accept your SSH key. 1. Add the key to GitHub. 2. Run `make pull-prefs`. 3. Run `make post-install` again |
 | mrk-picker does not appear | Build the binary again with `make picker` |
 | `~/bin` is not on the PATH | If `~/.zshrc` already adds it, as mrk's does, the shell has not read it: open a new terminal, or run `exec zsh`. Otherwise run `make doctor ARGS=--fix`, which adds `~/bin` to the PATH in `.zshrc`. mrk-status says which case it is |
-| A Brewfile entry shows ✗ | The package name can differ from the formula name. Check it with `brew info <pkg>` |
-| `make sync` reports "nothing to add" | The Brewfile already has every installed package. Do nothing |
-| `make snapshot-prefs` skips an app | The app is not installed, or `defaults export` failed. snapshot-prefs lists the skipped apps when it exits |
+| `make status` shows "packages in the Brewfile are not installed" | You removed the package, or Phase 2 did not install it yet. If you removed it, run `make sync ARGS=-p`. If it is not installed yet, run `make brew`. The package name can differ from the formula name: check it with `brew info <pkg>` |
+| `make sync` shows "Brewfile is up to date. No new packages found." | The Brewfile already has every installed package. Do nothing |
+| `make snapshot-prefs` skips an app | The app is not installed, `defaults export` failed, or macOS does not let snapshot-prefs read the app's preferences. snapshot-prefs lists the skipped apps when it exits. For the last cause, it keeps the saved copy and names the permission. Give the app that runs snapshot-prefs the permission to get the data of other apps, in System Settings → Privacy & Security. Then run it again |
 | post-install reports that a login item exists | Ignore this message. `add_login_item` checks before it adds an item |
 | `sync-login-items` stops with "System Events returned no login items" | macOS denied Automation access, or System Events did not answer. 1. Open System Settings → Privacy & Security → Automation. 2. Give your terminal access to System Events. 3. Run the command again |
 | `make defaults` reports "N default(s) failed to apply" | A managed or locked key rejected the write. The other defaults did apply, and the rollback script covers them. `make defaults` then exits 1, and Phase 1 counts it as a warning. Read the log for the key names |

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# pushall — commit and push every git repo in ~/Projects, then sync mrk
+# pushall — commit and push every git repo in ~/Projects, then commit and push mrk
 #
 # Adopted into the repo from an untracked ~/bin script. Two changes on
 # adoption: every commit is now gated behind the same secret scan mrk-push
@@ -53,7 +53,7 @@ NOT_REPOS=()
 
 usage() {
   cat <<'EOF'
-pushall — commit and push every git repo in ~/Projects, then sync mrk
+pushall — commit and push every git repo in ~/Projects, then commit and push mrk
 
 Usage:
   pushall [--dry-run] [--projects DIR] [--no-mrk]

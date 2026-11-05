@@ -32,7 +32,7 @@ did not choose, rearranges the Dock, and installs nine apps of mine. Fork first 
 |-------|---------|--------------|
 | **1 — Setup** | `make setup` | Xcode CLI tools, dotfile symlinks, tool linking, macOS defaults, login shell |
 | **2 — Brew** | `make brew` | Installs Homebrew, then interactively selects formulae & casks from `Brewfile` |
-| **3 — Post-install** | `make post-install` | App preferences, browser preferences, login items |
+| **3 — Post-install** | `make post-install` | App preferences, browser preferences, login items, and three LaunchAgents: the cache clearing at 03:00 and `brew update` at 06:00 |
 
 Run `make all` to execute all three phases at once. On a fresh machine, run them in order. Phase 1 installs Xcode CLI tools and the login shell that later phases depend on, and Phase 3 configures only what Phase 2 has installed: it skips the preferences, login items and settings of any app that is not there yet, and a later Phase 2 does not go back for them. The App Store apps are installed by hand after `make brew` — run `make post-install` again once they are in. On an already-configured machine all phases can be re-run freely in any order.
 
@@ -82,7 +82,7 @@ Run `make all` to execute all three phases at once. On a fresh machine, run them
 | `make picker` | Build mrk-picker only |
 | `make mrk-status` | Build the mrk-status daily dashboard |
 | `make mrk-menu` | Build mrk-menu TUI launcher |
-| `make uninstall` | Remove symlinks, optionally rollback defaults |
+| `make uninstall` | Remove the `~/bin` symlinks and the three LaunchAgents, optionally rollback defaults |
 | `make fix-exec` | Fix executable permissions on scripts, and prune dead `~/bin` links |
 
 Most targets also exist as bare commands in `~/bin` — `sync`, `snapshot-prefs`, `harden`,
@@ -97,7 +97,7 @@ data in them is not.
 
 | What | Where | Why it is personal |
 |---|---|---|
-| Preferences repo | `PREFS_REPO` in `scripts/snapshot-prefs` | Points at `sevmorris/mrk-prefs`, which is private. Nothing else works until you repoint it. |
+| Preferences repo | `PREFS_REPO` in `scripts/lib.sh` | Points at `sevmorris/mrk-prefs`, which is private. `snapshot-prefs` pushes to it and `pull-prefs` clones it in Phase 3. Nothing else works until you repoint it. |
 | Packages | `Brewfile` | My formulae and casks, with `##` section headers the sync tooling relies on. |
 | Login items | `config/login-items.txt` | The apps that open at login, one path a line. `make sync-login-items` keeps the file in step with System Settings. |
 | Snapshotted apps | `config/app-prefs.tsv` | The apps whose preferences `snapshot-prefs` saves and Phase 3 restores, one app a line: domain, plist, app path and name. The Application Support trees I care about are in `scripts/snapshot-prefs`. |

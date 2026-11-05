@@ -16,6 +16,10 @@ _LIB_SH_LOADED=1
 STATE_DIR="$HOME/.mrk"
 LOGFILE="$STATE_DIR/install.log"
 LOG_MAX_SIZE=10485760  # 10MB
+# The private repository of the preferences snapshot. snapshot-prefs pushes to
+# it, and pull-prefs clones it (Phase 3 and make pull-prefs). A fork sets its own
+# repository here: this is the only default. The environment can override it.
+: "${PREFS_REPO:=git@github.com:sevmorris/mrk-prefs.git}"
 
 # Colors (disabled if not a terminal)
 if [[ -t 2 ]]; then

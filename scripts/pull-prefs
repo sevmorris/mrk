@@ -28,13 +28,13 @@ Options:
 
 pull-prefs takes no options other than --help. It clones the private mrk-prefs
 repository into ~/.mrk/preferences, or fast-forwards it if it is already
-there. post-install calls it automatically when that directory is absent. Set
-PREFS_REPO to point at a different remote.
+there. post-install calls it automatically when that directory is absent.
+PREFS_REPO in scripts/lib.sh names the remote. Set PREFS_REPO in the
+environment to use a different remote.
 EOF
 }
 mrk_help_guard "$(usage)" "$@"
 
-: "${PREFS_REPO:=git@github.com:sevmorris/mrk-prefs.git}"
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
 
 log(){ printf "[pull-prefs] %s\n" "$*"; }

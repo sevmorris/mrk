@@ -95,7 +95,6 @@ if (( CHECK )); then
   exec 3>&1 1>&2
 fi
 
-: "${PREFS_REPO:=git@github.com:sevmorris/mrk-prefs.git}"
 LOCAL_PREFS_DIR="$HOME/.mrk/preferences"
 APP_SUPPORT="$HOME/Library/Application Support"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
