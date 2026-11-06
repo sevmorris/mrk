@@ -10,7 +10,6 @@
 # and an empty line is ignored.
 /Applications/DuckDuckGo.app
 /Applications/Google Chrome.app
-/Applications/Helium.app
 /Applications/Safari.app
 /Applications/iZotope RX 12 Audio Editor.app
 /Applications/WaxOnWaxOff.app
