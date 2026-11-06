@@ -176,10 +176,11 @@ func TestFilterCursorClampsWhenResultsShrink(t *testing.T) {
 func TestCmdBinRunsFromHomeBinNotPath(t *testing.T) {
 	// "sync" is also /bin/sync. Run by name through PATH, wherever /bin came
 	// first, the menu ran the system's and reported "sync ok" (audit 19, W-22).
-	// A ~/bin copy must be what runs, and without one, nothing may.
+	// A ~/bin copy must be what runs, and without one, nothing may. sync is a
+	// tool of scripts/ (cmdScript), which runs from ~/bin as one of bin/ does.
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	sync := item{name: "sync", cmdType: cmdBin, target: "sync"}
+	sync := item{name: "sync", cmdType: cmdScript, target: "sync"}
 	if _, err := commandFor(sync); err == nil || !strings.Contains(err.Error(), "~/bin") {
 		t.Errorf("with no ~/bin/sync, want an error naming ~/bin; got %v", err)
 	}
@@ -191,7 +192,7 @@ func TestCmdBinRunsFromHomeBinNotPath(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bin, "sync"), []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cmd, err := commandFor(item{name: "sync --prune", cmdType: cmdBin, target: "sync", args: []string{"--prune"}})
+	cmd, err := commandFor(item{name: "sync --prune", cmdType: cmdScript, target: "sync", args: []string{"--prune"}})
 	if err != nil {
 		t.Fatalf("with ~/bin/sync present: %v", err)
 	}
