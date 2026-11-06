@@ -65,21 +65,58 @@ func goBuildTargets(t *testing.T) map[string]string {
 func TestEveryCmdBinTargetShipsWithMrk(t *testing.T) {
 	built := goBuildTargets(t)
 	for _, it := range allItems() {
-		if it.cmdType != cmdBin {
-			continue
-		}
-		if dir, ok := built[it.target]; ok {
-			if !exists(filepath.Join("..", "..", "tools", dir, "main.go")) {
-				t.Errorf("item %q runs %q, which the Makefile builds from tools/%s — and tools/%s/main.go does not exist",
-					it.name, it.target, dir, dir)
+		switch it.cmdType {
+		case cmdBin:
+			// --json says bin/TOOL, so the tool must be there, or be built there.
+			if dir, ok := built[it.target]; ok {
+				if !exists(filepath.Join("..", "..", "tools", dir, "main.go")) {
+					t.Errorf("item %q runs %q, which the Makefile builds from tools/%s — and tools/%s/main.go does not exist",
+						it.name, it.target, dir, dir)
+				}
+				continue
 			}
-			continue
+			if !exists(filepath.Join("..", "..", "bin", it.target)) {
+				t.Errorf("item %q is a bin/ tool, and bin/%s does not exist", it.name, it.target)
+			}
+		case cmdScript:
+			if !exists(filepath.Join("..", "..", "scripts", it.target)) {
+				t.Errorf("item %q is a scripts/ tool, and scripts/%s does not exist", it.name, it.target)
+			}
 		}
-		bin := filepath.Join("..", "..", "bin", it.target)
-		script := filepath.Join("..", "..", "scripts", it.target)
-		if !exists(bin) && !exists(script) {
-			t.Errorf("item %q runs %q, which is neither bin/%s nor scripts/%s",
-				it.name, it.target, it.target, it.target)
+	}
+}
+
+// --json joins an item's arguments with spaces, and a program runs the line
+// with a shell. So no argument may hold anything a shell would read: a space,
+// a quote, a $, a glob, a redirection.
+func TestArgsNeedNoQuoting(t *testing.T) {
+	plain := regexp.MustCompile(`^[A-Za-z0-9_.,=:/+-]+$`)
+	for _, it := range allItems() {
+		for _, a := range it.args {
+			if !plain.MatchString(a) {
+				t.Errorf("item %q has the argument %q, which a shell would read; quote it in shellLine", it.name, a)
+			}
+		}
+	}
+}
+
+// Each name in terminalTools must still be an item's, or a renamed tool
+// leaves its items running in a console that cannot hold them. update-full
+// and nuke-mrk are there for reasons tests/mrk-contract.sh cannot see in
+// their scripts, so they are named here.
+func TestTerminalTools(t *testing.T) {
+	targets := map[string]bool{}
+	for _, it := range allItems() {
+		targets[it.target] = true
+	}
+	for name := range terminalTools {
+		if !targets[name] {
+			t.Errorf("terminalTools names %q, which no item runs", name)
+		}
+	}
+	for _, name := range []string{"update-full", "nuke-mrk"} {
+		if !terminalTools[name] {
+			t.Errorf("%s must run in a terminal of its own", name)
 		}
 	}
 }
