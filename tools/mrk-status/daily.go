@@ -49,11 +49,12 @@ const (
 	// The Homebrew packages of one kind, with brew alone (run_update).
 	fixUpdateFormulae = "make update ARGS=--formulae"
 	fixUpdateCasks    = "make update ARGS=--casks"
+	fixTidy           = "bin/tidy-projects --apply ff,refs,worktrees,branches"
 )
 
 var dailyFixes = []string{fixSyncAdd, fixMrkPush, fixPushall, fixSnapshot, fixPull,
 	fixUpdate, fixUpdates, fixBuildTools, fixBrewInstall, fixLoginItems,
-	fixUpdateFormulae, fixUpdateCasks}
+	fixUpdateFormulae, fixUpdateCasks, fixTidy}
 
 // Paths the checks read, variables so the tests can point them at fixtures.
 var (
@@ -352,6 +353,12 @@ func checkLines(repoRoot, script string, n int, known func(f []string) bool, arg
 	if err != nil {
 		return nil, 0, fmt.Errorf("%s failed: %s", command, failReason(stderr.String(), err))
 	}
+	return parseCheckLines(command, out, n, known)
+}
+
+// parseCheckLines reads the lines that command printed, as checkLines does:
+// for a --check that ran some other way, or whose output was kept.
+func parseCheckLines(command string, out []byte, n int, known func(f []string) bool) (rows [][]string, unknown int, err error) {
 	for _, line := range strings.Split(string(out), "\n") {
 		if strings.TrimSpace(line) == "" {
 			continue
@@ -1383,6 +1390,7 @@ func checkInstallation(repoRoot, home, binDir string, found drifts) group {
 // written on, snapshot-prefs --check takes about 3.5 seconds, defaults.sh
 // --check 2, and sync --check, brew outdated and sync-login-items --check
 // about 1 each, so together they take as long as snapshot-prefs alone.
+// tidy-projects --check takes 7.4, and runs at most every tidyMaxAge.
 func collect(repoRoot, home, binDir string) []group {
 	var (
 		wg    sync.WaitGroup
@@ -1390,9 +1398,10 @@ func collect(repoRoot, home, binDir string) []group {
 		repos repoReading
 		up    group
 		tm    group
+		tidy  tidyReading
 	)
 	stateDir := filepath.Join(home, ".mrk")
-	wg.Add(7)
+	wg.Add(8)
 	go func() { defer wg.Done(); found.brew = readBrewDrift(repoRoot) }()
 	go func() { defer wg.Done(); found.prefs = readPrefsDrift(repoRoot) }()
 	go func() { defer wg.Done(); found.login = readLoginDrift(repoRoot) }()
@@ -1400,7 +1409,9 @@ func collect(repoRoot, home, binDir string) []group {
 	go func() { defer wg.Done(); repos = readRepos(repoRoot, home) }()
 	go func() { defer wg.Done(); up = checkUpkeep(repoRoot, home, binDir) }()
 	go func() { defer wg.Done(); tm = checkTimeMachine() }()
+	go func() { defer wg.Done(); tidy = readTidy(repoRoot, home) }()
 	wg.Wait()
+	up = withLines(up, tidyLines(tidy))
 	un := unrecordedPanel(repoRoot, home, found, repos)
 	inst := checkInstallation(repoRoot, home, binDir, found)
 	return []group{un, up, tm, inst}

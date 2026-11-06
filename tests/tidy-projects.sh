@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2016  # single quotes on purpose: check and the stubs expand them when they run
-# tidy-projects.sh — prove that tidy-projects offers to remove only what is safe to remove, and
-# that --apply removes exactly that.
+# tidy-projects.sh — prove that tidy-projects offers to remove only what is safe to remove, that
+# --check prints the same cleanups as --check lines without fetching, and that --apply removes
+# exactly that.
 #
 # A throwaway HOME holds four clones: Alpha, with every branch and worktree case (a branch at
 # its merged PR's head, one behind it, one with commits the PR did not merge, one in main with no
@@ -167,6 +168,35 @@ check "heading: four merged branches, and what undo means"       'has "  branche
 check "heading: deploys cannot be undone"                        'has "(cannot be undone)"'
 check "what to run: every cleanup, and all but deploys"          'has "Every cleanup above:" && has "tidy-projects --apply ff,refs,worktrees,branches,deploys,build" && has "tidy-projects --apply ff,refs,worktrees,branches,build"'
 check "survey changed nothing (Alpha main still behind)"        '[[ $(git -C "$A" rev-list --count HEAD..origin/main) == 1 ]]'
+
+
+# ── 1b. --check: the same cleanups as lines, and no fetch ─────────────────────
+# mrk-status reads these for its Upkeep panel. main moves on again first: a --check that fetched
+# would leave Alpha 2 behind.
+
+echo three >> "$T/seed/f.txt"; q -C "$T/seed" commit -am three; q -C "$T/seed" push
+bash "$S" --check > "$T/c1" 2> "$T/c1.err"
+# shellcheck disable=SC2034  # read by the checks below, through eval
+crc=$?
+# cl FIELD... — the --check line with these fields, tab-separated, is in the output
+cl() { grep -qxF -- "$(IFS=$'\t'; echo "$*")" "$T/c1"; }
+check "--check exits 0"                                          '[[ $crc == 0 ]]'
+check "--check: every line has the five fields"                  '[[ -s "$T/c1" ]] && ! awk -F"\t" "NF != 5" "$T/c1" | grep -q .'
+check "--check: every line starts with a cleanup word"           '! grep -vE "^(ff|refs|worktrees|branches|deploys|build)	" "$T/c1" | grep -q .'
+check "--check: ff for Alpha's main"                            'cl ff Alpha "$A" main ""'
+check "--check did not fetch (Alpha still 1 behind, not 2)"      '[[ $(git -C "$A" rev-list --count HEAD..origin/main) == 1 ]]'
+check "--check: refs for Alpha, with the stale refs"             'grep -qE "^refs	Alpha	$A	(.* )?origin/merged-ok( |	)" "$T/c1"'
+check "--check: worktrees wt-merged and wt-missing"              'cl worktrees Alpha "$A" "$A/.claude/worktrees/wt-merged" "" && cl worktrees Alpha "$A" "$A/.claude/worktrees/wt-missing" ""'
+check "--check: no line for the kept worktrees"                  '! grep -qE "wt-(dirty|inuse)" "$T/c1"'
+check "--check: branches merged-ok, behind, inmain and emptywt"  '( for b in merged-ok behind inmain emptywt; do cl branches Alpha "$A" "$b" "" || exit 1; done )'
+check "--check: no line for the kept branches"                   '! grep -qE "^branches	.*	(merged-extra|closed|nopr|merged2|localonly)	" "$T/c1"'
+check "--check: deploys for Alpha, as owner/name"               'cl deploys Alpha "$A" testowner/Alpha ""'
+check "--check: build for Alpha, with its kilobytes"            'grep -qE "^build	Alpha	$A	$A/build	[0-9]+$" "$T/c1" && (( $(awk -F"\t" "\$2 == \"Alpha\" && \$1 == \"build\" { print \$5 }" "$T/c1") >= 1024 ))'
+check "--check: build for Xcode's DerivedData"                  'grep -qE "^build	Xcode	$T/DerivedData	$T/DerivedData	[0-9]+$" "$T/c1"'
+check "--check: nothing for Beta, Gamma or Delta"                '! grep -qE "^[a-z]+	(Beta|Gamma|Delta)	" "$T/c1"'
+check "--check: no report on stdout, and no token anywhere"      '! grep -qE "^==|stale:|→" "$T/c1" && ! grep -q secret-token-abc "$T/c1" "$T/c1.err"'
+check "--check with --no-fetch runs"                             'bash "$S" --check --no-fetch >/dev/null 2>&1'
+check "--check with --apply is refused with exit 2"              'bash "$S" --check --apply ff >/dev/null 2>&1; [[ $? == 2 ]]'
 
 
 # ── 2. --apply all: only what qualified goes, and everything kept stays ───────

@@ -380,7 +380,7 @@ mrk_tsv_escape() {
 
 # mrk_check_line FIELD... — print one line of a --check mode: each FIELD
 # escaped by mrk_tsv_escape, a tab between two fields, and a newline at the
-# end. The five --check modes print every line with this, so a program reads
+# end. The six --check modes print every line with this, so a program reads
 # them all by one rule, and loses nothing: split at each tab, then undo the
 # escapes in each field. A later version may add a field at the end of a
 # line, and a word to a field with a fixed set of words, such as a state. It

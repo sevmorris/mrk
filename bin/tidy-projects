@@ -26,7 +26,11 @@
 # pushes, or changes a repository's settings, and it never prints a remote's URL, which can
 # carry an access token.
 #
-# Usage: tidy-projects [--no-fetch] [--apply LIST]
+# --check prints the cleanups as BIN-1's --check lines, for mrk-status's Upkeep panel, which
+# Dipstick shows. It does not fetch: a check changes nothing. Until 2026-11-05 nothing read
+# this survey but a person, so the dashboard never showed the clutter it finds.
+#
+# Usage: tidy-projects [--no-fetch] [--check | --apply LIST]
 #
 # Env (tests): TIDY_ROOTS (dirs to search, default "$HOME/Projects $HOME/mrk"), TIDY_OWNER,
 # TIDY_DERIVED (DerivedData path), TIDY_TRASH, TIDY_PRUNE, TIDY_CLEAR_DD (commands).
@@ -50,6 +54,10 @@ while [[ -L "$_src" ]]; do
   [[ "$_src" != /* ]] && _src="$_dir/$_src"
 done
 SCRIPT_DIR="$(cd "$(dirname "$_src")" && pwd)"
+# lib.sh for mrk_check_line, the encoder of every --check line; common.sh second, so that ok,
+# warn, err and info are its own.
+# shellcheck source=../scripts/lib.sh
+source "$SCRIPT_DIR/../scripts/lib.sh"
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
 
@@ -57,10 +65,13 @@ usage() {
   cat <<'EOF'
 tidy-projects — survey the git clones under ~/Projects and ~/mrk, and clean up what is safe
 
-Usage: tidy-projects [--no-fetch] [--apply LIST]
+Usage: tidy-projects [--no-fetch] [--check | --apply LIST]
   (none)        Survey: fetch each clone, then report. Change nothing but the
                 remote-tracking refs.
   --no-fetch    Survey from what the clones already know. Faster, and maybe stale.
+  --check       Survey without fetching, and print one line for each cleanup
+                available, for a program to read: cleanup, repo, path, item and
+                kb, separated by tabs. Change nothing.
   --apply LIST  Survey again, then do the cleanups in LIST, a comma-separated list
                 of ff, refs, worktrees, branches, deploys and build, or all.
   --help, -h    Show this help
@@ -83,10 +94,11 @@ for d in /opt/homebrew/bin /usr/local/bin "$HOME/bin"; do
   [[ -d $d && ":$PATH:" != *":$d:"* ]] && PATH="$PATH:$d"
 done
 
-FETCH=1; APPLY=""
+FETCH=1; APPLY=""; CHECK=0
 while (( $# )); do
   case "$1" in
     --no-fetch) FETCH=0 ;;
+    --check)    CHECK=1 ;;
     --apply)    [[ -n ${2:-} && $2 != -* ]] || { err "--apply needs a list of cleanups"; usage >&2; exit 2; }
                 APPLY=$2; shift ;;
     -h|--help)  usage; exit 0 ;;
@@ -94,6 +106,10 @@ while (( $# )); do
   esac
   shift
 done
+if (( CHECK )); then
+  [[ -z $APPLY ]] || { err "--check and --apply do not go together: a check changes nothing"; usage >&2; exit 2; }
+  FETCH=0
+fi
 CATS=(ff refs worktrees branches deploys build)
 [[ $APPLY == all ]] && APPLY=$(IFS=,; echo "${CATS[*]}")
 for c in ${APPLY//,/ }; do
@@ -127,6 +143,9 @@ in_use() { $GREP -qxF -- "$1" "$WORK/cwds" || $GREP -qF -- "$1/" "$WORK/cwds"; }
 # Writes lines "kind<TAB>repo<TAB>detail..." to its own file, so clones can be surveyed in
 # parallel. Kinds: row (the clone table), owner (needs a decision), kept (not removed, and why),
 # and one per cleanup (ff, refs, worktrees, branches, deploys, build), which are the candidates.
+# A cleanup's line is "kind repo clone item [kb] why": the clone's folder, then what goes (the
+# default branch, the stale refs, a worktree's folder, a branch, owner/name, a build folder),
+# the kilobytes of a build folder, and the reason the report shows.
 
 survey_repo() { # dir name out-file
   local d=$1 name=$2 out=$3 url slug="" remote def cur
@@ -182,9 +201,9 @@ survey_repo() { # dir name out-file
   declare -A stale_ref=()
   local stale="" r
   if [[ $remote != none ]]; then
-    stale=$(git -C "$d" remote prune --dry-run origin 2>/dev/null | sed -n 's/.*would prune\] //p' | tr '\n' ' ')
+    stale=$(git -C "$d" remote prune --dry-run origin 2>/dev/null | sed -n 's/.*would prune\] //p' | paste -sd' ' -)
     for r in $stale; do stale_ref[$r]=1; done
-    [[ -n $stale ]] && emit refs "$name" "$d" "$(wc -w <<<"$stale" | tr -d ' ') stale: $stale"
+    [[ -n $stale ]] && emit refs "$name" "$d" "$stale" "$(wc -w <<<"$stale" | tr -d ' ') stale: $stale"
   fi
 
   # GitHub: is it archived, and how many Pages deployments
@@ -194,7 +213,7 @@ survey_repo() { # dir name out-file
     [[ $archived == true ]] && emit owner "$name" "the GitHub repository is archived; no GitHub cleanups"
     if [[ $archived != true && $pages == true ]]; then
       local n; n=$(gh api "repos/$slug/deployments?environment=github-pages&per_page=100" --jq length 2>/dev/null || echo 0)
-      (( n > KEEP_DEPLOYS )) && emit deploys "$name" "$slug" "$n Pages deployments, down to $KEEP_DEPLOYS"
+      (( n > KEEP_DEPLOYS )) && emit deploys "$name" "$d" "$slug" "$n Pages deployments, down to $KEEP_DEPLOYS"
     fi
   fi
 
@@ -304,7 +323,7 @@ survey_repo() { # dir name out-file
     git -C "$d" check-ignore -q -- "$sub/" 2>/dev/null || continue
     [[ -z $(git -C "$d" ls-files -- "$sub" | head -1) ]] || continue
     kb=$(du -sk "$d/$sub" 2>/dev/null | cut -f1)
-    (( kb > 0 )) && emit build "$name" "$d/$sub" "$kb" "$sub/ $(human "$kb")"
+    (( kb > 0 )) && emit build "$name" "$d" "$d/$sub" "$kb" "$sub/ $(human "$kb")"
   done
   return 0
 }
@@ -333,9 +352,28 @@ kind() { awk -F'\t' -v k="$1" '$1 == k' "$WORK/all"; }
 
 if [[ -d $DERIVED ]]; then
   ddkb=$(du -sk "$DERIVED" 2>/dev/null | cut -f1)
-  (( ddkb > 1024 )) && printf 'build\tXcode\t%s\t%s\tDerivedData %s (clear-derived-data)\n' "$DERIVED" "$ddkb" "$(human "$ddkb")" >> "$WORK/all"
+  (( ddkb > 1024 )) && printf 'build\tXcode\t%s\t%s\t%s\tDerivedData %s (clear-derived-data)\n' "$DERIVED" "$DERIVED" "$ddkb" "$(human "$ddkb")" >> "$WORK/all"
 fi
 (( GH )) || printf 'owner\t(all)\tgh is not logged in: no pull request or Pages checks, so no branch counts as merged\tgh auth login\n' >> "$WORK/all"
+
+# ── Check ──────────────────────────────────────────────────────────────────────
+# One line for each item a cleanup would take, written by mrk_check_line, so a program reads it
+# as it reads every --check mode (BIN-1's "The --check Lines"): cleanup, repo, path, item, kb.
+# path is the clone's folder, and DerivedData's own for Xcode; item is what the cleanup takes,
+# as the record above has it, the stale refs with a space between two; kb is a build folder's
+# size, and empty for the other cleanups. mrk-status reads them for its Upkeep panel. A later
+# version adds a field only at the end, and a word only to cleanup.
+
+if (( CHECK )); then
+  for cleanup in ff refs worktrees branches deploys build; do
+    while IFS=$'\t' read -r _ name clone item rest; do
+      kb=""
+      [[ $cleanup == build ]] && kb=${rest%%$'\t'*}
+      mrk_check_line "$cleanup" "$name" "$clone" "$item" "$kb"
+    done < <(kind "$cleanup" | sort -t$'\t' -k2,2f -k4,4)
+  done
+  exit 0
+fi
 
 # Colors on a terminal only, and never with NO_COLOR set (no-color.org). Piped output, which the
 # projects-maintenance skill and tests/tidy-projects.sh read, stays plain text.
@@ -392,7 +430,7 @@ if [[ -z $APPLY ]]; then
       what="$folders ${MANY[build]}"; (( folders == 1 )) && what="1 ${ONE[build]}"
       if (( folders == 0 )); then what="Xcode's DerivedData"
       elif grep -q $'^build\tXcode\t' <<<"$rows"; then what+=" and Xcode's DerivedData"; fi
-      what+=", $(human "$(awk -F'\t' '{ s += $4 } END { print s + 0 }' <<<"$rows")")"
+      what+=", $(human "$(awk -F'\t' '{ s += $5 } END { print s + 0 }' <<<"$rows")")"
     else
       what="$n $what"
     fi
@@ -402,7 +440,7 @@ if [[ -z $APPLY ]]; then
       ff|refs|deploys) awk -F'\t' '{ printf "    %s: %s\n", $2, $NF }' <<<"$rows" ;;
       worktrees)       awk -F'\t' '{ sub(/^.*\.claude\/worktrees\//, "", $4); printf "    %s: %s (%s)\n", $2, $4, $5 }' <<<"$rows" ;;
       branches)        awk -F'\t' '{ printf "    %s: %s (%s)\n", $2, $4, $5 }' <<<"$rows" ;;
-      build)           awk -F'\t' '{ printf "    %s: %s\n", $2, $5 }' <<<"$rows" ;;
+      build)           awk -F'\t' '{ printf "    %s: %s\n", $2, $6 }' <<<"$rows" ;;
     esac
     echo "    ${CMD}→ tidy-projects --apply $c${OFF}"
   done
@@ -455,13 +493,13 @@ if applying branches; then h "branches"
   while IFS=$'\t' read -r _ n d b why; do act "$n: deleted $b ($why)" git -C "$d" branch -D -- "$b"; done < <(kind branches)
 fi
 if applying deploys; then h "deploys"
-  while IFS=$'\t' read -r _ n slug _; do act "$n: pruned Pages deployments to $KEEP_DEPLOYS" "$PRUNE" --repo "$slug" --keep "$KEEP_DEPLOYS"; done < <(kind deploys)
+  while IFS=$'\t' read -r _ n _ slug _; do act "$n: pruned Pages deployments to $KEEP_DEPLOYS" "$PRUNE" --repo "$slug" --keep "$KEEP_DEPLOYS"; done < <(kind deploys)
 fi
 if applying build; then h "build"
   if pgrep -x xcodebuild >/dev/null 2>&1; then
     echo "  skipped: xcodebuild is running"
   else
-    while IFS=$'\t' read -r _ n path _ what; do
+    while IFS=$'\t' read -r _ n _ path _ what; do
       if [[ $n == Xcode ]]; then act "cleared Xcode's $what" "$CLEAR_DD"
       else act "$n: moved $what to the Trash" "$TRASH" "$path"; fi
     done < <(kind build)
