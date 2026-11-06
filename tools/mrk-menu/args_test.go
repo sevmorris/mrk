@@ -13,39 +13,42 @@ func TestParseArgs(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		args []string
-		help bool
+		act  action
 		bad  string
 	}{
-		{"no arguments runs the TUI", nil, false, ""},
-		{"empty slice runs the TUI", []string{}, false, ""},
-		{"--help", []string{"--help"}, true, ""},
-		{"-h", []string{"-h"}, true, ""},
-		{"an unknown flag is refused", []string{"--bogus"}, false, "--bogus"},
-		{"a bare word is refused", []string{"status"}, false, "status"},
-		{"-help is not -h", []string{"-help"}, false, "-help"},
-		{"case matters", []string{"--HELP"}, false, "--HELP"},
-		{"an extra argument after --help is refused", []string{"--help", "extra"}, false, "extra"},
-		{"an extra argument after a flag is refused", []string{"--bogus", "extra"}, false, "extra"},
+		{"no arguments runs the TUI", nil, actTUI, ""},
+		{"empty slice runs the TUI", []string{}, actTUI, ""},
+		{"--help", []string{"--help"}, actHelp, ""},
+		{"-h", []string{"-h"}, actHelp, ""},
+		{"--json", []string{"--json"}, actJSON, ""},
+		{"an unknown flag is refused", []string{"--bogus"}, actTUI, "--bogus"},
+		{"a bare word is refused", []string{"status"}, actTUI, "status"},
+		{"-help is not -h", []string{"-help"}, actTUI, "-help"},
+		{"-json is not --json", []string{"-json"}, actTUI, "-json"},
+		{"case matters", []string{"--HELP"}, actTUI, "--HELP"},
+		{"an extra argument after --help is refused", []string{"--help", "extra"}, actTUI, "extra"},
+		{"an extra argument after --json is refused", []string{"--json", "extra"}, actTUI, "extra"},
+		{"an extra argument after a flag is refused", []string{"--bogus", "extra"}, actTUI, "extra"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			help, bad := parseArgs(tc.args)
-			if help != tc.help || bad != tc.bad {
-				t.Errorf("parseArgs(%q) = (help=%v, bad=%q), want (help=%v, bad=%q)",
-					tc.args, help, bad, tc.help, tc.bad)
+			act, bad := parseArgs(tc.args)
+			if act != tc.act || bad != tc.bad {
+				t.Errorf("parseArgs(%q) = (act=%v, bad=%q), want (act=%v, bad=%q)",
+					tc.args, act, bad, tc.act, tc.bad)
 			}
 		})
 	}
 }
 
-// A refusal must never also be a help request: main switches on bad first, and
-// a case that set both would print usage to stderr and exit 2 while the caller
-// had asked for help on stdout.
-func TestRefusalAndHelpAreExclusive(t *testing.T) {
+// A refusal must never also be a request for help or for the document: main
+// switches on bad first, and a case that set both would print usage to stderr
+// and exit 2 while the caller had asked for output on stdout.
+func TestRefusalIsAlwaysTheTUIAction(t *testing.T) {
 	for _, args := range [][]string{
-		nil, {}, {"--help"}, {"-h"}, {"--bogus"}, {"x"}, {"--help", "extra"},
+		nil, {}, {"--help"}, {"-h"}, {"--json"}, {"--bogus"}, {"x"}, {"--help", "extra"}, {"--json", "extra"},
 	} {
-		if help, bad := parseArgs(args); help && bad != "" {
-			t.Errorf("parseArgs(%q) returned both help and bad=%q", args, bad)
+		if act, bad := parseArgs(args); act != actTUI && bad != "" {
+			t.Errorf("parseArgs(%q) returned act=%v and bad=%q", args, act, bad)
 		}
 	}
 }

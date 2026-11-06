@@ -315,7 +315,7 @@ func (m model) viewNukeConfirm(winW, innerW int) string {
 	s.WriteString(styleSubtitle.Render("  "+cat.name) + "\n\n")
 	s.WriteString(styleWarning.Render("⚠ This will remove all mrk symlinks and undo setup.") + "\n\n")
 	s.WriteString(styleNormal.Render("Type ") +
-		styleNukeProm.Render("nuke") +
+		styleNukeProm.Render(nukeWord) +
 		styleNormal.Render(" to proceed, ") +
 		styleHelpKey.Render("esc") +
 		styleNormal.Render(" to cancel.") + "\n\n")

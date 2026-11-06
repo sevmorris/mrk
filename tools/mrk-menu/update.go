@@ -20,15 +20,15 @@ func (m model) Init() tea.Cmd {
 	return nil
 }
 
-// commandFor builds the command an item runs. A cmdBin item runs from ~/bin,
-// where setup links mrk's tools, and not by name through PATH: "sync" is also
+// commandFor builds the command an item runs. A cmdBin or cmdScript item runs
+// from ~/bin, where setup links mrk's tools, and not by name through PATH: "sync" is also
 // /bin/sync, so wherever /bin came first on PATH, choosing sync ran the
 // system's, which flushes the disks and exits 0, and the menu reported "sync
 // ok". Only .zshrc puts ~/bin on PATH, so a login shell that is not
 // interactive has it last or not at all (audit 19, W-22). A tool that is not
 // in ~/bin is an error, rather than whatever PATH finds under its name.
 func commandFor(i item) (*exec.Cmd, error) {
-	if i.cmdType == cmdBin {
+	if i.cmdType != cmdMake {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return nil, err
@@ -249,7 +249,7 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.nukeInput = ""
 			m.flashMsg = "Canceled nuke operation."
 		case tea.KeyEnter:
-			if m.nukeInput == "nuke" {
+			if m.nukeInput == nukeWord {
 				it := categories[m.cursorCat].items[m.cursorItems[m.cursorCat]]
 				m.state = stateFocusItem
 				m.nukeInput = ""

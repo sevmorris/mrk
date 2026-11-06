@@ -435,7 +435,7 @@ Dipstick shows the same panels in the menu bar. See [Companion apps](#companion-
 
 ## mrk-menu
 
-**`mrk-menu`** starts any mrk task. It groups the commands into categories: Daily, Brewfile, Login items, Preferences, Diagnostics, Maintenance, Setup, Migration, and Nuclear options. Daily comes first, with the three commands that record a change: `sync --push`, `sync-login-items -c` and `mrk-push`. Maintenance has `tidy-projects`, for its report, and `tidy-projects --apply ff,refs,worktrees,branches`. Setup and Migration, which a Mac runs once, come last. It runs each command in the same terminal.
+**`mrk-menu`** starts any mrk task. It groups the commands into categories: Daily, Brewfile, Login items, Preferences, Diagnostics, Maintenance, Setup, Migration, and Nuclear options. Daily comes first, with the three commands that record a change: `sync --push`, `sync-login-items -c` and `mrk-push`. Maintenance has `tidy-projects`, for its report, and `tidy-projects --apply ff,refs,worktrees,branches`. Setup and Migration, which a Mac runs once, come last. It runs each command in the same terminal. `mrk-menu --json` shows the same list as JSON, for Dipstick's Commands pane; BIN-1 gives its keys.
 
 ```bash
 mrk-menu
@@ -487,12 +487,13 @@ A KeyVault backup goes out as one passphrase-encrypted OpenPGP archive. Any `gpg
 
 Each fix is a button. Most buttons show their command, and run it in `~/mrk`, as the `f` key does in `mrk-status`. Four fixes have a pane in mrk Settings, the second window of Dipstick: `make snapshot-prefs`, `make sync-login-items ARGS=-c`, `make defaults` and `make trackpad`. Their buttons show the name of the pane, and open it. The pane shows the changes first, and runs nothing until you click one of its buttons.
 
-**Settings…** in the menu bar window opens mrk Settings. Each pane runs the check mode of one mrk script and shows the result.
+**Settings…** in the menu bar window opens mrk Settings. Each of the first four panes runs the check mode of one mrk script and shows the result.
 
 - **App Preferences** shows the changes that `snapshot-prefs --check` finds. Its **Snapshot…** button runs `make snapshot-prefs`.
 - **macOS Defaults** shows each key that `defaults.sh --check` compares with this Mac, with the description of the key. The switch of a key turns it off with `mrk-defaults --skip` and `--revert`, and on with `--unskip` and `--key`.
 - **Login Items** compares `config/login-items.txt` with the login items of this Mac. Its buttons run `sync-login-items --add`, `--ignore` and `--remove`.
 - **Dock** changes `config/dock.txt`, the list that `make dock` uses. `dock-setup --check` checks each item.
+- **Commands** lists the commands of `mrk-menu`, in the same groups, from `mrk-menu --json`. Its **Run** button runs a command exactly as the pane shows it, after it asks. For `nuke-mrk`, you must type `nuke` first. A command that the list marks `terminal` runs in a terminal: the commands of `sync` and `sync-login-items`, which can show a picker, `update-full` and `nuke-mrk`. Every other command runs in the console. This pane does not open another pane or Barkeep in place of a command, as the fixes do. Dipstick 0.9 has this pane.
 
 Dipstick and Barkeep read `scripts/mrk-contract` before they give an mrk script an option. It lists, as JSON, the options that each script of the checkout takes, and the words of its `--check` lines. It also lists the Make targets that need a terminal. When a script does not take an option, the app runs nothing and says that this mrk is older than the app. Then run `make pull`. When a script takes the option and refuses the command line, the app shows the reason that the script gives.
 

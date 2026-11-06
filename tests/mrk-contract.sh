@@ -28,11 +28,16 @@
 #    each target's recipe and prerequisites, and each script that a recipe or
 #    a script runs or sources, in scripts/ and bin/. Dipstick sends these
 #    targets to Terminal, so a target left out hangs in its console.
+# 8. mrk-menu --json marks as terminal each command whose script or target
+#    can start one of them, by the same reading, and update-full and
+#    nuke-mrk, and no other. Dipstick's Commands pane runs the rest in its
+#    console.
 #
 # The tests of the five --check scripts hold the lines that each one writes to
 # the fields and words here, with tests/lib/contract-lines.
 #
-# Read-only, apart from the copy and the throwaway HOME. ci-check runs it.
+# Read-only, apart from the copy, the throwaway HOME and Go's build cache,
+# which `go run` of mrk-menu fills. ci-check runs it.
 
 set -uo pipefail
 
@@ -285,7 +290,7 @@ fi
 # `gum choose` and the other gum commands that read the keyboard, by a path to
 # bin/mrk-picker or bin/mrk-menu, or by the bare name where a command starts.
 # The bare name in a case label or after `command -v` is not a run.
-if python3 - "$W/contract.json" "$REPO_ROOT" > "$W/terminal" 2>&1 <<'PY'
+if python3 - "$W/contract.json" "$REPO_ROOT" "$W/derived.json" > "$W/terminal" 2>&1 <<'PY'
 import json, os, re, sys
 
 doc = json.load(open(sys.argv[1]))
@@ -413,12 +418,64 @@ if extra:
 if len(rules) < 20 or "sync" not in rules:
     print(f"the Makefile read as {len(rules)} targets: {' '.join(sorted(rules))}")
 print(", ".join(listed))
+# For check 8: why each target, and each script of scripts/ and bin/, can
+# start one.
+tools = {f"{d}/{n}": why for d in ("scripts", "bin") for n in sorted(os.listdir(os.path.join(root, d)))
+         if (why := script(f"{d}/{n}"))}
+json.dump({"targets": derived, "scripts": tools}, open(sys.argv[3], "w"))
 sys.exit(1 if lacks or extra or len(rules) < 20 or "sync" not in rules else 0)
 PY
 then
   pass "the terminal targets are the targets whose scripts can start gum, mrk-picker or mrk-menu: $(tail -1 "$W/terminal")"
 else
   fail "the terminal targets:"; sed 's/^/      /' "$W/terminal" >&2
+fi
+
+# ── 8. mrk-menu's terminal commands ──────────────────────────────────────────
+
+# mrk-menu --json marks each command that must run in a terminal of its own.
+# Dipstick's Commands pane runs every other one in its console, which cannot
+# draw a full screen. So a command whose script or Make target can start gum,
+# mrk-picker or mrk-menu, as check 7 reads them, must be marked. So must
+# update-full and nuke-mrk, for the reasons terminalTools in
+# tools/mrk-menu/data.go gives. No other command may be. go run builds
+# mrk-menu from this checkout, so the list is the source's, not a binary's.
+if ! command -v go >/dev/null 2>&1; then
+  fail "go not found, so mrk-menu's terminal commands are not checked"
+elif [[ ! -s "$W/derived.json" ]]; then
+  fail "check 7 wrote no reading of the scripts, so mrk-menu's terminal commands are not checked"
+elif ! (cd "$REPO_ROOT/tools/mrk-menu" && go run . --json) > "$W/menu.json" 2> "$W/menu.err"; then
+  fail "mrk-menu --json failed:"; sed 's/^/      /' "$W/menu.err" >&2
+elif python3 - "$W/menu.json" "$W/derived.json" > "$W/menu" 2>&1 <<'PY'
+import json, sys
+
+menu = json.load(open(sys.argv[1]))
+derived = json.load(open(sys.argv[2]))
+# Terminal for a reason their scripts do not show: terminalTools says which.
+OTHER = {"bin/update-full", "bin/nuke-mrk"}
+bad, n, marked = [], 0, 0
+for cat in menu["categories"]:
+    for cmd in cat["commands"]:
+        n += 1
+        marked += cmd["terminal"]
+        words = cmd["command"].split()
+        if words[0] == "make":
+            name = next((w for w in words[1:] if not w.startswith("-") and "=" not in w), "")
+            why = derived["targets"].get(name)
+        else:
+            why = derived["scripts"].get(words[0]) or ("terminalTools" if words[0] in OTHER else None)
+        if bool(why) != cmd["terminal"]:
+            state = "is marked" if cmd["terminal"] else "is not marked"
+            bad.append(f'{cmd["name"]} {state}, and ' + (why or "nothing it runs needs a terminal"))
+if n < 30:
+    bad.append(f"only {n} commands read")
+print("\n".join(bad) if bad else f"{marked} of {n} commands")
+sys.exit(1 if bad else 0)
+PY
+then
+  pass "mrk-menu --json marks the commands that need a terminal: $(tail -1 "$W/menu")"
+else
+  fail "mrk-menu --json's terminal commands:"; sed 's/^/      /' "$W/menu" >&2
 fi
 
 if (( fails )); then
