@@ -43,6 +43,7 @@ func TestJSONShape(t *testing.T) {
 			slFix(sevWarn, "1 package installed but not in the Brewfile: jq", fixSyncAdd),
 			sl(sevOK, "~/mrk: committed and pushed"),
 			slFix(sevInfo, "a <suggestion> & more", `make setup ARGS="--only shell" && exec zsh`),
+			needsFullDiskAccess(sl(sevWarn, "Cannot read Time Machine's settings without Full Disk Access for the app that runs this")),
 		}, fixSyncAdd},
 		{"Time Machine Backups", sevErr, []statusLine{sl(sevErr, "Last backup 9 days ago")}, ""},
 		{"Empty", sevInfo, nil, ""},
@@ -88,17 +89,21 @@ func TestJSONShape(t *testing.T) {
 		}
 	}
 	lines := panels[0].(map[string]any)["lines"].([]any)
-	for i, want := range []struct{ sev, text, fix string }{
-		{"warn", "1 package installed but not in the Brewfile: jq", fixSyncAdd},
-		{"ok", "~/mrk: committed and pushed", ""},
-		{"info", "a <suggestion> & more", `make setup ARGS="--only shell" && exec zsh`},
+	// privacy is on every line, "" where no permission is wanted, as a fix
+	// that does not exist is "".
+	for i, want := range []struct{ sev, text, fix, privacy string }{
+		{"warn", "1 package installed but not in the Brewfile: jq", fixSyncAdd, ""},
+		{"ok", "~/mrk: committed and pushed", "", ""},
+		{"info", "a <suggestion> & more", `make setup ARGS="--only shell" && exec zsh`, ""},
+		{"warn", "Cannot read Time Machine's settings without Full Disk Access for the app that runs this", "", "full-disk-access"},
 	} {
 		l := lines[i].(map[string]any)
-		if got := keys(l); got != "fix,severity,text" {
+		if got := keys(l); got != "fix,privacy,severity,text" {
 			t.Errorf("line %d keys = %s", i, got)
 		}
-		if l["severity"] != want.sev || l["text"] != want.text || l["fix"] != want.fix {
-			t.Errorf("line %d = %v %q %q, want %s %q %q", i, l["severity"], l["text"], l["fix"], want.sev, want.text, want.fix)
+		if l["severity"] != want.sev || l["text"] != want.text || l["fix"] != want.fix || l["privacy"] != want.privacy {
+			t.Errorf("line %d = %v %q %q %q, want %s %q %q %q", i, l["severity"], l["text"], l["fix"], l["privacy"],
+				want.sev, want.text, want.fix, want.privacy)
 		}
 	}
 }

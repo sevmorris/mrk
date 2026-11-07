@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -29,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -1247,6 +1249,21 @@ const (
 	tmErrAge  = 7 * 24 * time.Hour
 )
 
+// tmReadError is the line for Time Machine's settings when they cannot be
+// read. macOS refuses the file, with EPERM, to a process whose app has no
+// Full Disk Access: Dipstick's, until it is given it, as on 2026-11-07, when
+// the line read only "open …: operation not permitted" and Dipstick never
+// asked, since no app can ask for Full Disk Access. The permission is the
+// app's to be given, so the line names it and has no fix. EPERM alone: a
+// plain EACCES is the file's own mode, which Full Disk Access does not change.
+func tmReadError(err error) statusLine {
+	if errors.Is(err, syscall.EPERM) {
+		return needsFullDiskAccess(sl(sevWarn,
+			"Cannot read Time Machine's settings without Full Disk Access for the app that runs this"))
+	}
+	return sl(sevWarn, "Cannot read Time Machine's settings: "+err.Error())
+}
+
 // checkTimeMachine reads Time Machine's own record: its destinations, whether
 // it backs up on its own, and the dates of the backups each destination holds.
 // The newest of those is the last backup.
@@ -1254,7 +1271,7 @@ func checkTimeMachine() group {
 	const name = "Time Machine Backups"
 	v, err := readPlist(tmPlist)
 	if err != nil {
-		return group{name, sevWarn, []statusLine{sl(sevWarn, "Cannot read Time Machine's settings: "+err.Error())}, ""}
+		return group{name, sevWarn, []statusLine{tmReadError(err)}, ""}
 	}
 	root := pDict(v)
 	dests := pArray(root["Destinations"])
