@@ -1724,7 +1724,7 @@ dock-setup --check</code></pre>
             <h3>tidy-projects <span class="tag tag-mrk">mrk</span></h3>
           </div>
           <div class="proc-body">
-            <p class="desc">tidy-projects finds the clutter in the git repositories under <code>~/Projects</code> and in <code>~/mrk</code>. With <code>--apply</code> it deletes only the items that it can prove are safe to delete. Without <code>--apply</code> it changes nothing but the remote-tracking refs, which its fetch updates. With <code>--check</code> it does not fetch and changes nothing, and it shows the cleanups as lines for a program to read.</p>
+            <p class="desc">tidy-projects finds the clutter in the git repositories under <code>~/Projects</code> and in <code>~/mrk</code>. With <code>--apply</code> it deletes only the items that it can prove are safe to delete. Without <code>--apply</code> it changes nothing but the remote-tracking refs, which its fetch updates, and on a terminal it then asks which cleanups to make. With <code>--check</code> it does not fetch and changes nothing, and it shows the cleanups as lines for a program to read.</p>
             <pre><code>tidy-projects [--no-fetch] [--check | --apply LIST]</code></pre>
             <ul>
               <li><code>--no-fetch</code> — Do not fetch. The report uses the refs that each repository already has, so it can be out of date.</li>
@@ -1733,6 +1733,7 @@ dock-setup --check</code></pre>
               <li><code>--help</code> or <code>-h</code> — Show the usage text.</li>
             </ul>
             <p>The report shows the branch of each repository, its uncommitted changes, its unpushed commits, its commits behind origin and its stashes. Then it lists the items that need you, the cleanups that it can do, and the items that it keeps, each with the reason. Under each item that needs you, and each item that it keeps, it shows a command that shows or settles the item. Each cleanup shows its items, whether you can undo it, and the <code>--apply</code> command that does it. The report ends with the commands to run every cleanup, and every cleanup but <code>deploys</code>.</p>
+            <p>On a terminal, the report then asks which cleanups to make: <code>a</code> for every cleanup, <code>s</code> for every cleanup but <code>deploys</code>, or Return for none. When there is no <code>deploys</code> to leave out, it asks <code>y</code> or <code>N</code> instead. An answer runs <code>tidy-projects --no-fetch --apply</code> with those cleanups, which finds the items again and checks every rule at that moment. So a console that runs one command and has no shell after it, such as Dipstick's, can make the cleanups too. Without a terminal on both stdin and stdout, as for a pipe, a file or <code>--check</code>, it does not ask.</p>
             <p>On a terminal, the report uses colors. Set <code>NO_COLOR</code> to stop the colors. Output to a pipe or a file has no colors.</p>
             <div class="callout callout-caution">
               <span class="callout-label">Caution</span>

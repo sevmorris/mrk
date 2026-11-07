@@ -168,6 +168,28 @@ check "heading: four merged branches, and what undo means"       'has "  branche
 check "heading: deploys cannot be undone"                        'has "(cannot be undone)"'
 check "what to run: every cleanup, and all but deploys"          'has "Every cleanup above:" && has "tidy-projects --apply ff,refs,worktrees,branches,deploys,build" && has "tidy-projects --apply ff,refs,worktrees,branches,build"'
 check "survey changed nothing (Alpha main still behind)"        '[[ $(git -C "$A" rev-list --count HEAD..origin/main) == 1 ]]'
+check "no terminal: the survey asks nothing"                     '! has "Apply now?"'
+
+
+# ── 1a. On a terminal the survey asks, and the answer runs --apply ────────────
+# Dipstick's console has no shell to type the next command into, so the survey asks. TIDY_ASK
+# stands in for the terminal and TIDY_SELF for the script, so each answer is recorded as the
+# --apply it would run, and nothing changes.
+cat > "$T/fakebin/self" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" > "$T/self-args"
+EOF
+ask() { rm -f "$T/self-args"; printf '%s\n' "$1" | TIDY_ASK=1 TIDY_SELF="$T/fakebin/self" bash "$S" --no-fetch > "$T/s-ask" 2>&1; }
+ask s
+check "asked: s runs every cleanup but deploys, without a second fetch" '[[ $(cat "$T/self-args" 2>/dev/null) == "--no-fetch --apply ff,refs,worktrees,branches,build" ]]'
+check "asked: the question names the three answers"                    'grep -qF "[a] every cleanup above  [s] all but deploys  [N] none" "$T/s-ask"'
+ask a
+check "asked: a runs every cleanup, deploys too"                        '[[ $(cat "$T/self-args" 2>/dev/null) == "--no-fetch --apply ff,refs,worktrees,branches,deploys,build" ]]'
+ask ""
+check "asked: Return applies nothing, and says so"                      '[[ ! -e "$T/self-args" ]] && grep -q "Nothing applied." "$T/s-ask"'
+ask y
+check "asked: y is no answer when deploys could be left out"            '[[ ! -e "$T/self-args" ]]'
+check "asked, and answered no: Alpha's main still behind"               '[[ $(git -C "$A" rev-list --count HEAD..origin/main) == 1 ]]'
 
 
 # ── 1b. --check: the same cleanups as lines, and no fetch ─────────────────────

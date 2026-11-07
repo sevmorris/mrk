@@ -33,7 +33,8 @@
 # Usage: tidy-projects [--no-fetch] [--check | --apply LIST]
 #
 # Env (tests): TIDY_ROOTS (dirs to search, default "$HOME/Projects $HOME/mrk"), TIDY_OWNER,
-# TIDY_DERIVED (DerivedData path), TIDY_TRASH, TIDY_PRUNE, TIDY_CLEAR_DD (commands).
+# TIDY_DERIVED (DerivedData path), TIDY_TRASH, TIDY_PRUNE, TIDY_CLEAR_DD (commands),
+# TIDY_ASK (ask after the survey without a terminal), TIDY_SELF (the script the answer runs).
 
 # Re-exec with Homebrew bash if running under bash < 4 (macOS ships bash 3.2)
 if (( BASH_VERSINFO[0] < 4 )); then
@@ -67,7 +68,9 @@ tidy-projects — survey the git clones under ~/Projects and ~/mrk, and clean up
 
 Usage: tidy-projects [--no-fetch] [--check | --apply LIST]
   (none)        Survey: fetch each clone, then report. Change nothing but the
-                remote-tracking refs.
+                remote-tracking refs. On a terminal, then ask which cleanups to
+                make: every one, every one but deploys, or none, and make them
+                as --apply does.
   --no-fetch    Survey from what the clones already know. Faster, and maybe stale.
   --check       Survey without fetching, and print one line for each cleanup
                 available, for a program to read: cleanup, repo, path, item and
@@ -463,6 +466,47 @@ if [[ -z $APPLY ]]; then
   fi
   [[ -n $(kind owner) ]] && echo "  Run the → commands under \"Needs you\" yourself: tidy-projects never does."
   echo "  ${DIM}tidy-projects --help explains each category.${OFF}"
+
+  # ── Ask ──
+  # On a terminal the survey ends by asking which cleanups to make, and makes them with --apply,
+  # which surveys again and checks every rule at that moment. Dipstick's console runs a command
+  # and stops when it exits, with no shell to type the next one into, so until 2026-11-07 a
+  # survey there ended at the commands above and went no further. deploys, which cannot be
+  # undone, is never in an answer by default: "all but deploys" is offered on its own, and
+  # anything but a or s (or y, with no deploys to leave out) makes no cleanup. Nothing asks
+  # without a terminal on both ends, so mrk-status's --check, a pipe and the tests' runs never
+  # wait. TIDY_ASK asks anyway, and TIDY_SELF is what runs the --apply: both are for the tests.
+  if (( ${#AVAIL[@]} )) && { [[ -t 0 && -t 1 ]] || [[ -n ${TIDY_ASK:-} ]]; }; then
+    apply_every=$(IFS=,; echo "${AVAIL[*]}"); apply_safe=""
+    if [[ " ${AVAIL[*]} " == *" deploys "* ]] && (( ${#AVAIL[@]} > 1 )); then
+      rest=(); for c in "${AVAIL[@]}"; do [[ $c != deploys ]] && rest+=("$c"); done
+      apply_safe=$(IFS=,; echo "${rest[*]}")
+    fi
+    echo
+    if [[ -n $apply_safe ]]; then
+      question="${BOLD}Apply now?${OFF} [a] every cleanup above  [s] all but deploys  [N] none: "
+    elif [[ $apply_every == deploys ]]; then
+      question="${BOLD}Apply deploys now?${OFF} It cannot be undone. [y/N] "
+    else
+      question="${BOLD}Apply every cleanup above now?${OFF} [y/N] "
+    fi
+    printf '%s' "$question"
+    answer=""
+    read -r answer || true
+    apply_list=""
+    case $answer in
+      a|A) [[ -n $apply_safe ]] && apply_list=$apply_every ;;
+      s|S) apply_list=$apply_safe ;;
+      y|Y|yes|Yes) [[ -z $apply_safe ]] && apply_list=$apply_every ;;
+    esac
+    if [[ -z $apply_list ]]; then
+      echo "  Nothing applied."
+      exit 0
+    fi
+    echo
+    "$BASH" "${TIDY_SELF:-$SCRIPT_DIR/$(basename "$_src")}" --no-fetch --apply "$apply_list"
+    exit $?
+  fi
   exit 0
 fi
 
