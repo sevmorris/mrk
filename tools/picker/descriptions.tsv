@@ -95,7 +95,6 @@ rclone	Cloud storage sync tool (S3, Dropbox, GDrive, and more)
 ripgrep	Extremely fast regex search tool (rg)
 shellcheck	Static analysis and linting tool for shell scripts
 shfmt	Shell script formatter
-shutter-encoder	Video, audio, and image converter and encoder
 signal	Private, end-to-end encrypted messaging
 slack	Team messaging and collaboration platform
 soundsource	System-wide per-application audio control for Mac

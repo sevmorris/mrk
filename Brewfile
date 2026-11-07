@@ -146,5 +146,4 @@ cask "handbrake-app", greedy: true
 cask "losslesscut", greedy: true
 cask "mdrp", greedy: true
 cask "mediainfo", greedy: true
-cask "shutter-encoder", greedy: true
 cask "vlc", greedy: true
