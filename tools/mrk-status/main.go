@@ -57,7 +57,17 @@ type statusLine struct {
 	sev  severity
 	text string
 	fix  string // this line's own fix, shown beside it, or ""
+	// privacy is the macOS permission the app that runs this needs before
+	// the check can read what the line is about (privacyFullDiskAccess), or
+	// "". A permission is the app's to be given, in System Settings, so it is
+	// never a fix: --json carries it, and Dipstick shows a button to its pane.
+	privacy string
 }
+
+// privacyFullDiskAccess is --json's word for Full Disk Access, in a line's
+// privacy. Dipstick, which shows a button for it, reads the word, so it keeps
+// its meaning; another permission would be a new word.
+const privacyFullDiskAccess = "full-disk-access"
 
 type group struct {
 	name  string
@@ -67,6 +77,13 @@ type group struct {
 }
 
 func sl(sev severity, text string) statusLine { return statusLine{sev: sev, text: text} }
+
+// needsFullDiskAccess marks a line as one the app that runs this cannot check
+// without Full Disk Access.
+func needsFullDiskAccess(l statusLine) statusLine {
+	l.privacy = privacyFullDiskAccess
+	return l
+}
 
 func worst(lines []statusLine) severity {
 	s := sevOK
@@ -229,11 +246,12 @@ func checkDefaults(d defaultsDrift) group {
 	}
 	// A key this process may not read is one mrk sets, so it is in the count,
 	// as not known to be set. Full Disk Access is the app's to be given, so it
-	// is said, and is not a warning with a fix.
+	// is said, and is not a warning with a fix; --json marks it with the
+	// permission.
 	var unread []statusLine
 	if len(d.noAccess) > 0 {
-		unread = append(unread, sl(sevInfo, plural(len(d.noAccess), "key cannot be read", "keys cannot be read")+
-			" without Full Disk Access for the app that runs this: "+names(d.noAccess)))
+		unread = append(unread, needsFullDiskAccess(sl(sevInfo, plural(len(d.noAccess), "key cannot be read", "keys cannot be read")+
+			" without Full Disk Access for the app that runs this: "+names(d.noAccess))))
 	}
 	// Lines this binary passed over are keys not in the count at all.
 	unread = append(unread, unknownLines("defaults.sh", d.unknown)...)

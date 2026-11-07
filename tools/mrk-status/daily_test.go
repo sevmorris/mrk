@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 	"unicode/utf8"
@@ -1116,6 +1118,30 @@ func TestTimeMachine(t *testing.T) {
 				t.Errorf("want %q at sev %v, got sev %v:\n%s", tc.want, tc.sev, g.sev, texts(g))
 			}
 		})
+	}
+}
+
+// Settings macOS will not let this process read are Full Disk Access's to
+// give, so the line names the permission and carries it for --json, with no
+// fix. Any other failure says what it was, as before.
+func TestTimeMachineUnreadable(t *testing.T) {
+	refused := tmReadError(&fs.PathError{Op: "open", Path: tmPlist, Err: syscall.EPERM})
+	if refused.text != "Cannot read Time Machine's settings without Full Disk Access for the app that runs this" ||
+		refused.sev != sevWarn || refused.fix != "" || refused.privacy != privacyFullDiskAccess {
+		t.Errorf("refused = %+v", refused)
+	}
+	denied := tmReadError(&fs.PathError{Op: "open", Path: tmPlist, Err: syscall.EACCES})
+	if denied.privacy != "" || !strings.HasSuffix(denied.text, "permission denied") {
+		t.Errorf("the file's own mode is not Full Disk Access's: %+v", denied)
+	}
+
+	old := tmPlist
+	tmPlist = filepath.Join(t.TempDir(), "absent.plist")
+	t.Cleanup(func() { tmPlist = old })
+	g := checkTimeMachine()
+	if len(g.lines) != 1 || g.sev != sevWarn || g.lines[0].privacy != "" ||
+		!strings.HasPrefix(g.lines[0].text, "Cannot read Time Machine's settings: open ") {
+		t.Errorf("a missing file says so:\n%s", texts(g))
 	}
 }
 

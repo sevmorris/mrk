@@ -217,8 +217,8 @@ func TestDefaultsCountsTheCheckStates(t *testing.T) {
 	if l, ok := line(g, "2 keys are not as mrk sets them: NSGlobalDomain B, NSGlobalDomain E"); !ok || l.fix != "make defaults" {
 		t.Errorf("the keys should be named, with their fix:\n%s", texts(g))
 	}
-	if l, ok := line(g, "1 key cannot be read without Full Disk Access for the app that runs this: com.apple.TextEdit RichText"); !ok || l.sev != sevInfo || l.fix != "" {
-		t.Errorf("a key this process may not read should be named, as information with no fix:\n%s", texts(g))
+	if l, ok := line(g, "1 key cannot be read without Full Disk Access for the app that runs this: com.apple.TextEdit RichText"); !ok || l.sev != sevInfo || l.fix != "" || l.privacy != privacyFullDiskAccess {
+		t.Errorf("a key this process may not read should be named, as information with no fix and the permission it needs:\n%s", texts(g))
 	}
 	if g := checkDefaults(defaultsDrift{set: 2, noAccess: []string{"com.apple.mail K"}}); g.sev != sevOK || len(g.lines) != 2 ||
 		g.lines[0].text != "2 of 3 set" {

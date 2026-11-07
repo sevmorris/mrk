@@ -30,6 +30,10 @@ type jsonLine struct {
 	Severity string `json:"severity"`
 	Text     string `json:"text"`
 	Fix      string `json:"fix"`
+	// The macOS permission the app that runs this needs to check what the
+	// line is about: "full-disk-access", or "". Added on 2026-11-07 for
+	// Dipstick's button, a new key, so still schema 1.
+	Privacy string `json:"privacy"`
 }
 
 // name is a severity's word in the --json document, as icon is its mark.
@@ -61,7 +65,7 @@ func renderJSON(w io.Writer, groups []group) error {
 		p := jsonPanel{Name: g.name, Severity: g.sev.name(), Fix: g.fix,
 			Lines: make([]jsonLine, 0, len(g.lines))}
 		for _, l := range g.lines {
-			p.Lines = append(p.Lines, jsonLine{Severity: l.sev.name(), Text: l.text, Fix: l.fix})
+			p.Lines = append(p.Lines, jsonLine{Severity: l.sev.name(), Text: l.text, Fix: l.fix, Privacy: l.privacy})
 		}
 		r.Panels = append(r.Panels, p)
 	}
