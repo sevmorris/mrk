@@ -205,9 +205,16 @@ rm -rf "$gone"
 safari="$APPS/Safari.app"
 crypt_safari="$W/Preboot/Cryptexes/App/System/Applications/Safari.app"
 rm -rf "$safari"; mkdir -p "$crypt_safari"; ln -s "$crypt_safari" "$safari"
-undocked="${DOCK_APPS[2]}"
-if [[ "$undocked" == "$safari" || "$undocked" == "$gone" ]] || ! printf '%s\n' "${DOCK_APPS[@]}" | grep -qxF "$safari"; then
-  fail "the list's apps are not as this test needs them: Safari, and a third app that is neither Safari nor the second"
+# The app left out of the Dock: the first from the third on, then the first,
+# that is neither Safari nor the gone one. Until 2026-11-07 it was the third
+# itself, and taking Helium off the list made Safari the third, which failed
+# every run until this looked for one.
+undocked=""
+for app in "${DOCK_APPS[@]:2}" "${DOCK_APPS[0]}"; do
+  if [[ "$app" != "$safari" && "$app" != "$gone" ]]; then undocked="$app"; break; fi
+done
+if [[ -z "$undocked" ]] || ! printf '%s\n' "${DOCK_APPS[@]}" | grep -qxF "$safari"; then
+  fail "the list's apps are not as this test needs them: Safari, and an app that is neither Safari nor the second"
   exit 1
 fi
 signal="$APPS/Signal Desktop.app"; mkdir -p "$signal"
