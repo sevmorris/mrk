@@ -109,7 +109,6 @@ cask "prismlauncher", greedy: true
 
 ## Casks - Productivity
 cask "brave-browser", greedy: true
-cask "calibre", greedy: true
 cask "claude", greedy: true
 cask "dropbox", greedy: true
 cask "firefox", greedy: true

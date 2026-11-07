@@ -20,7 +20,6 @@ bash	Modern shell (Bash 5.x) with improved features
 bash-completion@2	Tab completion for bash 4 and newer — where Homebrew formulae install their completion scripts
 bat	cat clone with syntax highlighting and Git integration
 brave-browser	Privacy-focused browser based on Chromium
-calibre	E-book manager, reader, and format converter
 chromaprint	Audio fingerprinting library (AcoustID core component)
 claude	Claude — Anthropic's desktop app
 cliclick	Emulate mouse and keyboard events from the command line
