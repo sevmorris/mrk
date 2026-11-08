@@ -135,7 +135,6 @@ cask "nordvpn", greedy: true
 cask "omnidisksweeper", greedy: true
 cask "openmtp", greedy: true
 cask "raspberry-pi-imager", greedy: true
-cask "stats", greedy: true
 cask "thaw", greedy: true
 cask "the-unarchiver", greedy: true
 cask "timemachineeditor", greedy: true
