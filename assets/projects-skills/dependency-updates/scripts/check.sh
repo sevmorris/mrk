@@ -2,7 +2,7 @@
 # check.sh — are the third-party pieces the apps ship still current?
 #
 # Compares every vendored pin under ~/Projects (<repo>/Vendor/*-manifest.env:
-# yt-dlp, FFmpeg, LAME) with its latest upstream release, and lists open
+# yt-dlp, FFmpeg, LAME, libopus) with its latest upstream release, and lists open
 # Dependabot alerts across the account. It changes nothing in any repository;
 # updating is the skill's procedure, not this script's.
 #
@@ -153,6 +153,19 @@ upstream() {
         v=$(curl -fsS --max-time 15 https://sourceforge.net/projects/lame/best_release.json 2>/dev/null \
             | jq -r '.release.filename // empty' | sed -nE 's#.*/lame-([0-9][0-9.]*)\.tar\.gz$#\1#p')
       fi ;;
+    opus)
+      # Every release tarball, oldest first, from downloads.xiph.org, where the
+      # build scripts fetch it (it redirects to a mirror, hence -L). The mirror
+      # resets connections now and then, hence the retries. Alphas,
+      # betas and release candidates go. The GitHub mirror's tags are the
+      # fallback when the listing cannot be read.
+      v=$(curl -fsSL --max-time 15 --retry 2 --retry-all-errors https://downloads.xiph.org/releases/opus/ 2>/dev/null \
+          | grep -oE 'opus-[0-9][0-9.]*\.tar\.gz' | sed -E 's#^opus-([0-9.]+)\.tar\.gz$#\1#' \
+          | grep -E '^[0-9]+\.[0-9]+(\.[0-9]+)?$' | sort -uV | tr '\n' ' ')
+      if [[ -z ${v// /} ]]; then
+        v=$(gh api 'repos/xiph/opus/git/matching-refs/tags/v' --jq '.[].ref' 2>/dev/null \
+            | sed 's#^refs/tags/v##' | grep -E '^[0-9]+\.[0-9]+(\.[0-9]+)?$' | sort -uV | tr '\n' ' ')
+      fi ;;
     ffmpeg-date:*)
       v=$(gh api "repos/FFmpeg/FFmpeg/commits/n${1#ffmpeg-date:}" --jq .commit.committer.date 2>/dev/null | cut -c1-10) ;;
   esac
@@ -197,10 +210,20 @@ while IFS= read -r m; do
       printf 'LAME\t%s\t%s\t%s\t%s\n' "$repo" "$lame" "$latest" "${nl:--}" >> "$WORK/pins"
     fi
   fi
+  if opus=$(val OPUS_VERSION "$m"); [[ -n $opus ]]; then
+    upstream opus; releases=$UPV
+    if [[ -z ${releases// /} ]]; then echo "libopus ($repo): could not read its releases from xiph.org or GitHub" >> "$WORK/notes"
+    else
+      latest=$(tr ' ' '\n' <<<"$releases" | grep . | tail -1)
+      nl=$(tr ' ' '\n' <<<"$releases" | grep . | while read -r r; do newer "$opus" "$r" && printf '%s ' "$r"; done)
+      nl=${nl% }
+      printf 'libopus\t%s\t%s\t%s\t%s\n' "$repo" "$opus" "$latest" "${nl:--}" >> "$WORK/pins"
+    fi
+  fi
   # A pin this script has no upstream check for is a finding, not a footnote: a
   # new vendored tool must not go unwatched just because nobody taught this file.
   while IFS= read -r k; do
-    case "$k" in YTDLP_VERSION|FFMPEG_VERSION|FFMPEG_SOURCE_RELEASE|LAME_VERSION) continue ;; esac
+    case "$k" in YTDLP_VERSION|FFMPEG_VERSION|FFMPEG_SOURCE_RELEASE|LAME_VERSION|OPUS_VERSION) continue ;; esac
     v=$(val "$k" "$m")
     printf 'unchecked:%s:%s:%s\t%s pins %s %s (%s), and check.sh has no upstream check for it yet\n' \
       "$repo" "${k%_VERSION}" "$v" "$repo" "${k%_VERSION}" "$v" "${m#"$PROJECTS"/}" >> "$WORK/findings"
