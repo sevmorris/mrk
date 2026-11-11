@@ -61,6 +61,7 @@ GUARDS=(
   "tests|xcodebuild test\|swift test"
   "min-macos|minimum-macos:"
   "last-per-os|PROTECTED_TAGS"
+  "prune-proof|no release pages were pruned this time"
 )
 
 h "Guards by repo  (yes = present, -- = missing)"
@@ -127,7 +128,7 @@ if [[ -f "$CLOUD_LIB" && -f "$CLOUD_RUN" ]]; then
   for g in "${GUARDS[@]}"; do
     label="${g%%|*}"; pat="${g#*|}"
     case "$label" in
-      notes-gate|main-only|remote-tags|ancestry|atomic-push|v-tag-filter|shared-files|last-per-os)
+      notes-gate|main-only|remote-tags|ancestry|atomic-push|v-tag-filter|shared-files|last-per-os|prune-proof)
         printf '%-13s' "n/a"; continue ;;
       exit-trap)   pat="trap release_cloud_restore_on_exit EXIT" ;;
       signal-trap) pat="EXIT INT TERM" ;;
