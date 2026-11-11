@@ -1,6 +1,6 @@
 ---
 name: dependency-updates
-description: Keep the third-party code the apps ship current. That means the binaries vendored through <repo>/Vendor/*-manifest.env — yt-dlp in ClipHack; FFmpeg and LAME in WaxOnWaxOff, ClipHack and FilmStrip — and the npm dependencies Dependabot flags in doublender-dashboard. A SessionStart hook runs the check in every session and reports what is behind. Use this when that notice appears, when asked whether yt-dlp, FFmpeg, LAME or any dependency is up to date, when updating one, and before cutting an app release, so the release does not ship a stale tool.
+description: Keep the third-party code the apps ship current. That means the binaries vendored through <repo>/Vendor/*-manifest.env — yt-dlp in ClipHack; FFmpeg and LAME in WaxOnWaxOff, ClipHack, FilmStrip and Transcoder; libopus in Transcoder — and the npm dependencies Dependabot flags in doublender-dashboard. A SessionStart hook runs the check in every session and reports what is behind. Use this when that notice appears, when asked whether yt-dlp, FFmpeg, LAME, libopus or any dependency is up to date, when updating one, and before cutting an app release, so the release does not ship a stale tool.
 ---
 
 # Dependency updates
@@ -29,8 +29,9 @@ bash $S/check.sh --ack ID|all  # stop the session notice repeating these
 | What | Pinned in | Compared with |
 |---|---|---|
 | yt-dlp | `ClipHack/Vendor/ytdlp-manifest.env` | yt-dlp's latest GitHub release |
-| FFmpeg | `Vendor/ffmpeg-manifest.env` (`FFMPEG_SOURCE_RELEASE`) in the three FFmpeg repos | FFmpeg's release tags: the newest point release on the pinned branch, and the newest release of every newer line. It also flags a pinned branch as quiet when every newer line has released 60 or more days after its last release |
+| FFmpeg | `Vendor/ffmpeg-manifest.env` (`FFMPEG_SOURCE_RELEASE`) in the four FFmpeg repos | FFmpeg's release tags: the newest point release on the pinned branch, and the newest release of every newer line. It also flags a pinned branch as quiet when every newer line has released 60 or more days after its last release |
 | LAME | the same manifest (`LAME_VERSION`, or the version in `LAME_SOURCE_URL`) | every release in SourceForge's RSS feed newer than the pin, not only the latest: 3.101, the last 3.x, came out two days before 4.0 |
+| libopus | `Transcoder/Vendor/ffmpeg-manifest.env` (`OPUS_VERSION`) | every release tarball at `downloads.xiph.org/releases/opus/` newer than the pin, leaving out alphas, betas and release candidates; the `xiph/opus` GitHub mirror's tags when that listing cannot be read |
 | npm and other manifests GitHub reads | `package-lock.json` and the like | open Dependabot alerts, on every non-archived repository the account owns |
 | any other `*_VERSION` in a Vendor manifest | wherever it is | nothing yet: it is reported as unchecked, so a new vendored tool is not silently ignored. Teach `check.sh` about it. |
 
@@ -92,7 +93,7 @@ lives in `mrk/assets/projects-skills/`.
    `release-standards`. In the published DMG, run
    `ClipHack.app/Contents/Frameworks/ClipHackKit.framework/Versions/A/Resources/yt-dlp --version`.
 
-## 3. Update FFmpeg or LAME (WaxOnWaxOff, ClipHack, FilmStrip)
+## 3. Update FFmpeg, LAME or libopus (WaxOnWaxOff, ClipHack, FilmStrip, Transcoder)
 
 This is heavier than yt-dlp. Each repo builds its own binaries from a committed
 recipe and hosts them as its own deps release. A **point release on the pinned
@@ -101,7 +102,9 @@ line** (8.0 to 9.0), or a new LAME major version, changes behaviour. It is a
 separate decision for the owner, so present it rather than doing it.
 `WaxOnWaxOff/Vendor/README.md` ("Updating the bundled binary build") is the
 reference. The three `build-ffmpeg.sh` copies differ only in project name and
-work directory, so repin all three the same day.
+work directory, so repin all three the same day. Transcoder's is FilmStrip's
+recipe plus a static libopus (its own deps tags carry `-audio-opus-`), so it
+takes the same FFmpeg and LAME pins that day too. It has no parity harness yet.
 
 1. **Verify the sources.**
    - FFmpeg: check the tarball's `.asc` against FFmpeg's release signing key,
@@ -112,15 +115,19 @@ work directory, so repin all three the same day.
      the old tarball with it too: that continuity is the strongest evidence.
    - LAME: it publishes no signatures. Confirm the SHA-256 from an independent
      source, such as the checksum in Homebrew's `lame` formula.
+   - libopus (Transcoder): xiph publishes `SHA256SUMS.txt` beside the
+     tarballs, on the same server, so also confirm the SHA-256 against
+     Homebrew's `opus` formula (`brew info --json=v2 opus`).
 2. **Re-read the licences** at the new version: FFmpeg's `LICENSE.md`, and the
    header of LAME's `include/lame.h`. Update the licence table and source links
    in each `Vendor/README.md`. The LGPL source obligation described there
    depends on them.
 3. **Repin and build.** Edit the pins in `scripts/build-ffmpeg.sh`
-   (`FFMPEG_VERSION`/`FFMPEG_SHA`, `LAME_VERSION`/`LAME_SHA`) and run it. It
+   (`FFMPEG_VERSION`/`FFMPEG_SHA`, `LAME_VERSION`/`LAME_SHA`, and in
+   Transcoder `OPUS_VERSION`/`OPUS_SHA`) and run it. It
    asserts:
    - no `--enable-gpl`, `--enable-nonfree` or `--enable-version3`;
-   - `libmp3lame` is linked;
+   - `libmp3lame` is linked (and `libopus`, in Transcoder);
    - the deployment target;
    - `LC_UUID` is present (dyld on macOS 26.7 aborts without it);
    - no non-system dylibs.
@@ -168,7 +175,7 @@ work directory, so repin all three the same day.
    - **without deleting the superseded one.** Older tags pin it. Add it to the
      previous-pins table in `Vendor/README.md`.
 6. **Update `Vendor/ffmpeg-manifest.env`**: version, deps tag, both SHA-256s,
-   and the `FFMPEG_SOURCE_*` and `LAME_*` fields. Then `./scripts/fetch-ffmpeg.sh`,
+   and the `FFMPEG_SOURCE_*`, `LAME_*` and (Transcoder) `OPUS_*` fields. Then `./scripts/fetch-ffmpeg.sh`,
    test, and release each app.
 
 ## 4. Update npm dependencies (Dependabot)

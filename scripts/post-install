@@ -250,7 +250,7 @@ fi
 # of assets/projects-skills points at nothing, and is removed.
 #
 # dependency-updates also has a SessionStart hook. It reports vendored
-# binaries (yt-dlp, FFmpeg, LAME) and Dependabot alerts that have fallen
+# binaries (yt-dlp, FFmpeg, LAME, libopus) and Dependabot alerts that have fallen
 # behind, which nothing else watches. ClipHack 1.25.7 shipped a yt-dlp two
 # releases old for want of it. settings.json is Claude Code's own file, so the
 # hook is added once and nothing else in it is touched; invalid JSON is
