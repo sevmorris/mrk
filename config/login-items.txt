@@ -9,6 +9,7 @@
 # order (LC_ALL=C sort): sync-login-items adds a path before the first path
 # that sorts after it, and deletes a path by its exact line.
 /Applications/AlDente.app
+/Applications/Amphetamine.app
 /Applications/BetterSnapTool.app
 /Applications/Chrono Plus.app
 /Applications/Dipstick.app
