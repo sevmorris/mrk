@@ -68,8 +68,12 @@ DoublEnder Cloud has a row of its own: it is released by
 private overlay, not by a `release.sh`, so the search for those never found it.
 Until 2026-10-04 its DMG went out unsigned and its app unstapled, the two things
 `dmg-signed` and `app-stapled` exist to catch. The guards about tags, pushes,
-notes and GitHub release pages are n/a for it, and `exit-trap`, `signal-trap`,
-`tests` and `min-macos` look for the Cloud scripts' own form of each.
+notes and GitHub release pages are n/a for it, and `exit-trap`, `tests` and
+`min-macos` look for the Cloud scripts' own form of each. `signal-trap` looks
+for `release.sh`'s form, which the Cloud scripts took on 2026-11-14: their
+restore used to be the INT and TERM trap too, so Ctrl-C restored twice and
+exited 253. Their restore also returns rather than calling `exit`, because after
+a signal zsh gives an EXIT trap `$?` = -2.
 `posix-traps` checks both overlay scripts that trap EXIT,
 `release-cloud-from-local.sh` and `verify-cloud.sh`. Almost every step they
 take is a function in `release-cloud-lib.sh`, so without it the trap is skipped
