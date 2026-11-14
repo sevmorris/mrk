@@ -47,6 +47,7 @@ missing ones as a list, and the repo state a release would trip over.
 | `generic-dest` | xcodebuild silently building one architecture. | Xcode apps; PasswordGen and Dipstick build with `swift build` and check the binary's architecture instead |
 | `v-tag-filter` | A dependency or checkpoint tag being read as the previous release and truncating the notes. | every app |
 | `exit-trap` / `signal-trap` | A failed *or interrupted* release stranding a version bump in the working tree. zsh does not run an EXIT trap on a signal. | every app |
+| `posix-traps` | A command failing inside a function under `set -e` and exiting without running the EXIT trap at all. zsh puts a top-level EXIT trap aside on entering any function, and errexit exits from there without putting it back. An explicit `exit`, as in `fail`, does unwind and run it, which is why this hid. On 2026-11-14 a failing test inside `release_cloud_run_unit_tests` left DoublEnder's `project.pbxproj` with 34 Cloud references and nothing put it back; in a release the same failure strands the build-number bump. `setopt POSIX_TRAPS` makes the trap the shell's. zsh reads the option when the trap is set, so the audit checks that it comes first. No `release.sh` runs a step inside a function today, so there it covers the first helper that does. Added 2026-11-14. | every app |
 | `shared-files` | Byte-identical files drifting between repos. The siblings are looked for beside the repo's main checkout, so a release from a worktree compares too: on 2026-09-24 one looked beside the worktree, compared nothing, and still reported the files in sync. Comparing nothing now fails when siblings are checked out, and only warns in a lone clone. | repos with siblings |
 | `tests` | Releasing a build whose tests never ran with the Xcode that built it. CI pins Xcode 26.3, and its `xcode-27` leg is a preview with no uptime promise; this runs the suite on the release Mac, before the version bump, so a failure leaves nothing to undo. Until 2026-10-04 only FilmStrip and Magic Backup Machine did. PasswordGen and Dipstick, the Swift packages, run `swift test`. `--skip-tests` is the emergency override. | apps with a test target |
 | `min-macos` | The in-app updater offering a release to a Mac below its minimum macOS, so the user drags in an app that will not open over the one that works. The script reads `LSMinimumSystemVersion` from the built app, stops before notarizing if it is missing, and ends the notes with a "Requires macOS" line and a `<!-- minimum-macos: X -->` marker, which the updaters read and GitHub does not render. Added 2026-10-04 ahead of the move to macOS 15. DoublEnder Cloud carries the same as `minimumSystemVersion` in its update manifest. | every app |
@@ -69,6 +70,10 @@ Until 2026-10-04 its DMG went out unsigned and its app unstapled, the two things
 `dmg-signed` and `app-stapled` exist to catch. The guards about tags, pushes,
 notes and GitHub release pages are n/a for it, and `exit-trap`, `signal-trap`,
 `tests` and `min-macos` look for the Cloud scripts' own form of each.
+`posix-traps` checks both overlay scripts that trap EXIT,
+`release-cloud-from-local.sh` and `verify-cloud.sh`. Almost every step they
+take is a function in `release-cloud-lib.sh`, so without it the trap is skipped
+by nearly any failure.
 
 ## 3. Cutting a release
 
@@ -110,6 +115,22 @@ before it reaches this skill.
 ## 5. Things that are true here and surprise people
 
 - **The scripts are zsh**, so `shellcheck` cannot analyse them. Use `zsh -n`.
+- **An EXIT trap belongs to the function it is in**, not to the script, unless
+  `POSIX_TRAPS` is set before the trap. Without the option, zsh sets a
+  top-level trap aside while any function runs, so a command failing there
+  under `set -e` exits without running it. That includes `$(…)` assigned to a
+  variable, a failing pipeline under `pipefail`, and a function in a sourced
+  file. Seen in zsh 5.9 (`/bin/zsh`) and 5.9.2 (Homebrew), and upstream's
+  `starttrapscope()` still does it. The other fixes that look plausible don't
+  work: `TRAPEXIT` and `zshexit` are skipped in the same way, and so are
+  `ERR_RETURN`, `{ … } always { … }` and a ZERR trap that calls `exit`. A
+  `TRAPEXIT` set with `POSIX_TRAPS` does run, but in every subshell too, a
+  `$(…)` included, so keep the trap a string (`trap cleanup EXIT`), which
+  subshells drop. The option has two side effects. A function that sets its own
+  `trap … EXIT` replaces the script's, and `trap - EXIT` inside a function
+  clears it for the whole script. No script here does either, and a new one
+  shouldn't. The repro is four lines, `set -euo pipefail`,
+  `trap 'echo ran' EXIT`, `f() { false }` and `f`, and it prints nothing.
 - **Glob qualifiers** (`"$MOUNT"/.DS_Store(N)`) work in the scripts because
   non-interactive zsh has `bare_glob_qual` on by default. An interactive shell
   here has it off, so the same line pasted into a terminal fails with
