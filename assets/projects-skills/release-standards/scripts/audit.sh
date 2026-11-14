@@ -29,6 +29,20 @@ GREP=/usr/bin/grep   # not a shell function or alias, whatever the caller has
 
 h() { printf '\n== %s\n' "$*"; }
 
+# posix-traps is about order as much as presence. zsh puts a top-level EXIT trap
+# aside on entering any function, so a command failing inside one under `set -e`
+# exits without running it; `setopt POSIX_TRAPS` makes it the shell's trap, and
+# zsh reads the option when the trap is set. So the setopt has to come before
+# the first EXIT trap. A `setopt` written after it, or not at all, reads as
+# missing.
+posix_traps_before_exit_trap() {
+  awk '
+    !opt && tolower($0) ~ /^[[:space:]]*setopt[[:space:]]+([^#]*[[:space:]])?posix_?traps([[:space:]]|;|$)/ { opt = NR }
+    !trp && /^[[:space:]]*trap[[:space:]].*[[:space:]]EXIT([[:space:]]|;|$)/ { trp = NR }
+    END { exit !(opt && trp && opt < trp) }
+  ' "$1"
+}
+
 # Repos with a release.sh, found rather than listed, so a new app appears here
 # without editing this script.
 REPOS=()
@@ -57,6 +71,7 @@ GUARDS=(
   "v-tag-filter|tag --list 'v\[0-9\]"
   "exit-trap|trap cleanup EXIT"
   "signal-trap|trap 'exit 143' TERM"
+  "posix-traps|setopt POSIX_TRAPS"
   "shared-files|check-shared"
   "tests|xcodebuild test\|swift test"
   "min-macos|minimum-macos:"
@@ -103,6 +118,13 @@ for d in "${REPOS[@]}"; do
       printf '%-13s' "n/a"
     elif [[ $xcodeproj -eq 0 && "$label" == "generic-dest" ]]; then
       printf '%-13s' "n/a"
+    elif [[ "$label" == "posix-traps" ]]; then
+      if posix_traps_before_exit_trap "$d/release.sh"; then
+        printf '%-13s' "yes"
+      else
+        printf '%-13s' "--"
+        MISSING_REPORT+="  $name: $label"$'\n'
+      fi
     elif $GREP -q -- "$pat" "$d/release.sh" 2>/dev/null; then
       printf '%-13s' "yes"
     else
@@ -134,6 +156,22 @@ if [[ -f "$CLOUD_LIB" && -f "$CLOUD_RUN" ]]; then
       signal-trap) pat="EXIT INT TERM" ;;
       tests)       pat="release_cloud_run_unit_tests" ;;
       min-macos)   pat="minimumSystemVersion" ;;
+      posix-traps)
+        # Both scripts that trap EXIT to put the Local project back. Nearly every
+        # step they run is a function in release-cloud-lib.sh, and verify-cloud.sh
+        # is where the missing option first showed, on 2026-11-14.
+        cloud_ok=1
+        for f in "$CLOUD_RUN" "$PROJECTS/DoublEnder/scripts/verify-cloud.sh"; do
+          [[ -f "$f" ]] || continue
+          posix_traps_before_exit_trap "$f" || cloud_ok=0
+        done
+        if (( cloud_ok )); then
+          printf '%-13s' "yes"
+        else
+          printf '%-13s' "--"
+          MISSING_REPORT+="  DoublEnder Cloud: $label"$'\n'
+        fi
+        continue ;;
     esac
     if $GREP -q -- "$pat" <<<"$CLOUD_TEXT"; then
       printf '%-13s' "yes"
