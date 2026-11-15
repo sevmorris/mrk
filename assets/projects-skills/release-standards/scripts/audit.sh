@@ -140,8 +140,9 @@ done
 # went out unsigned and its app unstapled until 2026-10-04, while every
 # release.sh had both guards. It gets a row of its own. The guards about tags,
 # pushes, release notes and GitHub release pages are n/a: it uploads a DMG and
-# a manifest to Cloud Storage. Four look for the Cloud scripts' own form of the
-# same protection.
+# a manifest to Cloud Storage. Three look for the Cloud scripts' own form of the
+# same protection; signal-trap takes release.sh's own form, which the Cloud
+# scripts adopted on 2026-11-14 (Ctrl-C used to restore twice and exit 253).
 CLOUD_LIB="$PROJECTS/DoublEnder/scripts/release-cloud-lib.sh"
 CLOUD_RUN="$PROJECTS/DoublEnder/scripts/release-cloud-from-local.sh"
 if [[ -f "$CLOUD_LIB" && -f "$CLOUD_RUN" ]]; then
@@ -153,7 +154,6 @@ if [[ -f "$CLOUD_LIB" && -f "$CLOUD_RUN" ]]; then
       notes-gate|main-only|remote-tags|ancestry|atomic-push|v-tag-filter|shared-files|last-per-os|prune-proof)
         printf '%-13s' "n/a"; continue ;;
       exit-trap)   pat="trap release_cloud_restore_on_exit EXIT" ;;
-      signal-trap) pat="EXIT INT TERM" ;;
       tests)       pat="release_cloud_run_unit_tests" ;;
       min-macos)   pat="minimumSystemVersion" ;;
       posix-traps)
