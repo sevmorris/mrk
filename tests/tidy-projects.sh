@@ -12,7 +12,8 @@
 # off GitHub with a token in its URL; Delta, on a work branch with an uncommitted change.
 # "GitHub" is local bare repositories, reached through url.insteadOf in a test git config, and
 # gh is a stub that answers from fixtures. prune-deployments, clear-derived-data and trash are
-# stubs that record their calls. Nothing outside the scratch folder is read or written.
+# stubs that record their calls, and pgrep says xcodebuild is running only when the test says so.
+# Nothing outside the scratch folder is read or written.
 # tidy-projects needs bash 4, and hands itself to Homebrew's under an older one. ci-check runs it.
 
 set -uo pipefail
@@ -62,6 +63,14 @@ EOF
 printf '#!/usr/bin/env bash\necho "prune $*" >> "%s/log"\n' "$T" > "$T/fakebin/prune"
 printf '#!/usr/bin/env bash\necho "cleardd" >> "%s/log"\n' "$T" > "$T/fakebin/cleardd"
 printf '#!/usr/bin/env bash\nmv "$1" "%s/trash/" && echo "trash $1" >> "%s/log"\n' "$T" "$T" > "$T/fakebin/trash"
+# --apply build skips everything while xcodebuild runs, and the real pgrep reads the host's
+# processes: on 2026-11-14 a CI runner had an xcodebuild going and two build checks failed. The
+# stub answers for xcodebuild from $T/xcodebuild-running and hands anything else to pgrep.
+cat > "$T/fakebin/pgrep" <<EOF
+#!/usr/bin/env bash
+[[ \$* == "-x xcodebuild" ]] && { [[ -e "$T/xcodebuild-running" ]]; exit; }
+exec /usr/bin/pgrep "\$@"
+EOF
 chmod +x "$T/fakebin/"*
 export PATH="$T/fakebin:$PATH"
 dd if=/dev/zero of="$T/DerivedData/cache.bin" bs=1024 count=2048 2>/dev/null
@@ -220,6 +229,15 @@ check "--check: no report on stdout, and no token anywhere"      '! grep -qE "^=
 check "--check with --no-fetch runs"                             'bash "$S" --check --no-fetch >/dev/null 2>&1'
 check "--check with --apply is refused with exit 2"              'bash "$S" --check --apply ff >/dev/null 2>&1; [[ $? == 2 ]]'
 
+# ── 1c. --apply build while xcodebuild runs: nothing goes ────────────────────
+
+touch "$T/xcodebuild-running"
+bash "$S" --no-fetch --apply build > "$T/s-busy" 2>&1
+rm -f "$T/xcodebuild-running"
+check "build skipped while xcodebuild runs, and says so"  'grep -q "skipped: xcodebuild is running" "$T/s-busy"'
+check "build skipped: Alpha build/ kept"                  '[[ -d "$A/build" && ! -e "$T/trash/build" ]]'
+check "build skipped: DerivedData not cleared"            '! grep -qx cleardd "$T/log" 2>/dev/null'
+
 
 # ── 2. --apply all: only what qualified goes, and everything kept stays ───────
 
@@ -265,7 +283,7 @@ check "unknown cleanup refused with exit 2"           'bash "$S" --apply bogus >
 
 kill "$INUSE" 2>/dev/null
 if (( fails )); then
-  for f in s1 s2 s3; do [[ -f "$T/$f" ]] && sed 's/^/    /' "$T/$f" >&2; done
+  for f in s1 s-busy s2 s3; do [[ -f "$T/$f" ]] && sed 's/^/    /' "$T/$f" >&2; done
   err "$fails tidy-projects check(s) failed"
   exit 1
 fi
