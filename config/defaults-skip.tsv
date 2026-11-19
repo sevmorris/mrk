@@ -16,3 +16,4 @@
 # it, and --unskip deletes a line by its exact text. defaults.sh refuses the
 # file, before it writes anything, when a line is not one key of
 # config/defaults.tsv or when two lines name one key.
+NSGlobalDomain	KeyRepeat

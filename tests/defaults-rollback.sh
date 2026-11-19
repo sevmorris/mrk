@@ -46,7 +46,14 @@ fi
 source "$REPO_ROOT/scripts/lib.sh"
 T=$(mrk_mktemp_d) || exit 1
 trap 'rm -rf "$T"' EXIT
-D="$T/probe"                 # a path-form domain: $T/probe.plist
+# The runs use a copy of the repository with no key skipped:
+# config/defaults-skip.tsv is the owner's own list, and a key in it changes
+# what each run writes and what --check shows.
+C="$T/repo-noskip"; mkdir -p "$C/scripts" "$C/config"
+cp "$REPO_ROOT/scripts/defaults.sh" "$REPO_ROOT/scripts/lib.sh" "$C/scripts/"
+cp "$REPO_ROOT/config/defaults.tsv" "$C/config/"
+grep '^#' "$REPO_ROOT/config/defaults-skip.tsv" > "$C/config/defaults-skip.tsv"
+D="$T/probe"                # a path-form domain: $T/probe.plist
 ROLLBACK="$T/rollback.sh"
 init_rollback "$ROLLBACK" >/dev/null 2>&1 || { err "init_rollback failed"; exit 1; }
 
@@ -173,8 +180,8 @@ exec /bin/ls "$@"
 EOF
 chmod +x "$DS"/*
 
-# run NAME [ARGS...] — defaults.sh from ROOT (the repository, or a copy with a
-# table of its own), with a HOME, a store and a call log of NAME's own, which
+# run NAME [ARGS...] — defaults.sh from ROOT (the copy with no key skipped, or
+# a copy with a table of its own), with a HOME, a store and a call log of NAME's own, which
 # the runs of one NAME share. stdout in $T/NAME/out, stderr in $T/NAME/err,
 # the exit status in RC.
 run() {
@@ -182,7 +189,7 @@ run() {
   mkdir -p "$T/$name/home" "$T/$name/store"
   env -i HOME="$T/$name/home" PATH="$DS:/usr/bin:/bin:/usr/sbin:/sbin" TMPDIR="$T/tmp" \
     STORE="$T/$name/store" CALLS="$T/$name/calls" FAIL_DOMAIN="${FAIL_DOMAIN:-}" DENY="${DENY:-}" MRK_LOCK_WAIT="${MRK_LOCK_WAIT:-}" \
-    "$BASH" "${ROOT:-$REPO_ROOT}/scripts/defaults.sh" "$@" </dev/null > "$T/$name/out" 2> "$T/$name/err"
+    "$BASH" "${ROOT:-$C}/scripts/defaults.sh" "$@" </dev/null > "$T/$name/out" 2> "$T/$name/err"
   RC=$?
   # The lines of each --check, which the end of this test holds to
   # scripts/mrk-contract.
@@ -297,7 +304,7 @@ same_on_tty() {
 }
 cp "$T/full/out" "$T/full/out.file"
 on_tty "$T/full/out.tty" env -i HOME="$T/full/home" PATH="$DS:/usr/bin:/bin:/usr/sbin:/sbin" TMPDIR="$T/tmp" \
-  STORE="$T/full/store" CALLS="$T/full/calls" "$BASH" "$REPO_ROOT/scripts/defaults.sh" --check --with-trackpad
+  STORE="$T/full/store" CALLS="$T/full/calls" "$BASH" "$C/scripts/defaults.sh" --check --with-trackpad
 if same_on_tty "$T/full/out.tty" "$(cat "$T/full/out.file")" && [[ "$(undo full)" == "$undo_full" ]]; then
   ok "--check with stderr on a terminal: the same rows, no colour on stdout, and the undo file as it was"
 else
@@ -425,7 +432,7 @@ fi
 
 K="$T/onekey"; mkdir -p "$K/scripts" "$K/config"
 cp "$REPO_ROOT/scripts/defaults.sh" "$REPO_ROOT/scripts/lib.sh" "$K/scripts/"
-cp "$REPO_ROOT/config/defaults.tsv" "$REPO_ROOT/config/defaults-skip.tsv" "$K/config/"
+cp "$C/config/defaults.tsv" "$C/config/defaults-skip.tsv" "$K/config/"
 SK="$K/config/defaults-skip.tsv"
 cp "$SK" "$T/skip.orig"
 since() { sed -n "$(( $2 + 1 )),\$p" "$T/$1/calls" 2>/dev/null; }   # since NAME N — the calls after the first N
