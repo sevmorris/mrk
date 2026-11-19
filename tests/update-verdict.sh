@@ -21,7 +21,8 @@
 # against a stub pip3: an empty cache must be said to be normal, and nothing
 # else must. The next cases hold run_topgrade to deleting, after topgrade, the
 # login items that MRK_NOT_AT_LOGIN names, through a stub osascript. The last
-# hold ARGS=--formulae and ARGS=--casks to brew alone, against a stub brew.
+# hold ARGS=--formulae and ARGS=--casks to brew alone, against a stub brew, and
+# the update shell function's --formulae and --casks with them.
 # ci-check runs it.
 
 set -uo pipefail
@@ -555,6 +556,44 @@ else
   fail "ARGS=\"--formulae --casks\": exit $RC_SEEN, brew calls: $(kind_calls)"; show
 fi
 rm -f "$W/osa-calls"
+
+# The update shell function takes --formulae and --casks too, and gives them
+# to run_update, never to topgrade, which would refuse them.
+if command -v zsh >/dev/null 2>&1; then
+  # fn ARGS... — the update function, in a zsh that reads no startup file.
+  fn() {
+    rm -f "$W/kind-calls" "$W/osa-calls"
+    # shellcheck disable=SC2016  # expanded by the zsh, not here
+    "${KIND_ENV[@]}" MRK_ROOT="$REPO_ROOT" \
+      zsh -f -i -c 'source "$1" 2>/dev/null; shift; update "$@"; echo "update returned $?"' zsh "$REPO_ROOT/dotfiles/.aliases" "$@" \
+      < /dev/null > "$W/out" 2>&1
+  }
+  fn --formulae
+  if [[ "$(kind_calls)" == "update;upgrade --formula" ]] && has "update returned 0" && ! has "topgrade args" && ! has "Summary"; then
+    pass "update --formulae: brew update, then brew upgrade --formula, and no topgrade"
+  else
+    fail "update --formulae: brew calls: $(kind_calls)"; show
+  fi
+  printf 'NordVPN\n' > "$W/osa-out"
+  fn --casks
+  if [[ "$(kind_calls)" == "upgrade --cask --greedy" ]] && [[ "$(osa_calls)" == 1 ]] && has "update returned 0" \
+     && ! has "topgrade args" && ! has "Summary"; then
+    pass "update --casks: brew upgrade --cask --greedy, then NordVPN's login item deleted"
+  else
+    fail "update --casks: brew calls: $(kind_calls), $(osa_calls) osascript call(s)"; show
+  fi
+  rm -f "$W/osa-out" "$W/osa-calls"
+  # shellcheck disable=SC2016  # expanded by the zsh, not here
+  "${KIND_ENV[@]}" MRK_ROOT="$W/no-mrk" \
+    zsh -f -i -c 'source "$1" 2>/dev/null; update --formulae; echo "update returned $?"' zsh "$REPO_ROOT/dotfiles/.aliases" \
+    < /dev/null > "$W/out" 2>&1
+  rm -f "$W/kind-calls"
+  if has "update returned 2" && has "needs mrk's scripts/lib.sh" && ! has "topgrade args"; then
+    pass "update --formulae without mrk's lib.sh: refused with exit 2, and nothing run"
+  else
+    fail "update --formulae without mrk's lib.sh:"; show
+  fi
+fi
 
 if (( fails )); then
   err "$fails update verdict check(s) failed"

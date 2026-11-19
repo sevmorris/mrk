@@ -908,7 +908,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
 |---|---|
 | `make sync` | Sync the installed packages into the Brewfile |
 | `make sync-login-items` | Sync the system login items into `config/login-items.txt` |
-| `make update` | Upgrade every package, with topgrade or with brew upgrade. topgrade runs every step even when one fails. After topgrade, it deletes the login items of Google Drive and NordVPN, which a cask upgrade can add again. The run ends by saying which failed and that the others ran. `ARGS=--formulae` upgrades only the Homebrew formulae, and `ARGS=--casks` only the casks, with brew and without topgrade |
+| `make update` | Upgrade every package, with topgrade or with brew upgrade. topgrade runs every step even when one fails. After topgrade, it deletes the login items of Google Drive and NordVPN, which a cask upgrade can add again. The run ends by saying which failed and that the others ran. `ARGS=--formulae` upgrades only the Homebrew formulae, and `ARGS=--casks` only the casks, with brew and without topgrade. The `update` shell function takes `--formulae` and `--casks` too |
 | `make updates` | Install the macOS updates for the installed version, with `macos-updates`. It never installs a major upgrade: it names each one and leaves it alone. `ARGS=-n` lists the updates and installs nothing |
 | `make uninstall` | Delete the `~/bin` symlinks, unload the three LaunchAgents and delete them, and offer the rollbacks |
 | `make maintain` | Run the periodic housekeeping (see `maintain` in BIN-1) |
