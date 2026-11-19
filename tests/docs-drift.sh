@@ -48,6 +48,10 @@
 #    PATH, the names of check 4. Its subtitle says "all commands", and on
 #    2026-11-05 it lacked 18 of them, pushall and update-full among them
 #    (audit 23, AA-14).
+# 12. README gives the number of login items config/login-items.txt lists, and
+#    of apps config/companion-apps.txt lists, as words. Each changed in a
+#    one-line commit, and on 2026-11-18 README still said seven and nine where
+#    there were eight and ten (audit 24, BB-5).
 #
 # Read-only, apart from that dry run, which a scratch HOME keeps to itself.
 # ci-check runs it.
@@ -458,7 +462,7 @@ check_vars() {
 
 # number — each number word on stdin, as digits.
 number() {
-  awk 'BEGIN { split("one two three four five six seven eight nine ten", w, " "); for (i in w) d[w[i]] = i }
+  awk 'BEGIN { split("one two three four five six seven eight nine ten eleven twelve", w, " "); for (i in w) d[w[i]] = i }
        { print ($1 in d) ? d[$1] : $1 }'
 }
 
@@ -509,6 +513,19 @@ if (( fails == check_fails && n_modes >= 5 && n_words >= 20 )); then
   pass "BIN-1 lists the $n_modes --check modes, with the fields of their lines and the $n_words words they write"
 elif (( fails == check_fails )); then
   fail "found only $n_modes --check modes and $n_words words: check_calls no longer reads the scripts"
+fi
+
+# ── 12. README's counts of login items and companion apps ───────────────────
+
+readme_flat=$(tr '\n' ' ' <"$REPO_ROOT/README.md")
+n_login=$(grep -c '^/' "$REPO_ROOT/config/login-items.txt")
+n_apps=$(grep -cvE '^(#|$)' "$REPO_ROOT/config/companion-apps.txt")
+said_login=$(grep -oE 'adds [a-z]+ login items' <<<"$readme_flat" | awk '{ print $2 }' | number | sort -u | paste -sd' ' -)
+said_apps=$(grep -oE '[Ii]nstalls [a-z]+ apps of mine' <<<"$readme_flat" | awk '{ print $2 }' | number | sort -u | paste -sd' ' -)
+if [[ "$said_login" == "$n_login" && "$said_apps" == "$n_apps" ]]; then
+  pass "README says $n_login login items and $n_apps apps of mine, as config/login-items.txt and config/companion-apps.txt list"
+else
+  fail "config/login-items.txt lists $n_login login items and config/companion-apps.txt $n_apps apps; README says ${said_login:-no number} and ${said_apps:-no number}"
 fi
 
 (( fails == 0 ))

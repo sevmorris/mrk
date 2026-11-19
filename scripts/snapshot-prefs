@@ -767,7 +767,6 @@ PREFS_NOISE=(
   'Raycast.plist|raycast-updates-lastAppUpdateCheckDate' 'Raycast.plist|raycast-updates-whatsNewItemDisplayDate'
   'Raycast.plist|raycast-updates-lastTargetCommitishInstalled' 'Raycast.plist|database_lastValidAppVersion'
   'Raycast.plist|calculator_currenciesRefresh' 'Raycast.plist|amplitudePulseAnalyticsTracker_nextHeartbeatDate'
-  'Stats.plist|updater_check_ts' 'Stats.plist|support_*' 'Stats.plist|version'
   'BetterSnapTool.plist|BSTDidLaunchTime' 'BetterSnapTool.plist|BSTDidSucceedLaunchTime'
   'BetterSnapTool.plist|savedWindowInformation'
   # SoundSource gives its hotkeys and popover a new uuid and identifier at every

@@ -62,6 +62,7 @@ in BIN-1 or SMAC-1 the same afternoon.
 | Anything affecting what moves between machines | §How to prepare for a new machine |
 | A destructive command gaining or losing a safeguard | its section, and the Caution beside it |
 | A LaunchAgent added or removed | §Phase 3, and the `make uninstall` and `nuke-mrk` rows. In BIN-1: §2.13 mrk-post-install, §2.15 mrk-uninstall and §1.1 nuke-mrk |
+| A Dipstick or Barkeep release that changes what it runs, or where | README §Companion apps, and the manual's section on that app. In BIN-1: the mrk-contract entry, when the app reads mrk-contract differently. In sevmac: SMAC-1 Table 2.7-2 and SMAC-2, where they describe the app. `assets/CLAUDE.md` records the release, and is not enough on its own (audit 24, BB-1) |
 | A change to how Brewfile edits get their picker descriptions (`sync`, `check-picker-desc --fix`, `mrk-push`, `pushall`) | §How to keep the Brewfile current |
 
 **Do not re-document flags in sevmac.** Flags, exit codes and per-command behaviour live
