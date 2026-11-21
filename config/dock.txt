@@ -19,4 +19,5 @@
 /Applications/Claude.app
 /Applications/Antigravity.app
 /Applications/WhatsApp.app
+/Applications/BorisFX/iZotope/Photon/iZotope Photon 2027.app
 ~/Work Apps

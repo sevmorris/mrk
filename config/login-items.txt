@@ -15,4 +15,3 @@
 /Applications/Dipstick.app
 /Applications/Dropbox.app
 /Applications/Raycast.app
-/Applications/Thaw.app
