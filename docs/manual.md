@@ -156,7 +156,6 @@ The first column names the apps of `config/app-prefs.tsv`. `make check` fails wh
 | App | Plist imported | Then written by mrk |
 |---|---|---|
 | BetterSnapTool | ✓ | — |
-| Thaw | ✓ | — |
 | iTerm2 | ✓ | — |
 | Raycast | ✓ | — |
 | Loopback | ✓ + App Support files | Auto-update off |
