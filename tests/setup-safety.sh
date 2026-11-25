@@ -21,8 +21,10 @@
 # "/Applications/" in the copies points at a scratch folder. sudo, chsh, git,
 # osascript, launchctl, open, topgrade, dscl, xcode-select, ssh and defaults are
 # stubs that run nothing, /etc/shells is a scratch file (SHELLS_FILE), nvm is a
-# stub with a default set, and scripts/install-apps is a no-op. Nothing reaches
-# the real HOME, the network, the login shell, launchd or any preferences.
+# stub with a default set, and scripts/install-apps and
+# assets/audio-opener/install.sh are no-ops: Audio Opener would build an app and
+# register it with this Mac's Launch Services. Nothing reaches the real HOME,
+# the network, the login shell, launchd or any preferences.
 # setup and post-install run under /bin/bash and under the bash running this
 # file. ci-check runs it.
 
@@ -72,6 +74,8 @@ cat > "$R/scripts/install-apps" <<'EOF'
 #!/usr/bin/env bash
 install_companion_apps() { COMPANION_FAILED=0; }
 EOF
+mkdir -p "$R/assets/audio-opener"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$R/assets/audio-opener/install.sh"
 for f in "$R/scripts/setup" "$R/scripts/post-install" "$R"/config/* "$R"/assets/*/*.sh; do
   sed "s#/Applications/#$APPS/#g" "$f" > "$W/rewrite" && cat "$W/rewrite" > "$f"
 done
