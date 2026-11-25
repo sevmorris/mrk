@@ -54,7 +54,7 @@ Options:
                  install nothing
   -h, --help     Show this help
 
-macos-updates never installs a major upgrade (macOS 26 to macOS 27, for
+macos-updates never installs a major upgrade (macOS 27 to macOS 28, for
 example). It names each one it finds and leaves it alone. Install a major
 upgrade by hand, from System Settings > General > Software Update.
 

@@ -14,12 +14,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    # The macOS this Mac runs, on Apple silicon. macos-latest was that on
-    # 2026-09-23, and it moves to macOS 27 when GitHub promotes it, while
-    # macos-updates keeps this Mac on 26 until its owner upgrades by hand. Bump
-    # this in the same change as that upgrade.
-    runs-on: macos-26
+  checks:
+    # Two legs, on Apple silicon. xcode-27 is the macOS this Mac runs: GitHub
+    # offers macOS 27 only under that label, as a public preview with no uptime
+    # promise. Move the leg to macos-27 when GitHub adds that label. macos-26 is
+    # the newest GA image, and the macOS a new Mac can arrive on, as this one
+    # did on 2026-09-15. When this Mac moves to a new major macOS, change the
+    # legs in the same session; CLAUDE.md lists what else changes (audit 25).
+    name: checks (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, xcode-27]
+    runs-on: ${{ matrix.os }}
     # ci-check runs its gates one for each CPU, and takes about 4 minutes on the
     # 3-CPU runner. A hung gate fails here, not after GitHub's 6 hours.
     timeout-minutes: 20
@@ -47,3 +54,19 @@ jobs:
 
       - name: Go build
         run: make build-tools
+
+  # The ruleset on main requires a check named "test". A matrix names its
+  # checks "checks (macos-26)" and "checks (xcode-27)", which that rule would
+  # wait for forever, so this job carries the name and passes only when every
+  # leg passed. always() makes it report a failed or cancelled leg as a
+  # failure, not as a skip, which the rule would count as a pass.
+  test:
+    needs: checks
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every leg passed
+        run: |
+          echo "checks: ${{ needs.checks.result }}"
+          [ "${{ needs.checks.result }}" = success ]

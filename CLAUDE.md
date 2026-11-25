@@ -87,6 +87,24 @@ what cannot be recovered — did not mention them for two days. Following it wou
 lost the Developer ID signing key, which Apple cannot reissue. The gap was found in the
 2026-08-31 audit and closed; see `audit/13-audit-2026-08-31.md`.
 
+## When this Mac moves to a new major macOS
+
+An upgrade is not a commit, so neither table above sees it. In the same session as the
+upgrade, or the first one after it:
+
+| Where | What to change |
+|---|---|
+| `.github/workflows/ci.yml` | The `checks` legs: one on the macOS this Mac runs (GitHub's GA label when there is one, else its preview label) and one on the newest GA image |
+| `docs/manual.md` §Prerequisites | The macOS that mrk is developed and tested on |
+| MRK-1 (`docs/defaults/index.html`) | DEVELOPED ON in the header |
+| SMAC-1 and SMAC-2 | The SYSTEM cell in each header |
+| The manual, BIN-1, `macos-updates --help`, `update-full --help`, SMAC-1 Tables 2.7-1 and 2.7-2, SMAC-2's update-full caution | The example of a major upgrade that mrk never installs: the installed version to the next one |
+
+Then audit the Mac, as audit 25 (`audit/25-audit-2026-11-25.md`) did for macOS 27: the
+`--check` modes, the state an upgrade can reset, and the OS commands mrk parses. On
+2026-11-20 this Mac moved to macOS 27, and five days later CI still ran macOS 26 and four
+pages still named it, although `ci.yml` carried a comment that asked for the change.
+
 ## How to write them
 
 New and changed text in BIN-1 and `docs/manual.md` follows `docs/STE-CONVERSION.md`: a

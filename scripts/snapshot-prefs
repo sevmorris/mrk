@@ -780,7 +780,6 @@ PREFS_NOISE=(
   'AudioHijack.plist|homeWindowState' 'AudioHijack.plist|homeWindowShown' 'AudioHijack.plist|AULastKnownViewSize'
   'Typora.plist|savedLastOpen' 'Typora.plist|initialize_ver' 'Typora.plist|verInitTime'
   'MacWhisper.plist|knownRanVersions' 'MacWhisper.plist|*Cache'
-  'Thaw.plist|StaleIdentifierMissCounts' 'Thaw.plist|MenuBarItemManager.knownItemIdentifiers'
   'sevmorris-apps/io.github.sevmorris.BackupRestore.plist|MBM_lastUpdateCheckDate'
   # The pane that Dipstick's mrk Settings shows, saved each time you switch
   # panes: where you were, not a setting, as Audio Hijack's homeWindowState is.

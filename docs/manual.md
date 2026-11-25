@@ -156,7 +156,6 @@ The first column names the apps of `config/app-prefs.tsv`. `make check` fails wh
 | App | Plist imported | Then written by mrk |
 |---|---|---|
 | BetterSnapTool | ✓ | — |
-| Thaw | ✓ | — |
 | iTerm2 | ✓ | — |
 | Raycast | ✓ | — |
 | Loopback | ✓ + App Support files | Auto-update off |
@@ -527,7 +526,7 @@ These tools are in `~/bin/`, symlinked from `mrk/bin/`. They have no Make target
 | `clean-ds` | Removes the `.DS_Store` files from the local disk. It does not examine `~/Library`, `~/Desktop`, the network volumes, or the external volumes. Use `clean-ds --dry-run` to see the files first |
 | `nuke-mrk` | Moves `~/mrk` and `~/.mrk` to the Trash, deletes the `~/bin` symlinks, the dotfile symlinks, the `~/Projects/CLAUDE.md` link, the Claude Code skill links and the SessionStart hook post-install added to `~/.claude/settings.json`. It unloads the three LaunchAgents and deletes them, and offers the rollbacks. It does NOT change Homebrew. `mrk-menu` lists it under Nuclear options |
 
-> **Caution:** `update-full` quits every running application and can restart the Mac. It does not install a major macOS upgrade, such as macOS 26 to macOS 27 — its macOS step is `macos-updates`, the same command as `make updates`, which names each major upgrade and leaves it alone. Until 2026-09-16 that step ran `softwareupdate -ia`, which installs every update Apple lists, and on macOS 26.7 it started a download of macOS 27. Install a major upgrade from System Settings › General › Software Update, when you choose to. To stop `softwareupdate` does not stop a download it started; cancel it in the same place.
+> **Caution:** `update-full` quits every running application and can restart the Mac. It does not install a major macOS upgrade, such as macOS 27 to macOS 28 — its macOS step is `macos-updates`, the same command as `make updates`, which names each major upgrade and leaves it alone. Until 2026-09-16 that step ran `softwareupdate -ia`, which installs every update Apple lists, and on macOS 26.7 it started a download of macOS 27. Install a major upgrade from System Settings › General › Software Update, when you choose to. To stop `softwareupdate` does not stop a download it started; cancel it in the same place.
 
 > **Caution:** `tidy-projects --apply deploys` deletes GitHub Pages deployments, and a deleted deployment cannot come back. Run `tidy-projects` without `--apply` first, and read the report. On a terminal, the report then asks which cleanups to make, and `a` includes `deploys`. To keep the deployments, answer `s` or press Return.
 
@@ -653,7 +652,7 @@ Write down the apps, the license keys and the settings that mrk does not manage:
 
 ## Prerequisites
 
-- macOS. mrk is developed and tested on macOS 26 (Tahoe), on Apple silicon. Until 2026-09-15 it ran on macOS 15. It can work on macOS 13 and macOS 14.
+- macOS. mrk is developed and tested on macOS 27, on Apple silicon. It can work on macOS 13 to macOS 26.
 - An internet connection.
 - Your GitHub SSH key. You can also create a key and add it later.
 

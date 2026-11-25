@@ -28,7 +28,6 @@ com.rogueamoeba.Piezo	Piezo.plist	/Applications/Piezo.app	Piezo
 com.rogueamoeba.audiohijack	AudioHijack.plist	/Applications/Audio Hijack.app	Audio Hijack
 com.rogueamoeba.farrago	Farrago.plist	/Applications/Farrago.app	Farrago
 com.rogueamoeba.soundsource	SoundSource.plist	/Applications/SoundSource.app	SoundSource
-com.stonerl.Thaw	Thaw.plist	/Applications/Thaw.app	Thaw
 com.tclementdev.timemachineeditor.application	TimeMachineEditor.plist	/Applications/TimeMachineEditor.app	TimeMachineEditor
 net.imput.helium	Helium.plist	/Applications/Helium.app	Helium
 org.musicbrainz.Picard	Picard.plist	/Applications/MusicBrainz Picard.app	MusicBrainz Picard

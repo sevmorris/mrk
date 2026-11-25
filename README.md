@@ -22,7 +22,7 @@ make -C ~/mrk all
 exec zsh
 ```
 
-On anyone else's, that clones a `mrk-prefs` you cannot read, adds seven login items you
+On anyone else's, that clones a `mrk-prefs` you cannot read, adds six login items you
 did not choose, rearranges the Dock, and installs ten apps of mine. Fork first — see
 [Adapting it](#adapting-it).
 

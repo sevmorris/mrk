@@ -14,7 +14,7 @@
 /Applications/iZotope RX 12 Audio Editor.app
 /Applications/WaxOnWaxOff.app
 /Applications/ClipHack.app
-/Applications/Logic Pro.app
+/Applications/Logic Pro 12.app
 /Applications/iTerm.app
 /Applications/Claude.app
 /Applications/Antigravity.app

@@ -1650,7 +1650,7 @@ dock-setup --check</code></pre>
           <h3>macos-updates <span class="tag tag-mrk">mrk</span></h3>
         </div>
         <div class="proc-body">
-          <p class="desc">macos-updates installs the macOS updates for the installed major version. It never installs a major upgrade, such as macOS 26 to macOS 27. <code>make updates</code> and step 3 of <a href="#update-full">update-full</a> run it.</p>
+          <p class="desc">macos-updates installs the macOS updates for the installed major version. It never installs a major upgrade, such as macOS 27 to macOS 28. <code>make updates</code> and step 3 of <a href="#update-full">update-full</a> run it.</p>
           <pre><code>macos-updates [-n | --dry-run] [--help | -h]</code></pre>
           <ul>
             <li><code>-n</code> or <code>--dry-run</code> — List the updates that macos-updates would install, and the upgrades that it leaves alone. macos-updates installs nothing. Through Make, use <code>make updates ARGS=-n</code>.</li>
@@ -1658,7 +1658,7 @@ dock-setup --check</code></pre>
           <ul>
             <li>macos-updates runs <code>softwareupdate --list</code>, then gives <code>softwareupdate --install</code> the label of each update to install. It never uses <code>--all</code>.</li>
             <li>An update is a macOS update when its label or its title contains "macOS". macos-updates installs a macOS update only when the first number of its version is the same as that of the installed version. It names every other macOS update as a major upgrade, and leaves it alone. No option of macos-updates installs a major upgrade: install one yourself, from System Settings &gt; General &gt; Software Update.</li>
-            <li>macos-updates installs every other update in the list, for example Safari and the Command Line Tools. Their version numbers can be ahead of the operating system: on macOS 26, both are at 27.0.</li>
+            <li>macos-updates installs every other update in the list, for example Safari and the Command Line Tools. Their version numbers can be ahead of the operating system. For example, Safari 27.0 and the Command Line Tools 27.0 install on macOS 26.</li>
             <li>When macos-updates cannot read an entry in the list, it installs nothing and exits with status 1. It does the same when <code>softwareupdate --list</code> fails, or prints output that macos-updates does not recognise. If Apple changes the format of the list, the run stops; it does not install an update that it cannot identify.</li>
             <li>macos-updates exits 0 when it installs the updates that it selected, and when there is nothing to install. It exits 1 when <code>softwareupdate</code> fails, and 2 on a wrong command line.</li>
             <li>macos-updates does not restart the Mac. <code>softwareupdate</code> says when an update needs a restart, and update-full offers one at the end.</li>
