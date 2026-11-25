@@ -61,7 +61,7 @@ Steps, in order:
   2. Quit every running application except Finder, Dock, SystemUIServer,
      loginwindow, and the terminal you are running in
   3. macOS updates for the installed version (macos-updates) — never a
-     major upgrade such as macOS 26 to 27
+     major upgrade such as macOS 27 to 28
   4. topgrade
   5. Rebuild the mrk Go tools
   6. clean-ds
