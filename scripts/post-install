@@ -39,8 +39,9 @@ It imports a plist only into an app with no settings yet, and each import
 appends a line to the shared ~/.mrk/defaults-rollback.sh that deletes that
 app's whole preferences domain. The app-defaults scripts (Safari, Helium,
 AlDente, Audio Hijack, Fission, Rogue Amoeba) write their keys directly and
-record no undo. It exits 1 when any step failed. Normally run as
-`make post-install`.
+record no undo, and so does Audio Opener, which asks before an audio file
+opens in Music and sets the default app for audio files. It exits 1 when
+any step failed. Normally run as `make post-install`.
 EOF
 }
 
@@ -759,6 +760,10 @@ if [[ -d "/Applications/AlDente.app" ]]; then
 else
   logskip "AlDente defaults" "not installed"
 fi
+
+# Audio Opener — asks before an audio file opens in Music. Builds its own app
+# into ~/Applications, so nothing has to be installed first.
+apply_defaults "$REPO_ROOT/assets/audio-opener/install.sh" "Audio Opener" || failed=$(( failed + 1 ))
 
 ###############################################################################
 # Application Support files                                                   #
