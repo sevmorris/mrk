@@ -13,7 +13,7 @@ script writes and the contract does not name fails it, and so does a word that
 the contract names and no line holds. So the two change in one commit.
 
 The contract comes from the mrk-contract of this checkout. The tests of the
-five --check scripts call this on the lines that their golden runs write.
+six --check scripts call this on the lines that their golden runs write.
 Exits 0 when every line obeys, and 1, with each line that does not, when one
 does not or there is no line: a test that passes no line checks nothing.
 """

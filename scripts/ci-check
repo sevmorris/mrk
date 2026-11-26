@@ -28,7 +28,7 @@ check-defaults-desc, a secret scan over every tracked file, check-commit-gates,
 the cleanempties, defaults-rollback, hardening-rollback, macos-updates,
 restore-keys, install-all, new-mac, pinned-downloads, sync-login-items, sync,
 check-picker-desc, check-defaults-desc, topgrade-npm, picard-settings, snapshot-prefs, plist-import-order, setup-safety, undo-files,
-dock-setup, mrk-contract, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, update-full, maintain, tidy-projects, prune-deployments, install-apps, make-pull, gitconfig, dead-functions and docs-drift tests in tests/, shellcheck over every tracked bash script,
+dock-setup, default-apps, mrk-contract, clear-app-caches, zshrc-nvm, check-updates, defaults-watch, home-makefile, update-verdict, update-full, maintain, tidy-projects, prune-deployments, install-apps, make-pull, gitconfig, dead-functions and docs-drift tests in tests/, shellcheck over every tracked bash script,
 and gofmt, `go vet` and `go test` for each
 directory under tools/.
 
@@ -281,9 +281,13 @@ gate "undo files" "$REPO_ROOT/tests/undo-files.sh"
 # not the Dock in use, and make dock would have replaced it. Audit 15, T-14.
 gate "dock setup" "$REPO_ROOT/tests/dock-setup.sh"
 
+# default-apps, on a copy of the repository with its lsdefault helper stubbed;
+# it also builds the real helper into a throwaway HOME:
+gate "default-apps" "$REPO_ROOT/tests/default-apps.sh"
+
 # scripts/mrk-contract, which Dipstick and Barkeep read before they give a
 # script an option: each option it lists is one the script's parser and help
-# take, and each word is in the help. The five tests above hold each --check
+# take, and each word is in the help. The six tests above hold each --check
 # line to its fields and words. Audit 22, O-2.
 gate "mrk-contract" "$REPO_ROOT/tests/mrk-contract.sh"
 

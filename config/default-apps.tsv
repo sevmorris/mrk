@@ -1,0 +1,38 @@
+# mrk default apps
+#
+# The app that opens each file type and URL scheme. scripts/default-apps
+# keeps this Mac to the list: --check shows where it differs, --apply sets each
+# type (macOS asks you to confirm each one), and --snapshot records a type
+# that you gave to an app by hand. post-install runs --apply.
+#
+# One type on each line: the type, a tab, and the bundle identifier of the
+# app. A type is a uniform type identifier, such as public.mp3, or
+# scheme:NAME for a URL scheme. A line that starts with # is a comment, and
+# an empty line is ignored. To find a file's type: mdls -name kMDItemContentType FILE
+
+# Web: DuckDuckGo is the browser.
+scheme:http	com.duckduckgo.macos.browser
+scheme:https	com.duckduckgo.macos.browser
+public.html	com.duckduckgo.macos.browser
+
+# Audio: Media Opener asks first (assets/media-opener). MP3, MPEG-4 audio
+# (.m4a, and protected .m4p), WAV, AIFF, AIFC, MP2, FLAC and AAC.
+public.mp3	local.mrk.media-opener
+public.mpeg-4-audio	local.mrk.media-opener
+com.apple.m4a-audio	local.mrk.media-opener
+com.apple.protected-mpeg-4-audio	local.mrk.media-opener
+com.microsoft.waveform-audio	local.mrk.media-opener
+public.aiff-audio	local.mrk.media-opener
+public.aifc-audio	local.mrk.media-opener
+public.mp2	local.mrk.media-opener
+org.xiph.flac	local.mrk.media-opener
+public.aac-audio	local.mrk.media-opener
+
+# Video: Media Opener asks first. MPEG-4 (.mp4), .m4v, QuickTime (.mov), AVI,
+# Matroska (.mkv) and WebM.
+public.mpeg-4	local.mrk.media-opener
+com.apple.m4v-video	local.mrk.media-opener
+com.apple.quicktime-movie	local.mrk.media-opener
+public.avi	local.mrk.media-opener
+org.matroska.mkv	local.mrk.media-opener
+org.webmproject.webm	local.mrk.media-opener

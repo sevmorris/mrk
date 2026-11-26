@@ -39,9 +39,10 @@ It imports a plist only into an app with no settings yet, and each import
 appends a line to the shared ~/.mrk/defaults-rollback.sh that deletes that
 app's whole preferences domain. The app-defaults scripts (Safari, Helium,
 AlDente, Audio Hijack, Fission, Rogue Amoeba) write their keys directly and
-record no undo, and so does Audio Opener, which asks before an audio file
-opens in Music and sets the default app for audio files. It exits 1 when
-any step failed. Normally run as `make post-install`.
+record no undo. So does Media Opener, which asks before an audio or video
+file opens, and so does default-apps --apply, which sets the app that opens
+each type in config/default-apps.tsv. It exits 1 when any step failed.
+Normally run as `make post-install`.
 EOF
 }
 
@@ -761,9 +762,19 @@ else
   logskip "AlDente defaults" "not installed"
 fi
 
-# Audio Opener — asks before an audio file opens in Music. Builds its own app
+# Media Opener — asks before an audio or video file opens. Builds its own app
 # into ~/Applications, so nothing has to be installed first.
-apply_defaults "$REPO_ROOT/assets/audio-opener/install.sh" "Audio Opener" || failed=$(( failed + 1 ))
+apply_defaults "$REPO_ROOT/assets/media-opener/install.sh" "Media Opener" || failed=$(( failed + 1 ))
+
+# Default apps — the app that opens each type in config/default-apps.tsv,
+# Media Opener's types among them, so it runs after Media Opener is built.
+# macOS asks to confirm each type; with --yes it changes nothing.
+if bash "$SCRIPT_DIR/default-apps" --apply; then
+  ok "Applied default apps"
+else
+  log "Warning: default-apps --apply failed"
+  failed=$(( failed + 1 ))
+fi
 
 ###############################################################################
 # Application Support files                                                   #

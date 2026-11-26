@@ -33,6 +33,7 @@ Keep both repositories current. You can then restore the full setup on a new mac
 > 6. Edit `config/dock.txt`. It lists the items of the Dock from left to right, one path on each line. `dock-setup` deletes every item from the Dock before it adds the items in the list.
 > 7. Edit `config/defaults.tsv` before you run `make defaults`. The file lists 133 preference keys, and each key is a personal choice. `scripts/defaults.sh` writes them. To keep a key in the file but not write it, list it in `config/defaults-skip.tsv`.
 > 8. Edit `config/companion-apps.txt`. It lists my own applications, and a fork wants none of them. Delete the lines, or replace them with yours. Then set `GITHUB_APP_TEAM_ID` in `scripts/install-apps` to your Developer ID team. The installer refuses any app that this team did not sign.
+> 9. Edit `config/default-apps.tsv`. It lists the app that opens each file type and URL scheme. Phase 3 asks macOS to set each one.
 >
 > Use `make setup-dry` and `make sync ARGS=-n` to see the result of a phase before you apply it.
 
@@ -125,9 +126,10 @@ It can run in the same shell as Phase 2, whether that is `make all`'s or one ope
 
 - **Topgrade:** Symlinks `assets/topgrade.toml` to `~/.config/topgrade.toml`. A link already there is replaced, even one that points nowhere, and a real file is kept as `.bak`. Until 2026-09-27 a link that pointed nowhere failed Phase 3 on every run.
 - **Links into `~` come only from `~/mrk`,** or from the checkout `MRK_ROOT` names, as in Phase 1. That covers the topgrade link and the three Claude Code links below. From any other checkout, Phase 3 skips the four with a warning, and runs the rest.
-- **Browsers:** Applies the Safari defaults and the Helium defaults. The Safari defaults need Full Disk Access for your terminal, because Safari keeps its preferences in its sandbox container. Without it, Phase 3 skips them with one log line and still reports success. It installs no browser extensions; step 10 of "How to prepare for a new machine" says what carries them. It no longer installs Chrome and Brave managed policies: those were JSON files in `policies/managed/`, which is the Linux policy mechanism, and Chrome on macOS never read them.
+- **Browsers:** Applies the Safari defaults and the Helium defaults. The Safari defaults need Full Disk Access for your terminal, because Safari keeps its preferences in its sandbox container. Without it, Phase 3 skips them with one log line and still reports success. It installs no browser extensions; step 11 of "How to prepare for a new machine" says what carries them. It no longer installs Chrome and Brave managed policies: those were JSON files in `policies/managed/`, which is the Linux policy mechanism, and Chrome on macOS never read them.
 - **App defaults:** Writes the settings for Audio Hijack, Fission, AlDente, and the Rogue Amoeba update options. They are written after the plist imports, so they land on top of your restored preferences. The Rogue Amoeba update options go only to the Rogue Amoeba apps that are installed.
-- **Audio Opener:** Builds `~/Applications/Audio Opener.app` from `assets/audio-opener/`. When you open an audio file, the app asks where to open it: Cancel, QuickTime Player or Music. Cancel is the default button, so a double-click by mistake opens nothing. Phase 3 then makes the app the default for the audio types that Music opens: MP3, M4A, M4P, WAV, AIFF, AIFC and MP2. It moves a type only while Music opens it, or no app does. A type that you gave to a different app stays with that app. macOS asks you to confirm each change in a dialog, so a run with `--yes` skips this step. A type that you keep for Music is asked about again on the next run. The build needs `swiftc`, from the Command Line Tools. Phase 3 builds the app again only when its source changes. To give a type back to Music, select a file of that type, use Get Info, set Open with to Music, and click Change All.
+- **Media Opener:** Builds `~/Applications/Media Opener.app` from `assets/media-opener/`. When you open an audio or video file, the app asks where to open it. Cancel is the default button, so a double-click by mistake opens nothing. For a file that Music can play, the other buttons are QuickTime Player and Music. For each other file, they are QuickTime Player and VLC. Phase 3 builds the app again only when its source changes. It deletes `~/Applications/Audio Opener.app`, the audio-only app that Media Opener replaces.
+- **Default apps:** Runs `default-apps --apply`. It makes the app in `config/default-apps.tsv` the default for each file type and URL scheme in the list. The list gives Media Opener its audio and video types, and gives DuckDuckGo the web. macOS asks you to confirm each type in a dialog, so a run with `--yes` changes nothing. The build of its helper needs `swiftc`, from the Command Line Tools. See [How to keep the default apps current](#how-to-keep-the-default-apps-current).
 - **The mrk remote:** When GitHub accepts your SSH key, Phase 3 changes the `origin` remote of `~/mrk` from HTTPS to SSH. A remote that uses SSH stays as it is.
 - **Preferences pull:** Clones `mrk-prefs` when `~/.mrk/preferences/` is absent and GitHub accepts your SSH key.
 - **Plist imports:** Imports the preference plists of the apps that `config/app-prefs.tsv` lists, which are the apps in the table below. `snapshot-prefs` reads the same file. Phase 3 skips an app that already has preferences — in `~/Library/Preferences`, or in its sandbox container for a sandboxed app such as Keka — so it never overwrites a live configuration. It also skips an app that is not installed yet. The imports run before any step that writes app defaults, the browser defaults included, because one key is enough to make an app look configured. Until 2026-09-27 they ran after, and the keys the Rogue Amoeba, Helium and Audio Hijack scripts wrote made six apps look configured: Loopback, SoundSource, Audio Hijack, Farrago, Piezo and Helium were never imported on the 2026-09-15 migration.
@@ -418,6 +420,25 @@ sync-login-items only adds to the file. It keeps your comments, your blank lines
 
 **A program can make the same decisions.** `sync-login-items --check` shows what a run would offer, one line for each item, with no prompt. It writes nothing. `--add`, `--ignore` and `--remove` each make one decision for one item, with no prompt. Each decision refuses an item that `--check` does not show. [BIN-1](bin/mrk-usage.html#sync-login-items) gives the details.
 
+## How to keep the default apps current
+
+**`default-apps`** compares the app that opens each file type and URL scheme with the list in `config/default-apps.tsv`.
+
+```bash
+default-apps                 # Show each type, the listed app and the app that opens it now
+default-apps --apply         # Set each type that another app opens, or no app opens
+default-apps --snapshot      # Record in the list each type that you gave to an app by hand
+default-apps --snapshot -n   # Show the changes, but write nothing
+```
+
+An app can make itself the default for a type when you install it. For example, MusicBrainz Picard took `.mp4` files, and Fission took `.webm` files. `default-apps` shows such a type as `differs`, and `--apply` gives it back to the listed app.
+
+> **Note:** macOS asks you to confirm each change in a dialog. `--apply` changes one type at a time and waits two minutes for each answer. Read the buttons before you click: their order is not always the same. A type that you keep for the other app is not a failure, and `--apply` asks about it again on the next run.
+
+**To give a type to a different app**, use Finder: select a file of that type, use Get Info, set Open with to the app, and click Change All. Then run `default-apps --snapshot` to record the choice in the list, and commit the list. `--snapshot` records only the choices that you make by hand. It does not record an app that made itself the default.
+
+**The list file (`config/default-apps.tsv`)** holds one type on each line: the type, a tab, and the bundle identifier of the app. A type is a uniform type identifier, such as `public.mp3`, or `scheme:NAME` for a URL scheme, such as `scheme:https`. To find the type of a file, run `mdls -name kMDItemContentType FILE`. A line that starts with `#` is a comment. [BIN-1](bin/mrk-usage.html#default-apps) gives the details.
+
 ## How to check the day's work and the installation
 
 **`mrk-status`** is a TUI dashboard. It shows what this Mac holds that is not recorded yet, what is behind, Time Machine, and then the installation. The `status` command runs the same binary.
@@ -552,7 +573,7 @@ GitHub renders this file in the repository, so the [link in the README](../READM
 
 # How to prepare for a new machine
 
-Do these ten steps on the **old machine** before you transfer. They run in the same order as the migration checklist in SMAC-1, and the first one is first for a reason: it is the only step with no second chance.
+Do these eleven steps on the **old machine** before you transfer. They run in the same order as the migration checklist in SMAC-1, and the first one is first for a reason: it is the only step with no second chance.
 
 **1. Bundle your SSH and GPG keys**
 
@@ -602,7 +623,15 @@ make sync-login-items ARGS=-c
 
 Login items live in the system's LaunchServices database, and `config/login-items.txt` knows only the ones captured the last time this ran. Anything added since exists on this machine and nowhere else, and Phase 3 on the new machine would restore the stale list.
 
-**6. Push any pending mrk changes**
+**6. Capture the default apps**
+
+```bash
+default-apps --snapshot
+```
+
+`config/default-apps.tsv` knows only the choices captured the last time this ran. This command records each type that you gave to an app by hand since then. Phase 3 on the new machine sets the types in the list. Step 7 pushes the change.
+
+**7. Push any pending mrk changes**
 
 ```bash
 cd ~/mrk
@@ -610,23 +639,23 @@ git status
 git push
 ```
 
-**7. Push the project repositories**
+**8. Push the project repositories**
 
 ```bash
 pushall
 ```
 
-`restore-repos` brings `~/Projects` back to the new machine from GitHub: it clones what the manifest records, and nothing more. Since 2026-09-27 Magic Backup Machine also backs up `~/Projects`, so what is not on GitHub comes back from its copy instead, but only as it was at the last backup. That is why step 8 comes after this one. `pushall` commits and pushes the branch each repository is on, including a repository kept one folder down, such as `FloppyLetters/FloppyLetter2601`, and then names what it leaves behind — commits on other branches that are on no remote, stashes, and folders in `~/Projects` that are not repositories. Deal with each one: push the branch, and apply or drop the stash. A folder that is not a repository comes back only from the Magic Backup Machine copy.
+`restore-repos` brings `~/Projects` back to the new machine from GitHub: it clones what the manifest records, and nothing more. Since 2026-09-27 Magic Backup Machine also backs up `~/Projects`, so what is not on GitHub comes back from its copy instead, but only as it was at the last backup. That is why step 9 comes after this one. `pushall` commits and pushes the branch each repository is on, including a repository kept one folder down, such as `FloppyLetters/FloppyLetter2601`, and then names what it leaves behind — commits on other branches that are on no remote, stashes, and folders in `~/Projects` that are not repositories. Deal with each one: push the branch, and apply or drop the stash. A folder that is not a repository comes back only from the Magic Backup Machine copy.
 
 Files a repository ignores are not pushed either; Magic Backup Machine's copy carries them. That copy is not encrypted. DoublEnder's Cloud credentials travel encrypted in the `snapshot-keys` archive instead (step 1), so exclude them from Magic Backup Machine's `~/Projects` source and no plain copy reaches the backup disk.
 
 `pushall` does not push DoublEnder's Cloud overlay, `~/Projects/DoublEnder-cloud.git`: its files are versioned beside the public repository, which ignores them. `pushall` names the overlay's unpushed commits and uncommitted changes with the rest of what it leaves behind. Commit and push them with `decloud commit` and `decloud push`.
 
-**8. Run a Magic Backup Machine backup**
+**9. Run a Magic Backup Machine backup**
 
 Open Magic Backup Machine and run a full backup to the local and external destinations. It copies the Logic Pro projects, the audio presets, the browser profiles in its sources and the other data that mrk does not manage, and `~/Projects`. Run it after step 7: its copy of `~/Projects` is the only one of what `pushall` leaves off GitHub.
 
-**9. Verify SSH authentication**
+**10. Verify SSH authentication**
 
 ```bash
 ssh -T git@github.com
@@ -635,7 +664,7 @@ ssh -T git@github.com
 
 The new machine needs your SSH key. `make post-install` uses it to pull mrk-prefs.
 
-**10. Note anything not covered by mrk**
+**11. Note anything not covered by mrk**
 
 Write down the apps, the license keys and the settings that mrk does not manage:
 
@@ -963,7 +992,7 @@ mrk writes its state to `~/.mrk/`. gitignore excludes this directory.
 | `~/Projects/CLAUDE.md` | Symlink to `assets/CLAUDE.md`. Guidance Claude Code reads for the whole `~/Projects` tree; linked by `make post-install` |
 | `~/.claude/skills/<skill>` | One symlink for each skill in `assets/projects-skills/`, for example `release-standards`. These links load the skills in every session, also in a session that starts in a repository under `~/Projects`. After you add a skill, run `make post-install` again. post-install also adds the SessionStart hook of dependency-updates to `~/.claude/settings.json`. Its cache and acknowledgements live in `~/Library/Caches/dependency-updates`, which nothing needs to carry to a new Mac |
 | `~/Projects/.claude/skills` | Symlink to `assets/projects-skills/`. Claude Code loads the skills from it only in a session that starts in `~/Projects`. The script paths in the skills and in `~/Projects/CLAUDE.md` go through it. Linked by `make post-install`. The whole directory is linked, so a skill added there needs no change to post-install |
-| `~/.mrk/defaults-rollback.sh` | Undoes the macOS system defaults that `make defaults` wrote, and the app plists that post-install imported. For each import it holds a line that deletes the app's whole preferences domain, and run long after the import, that line takes every setting made in the app since. `make uninstall` and `nuke-mrk` therefore name those apps and ask about them separately. Until 2026-09-27 they ran the whole file on one yes: on this Mac, 33 apps' preferences. It does **not** cover the app-preference scripts that Phase 3 runs for Safari, Helium, AlDente, Audio Hijack, Fission and Rogue Amoeba. Nor does it cover the default apps that Audio Opener sets. Those scripts write their defaults directly |
+| `~/.mrk/defaults-rollback.sh` | Undoes the macOS system defaults that `make defaults` wrote, and the app plists that post-install imported. For each import it holds a line that deletes the app's whole preferences domain, and run long after the import, that line takes every setting made in the app since. `make uninstall` and `nuke-mrk` therefore name those apps and ask about them separately. Until 2026-09-27 they ran the whole file on one yes: on this Mac, 33 apps' preferences. It does **not** cover the app-preference scripts that Phase 3 runs for Safari, Helium, AlDente, Audio Hijack, Fission and Rogue Amoeba. Nor does it cover the default apps that `default-apps --apply` sets. Those scripts write their defaults directly |
 | `~/.mrk/hardening-rollback.sh` | Undoes the security hardening |
 | `~/.mrk/services-rollback.sh` | Undoes `trim-services`: turns the background services it disabled back on. `make uninstall` and `nuke-mrk` offer it, and `nuke-mrk` keeps it when you decline. Until 2026-09-27 neither offered it, and `nuke-mrk` sent it to the Trash while the services stayed off |
 | `~/.mrk/sync-ignore` | The formula names and cask names that `sync` does not offer. One name per line. sync creates this file when you accept its offer to ignore a declined package |
