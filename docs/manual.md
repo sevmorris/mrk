@@ -972,6 +972,7 @@ To skip the confirmation prompts, pass `ARGS=--yes`.
   - **Homebrew** — The installed version.
   - **Brewfile** — How many formulae and casks it tracks. What is installed against it is under Unrecorded.
   - **macOS Defaults** — How many keys of `config/defaults.tsv` have the value that mrk sets, as `mrk-defaults --check` counts them, and each key that differs or is absent. A key that waits for its app's preferences is counted as waiting. It includes the trackpad keys only when you applied them with `make trackpad`. A key in `config/defaults-skip.tsv` is not in the count, and the line says how many keys are skipped. A key that the app that runs status cannot read without Full Disk Access is named on a line of its own.
+  - **Default Apps** — How many types of `config/default-apps.tsv` open in the listed app, as `default-apps --check` counts them. The line names each type that another app opens, with that app, and each type that no app opens. Its fix is `scripts/default-apps --apply`. If you gave the type to the other app on purpose, run `default-apps --snapshot` instead. A type whose app is not installed is not in the count.
   - **Security Hardening** — Whether mrk applied the hardening.
   - **Displaced files** — Shown *only when backups exist*: how many, and the most recent. This is a report, not a health check, so with nothing to report it is left out. See [What the backups are](#what-the-backups-are).
 

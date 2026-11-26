@@ -272,6 +272,45 @@ func checkDefaults(d defaultsDrift) group {
 	}, unread...), fix}
 }
 
+// checkDefaultApps is the app that opens each type of config/default-apps.tsv.
+// A type another app opens, or no app opens, warns, with default-apps --apply
+// as its fix. A type you gave to another app on purpose is the same line, and
+// the other repair, --snapshot, is said beside it, as for a login item: the
+// two are opposites, and the f key takes the one an app taking a type needs.
+// A type whose listed app is not on this Mac, or that no app declares, is
+// information and not in the count: --apply skips it.
+func checkDefaultApps(d defaultAppsDrift) group {
+	const name = "Default Apps"
+	if d.err != nil {
+		return group{name, sevWarn, []statusLine{sl(sevWarn, d.err.Error())}, ""}
+	}
+	head := fmt.Sprintf("%d of %d types open in the listed app", d.set, d.set+len(d.differs)+len(d.none))
+	var lines []statusLine
+	if len(d.differs) > 0 {
+		lines = append(lines, slFix(sevWarn, plural(len(d.differs), "type opens in another app", "types open in another app")+": "+names(d.differs), fixDefaultApps))
+	}
+	if len(d.none) > 0 {
+		lines = append(lines, slFix(sevWarn, plural(len(d.none), "type opens in no app", "types open in no app")+": "+names(d.none), fixDefaultApps))
+	}
+	if len(lines) > 0 {
+		lines = append(lines, sl(sevInfo, "  taken by an app: "+fixDefaultApps+" · chosen by hand: scripts/default-apps --snapshot"))
+	}
+	if len(d.noApp) > 0 {
+		lines = append(lines, sl(sevInfo, plural(len(d.noApp), "type waits for its app to be installed", "types wait for their apps to be installed")+": "+names(d.noApp)))
+	}
+	if len(d.unknown) > 0 {
+		lines = append(lines, sl(sevInfo, plural(len(d.unknown), "type that no app on this Mac declares", "types that no app on this Mac declares")+": "+names(d.unknown)))
+	}
+	lines = append(lines, unknownLines("default-apps", d.lines)...)
+	sev, fix := sevOK, ""
+	if len(d.differs) > 0 || len(d.none) > 0 {
+		sev, fix = sevWarn, fixDefaultApps
+	} else if d.lines > 0 {
+		sev, fix = sevWarn, fixBuildTools
+	}
+	return group{name, sev, append([]statusLine{sl(sev, head)}, lines...), fix}
+}
+
 func checkHardening(stateDir string) group {
 	rollback := filepath.Join(stateDir, "hardening-rollback.sh")
 	if _, err := os.Stat(rollback); err != nil {
@@ -871,7 +910,8 @@ Panels, daily work first:
                         two hours)
   Time Machine Backups  A destination, and the age of the last backup
   Installation          Dotfiles, ~/bin links, shell, PATH, Homebrew, the
-                        Brewfile, the macOS defaults set, hardening
+                        Brewfile, the macOS defaults set, the default apps,
+                        hardening
 
 A line's fix is shown beside it; f runs the panel's first one.
 
