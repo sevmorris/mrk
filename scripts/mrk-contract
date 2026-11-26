@@ -19,7 +19,7 @@
 # The document is written here by hand. tests/mrk-contract.sh holds it to each
 # script: every option to the script's parser and its --help, and every word to
 # its --help. It holds the terminal targets to the Makefile, and to the scripts
-# that each target runs. The tests of the five --check scripts hold the lines
+# that each target runs. The tests of the six --check scripts hold the lines
 # that each script writes to the fields and words here, with
 # tests/lib/contract-lines. Read-only: it prints and exits.
 
@@ -87,6 +87,20 @@ cat <<'EOF'
           {"field": "value", "with": "", "words": []},
           {"field": "current", "with": "", "words": []},
           {"field": "state", "with": "", "words": ["set", "differs", "absent", "nodomain", "skipped", "noaccess"]}
+        ]
+      }
+    },
+    "scripts/default-apps": {
+      "options": ["--check", "--apply", "--snapshot", "--dry-run", "-n", "--help", "-h"],
+      "equals": [],
+      "decisions": [],
+      "check": {
+        "options": ["--check"],
+        "fields": [
+          {"field": "type", "with": "", "words": []},
+          {"field": "app", "with": "", "words": []},
+          {"field": "current", "with": "", "words": []},
+          {"field": "state", "with": "", "words": ["set", "differs", "none", "noapp", "unknown"]}
         ]
       }
     },

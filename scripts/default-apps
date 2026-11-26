@@ -1,0 +1,436 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# default-apps — keep the app that opens each file type and URL scheme to
+# config/default-apps.tsv.
+#
+# Until 2026-11-25 mrk kept no record of which app opens which type, so a new
+# app that took a type went unseen: MusicBrainz Picard had taken .mp4, .m4v,
+# .flac and .aac, iZotope Photon .mkv, and Fission .webm, and only
+# Audio Opener's eight audio types were set by mrk. post-install runs --apply
+# on a new Mac, after it builds Media Opener.
+#
+# Bash 3.2, as post-install runs it before Homebrew's bash is on every PATH.
+
+# Resolve symlinks so this works when called via ~/bin
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd "$(dirname "$_self")" && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+SCRIPT_DIR="$(cd "$(dirname "$_self")" && pwd)"
+
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+usage() {
+  cat <<'EOF'
+default-apps — keep the app that opens each file type to the list
+
+Usage:
+  default-apps
+  default-apps --check
+  default-apps --apply [--dry-run | -n]
+  default-apps --snapshot [--dry-run | -n]
+
+Options:
+      --check      Show each type of the list as a line for a program to
+                   read, and change nothing
+      --apply      Make the listed app the default for each type that
+                   another app opens, or no app opens. macOS asks you to
+                   confirm each type
+      --snapshot   Record in the list each type that you gave to an app by
+                   hand
+  -n, --dry-run    With --apply or --snapshot: show what would change, and
+                   change nothing
+  -h, --help       Show this help
+
+config/default-apps.tsv lists the app that opens each file type and URL
+scheme: a type, a tab, and the bundle identifier of the app. With no option,
+default-apps shows each type, the listed app and the app that opens it now,
+and changes nothing.
+
+--check shows one line for each type, in the order of the file, with four
+fields separated by tabs: the type, the listed app, the app that opens the
+type now (empty when no app opens it), and the state. The state is set (the
+listed app opens it), differs (another app opens it), none (no app opens it),
+noapp (the listed app is not on this Mac) or unknown (no app on this Mac
+declares the type). A tab, a newline and a backslash in a field are escaped
+as \t, \n and \\. A later version may add fields at the end of a line, and
+words to the state, and never removes or reorders a field.
+
+--apply asks macOS to change each type whose state is differs or none, one
+type at a time. macOS shows a dialog for each one, and waits for you up to two
+minutes. A type that you keep for the other app in the dialog is not a
+failure. When NONINTERACTIVE=1 (post-install --yes), --apply changes nothing
+and says how to finish.
+
+--snapshot reads the types that you chose by hand ("Open with", Change All)
+from Launch Services. It changes the app of each listed type that you gave to
+another app, and adds each file type, and the http, https and mailto schemes,
+that the list does not have. It does not record an app that installed itself
+as the default, or an app that is not on this Mac.
+
+default-apps builds a small helper, lsdefault, into ~/.mrk/bin the first time
+it runs, and again when its source changes. It needs swiftc, from the Command
+Line Tools. Exits 0 when done, 1 when it refuses the list, cannot build the
+helper or a type fails to change, and 2 for a bad option.
+EOF
+}
+
+usage_error() { err "$*"; info "Run default-apps --help for the options."; exit 2; }
+
+MODE=report
+DRY_RUN=0
+set_mode() {
+  [[ "$MODE" == report ]] || usage_error "Give one of --check, --apply and --snapshot."
+  MODE=$1
+}
+for arg in "$@"; do
+  case "$arg" in
+    --check)      set_mode check ;;
+    --apply)      set_mode apply ;;
+    --snapshot)   set_mode snapshot ;;
+    -n|--dry-run) DRY_RUN=1 ;;
+    -h|--help)    usage; exit 0 ;;
+    *)            usage_error "Unknown option: $arg" ;;
+  esac
+done
+if (( DRY_RUN )) && [[ "$MODE" != apply && "$MODE" != snapshot ]]; then
+  usage_error "--dry-run goes with --apply or --snapshot."
+fi
+
+# --check is for a program to read, on stdout, which holds nothing else: fd 3
+# is stdout, and everything else goes to stderr, as in dock-setup --check.
+if [[ "$MODE" == check ]]; then
+  exec 3>&1 1>&2
+fi
+
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+LIST="$REPO_ROOT/config/default-apps.tsv"
+LSDEFAULT_SRC="$REPO_ROOT/assets/default-apps/lsdefault.swift"
+STATE_DIR="${STATE_DIR:-$HOME/.mrk}"
+LS_PLIST="${MRK_LS_PLIST:-$HOME/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist}"
+
+lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
+# ── The list ─────────────────────────────────────────────────────────────────
+#
+# Read and checked whole before anything runs. A type is a uniform type
+# identifier or scheme:NAME; an app is a bundle identifier. A carriage return,
+# from an editor that writes CRLF, would make every app unknown, so a control
+# character is refused, as dock-setup refuses one.
+TYPES=()   # the type of each line, in order
+APPS=()    # the app of each line, as the file has it
+LAPPS=()   # the same, in lower case, as Launch Services gives it
+type_re='^(scheme:[A-Za-z][A-Za-z0-9+.-]*|[A-Za-z0-9][A-Za-z0-9.-]*)$'
+id_re='^[A-Za-z0-9][A-Za-z0-9.-]*$'
+if [[ ! -r "$LIST" ]]; then
+  err "Cannot read $LIST"
+  exit 1
+fi
+while IFS= read -r entry; do
+  if [[ "${entry//$'\t'/}" == *[[:cntrl:]]* ]]; then
+    err "A control character, in config/default-apps.tsv: $(printf '%q' "$entry")"
+    info "An editor that writes CRLF line ends leaves a carriage return at the end of each line."
+    exit 1
+  fi
+  t=${entry%%$'\t'*}
+  a=${entry#*$'\t'}
+  if [[ "$entry" != *$'\t'* || "$a" == *$'\t'* || ! "$t" =~ $type_re || ! "$a" =~ $id_re ]]; then
+    err "Not a type and an app, in config/default-apps.tsv: $(printf '%q' "$entry")"
+    info "Each line is a type, one tab, and the bundle identifier of an app."
+    exit 1
+  fi
+  for seen in ${TYPES[@]+"${TYPES[@]}"}; do
+    if [[ "$seen" == "$t" ]]; then
+      err "config/default-apps.tsv lists $t twice"
+      exit 1
+    fi
+  done
+  TYPES+=("$t")
+  APPS+=("$a")
+  LAPPS+=("$(lower "$a")")
+done < <(mrk_config_entries "$LIST")
+if (( ${#TYPES[@]} == 0 )); then
+  err "config/default-apps.tsv lists no type"
+  exit 1
+fi
+
+# ── The helper ───────────────────────────────────────────────────────────────
+#
+# Launch Services has no command line tool that reads or sets a default app,
+# and on macOS 27 the C call that set one returns noErr and changes nothing.
+# So lsdefault is Swift, built here from assets/default-apps/lsdefault.swift
+# into ~/.mrk/bin, under a name that holds the hash of its source. A new
+# source builds a new binary, and the old ones are deleted. MRK_LSDEFAULT
+# names another binary: the tests give a stub.
+LSDEFAULT=""
+find_helper() {
+  if [[ -n "${MRK_LSDEFAULT:-}" ]]; then
+    LSDEFAULT=$MRK_LSDEFAULT
+    return 0
+  fi
+  local sha dir bin out old
+  sha=$(shasum -a 256 < "$LSDEFAULT_SRC" | cut -c1-16)
+  dir="$STATE_DIR/bin"
+  bin="$dir/lsdefault-$sha"
+  if [[ ! -x "$bin" ]]; then
+    if ! command -v swiftc >/dev/null 2>&1; then
+      err "default-apps needs swiftc to build its helper: xcode-select --install"
+      return 1
+    fi
+    mkdir -p "$dir"
+    if ! out=$(swiftc -O -o "$bin.tmp.$$" "$LSDEFAULT_SRC" 2>&1); then
+      printf '%s\n' "$out" >&2
+      rm -f "$bin.tmp.$$"
+      err "Could not build $bin"
+      return 1
+    fi
+    mv "$bin.tmp.$$" "$bin"
+    for old in "$dir"/lsdefault-*; do
+      [[ "$old" == "$bin" ]] || rm -f "$old"
+    done
+  fi
+  LSDEFAULT=$bin
+}
+find_helper || exit 1
+
+# ── The state of each type ───────────────────────────────────────────────────
+#
+# CURRENT and STATES follow TYPES. One call reads every type, and one more
+# asks for each app of the list whether it is on this Mac.
+CURRENT=()
+STATES=()
+read_states() {
+  local i t kind app uapps=() a p found
+  local missing=" "
+  while IFS=$'\t' read -r t kind app; do
+    [[ -n "$t" ]] || continue
+    for i in "${!TYPES[@]}"; do
+      [[ "${TYPES[i]}" == "$t" ]] || continue
+      CURRENT[i]=$app
+      STATES[i]=$kind
+    done
+  done < <("$LSDEFAULT" get "${TYPES[@]}")
+  for a in "${LAPPS[@]}"; do
+    found=0
+    for p in ${uapps[@]+"${uapps[@]}"}; do [[ "$p" == "$a" ]] && found=1; done
+    (( found )) || uapps+=("$a")
+  done
+  while IFS=$'\t' read -r a p; do
+    [[ -n "$a" && -z "$p" ]] && missing+="$a "
+  done < <("$LSDEFAULT" app "${uapps[@]}")
+  for i in "${!TYPES[@]}"; do
+    if [[ -z "${STATES[i]:-}" ]]; then
+      err "lsdefault gave no line for ${TYPES[i]}"
+      return 1
+    fi
+    if [[ "$missing" == *" ${LAPPS[i]} "* ]]; then
+      STATES[i]=noapp
+    elif [[ "${STATES[i]}" == unknown ]]; then
+      :
+    elif [[ "${CURRENT[i]}" == "${LAPPS[i]}" ]]; then
+      STATES[i]="set"
+    elif [[ -z "${CURRENT[i]}" ]]; then
+      STATES[i]=none
+    else
+      STATES[i]=differs
+    fi
+  done
+}
+
+# ── --check and the report ───────────────────────────────────────────────────
+
+if [[ "$MODE" == check ]]; then
+  read_states || exit 1
+  for i in "${!TYPES[@]}"; do
+    mrk_check_line "${TYPES[i]}" "${APPS[i]}" "${CURRENT[i]}" "${STATES[i]}" >&3
+  done
+  exit 0
+fi
+
+if [[ "$MODE" == report ]]; then
+  read_states || exit 1
+  section "Default apps"
+  n_set=0 n_todo=0
+  for i in "${!TYPES[@]}"; do
+    case "${STATES[i]}" in
+      set)     ok "${TYPES[i]} → ${APPS[i]}"; n_set=$((n_set + 1)) ;;
+      differs) warn "${TYPES[i]} opens in ${CURRENT[i]}, not ${APPS[i]}"; n_todo=$((n_todo + 1)) ;;
+      none)    warn "${TYPES[i]}: no app opens it; the list says ${APPS[i]}"; n_todo=$((n_todo + 1)) ;;
+      noapp)   logskip "${TYPES[i]}" "${APPS[i]} is not on this Mac" ;;
+      unknown) logskip "${TYPES[i]}" "no app on this Mac declares this type" ;;
+    esac
+  done
+  log "$n_set of ${#TYPES[@]} type(s) open in the listed app."
+  if (( n_todo > 0 )); then
+    info "To set the other $n_todo: default-apps --apply. To keep this Mac's choice: default-apps --snapshot."
+  fi
+  exit 0
+fi
+
+# ── --apply ──────────────────────────────────────────────────────────────────
+#
+# One lsdefault call for each app, in the order of the list, with the types
+# that app should take. lsdefault changes them one at a time, so the dialogs
+# never stack: stacked, their buttons moved under the pointer, and the wrong
+# one was clicked.
+
+if [[ "$MODE" == apply ]]; then
+  section "Default apps"
+  if [[ "${NONINTERACTIVE:-0}" == 1 ]] && (( ! DRY_RUN )); then
+    logskip "Default apps" "macOS asks to confirm each type; run default-apps --apply at the Mac"
+    exit 0
+  fi
+  read_states || exit 1
+  todo_apps=()
+  for i in "${!TYPES[@]}"; do
+    case "${STATES[i]}" in
+      differs|none) ;;
+      set)     continue ;;
+      noapp)   logskip "${TYPES[i]}" "${APPS[i]} is not on this Mac"; continue ;;
+      unknown) logskip "${TYPES[i]}" "no app on this Mac declares this type"; continue ;;
+    esac
+    if (( DRY_RUN )); then
+      dry "Would make ${APPS[i]} open ${TYPES[i]} (now: ${CURRENT[i]:-no app})"
+    fi
+    found=0
+    for a in ${todo_apps[@]+"${todo_apps[@]}"}; do [[ "$a" == "${APPS[i]}" ]] && found=1; done
+    (( found )) || todo_apps+=("${APPS[i]}")
+  done
+  if (( ${#todo_apps[@]} == 0 )); then
+    ok "Each type opens in the listed app"
+    exit 0
+  fi
+  if (( DRY_RUN )); then
+    dry "Nothing changed."
+    exit 0
+  fi
+
+  failed=0 set_n=0 asked=0
+  for app in "${todo_apps[@]}"; do
+    types=()
+    for i in "${!TYPES[@]}"; do
+      [[ "${APPS[i]}" == "$app" ]] || continue
+      case "${STATES[i]}" in differs|none) types+=("${TYPES[i]}") ;; esac
+    done
+    while IFS=$'\t' read -r t result; do
+      [[ -n "$t" ]] || continue
+      case "$result" in
+        asking)
+          if (( asked == 0 )); then
+            info "macOS asks you to confirm each type that moves to its listed app."
+            info "Read the buttons before you click: their order is not always the same."
+          fi
+          asked=1 ;;
+        set)         ok "$t → $app"; set_n=$((set_n + 1)) ;;
+        already)     logskip "$t" "already opens in $app" ;;
+        declined\ *) logskip "$t" "kept for the other app in the macOS dialog" ;;
+        *)           warn "$t: $result"; failed=$((failed + 1)) ;;
+      esac
+    done < <("$LSDEFAULT" set "$app" "${types[@]}" 2>&1)
+  done
+  log "$set_n type(s) changed."
+  (( failed == 0 )) || exit 1
+  exit 0
+fi
+
+# ── --snapshot ───────────────────────────────────────────────────────────────
+#
+# Launch Services keeps the choices made by hand in LSHandlers: each is a
+# content type or a URL scheme, and the bundle identifier of its app, in lower
+# case. An app that installs itself as the default for a type is not there,
+# which is why --snapshot reads this file and not lsdefault get: it records
+# what you chose, and not what an app took. Of the schemes, only http, https
+# and mailto are a user's choice; an app sets its own scheme, such as slack,
+# for itself. com.apple.default-app.* are entries macOS writes beside the
+# browser's schemes.
+
+section "Default apps snapshot"
+if [[ ! -r "$LS_PLIST" ]]; then
+  err "Cannot read $LS_PLIST"
+  exit 1
+fi
+n=$(plutil -extract LSHandlers raw -o - "$LS_PLIST" 2>/dev/null || echo 0)
+[[ "$n" =~ ^[0-9]+$ ]] || n=0
+hand_types=()
+hand_apps=()
+for (( i = 0; i < n; i++ )); do
+  t=$(plutil -extract "LSHandlers.$i.LSHandlerContentType" raw -o - "$LS_PLIST" 2>/dev/null || true)
+  if [[ -z "$t" ]]; then
+    s=$(plutil -extract "LSHandlers.$i.LSHandlerURLScheme" raw -o - "$LS_PLIST" 2>/dev/null || true)
+    case "$s" in http|https|mailto) t="scheme:$s" ;; *) continue ;; esac
+  fi
+  case "$t" in com.apple.default-app.*) continue ;; esac
+  a=$(plutil -extract "LSHandlers.$i.LSHandlerRoleAll" raw -o - "$LS_PLIST" 2>/dev/null \
+      || plutil -extract "LSHandlers.$i.LSHandlerRoleViewer" raw -o - "$LS_PLIST" 2>/dev/null || true)
+  [[ -n "$a" && "$a" =~ $id_re && "$t" =~ $type_re ]] || continue
+  hand_types+=("$t")
+  hand_apps+=("$(lower "$a")")
+done
+
+# Only an app that is on this Mac: Launch Services keeps a choice after its app
+# is deleted, as it kept Audio Opener's types after Media Opener replaced it.
+missing=" "
+if (( ${#hand_apps[@]} > 0 )); then
+  while IFS=$'\t' read -r a p; do
+    [[ -n "$a" && -z "$p" ]] && missing+="$a "
+  done < <("$LSDEFAULT" app "${hand_apps[@]}")
+fi
+
+changes=0
+new_apps=("${APPS[@]}")
+add_lines=()
+for j in ${hand_types[@]+"${!hand_types[@]}"}; do
+  t=${hand_types[j]} a=${hand_apps[j]}
+  if [[ "$missing" == *" $a "* ]]; then
+    logskip "$t" "$a is not on this Mac"
+    continue
+  fi
+  listed=-1
+  for i in "${!TYPES[@]}"; do [[ "${TYPES[i]}" == "$t" ]] && listed=$i; done
+  if (( listed < 0 )); then
+    dry "Add: $t → $a"
+    add_lines+=("$t"$'\t'"$a")
+    changes=$((changes + 1))
+  elif [[ "${LAPPS[listed]}" != "$a" ]]; then
+    dry "Change: $t → $a (the list says ${APPS[listed]})"
+    new_apps[listed]=$a
+    changes=$((changes + 1))
+  fi
+done
+
+if (( changes == 0 )); then
+  ok "The list has each type that you chose by hand"
+  exit 0
+fi
+if (( DRY_RUN )); then
+  dry "$changes change(s). Nothing changed."
+  exit 0
+fi
+
+# Each line stays as it is, comments and order too, except the app of a
+# changed type. A new type goes at the end.
+tmp=$(mrk_mktemp) || exit 1
+k=0
+while IFS= read -r line || [[ -n "$line" ]]; do
+  case "$line" in
+    '#'*|'') printf '%s\n' "$line" ;;
+    *)
+      if [[ -z "${line//[[:space:]]/}" ]]; then
+        printf '%s\n' "$line"
+      else
+        printf '%s\t%s\n' "${TYPES[k]}" "${new_apps[k]}"
+        k=$((k + 1))
+      fi ;;
+  esac
+done < "$LIST" > "$tmp"
+for line in ${add_lines[@]+"${add_lines[@]}"}; do
+  printf '%s\n' "$line" >> "$tmp"
+done
+cat "$tmp" > "$LIST"
+rm -f "$tmp"
+ok "$changes change(s) in config/default-apps.tsv"
+info "Review: git -C $REPO_ROOT diff config/default-apps.tsv"

@@ -33,7 +33,7 @@
 #    nuke-mrk, and no other. Dipstick's Commands pane runs the rest in its
 #    console.
 #
-# The tests of the five --check scripts hold the lines that each one writes to
+# The tests of the six --check scripts hold the lines that each one writes to
 # the fields and words here, with tests/lib/contract-lines.
 #
 # Read-only, apart from the copy, the throwaway HOME and Go's build cache,

@@ -29,10 +29,10 @@
 # refuses any other shape of call. Every "/Applications/" in the copies points
 # at a scratch folder of empty .app directories, so no real app is seen. ssh,
 # sudo, osascript, launchctl and open are stubs that run nothing, nvm is a stub
-# with a default already set, and scripts/install-apps and
-# assets/audio-opener/install.sh are replaced by no-ops: they write no
-# preferences, and Audio Opener would build an app and change this Mac's
-# default apps. Nothing reaches the network, System Events, launchd
+# with a default already set, and scripts/install-apps,
+# assets/media-opener/install.sh and scripts/default-apps are replaced by
+# no-ops: they write no preferences, and Media Opener would build an app and
+# default-apps would change this Mac's default apps. Nothing reaches the network, System Events, launchd
 # or the apps' real settings.
 #
 # A fifth machine is the one Phase 2 has just run on: Homebrew installed, and
@@ -96,8 +96,9 @@ cat > "$R/scripts/install-apps" <<'EOF'
 #!/usr/bin/env bash
 install_companion_apps() { COMPANION_FAILED=0; }
 EOF
-mkdir -p "$R/assets/audio-opener"
-printf '#!/usr/bin/env bash\nexit 0\n' > "$R/assets/audio-opener/install.sh"
+mkdir -p "$R/assets/media-opener"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$R/assets/media-opener/install.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$R/scripts/default-apps"
 
 for f in "$R/scripts/post-install" "$R/scripts/snapshot-prefs" "$R"/config/* "$R"/assets/*/*.sh; do
   sed "s#/Applications/#$APPS/#g" "$f" > "$W/rewrite" && cat "$W/rewrite" > "$f"
