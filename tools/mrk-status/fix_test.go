@@ -53,6 +53,7 @@ func TestEveryFixCommandResolves(t *testing.T) {
 		checkDefaults(defaultsDrift{notApplied: true}),
 		checkDefaults(defaultsDrift{unset: []string{"NSGlobalDomain A"}}),
 		checkDefaults(defaultsDrift{trackpad: true, unset: []string{"NSGlobalDomain A"}}),
+		checkDefaultApps(defaultAppsDrift{none: []string{"public.mp3"}}),
 		checkHardening(tmp),
 		checkPATH(tmp, bin),
 		checkShell(),

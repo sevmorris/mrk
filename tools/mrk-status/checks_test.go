@@ -430,3 +430,80 @@ func TestDotfilesAndToolsFixesAreScoped(t *testing.T) {
 		t.Errorf("a missing ~/bin's fix should be make tools, got %q", g.fix)
 	}
 }
+
+// default-apps --check, through a stub: a type another app took and a type no
+// app opens each warn, with default-apps --apply as the fix and --snapshot
+// named beside it. A type whose app is not installed, or that no app
+// declares, is information and not in the count. A line may carry fields after
+// the four, and a state word this reader does not know is passed over.
+func TestDefaultAppsCountsTheCheckStates(t *testing.T) {
+	repo := t.TempDir()
+	argsFile := filepath.Join(repo, "args")
+	writeScript(t, filepath.Join(repo, "scripts", "default-apps"),
+		"#!/bin/sh\necho \"$*\" > '"+argsFile+"'\nprintf '"+
+			`public.mp3\tlocal.mrk.media-opener\tlocal.mrk.media-opener\tset\n`+
+			`public.mpeg-4\tlocal.mrk.media-opener\torg.musicbrainz.picard\tdiffers\ta later field\n`+
+			`public.aiff-audio\tlocal.mrk.media-opener\t\tnone\n`+
+			`public.avi\tcom.example.player\t\tnoapp\n`+
+			`org.example.nosuch\tlocal.mrk.media-opener\t\tunknown\n`+
+			`public.mp2\tlocal.mrk.media-opener\t\ta-later-state\n`+
+			"'\n")
+
+	d := readDefaultAppsDrift(repo)
+	if d.err != nil {
+		t.Fatal(d.err)
+	}
+	if b, _ := os.ReadFile(argsFile); strings.TrimSpace(string(b)) != "--check" {
+		t.Errorf("default-apps should run with --check alone, got args %q", b)
+	}
+	if d.set != 1 || strings.Join(d.differs, ",") != "public.mpeg-4 (org.musicbrainz.picard)" ||
+		strings.Join(d.none, ",") != "public.aiff-audio" || strings.Join(d.noApp, ",") != "public.avi" ||
+		strings.Join(d.unknown, ",") != "org.example.nosuch" || d.lines != 1 {
+		t.Errorf("set, differs, none, noapp and unknown should each be counted as such, got %+v", d)
+	}
+
+	g := checkDefaultApps(d)
+	if g.name != "Default Apps" || g.sev != sevWarn || g.fix != fixDefaultApps {
+		t.Errorf("a type in another app should warn with %s, got name=%q sev=%v fix=%q", fixDefaultApps, g.name, g.sev, g.fix)
+	}
+	if l := g.lines[0].text; l != "1 of 3 types open in the listed app" {
+		t.Errorf("first line = %q", l)
+	}
+	for _, want := range []string{
+		"1 type opens in another app: public.mpeg-4 (org.musicbrainz.picard)",
+		"1 type opens in no app: public.aiff-audio",
+	} {
+		if l, ok := line(g, want); !ok || l.sev != sevWarn || l.fix != fixDefaultApps {
+			t.Errorf("want %q as a warning with its fix:\n%s", want, texts(g))
+		}
+	}
+	for _, want := range []string{
+		"  taken by an app: scripts/default-apps --apply · chosen by hand: scripts/default-apps --snapshot",
+		"1 type waits for its app to be installed: public.avi",
+		"1 type that no app on this Mac declares: org.example.nosuch",
+	} {
+		if l, ok := line(g, want); !ok || l.sev != sevInfo || l.fix != "" {
+			t.Errorf("want %q as information with no fix:\n%s", want, texts(g))
+		}
+	}
+	if _, ok := line(g, "default-apps --check: 1 line that this mrk-status cannot read"); !ok {
+		t.Errorf("a line this binary cannot read should be said:\n%s", texts(g))
+	}
+
+	if g := checkDefaultApps(defaultAppsDrift{set: 3, noApp: []string{"public.avi"}}); g.sev != sevOK || g.fix != "" ||
+		g.lines[0].text != "3 of 3 types open in the listed app" || len(g.lines) != 2 {
+		t.Errorf("a type waiting for its app is no warning on its own, got sev=%v fix=%q:\n%s", g.sev, g.fix, texts(g))
+	}
+}
+
+// When default-apps fails, such as on a list it refuses, the panel says why,
+// with the line it marked ✗, and offers no fix.
+func TestDefaultAppsFailureSaysWhy(t *testing.T) {
+	repo := t.TempDir()
+	writeScript(t, filepath.Join(repo, "scripts", "default-apps"),
+		"#!/bin/sh\necho '  ✗ config/default-apps.tsv lists public.mp3 twice' >&2\nexit 1\n")
+	g := checkDefaultApps(readDefaultAppsDrift(repo))
+	if g.sev != sevWarn || g.fix != "" || !strings.Contains(texts(g), "default-apps --check failed: config/default-apps.tsv lists public.mp3 twice") {
+		t.Errorf("a failed check should warn with its reason and no fix, got sev=%v fix=%q:\n%s", g.sev, g.fix, texts(g))
+	}
+}

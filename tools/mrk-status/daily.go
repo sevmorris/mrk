@@ -52,11 +52,13 @@ const (
 	fixUpdateFormulae = "make update ARGS=--formulae"
 	fixUpdateCasks    = "make update ARGS=--casks"
 	fixTidy           = "bin/tidy-projects --apply ff,refs,worktrees,branches"
+	// macOS asks to confirm each type in a dialog, so someone must be at the Mac.
+	fixDefaultApps = "scripts/default-apps --apply"
 )
 
 var dailyFixes = []string{fixSyncAdd, fixMrkPush, fixPushall, fixSnapshot, fixPull,
 	fixUpdate, fixUpdates, fixBuildTools, fixBrewInstall, fixLoginItems,
-	fixUpdateFormulae, fixUpdateCasks, fixTidy}
+	fixUpdateFormulae, fixUpdateCasks, fixTidy, fixDefaultApps}
 
 // Paths the checks read, variables so the tests can point them at fixtures.
 var (
@@ -674,6 +676,49 @@ func readDefaultsDrift(repoRoot, stateDir string) defaultsDrift {
 	return d
 }
 
+// ── Default apps ──────────────────────────────────────────────────────────
+
+// defaultAppsDrift is `default-apps --check`, counted: each type of
+// config/default-apps.tsv against the app that opens it on this Mac. An app
+// that installs itself as the default for a type is what this is for: on
+// 2026-11-25 MusicBrainz Picard, iZotope Photon and Fission had taken six
+// media types, and nothing showed it.
+type defaultAppsDrift struct {
+	set     int
+	differs []string // "type (the app that opens it now)": another app took it
+	none    []string // no app opens it
+	noApp   []string // the listed app is not on this Mac
+	unknown []string // no app on this Mac declares the type
+	lines   int      // lines passed over: a word this binary does not know
+	err     error
+}
+
+func readDefaultAppsDrift(repoRoot string) defaultAppsDrift {
+	rows, unknown, err := checkLines(repoRoot, "default-apps", 4, func(f []string) bool {
+		return slices.Contains([]string{"set", "differs", "none", "noapp", "unknown"}, f[3])
+	}, "--check")
+	if err != nil {
+		return defaultAppsDrift{err: err}
+	}
+	d := defaultAppsDrift{lines: unknown}
+	for _, f := range rows {
+		t := oneLine(f[0])
+		switch f[3] {
+		case "set":
+			d.set++
+		case "differs":
+			d.differs = append(d.differs, t+" ("+oneLine(f[2])+")")
+		case "none":
+			d.none = append(d.none, t)
+		case "noapp":
+			d.noApp = append(d.noApp, t)
+		case "unknown":
+			d.unknown = append(d.unknown, t)
+		}
+	}
+	return d
+}
+
 // ── Repositories ──────────────────────────────────────────────────────────
 
 // repoState is what mrk-push and pushall look at in one repository: tracked
@@ -770,6 +815,7 @@ type drifts struct {
 	prefs    prefsDrift
 	login    loginDrift
 	defaults defaultsDrift
+	apps     defaultAppsDrift
 }
 
 // repoReading is what Unrecorded reads from git: ~/mrk as mrk-push sees it,
@@ -1392,6 +1438,7 @@ func checkInstallation(repoRoot, home, binDir string, found drifts) group {
 		checkHomebrew(),
 		brewfileSummary(repoRoot, found.brew),
 		checkDefaults(found.defaults),
+		checkDefaultApps(found.apps),
 		checkHardening(stateDir),
 	}
 	if g, ok := checkBackups(stateDir); ok {
@@ -1418,11 +1465,12 @@ func collect(repoRoot, home, binDir string) []group {
 		tidy  tidyReading
 	)
 	stateDir := filepath.Join(home, ".mrk")
-	wg.Add(8)
+	wg.Add(9)
 	go func() { defer wg.Done(); found.brew = readBrewDrift(repoRoot) }()
 	go func() { defer wg.Done(); found.prefs = readPrefsDrift(repoRoot) }()
 	go func() { defer wg.Done(); found.login = readLoginDrift(repoRoot) }()
 	go func() { defer wg.Done(); found.defaults = readDefaultsDrift(repoRoot, stateDir) }()
+	go func() { defer wg.Done(); found.apps = readDefaultAppsDrift(repoRoot) }()
 	go func() { defer wg.Done(); repos = readRepos(repoRoot, home) }()
 	go func() { defer wg.Done(); up = checkUpkeep(repoRoot, home, binDir) }()
 	go func() { defer wg.Done(); tm = checkTimeMachine() }()
